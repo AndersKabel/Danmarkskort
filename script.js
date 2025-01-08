@@ -8,8 +8,13 @@ map.on('click', function(e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
 
-    // Tilføj en markør på klik-positionen
-    L.marker([lat, lon]).addTo(map);
+    // Fjern tidligere markører (valgfrit, hvis du vil undgå flere markører)
+    if (typeof marker !== 'undefined') {
+        map.removeLayer(marker);
+    }
+
+    // Tilføj en ny markør på kortet
+    var marker = L.marker([lat, lon]).addTo(map);
 
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
@@ -21,4 +26,3 @@ map.on('click', function(e) {
             document.getElementById('address').innerText = "Der opstod en fejl med reverse geocoding.";
         });
 });
-
