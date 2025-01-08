@@ -6,10 +6,20 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 map.on('click', function(e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}`)
+
+    // Tilføj parameteren "struktur=flad" for et simplere JSON-svar
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
-            document.getElementById('address').innerText = `Adresse: ${data.vejnavn} ${data.husnr}, ${data.postnr} ${data.postnrnavn}`;
+            // Tjek om data indeholder de forventede felter
+            if (data.vejnavn && data.husnr && data.postnr && data.postnrnavn) {
+                document.getElementById('address').innerText = `Adresse: ${data.vejnavn} ${data.husnr}, ${data.postnr} ${data.postnrnavn}`;
+            } else {
+                document.getElementById('address').innerText = "Adresse kunne ikke findes.";
+            }
         })
-        .catch(err => console.error(err));
+        .catch(err => {
+            console.error(err);
+            document.getElementById('address').innerText = "Der opstod en fejl med reverse geocoding.";
+        });
 });
