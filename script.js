@@ -46,26 +46,27 @@ document.getElementById('search').addEventListener('input', function() {
             var resultsList = document.getElementById('results');
             resultsList.innerHTML = ''; // Ryd tidligere resultater
 
-            if (data.length === 1) {
-                // Hvis kun ét resultat, vælg det automatisk
-                placeMarkerAndZoom(data[0]);
-            } else {
-                // Vis alle resultater i listen
-                data.forEach(item => {
-                    var li = document.createElement('li');
-                    li.textContent = item.tekst;
-                    li.style.cursor = 'pointer';
-                    li.style.padding = '5px';
+            data.slice(0, 5).forEach(item => { // Begræns til maks. 5 resultater
+                var li = document.createElement('li');
+                li.textContent = item.tekst;
+                li.style.cursor = 'pointer';
+                li.style.padding = '5px';
 
-                    // Når en adresse vælges, placér markør på kortet
-                    li.addEventListener('click', function() {
-                        placeMarkerAndZoom(item);
-                        resultsList.innerHTML = ''; // Ryd søgeresultater
-                        document.getElementById('search').value = ''; // Ryd søgefelt
-                    });
-
-                    resultsList.appendChild(li);
+                // Når en adresse vælges, placér markør på kortet
+                li.addEventListener('click', function() {
+                    document.querySelectorAll('#results li').forEach(item => item.classList.remove('highlight'));
+                    li.classList.add('highlight');
+                    placeMarkerAndZoom(item);
+                    resultsList.innerHTML = ''; // Ryd søgeresultater
+                    document.getElementById('search').value = ''; // Ryd søgefelt
                 });
+
+                resultsList.appendChild(li);
+            });
+
+            // Hvis kun ét resultat, vælg det automatisk
+            if (data.length === 1) {
+                placeMarkerAndZoom(data[0]);
             }
         })
         .catch(err => console.error('Fejl ved søgning:', err));
@@ -89,3 +90,10 @@ function placeMarkerAndZoom(item) {
     // Vis adresse under kortet
     document.getElementById('address').innerText = `Valgt adresse: ${item.tekst}`;
 }
+
+// Håndter "Ryd"-knap
+document.getElementById('clearSearch').addEventListener('click', function() {
+    document.getElementById('search').value = ''; // Ryd søgefelt
+    document.getElementById('results').innerHTML = ''; // Ryd søgeresultater
+    document.getElementById('address').innerText = 'Klik på kortet eller vælg en adresse fra listen'; // Reset adressefeltet
+});
