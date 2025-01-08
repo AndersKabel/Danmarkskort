@@ -14,12 +14,15 @@ body {
 
 #address {
     text-align: center; /* Centrér teksten */
-    font-size: 16px; /* Juster tekststørrelse, hvis nødvendigt */
+    font-size: 16px; /* Juster tekststørrelse */
     font-weight: bold; /* Gør teksten mere tydelig */
     padding: 10px;
     background: #f9f9f9; /* Lys baggrund */
     border-top: 1px solid #ddd; /* Tynd kant for at adskille fra kortet */
-    margin: 0; /* Fjern eventuelle standardmargener */
+    margin: 0 auto; /* Gør feltet centreret vandret */
+    max-width: 600px; /* Sæt en maksimal bredde */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Tilføj en let skygge for flot design */
+    border-radius: 5px; /* Runde hjørner */
 }
 
 }
