@@ -13,12 +13,15 @@ body {
 }
 
 #address {
-    font-size: 16px;
-    font-weight: bold;
-    color: #333;
+    text-align: center; /* Centrér teksten */
+    font-size: 16px; /* Juster tekststørrelse, hvis nødvendigt */
+    font-weight: bold; /* Gør teksten mere tydelig */
     padding: 10px;
-    background: #f9f9f9;
-    border-top: 1px solid #ddd;
+    background: #f9f9f9; /* Lys baggrund */
+    border-top: 1px solid #ddd; /* Tynd kant for at adskille fra kortet */
+    margin: 0; /* Fjern eventuelle standardmargener */
+}
+
 }
 @media (max-width: 600px) {
     #map {
