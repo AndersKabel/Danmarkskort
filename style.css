@@ -1,6 +1,13 @@
+/* Ændrer musemarkøren til en pil på hele kortet */
 .leaflet-container {
-    cursor: default; /* Ændrer musemarkøren til en pil */
+    cursor: default !important; /* Sørger for, at markøren altid er en pil */
 }
+
+/* Hvis du stadig ønsker håndmarkøren ved træk, fjerner du denne */
+.leaflet-grab {
+    cursor: default !important;
+}
+
 
 body {
     font-family: Arial, sans-serif;
