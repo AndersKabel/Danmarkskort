@@ -16,3 +16,11 @@ body {
     background: #f9f9f9;
     border-top: 1px solid #ddd;
 }
+@media (max-width: 600px) {
+    #map {
+        height: 300px;
+    }
+    #address {
+        font-size: 14px;
+    }
+}
