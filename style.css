@@ -1,3 +1,7 @@
+.leaflet-container {
+    cursor: default; /* Ændrer musemarkøren til en pil */
+}
+
 body {
     font-family: Arial, sans-serif;
     margin: 0;
