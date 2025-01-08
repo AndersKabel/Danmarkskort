@@ -24,7 +24,10 @@ map.on('click', function(e) {
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
-            document.getElementById('address').innerText = `Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}`;
+            document.getElementById('address').innerHTML = `
+                Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
+                <br>
+                <a href="https://kort.krak.dk/?q=${lat},${lon}" target="_blank">Åbn i Krak</a>`;
         })
         .catch(err => {
             console.error('Fejl ved API-kaldet:', err);
@@ -87,8 +90,11 @@ function placeMarkerAndZoom(item) {
     currentMarker = L.marker([lat, lon]).addTo(map);
     map.setView([lat, lon], 16); // Zoom til den valgte adresse
 
-    // Vis adresse under kortet
-    document.getElementById('address').innerText = `Valgt adresse: ${item.tekst}`;
+    // Vis adresse og link til Krak under kortet
+    document.getElementById('address').innerHTML = `
+        Valgt adresse: ${item.tekst}
+        <br>
+        <a href="https://kort.krak.dk/?q=${lat},${lon}" target="_blank">Åbn i Krak</a>`;
 }
 
 // Håndter "Ryd"-knap
