@@ -27,7 +27,9 @@ map.on('click', function(e) {
             document.getElementById('address').innerHTML = `
                 Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
                 <br>
-                <a href="https://kort.krak.dk/?q=${lat},${lon}" target="_blank">Åbn i Krak</a>`;
+                <a href="https://kort.krak.dk/?q=${lat},${lon}" target="_blank">Åbn i Krak</a>
+                <br>
+                <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Street View</a>`;
         })
         .catch(err => {
             console.error('Fejl ved API-kaldet:', err);
@@ -90,11 +92,13 @@ function placeMarkerAndZoom(item) {
     currentMarker = L.marker([lat, lon]).addTo(map);
     map.setView([lat, lon], 16); // Zoom til den valgte adresse
 
-    // Vis adresse og link til Krak under kortet
+    // Vis adresse og links til Krak og Street View
     document.getElementById('address').innerHTML = `
         Valgt adresse: ${item.tekst}
         <br>
-        <a href="https://kort.krak.dk/?q=${lat},${lon}" target="_blank">Åbn i Krak</a>`;
+        <a href="https://kort.krak.dk/?q=${lat},${lon}" target="_blank">Åbn i Krak</a>
+        <br>
+        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Street View</a>`;
 }
 
 // Håndter "Ryd"-knap
