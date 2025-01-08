@@ -46,37 +46,46 @@ document.getElementById('search').addEventListener('input', function() {
             var resultsList = document.getElementById('results');
             resultsList.innerHTML = ''; // Ryd tidligere resultater
 
-            data.forEach(item => {
-                var li = document.createElement('li');
-                li.textContent = item.tekst;
-                li.style.cursor = 'pointer';
-                li.style.padding = '5px';
+            if (data.length === 1) {
+                // Hvis kun ét resultat, vælg det automatisk
+                placeMarkerAndZoom(data[0]);
+            } else {
+                // Vis alle resultater i listen
+                data.forEach(item => {
+                    var li = document.createElement('li');
+                    li.textContent = item.tekst;
+                    li.style.cursor = 'pointer';
+                    li.style.padding = '5px';
 
-                // Når en adresse vælges, vis markør på kortet
-                li.addEventListener('click', function() {
-                    var address = item.adgangsadresse.adgangspunkt.koordinater;
-                    var lon = address[0];
-                    var lat = address[1];
+                    // Når en adresse vælges, placér markør på kortet
+                    li.addEventListener('click', function() {
+                        placeMarkerAndZoom(item);
+                        resultsList.innerHTML = ''; // Ryd søgeresultater
+                        document.getElementById('search').value = ''; // Ryd søgefelt
+                    });
 
-                    // Fjern tidligere markør
-                    if (currentMarker) {
-                        map.removeLayer(currentMarker);
-                    }
-
-                    // Tilføj ny markør
-                    currentMarker = L.marker([lat, lon]).addTo(map);
-                    map.setView([lat, lon], 16); // Zoom til den valgte adresse
-
-                    // Vis adresse under kortet
-                    document.getElementById('address').innerText = `Valgt adresse: ${item.tekst}`;
-
-                    // Ryd søgeresultater
-                    resultsList.innerHTML = '';
-                    document.getElementById('search').value = '';
+                    resultsList.appendChild(li);
                 });
-
-                resultsList.appendChild(li);
-            });
+            }
         })
         .catch(err => console.error('Fejl ved søgning:', err));
 });
+
+// Funktion til at placere markør og zoome til adresse
+function placeMarkerAndZoom(item) {
+    var address = item.adgangsadresse.adgangspunkt.koordinater;
+    var lon = address[0];
+    var lat = address[1];
+
+    // Fjern tidligere markør
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+    }
+
+    // Tilføj ny markør
+    currentMarker = L.marker([lat, lon]).addTo(map);
+    map.setView([lat, lon], 16); // Zoom til den valgte adresse
+
+    // Vis adresse under kortet
+    document.getElementById('address').innerText = `Valgt adresse: ${item.tekst}`;
+}
