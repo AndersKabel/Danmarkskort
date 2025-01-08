@@ -75,3 +75,8 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     border-radius: 5px;
 }
+#address a {
+    color: blue;
+    text-decoration: underline;
+    font-weight: bold;
+}
