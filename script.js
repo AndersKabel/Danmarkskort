@@ -7,20 +7,17 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 var currentMarker; // Variabel til at gemme den aktuelle markør
 
-// Håndter kortklik
+// Håndter klik på kortet
 map.on('click', function (e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
 
-    // Fjern tidligere markør
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
 
-    // Tilføj ny markør
     currentMarker = L.marker([lat, lon]).addTo(map);
 
-    // Hent adresse via reverse geocoding
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
@@ -40,88 +37,48 @@ map.on('click', function (e) {
 document.getElementById('search').addEventListener('input', function () {
     var query = this.value.trim();
     if (query.length < 2) {
-        document.getElementById('results').innerHTML = ''; // Ryd resultater, hvis input er for kort
+        document.getElementById('results').innerHTML = '';
         return;
     }
 
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
         .then(response => response.json())
         .then(data => {
-            console.log("Autocomplete data:", data); // Log autocomplete-data
             var resultsList = document.getElementById('results');
-            resultsList.innerHTML = ''; // Ryd tidligere resultater
+            resultsList.innerHTML = '';
 
-            data.slice(0, 5).forEach(item => { // Begræns til maks. 5 resultater
+            data.slice(0, 5).forEach(item => {
                 var li = document.createElement('li');
                 li.textContent = item.tekst;
                 li.style.cursor = 'pointer';
-                li.style.padding = '10px';
-                li.style.border = '1px solid #ddd';
-                li.style.marginBottom = '5px';
-                li.style.backgroundColor = '#f9f9f9';
-                li.style.borderRadius = '5px';
-
-                // Fremhæv valgte adresse
-                li.addEventListener('mouseover', function () {
-                    li.style.backgroundColor = '#e0f7fa'; // Lyseblå baggrund ved hover
-                });
-                li.addEventListener('mouseout', function () {
-                    li.style.backgroundColor = '#f9f9f9'; // Tilbage til standard farve
-                });
-
-                // Når en adresse vælges, hent fulde adresseoplysninger og placér markør
                 li.addEventListener('click', function () {
-                    document.querySelectorAll('#results li').forEach(item => item.style.backgroundColor = '#f9f9f9'); // Fjern tidligere fremhævning
-                    li.style.backgroundColor = '#c8e6c9'; // Grøn baggrund for valgt adresse
+                    document.getElementById('search').value = '';
+                    resultsList.innerHTML = '';
 
-                    var adgangsadresseId = item.adgangsadresse.id;
-                    console.log('Valgt adgangsadresse ID:', adgangsadresseId); // Log adgangsadresse ID
-
-                    // Hent detaljerede adgangsadressedata
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${adgangsadresseId}`)
+                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
                         .then(response => response.json())
-                        .then(adresseData => {
-                            console.log('Fulde adgangsadressedata:', adresseData); // Log hele adgangsadressedata
-
-                            if (adresseData.adgangspunkt && adresseData.adgangspunkt.koordinater) {
-                                var coordinates = adresseData.adgangspunkt.koordinater;
-                                placeMarkerAndZoom(coordinates, item.tekst);
-                            } else {
-                                alert('Kunne ikke finde koordinater for den valgte adresse.');
-                            }
-                        })
-                        .catch(err => {
-                            console.error('Fejl ved hentning af fulde adresseoplysninger:', err);
-                            alert('Der opstod en fejl ved hentning af adresseoplysninger.');
+                        .then(addressData => {
+                            var coordinates = addressData.adgangspunkt.koordinater;
+                            placeMarkerAndZoom(coordinates, item.tekst);
                         });
-
-                    resultsList.innerHTML = ''; // Ryd søgeresultater
-                    document.getElementById('search').value = ''; // Ryd søgefelt
                 });
 
                 resultsList.appendChild(li);
             });
-        })
-        .catch(err => console.error('Fejl ved søgning:', err));
+        });
 });
 
-// Funktion til at placere markør og zoome til adresse
+// Funktion til at placere markør og zoome
 function placeMarkerAndZoom(coordinates, addressText) {
-    var lon = coordinates[0];
-    var lat = coordinates[1];
+    var [lon, lat] = coordinates;
 
-    // Fjern tidligere markør
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
 
-    // Tilføj ny markør
     currentMarker = L.marker([lat, lon]).addTo(map);
+    map.setView([lat, lon], 16);
 
-    // Zoom og centrér kortet til den valgte adresse
-    map.setView([lat, lon], 16); // Zoom-niveau 16
-
-    // Vis adresse og links under kortet
     document.getElementById('address').innerHTML = `
         Valgt adresse: ${addressText}
         <br>
@@ -131,13 +88,36 @@ function placeMarkerAndZoom(coordinates, addressText) {
 
 // Håndter "Ryd"-knap
 document.getElementById('clearSearch').addEventListener('click', function () {
-    document.getElementById('search').value = ''; // Ryd søgefelt
-    document.getElementById('results').innerHTML = ''; // Ryd søgeresultater
-    document.getElementById('address').innerText = 'Klik på kortet eller vælg en adresse fra listen'; // Reset adressefeltet
+    document.getElementById('search').value = '';
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('address').innerText = 'Klik på kortet eller vælg en adresse fra listen';
 
-    // Fjern markør fra kortet
     if (currentMarker) {
         map.removeLayer(currentMarker);
-        currentMarker = null; // Nulstil markøren
+        currentMarker = null;
+    }
+});
+
+// Håndter krydsning
+document.getElementById('findIntersection').addEventListener('click', function () {
+    var vej1 = document.getElementById('vej1').value.trim();
+    var vej2 = document.getElementById('vej2').value.trim();
+
+    if (vej1 && vej2) {
+        fetch(`https://api.dataforsyningen.dk/kryds?vejnavn1=${vej1}&vejnavn2=${vej2}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length > 0) {
+                    var kryds = data[0];
+                    var [lon, lat] = kryds.koordinater;
+
+                    placeMarkerAndZoom([lon, lat], `${vej1} & ${vej2}`);
+                } else {
+                    alert('Ingen kryds fundet mellem de to veje.');
+                }
+            })
+            .catch(err => console.error('Fejl ved hentning af kryds:', err));
+    } else {
+        alert('Indtast begge vejnavne for at finde et kryds.');
     }
 });
