@@ -35,7 +35,7 @@ body {
     padding: 10px;
     margin: 0;
     overflow-y: auto;
-    max-height: 100px; /* Begræns højden af resultater */
+    max-height: 100px;
 }
 
 #results li {
