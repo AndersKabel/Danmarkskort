@@ -73,13 +73,17 @@ document.getElementById('search').addEventListener('input', function () {
                     document.querySelectorAll('#results li').forEach(item => item.style.backgroundColor = '#f9f9f9'); // Fjern tidligere fremhævning
                     li.style.backgroundColor = '#c8e6c9'; // Grøn baggrund for valgt adresse
 
-                    // Hent adgangsadressen for at få koordinater
                     var adgangsadresseId = item.adgangsadresse.id;
+                    console.log('Valgt adgangsadresse ID:', adgangsadresseId); // Debug-log
+
+                    // Hent detaljerede adgangsadressedata
                     fetch(`https://api.dataforsyningen.dk/adgangsadresser/${adgangsadresseId}?struktur=flad`)
                         .then(response => response.json())
                         .then(adresseData => {
-                            if (adresseData.x && adresseData.y) {
-                                var coordinates = [adresseData.x, adresseData.y];
+                            console.log('Fulde adgangsadressedata:', adresseData); // Debug-log
+
+                            if (adresseData.adgangspunkt && adresseData.adgangspunkt.koordinater) {
+                                var coordinates = adresseData.adgangspunkt.koordinater;
                                 placeMarkerAndZoom(coordinates, item.tekst);
                             } else {
                                 alert('Kunne ikke finde koordinater for den valgte adresse.');
@@ -125,14 +129,4 @@ function placeMarkerAndZoom(coordinates, addressText) {
 }
 
 // Håndter "Ryd"-knap
-document.getElementById('clearSearch').addEventListener('click', function () {
-    document.getElementById('search').value = ''; // Ryd søgefelt
-    document.getElementById('results').innerHTML = ''; // Ryd søgeresultater
-    document.getElementById('address').innerText = 'Klik på kortet eller vælg en adresse fra listen'; // Reset adressefeltet
-
-    // Fjern markør fra kortet
-    if (currentMarker) {
-        map.removeLayer(currentMarker);
-        currentMarker = null; // Nulstil markøren
-    }
-});
+document.getElementById('clearSearch').addEventListener('click', functio
