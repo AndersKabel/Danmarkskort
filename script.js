@@ -113,15 +113,37 @@ document.getElementById('findKryds').addEventListener('click', function () {
 
 // Funktion til at finde krydsningspunkt
 function findIntersection(vej1Adresser, vej2Adresser) {
+    const threshold = 0.0005; // Tærskelværdi for nærhed (juster efter behov)
+
     for (let adr1 of vej1Adresser) {
         for (let adr2 of vej2Adresser) {
-            if (Math.abs(adr1.adgangspunkt.koordinater[0] - adr2.adgangspunkt.koordinater[0]) < 0.0001 &&
-                Math.abs(adr1.adgangspunkt.koordinater[1] - adr2.adgangspunkt.koordinater[1]) < 0.0001) {
-                return adr1.adgangspunkt.koordinater;
+            const distance = calculateDistance(adr1.adgangspunkt.koordinater, adr2.adgangspunkt.koordinater);
+            if (distance < threshold) {
+                return adr1.adgangspunkt.koordinater; // Returnér koordinater for kryds
             }
         }
     }
-    return null;
+    return null; // Ingen kryds fundet
+}
+
+// Funktion til at beregne afstand mellem to punkter (Haversine-formel)
+function calculateDistance(coord1, coord2) {
+    const [lon1, lat1] = coord1;
+    const [lon2, lat2] = coord2;
+
+    const R = 6371e3; // Jordens radius i meter
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    const distance = R * c; // Afstand i meter
+    return distance;
 }
 
 // Funktion til at placere markør og zoome
