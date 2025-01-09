@@ -11,7 +11,7 @@ body {
 #map {
     flex-grow: 1;
     width: 100%;
-    height: 75%; /* Sørger for at kortet fylder det meste af skærmen */
+    height: 70%; /* Sørger for at kortet fylder det meste af skærmen */
 }
 
 #search-container,
