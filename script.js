@@ -1,5 +1,5 @@
 // Initialiser kortet
-var map = L.map('map').setView([56, 10], 7);
+var map = L.map('map').setView([56, 10], 7); // Standardvisning over Danmark
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
@@ -26,8 +26,7 @@ map.on('click', function(e) {
         .then(data => {
             document.getElementById('address').innerHTML = `
                 Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
-                <br>
-                <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank">Åbn i Google Maps</a>`;
+            `;
         })
         .catch(err => {
             console.error('Fejl ved API-kaldet:', err);
@@ -55,7 +54,7 @@ document.getElementById('search').addEventListener('input', function() {
                 li.style.cursor = 'pointer';
                 li.style.padding = '5px';
 
-                // Når en adresse vælges, placér markør på kortet og zoom ind
+                // Når en adresse vælges, placér markør og zoom til den valgte placering
                 li.addEventListener('click', function() {
                     document.querySelectorAll('#results li').forEach(item => item.classList.remove('highlight'));
                     li.classList.add('highlight');
@@ -88,13 +87,14 @@ function placeMarkerAndZoom(item) {
 
     // Tilføj ny markør
     currentMarker = L.marker([lat, lon]).addTo(map);
-    map.setView([lat, lon], 16); // Zoom til den valgte adresse
 
-    // Vis adresse og link til Google Maps
+    // Zoom og centrér kortet til den valgte adresse
+    map.setView([lat, lon], 16); // Zoom-niveau 16 giver et tæt zoom på adressen
+
+    // Vis adresse i adressefeltet
     document.getElementById('address').innerHTML = `
         Valgt adresse: ${item.tekst}
-        <br>
-        <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank">Åbn i Google Maps</a>`;
+    `;
 }
 
 // Håndter "Ryd"-knap
