@@ -54,12 +54,24 @@ document.getElementById('search').addEventListener('input', function () {
                 var li = document.createElement('li');
                 li.textContent = item.tekst;
                 li.style.cursor = 'pointer';
-                li.style.padding = '5px';
+                li.style.padding = '10px';
+                li.style.border = '1px solid #ddd';
+                li.style.marginBottom = '5px';
+                li.style.backgroundColor = '#f9f9f9';
+                li.style.borderRadius = '5px';
+
+                // Fremhæv valgte adresse
+                li.addEventListener('mouseover', function () {
+                    li.style.backgroundColor = '#e0f7fa'; // Lyseblå baggrund ved hover
+                });
+                li.addEventListener('mouseout', function () {
+                    li.style.backgroundColor = '#f9f9f9'; // Tilbage til standard farve
+                });
 
                 // Når en adresse vælges, placér markør og zoom til den valgte placering
                 li.addEventListener('click', function () {
-                    document.querySelectorAll('#results li').forEach(item => item.classList.remove('highlight'));
-                    li.classList.add('highlight');
+                    document.querySelectorAll('#results li').forEach(item => item.style.backgroundColor = '#f9f9f9'); // Fjern tidligere fremhævning
+                    li.style.backgroundColor = '#c8e6c9'; // Grøn baggrund for valgt adresse
                     placeMarkerAndZoom(item.adgangsadresse.adgangspunkt.koordinater, item.tekst);
                     resultsList.innerHTML = ''; // Ryd søgeresultater
                     document.getElementById('search').value = ''; // Ryd søgefelt
