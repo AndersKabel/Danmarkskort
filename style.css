@@ -5,11 +5,13 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    overflow: hidden; /* Forhindrer scroll */
 }
 
 #map {
     flex-grow: 1;
     width: 100%;
+    height: 75%; /* Sørger for at kortet fylder det meste af skærmen */
 }
 
 #search-container,
@@ -18,6 +20,7 @@ body {
     gap: 10px;
     padding: 10px;
     background-color: #f9f9f9;
+    z-index: 1000; /* Sørger for at søgefeltet altid er synligt */
 }
 
 #search, #vej1, #vej2 {
