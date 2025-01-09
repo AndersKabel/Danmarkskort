@@ -24,7 +24,6 @@ map.on('click', function (e) {
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
-            console.log("Reverse geocoding data:", data); // Log hele svaret fra reverse geocoding
             document.getElementById('address').innerHTML = `
                 Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
                 <br>
@@ -48,7 +47,7 @@ document.getElementById('search').addEventListener('input', function () {
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
         .then(response => response.json())
         .then(data => {
-            console.log("Autocomplete data:", data); // Log hele svaret fra autocomplete
+            console.log("Autocomplete data:", data); // Log autocomplete-data
             var resultsList = document.getElementById('results');
             resultsList.innerHTML = ''; // Ryd tidligere resultater
 
@@ -79,7 +78,7 @@ document.getElementById('search').addEventListener('input', function () {
                     console.log('Valgt adgangsadresse ID:', adgangsadresseId); // Log adgangsadresse ID
 
                     // Hent detaljerede adgangsadressedata
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${adgangsadresseId}?struktur=flad`)
+                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${adgangsadresseId}`)
                         .then(response => response.json())
                         .then(adresseData => {
                             console.log('Fulde adgangsadressedata:', adresseData); // Log hele adgangsadressedata
