@@ -5,30 +5,29 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    overflow: hidden; /* Forhindrer scroll */
+    overflow: hidden;
 }
 
 #map {
     flex-grow: 1;
     width: 100%;
-    height: 70%; /* Sørger for at kortet fylder det meste af skærmen */
+    height: 70%;
 }
 
-#search-container,
-#intersection-container {
+#search-container {
     display: flex;
     gap: 10px;
     padding: 10px;
     background-color: #f9f9f9;
-    z-index: 1000; /* Sørger for at søgefeltet altid er synligt */
+    z-index: 1000;
 }
 
-#search, #vej1, #vej2 {
-    width: 200px;
+#search {
+    width: 300px;
     padding: 5px;
 }
 
-#clearSearch, #findKryds {
+#clearSearch {
     padding: 5px 10px;
     cursor: pointer;
 }
@@ -37,16 +36,14 @@ body {
     list-style-type: none;
     padding: 10px;
     margin: 0;
-    overflow-y: auto;
     max-height: 100px;
+    overflow-y: auto;
+    background: #fff;
 }
 
 #results li {
     margin-bottom: 5px;
-    padding: 10px;
-    background: #f9f9f9;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+    padding: 5px;
     cursor: pointer;
 }
 
@@ -57,7 +54,5 @@ body {
 #address {
     padding: 10px;
     background-color: #f1f1f1;
-    border-top: 1px solid #ddd;
     text-align: center;
-    font-size: 1rem;
 }
