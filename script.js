@@ -8,7 +8,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 var currentMarker; // Variabel til at gemme den aktuelle markør
 
 // Håndter kortklik
-map.on('click', function(e) {
+map.on('click', function (e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
 
@@ -26,6 +26,10 @@ map.on('click', function(e) {
         .then(data => {
             document.getElementById('address').innerHTML = `
                 Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
+                <br>
+                <a href="https://kort.krak.dk/?q=${lat},${lon}" target="_blank">Åbn i Krak</a>
+                <br>
+                <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
             `;
         })
         .catch(err => {
@@ -35,7 +39,7 @@ map.on('click', function(e) {
 });
 
 // Håndter søgning
-document.getElementById('search').addEventListener('input', function() {
+document.getElementById('search').addEventListener('input', function () {
     var query = this.value.trim();
     if (query.length < 2) {
         document.getElementById('results').innerHTML = ''; // Ryd resultater, hvis input er for kort
@@ -55,7 +59,7 @@ document.getElementById('search').addEventListener('input', function() {
                 li.style.padding = '5px';
 
                 // Når en adresse vælges, placér markør og zoom til den valgte placering
-                li.addEventListener('click', function() {
+                li.addEventListener('click', function () {
                     document.querySelectorAll('#results li').forEach(item => item.classList.remove('highlight'));
                     li.classList.add('highlight');
                     placeMarkerAndZoom(item.adgangsadresse.adgangspunkt.koordinater, item.tekst);
@@ -74,7 +78,7 @@ document.getElementById('search').addEventListener('input', function() {
         .catch(err => console.error('Fejl ved søgning:', err));
 });
 
-// Funktion til at placere markør og zoome til adresse
+// Funktion til at placere markør, zoome og vise links
 function placeMarkerAndZoom(coordinates, addressText) {
     var lon = coordinates[0];
     var lat = coordinates[1];
@@ -90,14 +94,18 @@ function placeMarkerAndZoom(coordinates, addressText) {
     // Zoom og centrér kortet til den valgte adresse
     map.setView([lat, lon], 16); // Zoom-niveau 16 giver et tæt zoom på adressen
 
-    // Vis adresse i adressefeltet
+    // Vis adresse og links under kortet
     document.getElementById('address').innerHTML = `
         Valgt adresse: ${addressText}
+        <br>
+        <a href="https://kort.krak.dk/?q=${lat},${lon}" target="_blank">Åbn i Krak</a>
+        <br>
+        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
     `;
 }
 
 // Håndter "Ryd"-knap
-document.getElementById('clearSearch').addEventListener('click', function() {
+document.getElementById('clearSearch').addEventListener('click', function () {
     document.getElementById('search').value = ''; // Ryd søgefelt
     document.getElementById('results').innerHTML = ''; // Ryd søgeresultater
     document.getElementById('address').innerText = 'Klik på kortet eller vælg en adresse fra listen'; // Reset adressefeltet
