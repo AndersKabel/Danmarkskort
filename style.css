@@ -10,44 +10,61 @@ body {
     margin-bottom: 10px;
 }
 
-.controls {
+.controls, .intersection-controls {
     display: flex;
-    justify-content: center; /* Centrer elementerne vandret */
-    align-items: center; /* Centrer elementerne lodret */
-    gap: 10px; /* Afstand mellem elementerne */
-    margin: 10px 0;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px;
+    background: #f9f9f9;
 }
 
-#search {
+#search, #vej1, #vej2 {
     width: 300px;
     padding: 5px;
     border: 1px solid #ddd;
     border-radius: 5px;
-    font-size: 14px;
 }
 
-#clearSearch {
+#clearSearch, #findIntersection {
     padding: 5px 10px;
+    background: #f0f0f0;
     border: 1px solid #ddd;
     border-radius: 5px;
-    background-color: #f0f0f0;
     cursor: pointer;
 }
 
-#clearSearch:hover {
-    background-color: #e0e0e0;
+#clearSearch:hover, #findIntersection:hover {
+    background: #e0e0e0;
 }
 
 #address {
     font-size: 14px;
     font-weight: bold;
-    padding: 5px;
     background: #f9f9f9;
+    padding: 10px;
+    text-align: center;
     border: 1px solid #ddd;
     border-radius: 5px;
-    max-width: 300px;
-    text-align: center;
-    white-space: nowrap; /* Sørg for, at teksten ikke bryder linjen */
-    overflow: hidden;
-    text-overflow: ellipsis; /* Tilføj "..." hvis teksten er for lang */
+}
+
+#results {
+    list-style: none;
+    margin: 0;
+    padding: 10px;
+    background: white;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+#results li {
+    padding: 10px;
+    margin: 5px 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    background: #f9f9f9;
+}
+
+#results li:hover {
+    background: #e0f7fa;
 }
