@@ -25,7 +25,7 @@ body {
     padding: 5px;
 }
 
-#clearSearch, #info, #findKryds {
+#clearSearch, #findKryds {
     padding: 5px 10px;
     cursor: pointer;
 }
