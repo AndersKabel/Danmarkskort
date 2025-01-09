@@ -23,8 +23,6 @@ map.on('click', function (e) {
         .then(data => {
             document.getElementById('address').innerHTML = `
                 Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
-                <br>
-                <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
             `;
         })
         .catch(err => {
@@ -67,44 +65,6 @@ document.getElementById('search').addEventListener('input', function () {
         });
 });
 
-// Find kryds
-document.getElementById('findKryds').addEventListener('click', function () {
-    var vej1 = document.getElementById('vej1').value.trim();
-    var vej2 = document.getElementById('vej2').value.trim();
-
-    if (!vej1 || !vej2) {
-        alert('Indtast begge vejnavne for at finde krydset.');
-        return;
-    }
-
-    Promise.all([
-        fetch(`https://api.dataforsyningen.dk/adgangsadresser?vejnavn=${vej1}`).then(res => res.json()),
-        fetch(`https://api.dataforsyningen.dk/adgangsadresser?vejnavn=${vej2}`).then(res => res.json())
-    ]).then(([adresserVej1, adresserVej2]) => {
-        var kryds = findIntersection(adresserVej1, adresserVej2);
-        if (kryds) {
-            placeMarkerAndZoom(kryds, `Kryds mellem ${vej1} og ${vej2}`);
-        } else {
-            alert('Ingen krydsningspunkt fundet mellem de to veje.');
-        }
-    }).catch(err => console.error('Fejl:', err));
-});
-
-function findIntersection(adresserVej1, adresserVej2) {
-    const threshold = 0.002;
-    for (let adr1 of adresserVej1) {
-        for (let adr2 of adresserVej2) {
-            const [lon1, lat1] = adr1.adgangspunkt.koordinater;
-            const [lon2, lat2] = adr2.adgangspunkt.koordinater;
-            const distance = Math.sqrt(Math.pow(lon1 - lon2, 2) + Math.pow(lat1 - lat2, 2));
-            if (distance < threshold) {
-                return [lon1, lat1];
-            }
-        }
-    }
-    return null;
-}
-
 function placeMarkerAndZoom(coordinates, addressText) {
     var [lon, lat] = coordinates;
 
@@ -115,9 +75,5 @@ function placeMarkerAndZoom(coordinates, addressText) {
     currentMarker = L.marker([lat, lon]).addTo(map);
     map.setView([lat, lon], 16);
 
-    document.getElementById('address').innerHTML = `
-        Valgt adresse: ${addressText}
-        <br>
-        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
-    `;
+    document.getElementById('address').innerText = `Valgt adresse: ${addressText}`;
 }
