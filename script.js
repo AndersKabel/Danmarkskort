@@ -12,15 +12,12 @@ map.on('click', function (e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
 
-    // Fjern tidligere markør
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
 
-    // Tilføj ny markør
     currentMarker = L.marker([lat, lon]).addTo(map);
 
-    // Hent adresse via reverse geocoding
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
@@ -114,25 +111,61 @@ document.getElementById('findKryds').addEventListener('click', function () {
     });
 });
 
-// Funktion til at finde krydsningspunkt
 function findIntersection(vej1Adresser, vej2Adresser) {
-    const threshold = 0.002; // Justeret tærskel for at tillade større afvigelser
+    const threshold = 0.002;
 
     for (let adr1 of vej1Adresser) {
         for (let adr2 of vej2Adresser) {
             const distance = calculateDistance(adr1.adgangspunkt.koordinater, adr2.adgangspunkt.koordinater);
-
-            console.log(`Sammenligner ${adr1.adgangsadresse.vejnavn} (${adr1.adgangspunkt.koordinater}) med ${adr2.adgangsadresse.vejnavn} (${adr2.adgangspunkt.koordinater}) | Afstand: ${distance} meter`);
-
             if (distance < threshold) {
-                console.log('Kryds fundet ved:', adr1.adgangspunkt.koordinater);
                 return adr1.adgangspunkt.koordinater;
             }
         }
     }
-
-    console.warn('Ingen kryds fundet mellem de to veje.');
     return null;
 }
 
-// Funktion til at beregn
+function calculateDistance(coord1, coord2) {
+    const [lon1, lat1] = coord1;
+    const [lon2, lat2] = coord2;
+
+    const R = 6371e3;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+}
+
+function placeMarkerAndZoom(coordinates, addressText) {
+    var lon = coordinates[0];
+    var lat = coordinates[1];
+
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+    }
+
+    currentMarker = L.marker([lat, lon]).addTo(map);
+    map.setView([lat, lon], 16);
+
+    document.getElementById('address').innerHTML = `
+        Valgt adresse: ${addressText}
+        <br>
+        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
+    `;
+}
+
+document.getElementById('clearSearch').addEventListener('click', function () {
+    document.getElementById('search').value = '';
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('address').innerText = 'Klik på kortet eller vælg en adresse fra listen';
+
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+        currentMarker = null;
+    }
+});
