@@ -47,8 +47,6 @@ document.getElementById('search').addEventListener('input', function () {
     fetch(`https://api.dataforsyningen.dk/adresser/autocomplete?q=${query}`)
         .then(response => response.json())
         .then(data => {
-            console.log('Søgeresultater:', data); // Debug-log
-
             var resultsList = document.getElementById('results');
             resultsList.innerHTML = ''; // Ryd tidligere resultater
 
@@ -72,23 +70,17 @@ document.getElementById('search').addEventListener('input', function () {
 
                 // Når en adresse vælges, hent fulde adresseoplysninger og placér markør
                 li.addEventListener('click', function () {
-                    console.log('Valgt adresse:', item); // Debug-log
-
                     document.querySelectorAll('#results li').forEach(item => item.style.backgroundColor = '#f9f9f9'); // Fjern tidligere fremhævning
                     li.style.backgroundColor = '#c8e6c9'; // Grøn baggrund for valgt adresse
 
-                    // Hent fulde adresseoplysninger baseret på ID
-                    var adresseId = item.adresse.id;
+                    var adresseId = item.adresse.id; // Hent adresse-ID
                     fetch(`https://api.dataforsyningen.dk/adresser/${adresseId}?struktur=flad`)
                         .then(response => response.json())
                         .then(adresseData => {
-                            console.log('Fulde adresseoplysninger:', adresseData); // Debug-log
-
                             if (adresseData.x && adresseData.y) {
                                 var coordinates = [adresseData.x, adresseData.y];
                                 placeMarkerAndZoom(coordinates, item.tekst);
                             } else {
-                                console.error('Koordinater ikke fundet for valgt adresse:', adresseData); // Fejlmeddelelse
                                 alert('Kunne ikke finde koordinater for den valgte adresse.');
                             }
                         })
@@ -112,15 +104,34 @@ function placeMarkerAndZoom(coordinates, addressText) {
     var lon = coordinates[0];
     var lat = coordinates[1];
 
-    // Debug-log
-    console.log('Placering af markør:', { lat, lon });
-
     // Fjern tidligere markør
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
 
     // Tilføj ny markør
-    currentMarker
-::contentReference[oaicite:0]{index=0}
- 
+    currentMarker = L.marker([lat, lon]).addTo(map);
+
+    // Zoom og centrér kortet til den valgte adresse
+    map.setView([lat, lon], 16); // Zoom-niveau 16
+
+    // Vis adresse og links under kortet
+    document.getElementById('address').innerHTML = `
+        Valgt adresse: ${addressText}
+        <br>
+        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
+    `;
+}
+
+// Håndter "Ryd"-knap
+document.getElementById('clearSearch').addEventListener('click', function () {
+    document.getElementById('search').value = ''; // Ryd søgefelt
+    document.getElementById('results').innerHTML = ''; // Ryd søgeresultater
+    document.getElementById('address').innerText = 'Klik på kortet eller vælg en adresse fra listen'; // Reset adressefeltet
+
+    // Fjern markør fra kortet
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+        currentMarker = null; // Nulstil markøren
+    }
+});
