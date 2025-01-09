@@ -47,6 +47,8 @@ document.getElementById('search').addEventListener('input', function () {
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
         .then(response => response.json())
         .then(data => {
+            console.log('Søgeresultater:', data); // Debug-log
+
             var resultsList = document.getElementById('results');
             resultsList.innerHTML = ''; // Ryd tidligere resultater
 
@@ -70,10 +72,14 @@ document.getElementById('search').addEventListener('input', function () {
 
                 // Når en adresse vælges, placér markør og zoom til den valgte placering
                 li.addEventListener('click', function () {
+                    console.log('Valgt adresse:', item); // Debug-log
+
                     document.querySelectorAll('#results li').forEach(item => item.style.backgroundColor = '#f9f9f9'); // Fjern tidligere fremhævning
                     li.style.backgroundColor = '#c8e6c9'; // Grøn baggrund for valgt adresse
 
-                    var coordinates = item.adgangsadresse.adgangspunkt.koordinater; // Brug koordinater fra adgangsadresse
+                    var coordinates = item.adgangsadresse.adgangspunkt.koordinater;
+                    console.log('Koordinater for valgt adresse:', coordinates); // Debug-log
+
                     placeMarkerAndZoom(coordinates, item.tekst);
 
                     resultsList.innerHTML = ''; // Ryd søgeresultater
@@ -90,6 +96,9 @@ document.getElementById('search').addEventListener('input', function () {
 function placeMarkerAndZoom(coordinates, addressText) {
     var lon = coordinates[0];
     var lat = coordinates[1];
+
+    // Debug-log
+    console.log('Placering af markør:', { lat, lon });
 
     // Fjern tidligere markør
     if (currentMarker) {
