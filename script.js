@@ -108,4 +108,3 @@ document.getElementById('clearSearch').addEventListener('click', function() {
         currentMarker = null; // Nulstil markøren
     }
 });
-
