@@ -73,21 +73,29 @@ document.getElementById('search').addEventListener('input', function () {
                     document.querySelectorAll('#results li').forEach(item => item.style.backgroundColor = '#f9f9f9'); // Fjern tidligere fremhævning
                     li.style.backgroundColor = '#c8e6c9'; // Grøn baggrund for valgt adresse
 
-                    var adresseId = item.adresse.id; // Hent adresse-ID
-                    fetch(`https://api.dataforsyningen.dk/adresser/${adresseId}?struktur=flad`)
-                        .then(response => response.json())
-                        .then(adresseData => {
-                            if (adresseData.x && adresseData.y) {
-                                var coordinates = [adresseData.x, adresseData.y];
-                                placeMarkerAndZoom(coordinates, item.tekst);
-                            } else {
-                                alert('Kunne ikke finde koordinater for den valgte adresse.');
-                            }
-                        })
-                        .catch(err => {
-                            console.error('Fejl ved hentning af fulde adresseoplysninger:', err);
-                            alert('Der opstod en fejl ved hentning af adresseoplysninger.');
-                        });
+                    // Prøv at hente adresse-ID og slå fulde oplysninger op
+                    try {
+                        var adresseId = item.adresse.id; // Hent adresse-ID
+                        fetch(`https://api.dataforsyningen.dk/adresser/${adresseId}?struktur=flad`)
+                            .then(response => response.json())
+                            .then(adresseData => {
+                                console.log('Fulde adresseoplysninger:', adresseData); // Debug-log
+
+                                if (adresseData.x && adresseData.y) {
+                                    var coordinates = [adresseData.x, adresseData.y];
+                                    placeMarkerAndZoom(coordinates, item.tekst);
+                                } else {
+                                    alert('Kunne ikke finde koordinater for den valgte adresse.');
+                                }
+                            })
+                            .catch(err => {
+                                console.error('Fejl ved hentning af fulde adresseoplysninger:', err);
+                                alert('Der opstod en fejl ved hentning af adresseoplysninger.');
+                            });
+                    } catch (error) {
+                        console.error('Fejl i adresse-ID:', error);
+                        alert('Kunne ikke hente adresseoplysninger.');
+                    }
 
                     resultsList.innerHTML = ''; // Ryd søgeresultater
                     document.getElementById('search').value = ''; // Ryd søgefelt
