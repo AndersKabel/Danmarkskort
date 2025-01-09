@@ -68,13 +68,12 @@ document.getElementById('search').addEventListener('input', function () {
                     li.style.backgroundColor = '#f9f9f9'; // Tilbage til standard farve
                 });
 
-                // Når en adresse vælges, placér markør
+                // Når en adresse vælges, placér markør og zoom til den valgte placering
                 li.addEventListener('click', function () {
                     document.querySelectorAll('#results li').forEach(item => item.style.backgroundColor = '#f9f9f9'); // Fjern tidligere fremhævning
                     li.style.backgroundColor = '#c8e6c9'; // Grøn baggrund for valgt adresse
 
-                    // Placér markør for valgt adresse
-                    var coordinates = item.adgangsadresse.adgangspunkt.koordinater;
+                    var coordinates = item.adgangsadresse.adgangspunkt.koordinater; // Brug koordinater fra adgangsadresse
                     placeMarkerAndZoom(coordinates, item.tekst);
 
                     resultsList.innerHTML = ''; // Ryd søgeresultater
