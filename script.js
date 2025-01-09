@@ -55,7 +55,7 @@ document.getElementById('search').addEventListener('input', function() {
                 li.style.cursor = 'pointer';
                 li.style.padding = '5px';
 
-                // Når en adresse vælges, placér markør på kortet
+                // Når en adresse vælges, placér markør på kortet og zoom ind
                 li.addEventListener('click', function() {
                     document.querySelectorAll('#results li').forEach(item => item.classList.remove('highlight'));
                     li.classList.add('highlight');
