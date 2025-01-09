@@ -68,27 +68,26 @@ document.getElementById('search').addEventListener('input', function () {
                     li.style.backgroundColor = '#f9f9f9'; // Tilbage til standard farve
                 });
 
-                // Når en adresse vælges, placér markør og zoom til den valgte placering
+                // Når en adresse vælges, placér markør
                 li.addEventListener('click', function () {
                     document.querySelectorAll('#results li').forEach(item => item.style.backgroundColor = '#f9f9f9'); // Fjern tidligere fremhævning
                     li.style.backgroundColor = '#c8e6c9'; // Grøn baggrund for valgt adresse
-                    placeMarkerAndZoom(item.adgangsadresse.adgangspunkt.koordinater, item.tekst);
+
+                    // Placér markør for valgt adresse
+                    var coordinates = item.adgangsadresse.adgangspunkt.koordinater;
+                    placeMarkerAndZoom(coordinates, item.tekst);
+
                     resultsList.innerHTML = ''; // Ryd søgeresultater
                     document.getElementById('search').value = ''; // Ryd søgefelt
                 });
 
                 resultsList.appendChild(li);
             });
-
-            // Hvis kun ét resultat, vælg det automatisk
-            if (data.length === 1) {
-                placeMarkerAndZoom(data[0].adgangsadresse.adgangspunkt.koordinater, data[0].tekst);
-            }
         })
         .catch(err => console.error('Fejl ved søgning:', err));
 });
 
-// Funktion til at placere markør, zoome og vise links
+// Funktion til at placere markør og zoome til adresse
 function placeMarkerAndZoom(coordinates, addressText) {
     var lon = coordinates[0];
     var lat = coordinates[1];
