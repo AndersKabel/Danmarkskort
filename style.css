@@ -5,50 +5,55 @@ body {
 }
 
 #map {
+    height: 80vh;
     width: 100%;
-    height: 70vh; /* Brug 70% af skærmhøjden til kortet */
-    margin-bottom: 10px;
 }
 
-.controls {
+#search-container {
     display: flex;
-    justify-content: center; /* Centrer elementerne vandret */
-    align-items: center; /* Centrer elementerne lodret */
-    gap: 10px; /* Afstand mellem elementerne */
-    margin: 10px 0;
+    gap: 10px;
+    padding: 10px;
+    background-color: #f9f9f9;
 }
 
-#search {
-    width: 300px;
+#search, #vej1, #vej2 {
+    width: 200px;
     padding: 5px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
 }
 
-#clearSearch {
+#clearSearch, #info, #findKryds {
     padding: 5px 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    background-color: #f0f0f0;
     cursor: pointer;
 }
 
-#clearSearch:hover {
-    background-color: #e0e0e0;
+#results {
+    list-style-type: none;
+    padding: 10px;
+    margin: 0;
 }
 
-#address {
-    font-size: 14px;
-    font-weight: bold;
-    padding: 5px;
+#results li {
+    margin-bottom: 5px;
+    padding: 10px;
     background: #f9f9f9;
     border: 1px solid #ddd;
     border-radius: 5px;
-    max-width: 300px;
-    text-align: center;
-    white-space: nowrap; /* Sørg for, at teksten ikke bryder linjen */
-    overflow: hidden;
-    text-overflow: ellipsis; /* Tilføj "..." hvis teksten er for lang */
+    cursor: pointer;
 }
 
+#results li:hover {
+    background-color: #e0f7fa;
+}
+
+#address {
+    padding: 10px;
+    background-color: #f1f1f1;
+    border-top: 1px solid #ddd;
+}
+
+#intersection-container {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    background-color: #f9f9f9;
+}
