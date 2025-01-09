@@ -77,10 +77,14 @@ document.getElementById('search').addEventListener('input', function () {
                     document.querySelectorAll('#results li').forEach(item => item.style.backgroundColor = '#f9f9f9'); // Fjern tidligere fremhævning
                     li.style.backgroundColor = '#c8e6c9'; // Grøn baggrund for valgt adresse
 
-                    var coordinates = item.adgangsadresse.adgangspunkt.koordinater;
-                    console.log('Koordinater for valgt adresse:', coordinates); // Debug-log
-
-                    placeMarkerAndZoom(coordinates, item.tekst);
+                    if (item.adgangsadresse && item.adgangsadresse.adgangspunkt && item.adgangsadresse.adgangspunkt.koordinater) {
+                        var coordinates = item.adgangsadresse.adgangspunkt.koordinater;
+                        console.log('Koordinater for valgt adresse:', coordinates); // Debug-log
+                        placeMarkerAndZoom(coordinates, item.tekst);
+                    } else {
+                        console.error('Koordinater ikke fundet for valgt adresse:', item); // Fejlmeddelelse
+                        alert('Kunne ikke finde koordinater for den valgte adresse.');
+                    }
 
                     resultsList.innerHTML = ''; // Ryd søgeresultater
                     document.getElementById('search').value = ''; // Ryd søgefelt
