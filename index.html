@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danmarkskort med Adresse</title>
+    <title>Danmarkskort med Adressesøgning</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-uD/y3aYROfPvvTphubLoRrrcfqq3AP1MzT9F5AfsHzzZyiXIzPCVTIzIqe4AJ2aG" crossorigin="">
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-MJAzJqRiqVg58YWv7h0OFzZqsrEQDq81En6B9xp0sxWPYLlEbKhD5iOsLvXCDX9M" crossorigin=""></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
     <div id="map"></div>
-    <div id="search-container">
-        <input type="text" id="search" placeholder="Søg efter adresse...">
+    <div class="controls">
+        <input type="text" id="search" placeholder="Søg efter adresse..." />
         <button id="clearSearch">Ryd</button>
+        <p id="address">Klik på kortet eller vælg en adresse fra listen</p>
     </div>
     <ul id="results"></ul>
-    <div id="address">Klik på kortet eller vælg en adresse fra listen</div>
     <script src="script.js"></script>
 </body>
 </html>
