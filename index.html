@@ -1,29 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="da">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danmarkskort med Adressesøgning</title>
+    <title>Danmarkskort med Adresse</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-uD/y3aYROfPvvTphubLoRrrcfqq3AP1MzT9F5AfsHzzZyiXIzPCVTIzIqe4AJ2aG" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-MJAzJqRiqVg58YWv7h0OFzZqsrEQDq81En6B9xp0sxWPYLlEbKhD5iOsLvXCDX9M" crossorigin=""></script>
 </head>
 <body>
     <div id="map"></div>
     <div id="search-container">
-        <input type="text" id="search" placeholder="Søg efter adresse..." />
+        <input type="text" id="search" placeholder="Søg efter adresse...">
         <button id="clearSearch">Ryd</button>
-        <button id="info">Klik på kortet eller vælg en adresse fra listen</button>
     </div>
     <ul id="results"></ul>
-    <div id="address">Adresseinformation vil blive vist her</div>
-
+    <div id="address">Klik på kortet eller vælg en adresse fra listen</div>
     <div id="intersection-container">
-        <input type="text" id="vej1" placeholder="Indtast første vejnavn..." />
-        <input type="text" id="vej2" placeholder="Indtast anden vejnavn..." />
+        <input type="text" id="vej1" placeholder="Første vejnavn">
+        <input type="text" id="vej2" placeholder="Andet vejnavn">
         <button id="findKryds">Find kryds</button>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>
