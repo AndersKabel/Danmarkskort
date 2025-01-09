@@ -27,8 +27,6 @@ map.on('click', function (e) {
             document.getElementById('address').innerHTML = `
                 Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
                 <br>
-                <a href="https://kort.krak.dk/?q=${lat},${lon}" target="_blank">Åbn i Krak</a>
-                <br>
                 <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
             `;
         })
@@ -97,8 +95,6 @@ function placeMarkerAndZoom(coordinates, addressText) {
     // Vis adresse og links under kortet
     document.getElementById('address').innerHTML = `
         Valgt adresse: ${addressText}
-        <br>
-        <a href="https://kort.krak.dk/?q=${lat},${lon}" target="_blank">Åbn i Krak</a>
         <br>
         <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
     `;
