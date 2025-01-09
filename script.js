@@ -44,7 +44,7 @@ document.getElementById('search').addEventListener('input', function () {
         return;
     }
 
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+    fetch(`https://api.dataforsyningen.dk/adresser/autocomplete?q=${query}`)
         .then(response => response.json())
         .then(data => {
             console.log('Søgeresultater:', data); // Debug-log
@@ -70,21 +70,32 @@ document.getElementById('search').addEventListener('input', function () {
                     li.style.backgroundColor = '#f9f9f9'; // Tilbage til standard farve
                 });
 
-                // Når en adresse vælges, placér markør og zoom til den valgte placering
+                // Når en adresse vælges, hent fulde adresseoplysninger og placér markør
                 li.addEventListener('click', function () {
                     console.log('Valgt adresse:', item); // Debug-log
 
                     document.querySelectorAll('#results li').forEach(item => item.style.backgroundColor = '#f9f9f9'); // Fjern tidligere fremhævning
                     li.style.backgroundColor = '#c8e6c9'; // Grøn baggrund for valgt adresse
 
-                    if (item.adgangsadresse && item.adgangsadresse.adgangspunkt && item.adgangsadresse.adgangspunkt.koordinater) {
-                        var coordinates = item.adgangsadresse.adgangspunkt.koordinater;
-                        console.log('Koordinater for valgt adresse:', coordinates); // Debug-log
-                        placeMarkerAndZoom(coordinates, item.tekst);
-                    } else {
-                        console.error('Koordinater ikke fundet for valgt adresse:', item); // Fejlmeddelelse
-                        alert('Kunne ikke finde koordinater for den valgte adresse.');
-                    }
+                    // Hent fulde adresseoplysninger baseret på ID
+                    var adresseId = item.adresse.id;
+                    fetch(`https://api.dataforsyningen.dk/adresser/${adresseId}?struktur=flad`)
+                        .then(response => response.json())
+                        .then(adresseData => {
+                            console.log('Fulde adresseoplysninger:', adresseData); // Debug-log
+
+                            if (adresseData.x && adresseData.y) {
+                                var coordinates = [adresseData.x, adresseData.y];
+                                placeMarkerAndZoom(coordinates, item.tekst);
+                            } else {
+                                console.error('Koordinater ikke fundet for valgt adresse:', adresseData); // Fejlmeddelelse
+                                alert('Kunne ikke finde koordinater for den valgte adresse.');
+                            }
+                        })
+                        .catch(err => {
+                            console.error('Fejl ved hentning af fulde adresseoplysninger:', err);
+                            alert('Der opstod en fejl ved hentning af adresseoplysninger.');
+                        });
 
                     resultsList.innerHTML = ''; // Ryd søgeresultater
                     document.getElementById('search').value = ''; // Ryd søgefelt
@@ -110,28 +121,6 @@ function placeMarkerAndZoom(coordinates, addressText) {
     }
 
     // Tilføj ny markør
-    currentMarker = L.marker([lat, lon]).addTo(map);
-
-    // Zoom og centrér kortet til den valgte adresse
-    map.setView([lat, lon], 16); // Zoom-niveau 16 giver et tæt zoom på adressen
-
-    // Vis adresse og links under kortet
-    document.getElementById('address').innerHTML = `
-        Valgt adresse: ${addressText}
-        <br>
-        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
-    `;
-}
-
-// Håndter "Ryd"-knap
-document.getElementById('clearSearch').addEventListener('click', function () {
-    document.getElementById('search').value = ''; // Ryd søgefelt
-    document.getElementById('results').innerHTML = ''; // Ryd søgeresultater
-    document.getElementById('address').innerText = 'Klik på kortet eller vælg en adresse fra listen'; // Reset adressefeltet
-
-    // Fjern markør fra kortet
-    if (currentMarker) {
-        map.removeLayer(currentMarker);
-        currentMarker = null; // Nulstil markøren
-    }
-});
+    currentMarker
+::contentReference[oaicite:0]{index=0}
+ 
