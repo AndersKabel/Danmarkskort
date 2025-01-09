@@ -99,6 +99,9 @@ document.getElementById('findKryds').addEventListener('click', function () {
         fetch(`https://api.dataforsyningen.dk/adgangsadresser?vejnavn=${encodeURIComponent(vej1)}`).then(res => res.json()),
         fetch(`https://api.dataforsyningen.dk/adgangsadresser?vejnavn=${encodeURIComponent(vej2)}`).then(res => res.json())
     ]).then(([vej1Adresser, vej2Adresser]) => {
+        console.log('Adresser for vej 1:', vej1Adresser);
+        console.log('Adresser for vej 2:', vej2Adresser);
+
         var kryds = findIntersection(vej1Adresser, vej2Adresser);
 
         if (kryds) {
@@ -113,72 +116,23 @@ document.getElementById('findKryds').addEventListener('click', function () {
 
 // Funktion til at finde krydsningspunkt
 function findIntersection(vej1Adresser, vej2Adresser) {
-    const threshold = 0.001; // Øget tærskelværdi for nærhed (ca. 100 meter)
+    const threshold = 0.002; // Justeret tærskel for at tillade større afvigelser
 
     for (let adr1 of vej1Adresser) {
         for (let adr2 of vej2Adresser) {
             const distance = calculateDistance(adr1.adgangspunkt.koordinater, adr2.adgangspunkt.koordinater);
 
-            console.log(`Sammenligner: ${adr1.adgangsadresse.vejnavn} (${adr1.adgangspunkt.koordinater}) med ${adr2.adgangsadresse.vejnavn} (${adr2.adgangspunkt.koordinater}), Afstand: ${distance} meter`);
+            console.log(`Sammenligner ${adr1.adgangsadresse.vejnavn} (${adr1.adgangspunkt.koordinater}) med ${adr2.adgangsadresse.vejnavn} (${adr2.adgangspunkt.koordinater}) | Afstand: ${distance} meter`);
 
             if (distance < threshold) {
-                console.log("Kryds fundet ved:", adr1.adgangspunkt.koordinater);
-                return adr1.adgangspunkt.koordinater; // Returnér koordinater for kryds
+                console.log('Kryds fundet ved:', adr1.adgangspunkt.koordinater);
+                return adr1.adgangspunkt.koordinater;
             }
         }
     }
 
-    console.warn("Ingen kryds fundet mellem de to veje.");
-    return null; // Ingen kryds fundet
+    console.warn('Ingen kryds fundet mellem de to veje.');
+    return null;
 }
 
-// Funktion til at beregne afstand mellem to punkter (Haversine-formel)
-function calculateDistance(coord1, coord2) {
-    const [lon1, lat1] = coord1;
-    const [lon2, lat2] = coord2;
-
-    const R = 6371e3; // Jordens radius i meter
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    const distance = R * c; // Afstand i meter
-    return distance;
-}
-
-// Funktion til at placere markør og zoome
-function placeMarkerAndZoom(coordinates, addressText) {
-    var lon = coordinates[0];
-    var lat = coordinates[1];
-
-    if (currentMarker) {
-        map.removeLayer(currentMarker);
-    }
-
-    currentMarker = L.marker([lat, lon]).addTo(map);
-    map.setView([lat, lon], 16);
-
-    document.getElementById('address').innerHTML = `
-        Valgt adresse: ${addressText}
-        <br>
-        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
-    `;
-}
-
-// Håndter "Ryd"-knap
-document.getElementById('clearSearch').addEventListener('click', function () {
-    document.getElementById('search').value = '';
-    document.getElementById('results').innerHTML = '';
-    document.getElementById('address').innerText = 'Klik på kortet eller vælg en adresse fra listen';
-
-    if (currentMarker) {
-        map.removeLayer(currentMarker);
-        currentMarker = null;
-    }
-});
+// Funktion til at beregn
