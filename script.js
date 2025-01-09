@@ -97,27 +97,3 @@ document.getElementById('clearSearch').addEventListener('click', function () {
         currentMarker = null;
     }
 });
-
-// Håndter krydsning
-document.getElementById('findIntersection').addEventListener('click', function () {
-    var vej1 = document.getElementById('vej1').value.trim();
-    var vej2 = document.getElementById('vej2').value.trim();
-
-    if (vej1 && vej2) {
-        fetch(`https://api.dataforsyningen.dk/kryds?vejnavn1=${vej1}&vejnavn2=${vej2}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.length > 0) {
-                    var kryds = data[0];
-                    var [lon, lat] = kryds.koordinater;
-
-                    placeMarkerAndZoom([lon, lat], `${vej1} & ${vej2}`);
-                } else {
-                    alert('Ingen kryds fundet mellem de to veje.');
-                }
-            })
-            .catch(err => console.error('Fejl ved hentning af kryds:', err));
-    } else {
-        alert('Indtast begge vejnavne for at finde et kryds.');
-    }
-});
