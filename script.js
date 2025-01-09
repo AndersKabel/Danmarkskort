@@ -58,7 +58,7 @@ document.getElementById('search').addEventListener('input', function() {
                 li.addEventListener('click', function() {
                     document.querySelectorAll('#results li').forEach(item => item.classList.remove('highlight'));
                     li.classList.add('highlight');
-                    placeMarkerAndZoom(item);
+                    placeMarkerAndZoom(item.adgangsadresse.adgangspunkt.koordinater, item.tekst);
                     resultsList.innerHTML = ''; // Ryd søgeresultater
                     document.getElementById('search').value = ''; // Ryd søgefelt
                 });
@@ -68,17 +68,16 @@ document.getElementById('search').addEventListener('input', function() {
 
             // Hvis kun ét resultat, vælg det automatisk
             if (data.length === 1) {
-                placeMarkerAndZoom(data[0]);
+                placeMarkerAndZoom(data[0].adgangsadresse.adgangspunkt.koordinater, data[0].tekst);
             }
         })
         .catch(err => console.error('Fejl ved søgning:', err));
 });
 
 // Funktion til at placere markør og zoome til adresse
-function placeMarkerAndZoom(item) {
-    var address = item.adgangsadresse.adgangspunkt.koordinater;
-    var lon = address[0];
-    var lat = address[1];
+function placeMarkerAndZoom(coordinates, addressText) {
+    var lon = coordinates[0];
+    var lat = coordinates[1];
 
     // Fjern tidligere markør
     if (currentMarker) {
@@ -93,7 +92,7 @@ function placeMarkerAndZoom(item) {
 
     // Vis adresse i adressefeltet
     document.getElementById('address').innerHTML = `
-        Valgt adresse: ${item.tekst}
+        Valgt adresse: ${addressText}
     `;
 }
 
@@ -109,3 +108,4 @@ document.getElementById('clearSearch').addEventListener('click', function() {
         currentMarker = null; // Nulstil markøren
     }
 });
+
