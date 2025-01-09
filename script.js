@@ -102,4 +102,10 @@ document.getElementById('clearSearch').addEventListener('click', function() {
     document.getElementById('search').value = ''; // Ryd søgefelt
     document.getElementById('results').innerHTML = ''; // Ryd søgeresultater
     document.getElementById('address').innerText = 'Klik på kortet eller vælg en adresse fra listen'; // Reset adressefeltet
+
+    // Fjern markør fra kortet
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+        currentMarker = null; // Nulstil markøren
+    }
 });
