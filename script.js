@@ -83,7 +83,7 @@ document.getElementById('clearSearch').addEventListener('click', function () {
     }
 });
 
-// Funktion til at finde kryds mellem vejsegmenter
+// Funktion til at finde og zoome til området, hvor to veje mødes
 document.getElementById('findIntersection').addEventListener('click', function () {
     var road1 = document.getElementById('road1').value.trim().toLowerCase();
     var road2 = document.getElementById('road2').value.trim().toLowerCase();
@@ -95,56 +95,13 @@ document.getElementById('findIntersection').addEventListener('click', function (
 
     // Hent vejsegmenter for begge veje
     Promise.all([
-        fetch(`https://api.dataforsyningen.dk/vejnavne?navn=${road1}`).then(res => res.json()),
-        fetch(`https://api.dataforsyningen.dk/vejnavne?navn=${road2}`).then(res => res.json())
+        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road1}`).then(res => res.json()),
+        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
     ])
     .then(([road1Segments, road2Segments]) => {
-        // Find nærmeste punkter mellem vejsegmenter
-        var intersection = findNearestIntersection(road1Segments, road2Segments);
-        if (intersection) {
-            var [lon, lat] = intersection;
-            placeMarkerAndZoom([lon, lat], `Kryds mellem ${road1} og ${road2}`);
-        } else {
-            alert('Ingen kryds fundet mellem de to veje.');
+        if (road1Segments.length === 0 || road2Segments.length === 0) {
+            alert('Ingen data fundet for et eller begge vejnavne.');
+            return;
         }
-    })
-    .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
-});
 
-// Hjælpefunktion til at finde nærmeste punkter mellem vejsegmenter
-function findNearestIntersection(road1Segments, road2Segments) {
-    let minDistance = Infinity;
-    let nearestPoint = null;
-
-    road1Segments.forEach(segment1 => {
-        road2Segments.forEach(segment2 => {
-            segment1.koordinater.forEach(coord1 => {
-                segment2.koordinater.forEach(coord2 => {
-                    var distance = calculateDistance(coord1[1], coord1[0], coord2[1], coord2[0]);
-                    if (distance < minDistance) {
-                        minDistance = distance;
-                        nearestPoint = coord1; // Gem nærmeste koordinat
-                    }
-                });
-            });
-        });
-    });
-
-    return minDistance <= 100 ? nearestPoint : null; // Returner kun hvis inden for radius
-}
-
-// Funktion til at beregne afstand mellem to koordinater (Haversine-formel)
-function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Jordens radius i meter
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // Afstand i meter
-}
+        // Beregn midtp
