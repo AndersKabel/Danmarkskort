@@ -104,4 +104,33 @@ document.getElementById('findIntersection').addEventListener('click', function (
             return;
         }
 
-        // Beregn midtp
+        // Beregn midtpunktet mellem de to veje
+        var midpoint = calculateMidpoint(road1Segments, road2Segments);
+        if (midpoint) {
+            map.setView(midpoint, 16); // Zoom til midtpunktet
+        } else {
+            alert('Ingen overlap fundet mellem de to veje.');
+        }
+    })
+    .catch(err => console.error('Fejl ved vejsegment-opslag:', err)); // Fang eventuelle fejl
+});
+
+// Funktion til at beregne midtpunktet mellem to vejsegmenter
+function calculateMidpoint(road1Segments, road2Segments) {
+    let allCoords1 = road1Segments.flatMap(segment => segment.geometri.coordinates);
+    let allCoords2 = road2Segments.flatMap(segment => segment.geometri.coordinates);
+
+    // Find gennemsnit af alle koordinater fra begge veje
+    let allCoords = [...allCoords1, ...allCoords2];
+    let totalLat = 0, totalLon = 0;
+
+    allCoords.forEach(coord => {
+        totalLon += coord[0]; // Longitude
+        totalLat += coord[1]; // Latitude
+    });
+
+    let avgLon = totalLon / allCoords.length;
+    let avgLat = totalLat / allCoords.length;
+
+    return [avgLat, avgLon];
+}
