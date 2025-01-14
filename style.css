@@ -18,7 +18,7 @@ body {
     background: #f9f9f9;
 }
 
-#search, #vej1, #vej2 {
+#search, #road1, #road2 {
     width: 300px;
     padding: 5px;
     border: 1px solid #ddd;
