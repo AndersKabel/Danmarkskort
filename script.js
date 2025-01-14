@@ -83,7 +83,7 @@ document.getElementById('clearSearch').addEventListener('click', function () {
     }
 });
 
-// Funktion til at finde kryds mellem to veje
+// Funktion til at finde kryds mellem vejsegmenter
 document.getElementById('findIntersection').addEventListener('click', function () {
     var road1 = document.getElementById('road1').value.trim().toLowerCase();
     var road2 = document.getElementById('road2').value.trim().toLowerCase();
@@ -93,19 +93,14 @@ document.getElementById('findIntersection').addEventListener('click', function (
         return;
     }
 
-    // Hent adresser for begge veje
+    // Hent vejsegmenter for begge veje
     Promise.all([
-        fetch(`https://api.dataforsyningen.dk/adresser?vejnavn=${road1}`).then(res => res.json()),
-        fetch(`https://api.dataforsyningen.dk/adresser?vejnavn=${road2}`).then(res => res.json())
+        fetch(`https://api.dataforsyningen.dk/vejnavne?navn=${road1}`).then(res => res.json()),
+        fetch(`https://api.dataforsyningen.dk/vejnavne?navn=${road2}`).then(res => res.json())
     ])
-    .then(([road1Data, road2Data]) => {
-        // Filtrér adresser med samme postnummer
-        var postnr = road1Data[0]?.postnr; // Brug første adresse for road1 til at bestemme postnummer
-        var filteredRoad1 = road1Data.filter(addr => addr.postnr === postnr);
-        var filteredRoad2 = road2Data.filter(addr => addr.postnr === postnr);
-
-        // Find kryds
-        var intersection = findIntersection(filteredRoad1, filteredRoad2);
+    .then(([road1Segments, road2Segments]) => {
+        // Find nærmeste punkter mellem vejsegmenter
+        var intersection = findNearestIntersection(road1Segments, road2Segments);
         if (intersection) {
             var [lon, lat] = intersection;
             placeMarkerAndZoom([lon, lat], `Kryds mellem ${road1} og ${road2}`);
@@ -113,28 +108,29 @@ document.getElementById('findIntersection').addEventListener('click', function (
             alert('Ingen kryds fundet mellem de to veje.');
         }
     })
-    .catch(err => console.error('Fejl ved vejnavneopslag:', err));
+    .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
 });
 
-// Hjælpefunktion til at finde kryds
-function findIntersection(road1Data, road2Data) {
-    const maxRadius = 1000; // Maksimumradius i meter
-    const step = 100; // Udvid radius i trin af 100 meter
+// Hjælpefunktion til at finde nærmeste punkter mellem vejsegmenter
+function findNearestIntersection(road1Segments, road2Segments) {
+    let minDistance = Infinity;
+    let nearestPoint = null;
 
-    for (let radius = 100; radius <= maxRadius; radius += step) {
-        for (var addr1 of road1Data) {
-            for (var addr2 of road2Data) {
-                var distance = calculateDistance(
-                    addr1.adgangspunkt.koordinater[1], addr1.adgangspunkt.koordinater[0],
-                    addr2.adgangspunkt.koordinater[1], addr2.adgangspunkt.koordinater[0]
-                );
-                if (distance <= radius) {
-                    return addr1.adgangspunkt.koordinater; // Returner koordinaterne for det første fundne kryds
-                }
-            }
-        }
-    }
-    return null; // Ingen kryds fundet
+    road1Segments.forEach(segment1 => {
+        road2Segments.forEach(segment2 => {
+            segment1.koordinater.forEach(coord1 => {
+                segment2.koordinater.forEach(coord2 => {
+                    var distance = calculateDistance(coord1[1], coord1[0], coord2[1], coord2[0]);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestPoint = coord1; // Gem nærmeste koordinat
+                    }
+                });
+            });
+        });
+    });
+
+    return minDistance <= 100 ? nearestPoint : null; // Returner kun hvis inden for radius
 }
 
 // Funktion til at beregne afstand mellem to koordinater (Haversine-formel)
