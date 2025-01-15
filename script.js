@@ -119,12 +119,12 @@ document.getElementById('findIntersection').addEventListener('click', function (
     .catch(err => console.error('Fejl ved vejsegment-opslag:', err)); // Fang eventuelle fejl
 });
 
-// Funktion til at beregne midtpunktet mellem to vejsegmenter med detaljeret logning
+// Funktion til at beregne midtpunktet mellem to vejsegmenter med øget tolerance
 function calculateMidpoint(road1Segments, road2Segments) {
     console.log('Road1 Segments:', road1Segments);
     console.log('Road2 Segments:', road2Segments);
 
-    // Forsøg på at finde koordinater
+    // Hent alle koordinater fra vejsegmenter
     let allCoords1 = road1Segments.flatMap(segment => {
         console.log('Road1 segment fuld struktur:', segment);
         return segment.geometri?.coordinates || segment.bbox || [];
@@ -142,7 +142,7 @@ function calculateMidpoint(road1Segments, road2Segments) {
         return null;
     }
 
-    const tolerance = 0.00005; // Tolerance for sammenligning af koordinater (~5 meter)
+    const tolerance = 0.0001; // Forøget tolerance (~10 meter)
 
     let closestPoints = [];
 
