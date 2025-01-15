@@ -6,6 +6,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 var currentMarker;
+var roadLayers = []; // Holder lag for visualiserede veje
 
 // Klik på kortet for at finde en adresse
 map.on('click', function (e) {
@@ -99,14 +100,23 @@ document.getElementById('findIntersection').addEventListener('click', function (
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
     ])
     .then(([road1Segments, road2Segments]) => {
-        // Log data for at tjekke strukturen
-        console.log('Road1 Segments:', road1Segments);
-        console.log('Road2 Segments:', road2Segments);
+        // Filtrer efter samme postnummer
+        const postnummer = road1Segments[0]?.postnummer?.nr;
+        road1Segments = road1Segments.filter(segment => segment.postnummer?.nr === postnummer);
+        road2Segments = road2Segments.filter(segment => segment.postnummer?.nr === postnummer);
+
+        // Log segmenter efter filtrering
+        console.log('Filtrerede Road1 Segments:', road1Segments);
+        console.log('Filtrerede Road2 Segments:', road2Segments);
 
         if (road1Segments.length === 0 || road2Segments.length === 0) {
-            alert('Ingen data fundet for et eller begge vejnavne.');
+            alert('Ingen segmenter fundet i samme postnummer.');
             return;
         }
+
+        // Visualiser vejsegmenter
+        visualizeRoads(road1Segments, 'blue');
+        visualizeRoads(road2Segments, 'red');
 
         // Beregn midtpunktet mellem de to veje
         var midpoint = calculateMidpoint(road1Segments, road2Segments);
@@ -116,8 +126,23 @@ document.getElementById('findIntersection').addEventListener('click', function (
             alert('Ingen overlap fundet mellem de to veje.');
         }
     })
-    .catch(err => console.error('Fejl ved vejsegment-opslag:', err)); // Fang eventuelle fejl
+    .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
 });
+
+// Funktion til at visualisere vejsegmenter
+function visualizeRoads(segments, color) {
+    // Fjern tidligere visualiseringer
+    roadLayers.forEach(layer => map.removeLayer(layer));
+    roadLayers = [];
+
+    segments.forEach(segment => {
+        if (segment.geometri?.coordinates) {
+            var coords = segment.geometri.coordinates.map(coord => [coord[1], coord[0]]);
+            var polyline = L.polyline(coords, { color: color }).addTo(map);
+            roadLayers.push(polyline);
+        }
+    });
+}
 
 // Funktion til at beregne midtpunktet mellem to vejsegmenter med øget tolerance
 function calculateMidpoint(road1Segments, road2Segments) {
@@ -125,14 +150,8 @@ function calculateMidpoint(road1Segments, road2Segments) {
     console.log('Road2 Segments:', road2Segments);
 
     // Hent alle koordinater fra vejsegmenter
-    let allCoords1 = road1Segments.flatMap(segment => {
-        console.log('Road1 segment fuld struktur:', segment);
-        return segment.geometri?.coordinates || segment.bbox || [];
-    });
-    let allCoords2 = road2Segments.flatMap(segment => {
-        console.log('Road2 segment fuld struktur:', segment);
-        return segment.geometri?.coordinates || segment.bbox || [];
-    });
+    let allCoords1 = road1Segments.flatMap(segment => segment.geometri?.coordinates || []);
+    let allCoords2 = road2Segments.flatMap(segment => segment.geometri?.coordinates || []);
 
     console.log('All Coords Road1:', allCoords1);
     console.log('All Coords Road2:', allCoords2);
@@ -159,7 +178,6 @@ function calculateMidpoint(road1Segments, road2Segments) {
     });
 
     if (closestPoints.length > 0) {
-        // Beregn midtpunktet for det første fundne punktpar
         let [closestPoint1, closestPoint2] = closestPoints[0];
         let midpointLon = (closestPoint1[0] + closestPoint2[0]) / 2;
         let midpointLat = (closestPoint1[1] + closestPoint2[1]) / 2;
