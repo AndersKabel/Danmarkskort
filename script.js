@@ -6,7 +6,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 var currentMarker;
-var roadLayers = []; // Holder lag for visualiserede veje
 
 // Klik på kortet for at finde en adresse
 map.on('click', function (e) {
@@ -84,57 +83,5 @@ document.getElementById('clearSearch').addEventListener('click', function () {
     }
 });
 
-// Funktion til at finde og farve veje
-document.getElementById('findIntersection').addEventListener('click', function () {
-    var road1 = document.getElementById('road1').value.trim().toLowerCase();
-    var road2 = document.getElementById('road2').value.trim().toLowerCase();
 
-    if (road1.length < 2 || road2.length < 2) {
-        alert('Indtast mindst 2 bogstaver for begge veje.');
-        return;
-    }
 
-    // Hent vejsegmenter for begge veje
-    Promise.all([
-        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road1}`).then(res => res.json()),
-        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
-    ])
-    .then(([road1Segments, road2Segments]) => {
-        console.log('Road1 Segments:', road1Segments);
-        console.log('Road2 Segments:', road2Segments);
-
-        // Find fælles kommuner
-        const road1Kommuner = [...new Set(road1Segments.map(seg => seg.kommune?.kode))];
-        const road2Kommuner = [...new Set(road2Segments.map(seg => seg.kommune?.kode))];
-        const fællesKommuner = road1Kommuner.filter(kode => road2Kommuner.includes(kode));
-        console.log('Fælles Kommuner:', fællesKommuner);
-
-        if (fællesKommuner.length === 0) {
-            alert('Ingen fælles kommuner fundet.');
-            return;
-        }
-
-        // Filtrer segmenter baseret på fælles kommuner
-        road1Segments = road1Segments.filter(seg => fællesKommuner.includes(seg.kommune?.kode));
-        road2Segments = road2Segments.filter(seg => fællesKommuner.includes(seg.kommune?.kode));
-
-        // Visualiser vejene
-        visualizeRoads(road1Segments, 'blue');
-        visualizeRoads(road2Segments, 'blue');
-    })
-    .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
-});
-
-// Funktion til at visualisere vejsegmenter
-function visualizeRoads(segments, color) {
-    roadLayers.forEach(layer => map.removeLayer(layer));
-    roadLayers = [];
-
-    segments.forEach(segment => {
-        if (segment.geometri?.coordinates) {
-            var coords = segment.geometri.coordinates.map(coord => [coord[1], coord[0]]);
-            var polyline = L.polyline(coords, { color: color }).addTo(map);
-            roadLayers.push(polyline);
-        }
-    });
-}
