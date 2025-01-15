@@ -5,7 +5,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-var roadLayerGroup = L.layerGroup().addTo(map); // Til vejesegmenter
 var currentMarker;
 
 // Klik på kortet for at finde en adresse
@@ -84,7 +83,7 @@ document.getElementById('clearSearch').addEventListener('click', function () {
     }
 });
 
-// Find kryds-knap
+// Funktion til at finde og zoome til området, hvor to veje mødes
 document.getElementById('findIntersection').addEventListener('click', function () {
     var road1 = document.getElementById('road1').value.trim().toLowerCase();
     var road2 = document.getElementById('road2').value.trim().toLowerCase();
@@ -100,7 +99,47 @@ document.getElementById('findIntersection').addEventListener('click', function (
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
     ])
     .then(([road1Segments, road2Segments]) => {
+        // Log data for at tjekke strukturen
         console.log('Road1 Segments:', road1Segments);
         console.log('Road2 Segments:', road2Segments);
 
-        let commonMunicipalities = road1Segments.map(r => r.kommune.n
+        if (road1Segments.length === 0 || road2Segments.length === 0) {
+            alert('Ingen data fundet for et eller begge vejnavne.');
+            return;
+        }
+
+        // Beregn midtpunktet mellem de to veje
+        var midpoint = calculateMidpoint(road1Segments, road2Segments);
+        if (midpoint) {
+            map.setView(midpoint, 16); // Zoom til midtpunktet
+        } else {
+            alert('Ingen overlap fundet mellem de to veje.');
+        }
+    })
+    .catch(err => console.error('Fejl ved vejsegment-opslag:', err)); // Fang eventuelle fejl
+});
+
+// Funktion til at beregne midtpunktet mellem to vejsegmenter
+function calculateMidpoint(road1Segments, road2Segments) {
+    let allCoords1 = road1Segments.flatMap(segment => segment.geometri?.coordinates || []);
+    let allCoords2 = road2Segments.flatMap(segment => segment.geometri?.coordinates || []);
+
+    // Find gennemsnit af alle koordinater fra begge veje
+    let allCoords = [...allCoords1, ...allCoords2];
+    if (allCoords.length === 0) {
+        console.error('Ingen koordinater fundet.');
+        return null;
+    }
+
+    let totalLat = 0, totalLon = 0;
+
+    allCoords.forEach(coord => {
+        totalLon += coord[0]; // Longitude
+        totalLat += coord[1]; // Latitude
+    });
+
+    let avgLon = totalLon / allCoords.length;
+    let avgLat = totalLat / allCoords.length;
+
+    return [avgLat, avgLon];
+}
