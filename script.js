@@ -99,6 +99,10 @@ document.getElementById('findIntersection').addEventListener('click', function (
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
     ])
     .then(([road1Segments, road2Segments]) => {
+        // Log data for at tjekke strukturen
+        console.log('Road1 Segments:', road1Segments);
+        console.log('Road2 Segments:', road2Segments);
+
         if (road1Segments.length === 0 || road2Segments.length === 0) {
             alert('Ingen data fundet for et eller begge vejnavne.');
             return;
@@ -117,11 +121,16 @@ document.getElementById('findIntersection').addEventListener('click', function (
 
 // Funktion til at beregne midtpunktet mellem to vejsegmenter
 function calculateMidpoint(road1Segments, road2Segments) {
-    let allCoords1 = road1Segments.flatMap(segment => segment.geometri.coordinates);
-    let allCoords2 = road2Segments.flatMap(segment => segment.geometri.coordinates);
+    let allCoords1 = road1Segments.flatMap(segment => segment.geometri?.coordinates || []);
+    let allCoords2 = road2Segments.flatMap(segment => segment.geometri?.coordinates || []);
 
     // Find gennemsnit af alle koordinater fra begge veje
     let allCoords = [...allCoords1, ...allCoords2];
+    if (allCoords.length === 0) {
+        console.error('Ingen koordinater fundet.');
+        return null;
+    }
+
     let totalLat = 0, totalLon = 0;
 
     allCoords.forEach(coord => {
