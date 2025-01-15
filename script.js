@@ -121,8 +121,21 @@ document.getElementById('findIntersection').addEventListener('click', function (
 
 // Funktion til at beregne midtpunktet mellem to vejsegmenter med tolerance
 function calculateMidpoint(road1Segments, road2Segments) {
-    let allCoords1 = road1Segments.flatMap(segment => segment.geometri?.coordinates || []);
-    let allCoords2 = road2Segments.flatMap(segment => segment.geometri?.coordinates || []);
+    console.log('Road1 Segments:', road1Segments);
+    console.log('Road2 Segments:', road2Segments);
+
+    // Hent alle koordinater fra vejsegmenter
+    let allCoords1 = road1Segments.flatMap(segment => {
+        console.log('Road1 segment:', segment);
+        return segment.geometri?.coordinates || [];
+    });
+    let allCoords2 = road2Segments.flatMap(segment => {
+        console.log('Road2 segment:', segment);
+        return segment.geometri?.coordinates || [];
+    });
+
+    console.log('All Coords Road1:', allCoords1);
+    console.log('All Coords Road2:', allCoords2);
 
     if (allCoords1.length === 0 || allCoords2.length === 0) {
         console.error('Ingen koordinater fundet.');
@@ -140,6 +153,7 @@ function calculateMidpoint(road1Segments, road2Segments) {
 
             if (latDiff < tolerance && lonDiff < tolerance) {
                 closestPoints.push([coord1, coord2]);
+                console.log('Match fundet:', coord1, coord2);
             }
         });
     });
@@ -152,21 +166,6 @@ function calculateMidpoint(road1Segments, road2Segments) {
         return [midpointLat, midpointLon];
     }
 
+    console.log('Ingen nærliggende punkter fundet.');
     return null; // Ingen nærliggende punkter fundet
-}
-
-// Funktion til at beregne afstanden mellem to punkter (Haversine-formel)
-function getDistance(coord1, coord2) {
-    const R = 6371e3; // Jordens radius i meter
-    const lat1 = coord1[1] * Math.PI / 180;
-    const lat2 = coord2[1] * Math.PI / 180;
-    const deltaLat = (coord2[1] - coord1[1]) * Math.PI / 180;
-    const deltaLon = (coord2[0] - coord1[0]) * Math.PI / 180;
-
-    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-              Math.cos(lat1) * Math.cos(lat2) *
-              Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // Afstand i meter
 }
