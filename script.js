@@ -100,17 +100,32 @@ document.getElementById('findIntersection').addEventListener('click', function (
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
     ])
     .then(([road1Segments, road2Segments]) => {
-        // Filtrer efter samme postnummer
-        const postnummer = road1Segments[0]?.postnummer?.nr;
-        road1Segments = road1Segments.filter(segment => segment.postnummer?.nr === postnummer);
-        road2Segments = road2Segments.filter(segment => segment.postnummer?.nr === postnummer);
+        console.log('Original Road1 Segments:', road1Segments);
+        console.log('Original Road2 Segments:', road2Segments);
 
-        // Log segmenter efter filtrering
+        // Find et fælles postnummer
+        const road1Postnumre = [...new Set(road1Segments.map(seg => seg.postnummer?.nr))];
+        const road2Postnumre = [...new Set(road2Segments.map(seg => seg.postnummer?.nr))];
+        console.log('Road1 Postnumre:', road1Postnumre);
+        console.log('Road2 Postnumre:', road2Postnumre);
+
+        const fællesPostnumre = road1Postnumre.filter(nr => road2Postnumre.includes(nr));
+        console.log('Fælles Postnumre:', fællesPostnumre);
+
+        if (fællesPostnumre.length === 0) {
+            alert('Ingen fælles postnumre fundet.');
+            return;
+        }
+
+        // Filtrer segmenter baseret på fælles postnumre
+        road1Segments = road1Segments.filter(seg => fællesPostnumre.includes(seg.postnummer?.nr));
+        road2Segments = road2Segments.filter(seg => fællesPostnumre.includes(seg.postnummer?.nr));
+
         console.log('Filtrerede Road1 Segments:', road1Segments);
         console.log('Filtrerede Road2 Segments:', road2Segments);
 
         if (road1Segments.length === 0 || road2Segments.length === 0) {
-            alert('Ingen segmenter fundet i samme postnummer.');
+            alert('Ingen segmenter fundet i fælles postnumre.');
             return;
         }
 
