@@ -119,18 +119,18 @@ document.getElementById('findIntersection').addEventListener('click', function (
     .catch(err => console.error('Fejl ved vejsegment-opslag:', err)); // Fang eventuelle fejl
 });
 
-// Funktion til at beregne midtpunktet mellem to vejsegmenter med tolerance
+// Funktion til at beregne midtpunktet mellem to vejsegmenter med detaljeret logning
 function calculateMidpoint(road1Segments, road2Segments) {
     console.log('Road1 Segments:', road1Segments);
     console.log('Road2 Segments:', road2Segments);
 
-    // Hent alle koordinater fra vejsegmenter
+    // Forsøg på at finde koordinater
     let allCoords1 = road1Segments.flatMap(segment => {
-        console.log('Road1 segment:', segment);
+        console.log('Road1 segment fuld struktur:', segment);
         return segment.geometri?.coordinates || segment.bbox || [];
     });
     let allCoords2 = road2Segments.flatMap(segment => {
-        console.log('Road2 segment:', segment);
+        console.log('Road2 segment fuld struktur:', segment);
         return segment.geometri?.coordinates || segment.bbox || [];
     });
 
@@ -138,4 +138,34 @@ function calculateMidpoint(road1Segments, road2Segments) {
     console.log('All Coords Road2:', allCoords2);
 
     if (allCoords1.length === 0 || allCoords2.length === 0) {
-        console
+        console.error('Ingen koordinater fundet.');
+        return null;
+    }
+
+    const tolerance = 0.00005; // Tolerance for sammenligning af koordinater (~5 meter)
+
+    let closestPoints = [];
+
+    allCoords1.forEach(coord1 => {
+        allCoords2.forEach(coord2 => {
+            let latDiff = Math.abs(coord1[1] - coord2[1]);
+            let lonDiff = Math.abs(coord1[0] - coord2[0]);
+
+            if (latDiff < tolerance && lonDiff < tolerance) {
+                closestPoints.push([coord1, coord2]);
+                console.log('Match fundet:', coord1, coord2);
+            }
+        });
+    });
+
+    if (closestPoints.length > 0) {
+        // Beregn midtpunktet for det første fundne punktpar
+        let [closestPoint1, closestPoint2] = closestPoints[0];
+        let midpointLon = (closestPoint1[0] + closestPoint2[0]) / 2;
+        let midpointLat = (closestPoint1[1] + closestPoint2[1]) / 2;
+        return [midpointLat, midpointLon];
+    }
+
+    console.log('Ingen nærliggende punkter fundet.');
+    return null; // Ingen nærliggende punkter fundet
+}
