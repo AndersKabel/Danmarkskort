@@ -6,7 +6,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 var currentMarker;
-var roadLayers = []; // Holder styr på visualiserede veje
 
 // Klik på kortet for at finde en adresse
 map.on('click', function (e) {
@@ -84,18 +83,8 @@ document.getElementById('clearSearch').addEventListener('click', function () {
     }
 });
 
-// Funktion til at finde og visualisere veje
-document.getElementById('findIntersection').addEventListener('click', function () {
-    var road1 = document.getElementById('road1').value.trim().toLowerCase();
-    var road2 = document.getElementById('road2').value.trim().toLowerCase();
-
-    console.log(`Søger efter veje: ${road1} ${road2}`);
-
-    if (road1.length < 2 || road2.length < 2) {
-        alert('Indtast mindst 2 bogstaver for begge veje.');
-        return;
-    }
-
+// Funktion til at finde og farve to veje
+function findAndHighlightRoads(road1, road2) {
     Promise.all([
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road1}`).then(res => res.json()),
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
@@ -104,36 +93,49 @@ document.getElementById('findIntersection').addEventListener('click', function (
         console.log('Road1 Segments:', road1Segments);
         console.log('Road2 Segments:', road2Segments);
 
-        var road1Kommuner = [...new Set(road1Segments.map(seg => seg.kommune.navn))];
-        var road2Kommuner = [...new Set(road2Segments.map(seg => seg.kommune.navn))];
-        var fællesKommuner = road1Kommuner.filter(kommune => road2Kommuner.includes(kommune));
+        // Filtrer segmenter, der deler samme kommune
+        const road1Kommuner = new Set(road1Segments.map(seg => seg.kommune.navn));
+        const road2Kommuner = new Set(road2Segments.map(seg => seg.kommune.navn));
+        const faellesKommuner = [...road1Kommuner].filter(kommune => road2Kommuner.has(kommune));
 
-        console.log('Fælles Kommuner:', fællesKommuner);
+        console.log('Fælles Kommuner:', faellesKommuner);
 
-        var filtreredeRoad1 = road1Segments.filter(seg => fællesKommuner.includes(seg.kommune.navn));
-        var filtreredeRoad2 = road2Segments.filter(seg => fællesKommuner.includes(seg.kommune.navn));
-
-        console.log('Filtrerede Road1 Segments:', filtreredeRoad1);
-        console.log('Filtrerede Road2 Segments:', filtreredeRoad2);
-
-        visualizeRoads(filtreredeRoad1, 'blue');
-        visualizeRoads(filtreredeRoad2, 'red');
-    })
-    .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
-});
-
-// Funktion til at visualisere veje
-function visualizeRoads(segments, color) {
-    roadLayers.forEach(layer => map.removeLayer(layer)); // Fjern tidligere lag
-    roadLayers = [];
-
-    segments.forEach(segment => {
-        if (segment.geometri && segment.geometri.coordinates) {
-            var coords = segment.geometri.coordinates.map(coord => [coord[1], coord[0]]);
-            var polyline = L.polyline(coords, { color: color, weight: 5 }).addTo(map); // Gør linjen tydeligere
-            roadLayers.push(polyline);
-        } else {
-            console.warn('Segment har ingen koordinater:', segment);
+        if (faellesKommuner.length === 0) {
+            alert('Ingen fælles kommune fundet mellem de to veje.');
+            return;
         }
-    });
+
+        // Filtrer segmenter tilhørende fælles kommune(r)
+        const filteredRoad1Segments = road1Segments.filter(seg => faellesKommuner.includes(seg.kommune.navn));
+        const filteredRoad2Segments = road2Segments.filter(seg => faellesKommuner.includes(seg.kommune.navn));
+
+        console.log('Filtrerede Road1 Segments:', filteredRoad1Segments);
+        console.log('Filtrerede Road2 Segments:', filteredRoad2Segments);
+
+        // Tegn vejene på kortet
+        filteredRoad1Segments.forEach(seg => {
+            L.geoJSON(seg.geometri, { color: 'blue' }).addTo(map);
+        });
+
+        filteredRoad2Segments.forEach(seg => {
+            L.geoJSON(seg.geometri, { color: 'blue' }).addTo(map);
+        });
+
+        alert('Vejene er blevet farvet blå i de fælles kommuner.');
+    })
+    .catch(err => console.error('Fejl ved hentning af vejdata:', err));
 }
+
+// Tilføj event listener til knappen
+const findIntersectionButton = document.getElementById('findIntersection');
+findIntersectionButton.addEventListener('click', function () {
+    const road1 = document.getElementById('road1').value.trim().toLowerCase();
+    const road2 = document.getElementById('road2').value.trim().toLowerCase();
+
+    if (road1.length < 2 || road2.length < 2) {
+        alert('Indtast mindst 2 bogstaver for begge veje.');
+        return;
+    }
+
+    findAndHighlightRoads(road1, road2);
+});
