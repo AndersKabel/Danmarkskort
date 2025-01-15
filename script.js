@@ -5,6 +5,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
+var roadLayerGroup = L.layerGroup().addTo(map); // Til vejesegmenter
 var currentMarker;
 
 // Klik på kortet for at finde en adresse
@@ -24,7 +25,7 @@ map.on('click', function (e) {
             document.getElementById('address').innerHTML = `
                 Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
                 <br>
-                <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
+                <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">\u00c5bn i Google Street View</a>
             `;
         })
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
@@ -69,7 +70,7 @@ function placeMarkerAndZoom([lon, lat], addressText) {
     document.getElementById('address').innerHTML = `
         Valgt adresse: ${addressText}
         <br>
-        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
+        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">\u00c5bn i Google Street View</a>
     `;
 }
 
@@ -83,7 +84,7 @@ document.getElementById('clearSearch').addEventListener('click', function () {
     }
 });
 
-// Funktion til at finde og zoome til området, hvor to veje mødes
+// Find kryds-knap
 document.getElementById('findIntersection').addEventListener('click', function () {
     var road1 = document.getElementById('road1').value.trim().toLowerCase();
     var road2 = document.getElementById('road2').value.trim().toLowerCase();
@@ -99,32 +100,61 @@ document.getElementById('findIntersection').addEventListener('click', function (
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
     ])
     .then(([road1Segments, road2Segments]) => {
-        // Log data for at tjekke strukturen
         console.log('Road1 Segments:', road1Segments);
         console.log('Road2 Segments:', road2Segments);
 
-        if (road1Segments.length === 0 || road2Segments.length === 0) {
-            alert('Ingen data fundet for et eller begge vejnavne.');
+        let commonMunicipalities = road1Segments.map(r => r.kommune.navn)
+            .filter(value => road2Segments.map(r => r.kommune.navn).includes(value));
+        
+        console.log('Fælles Kommuner:', commonMunicipalities);
+
+        if (commonMunicipalities.length === 0) {
+            alert('Ingen fælles kommuner fundet.');
             return;
         }
 
-        // Beregn midtpunktet mellem de to veje
-        var midpoint = calculateMidpoint(road1Segments, road2Segments);
+        let filteredRoad1 = road1Segments.filter(r => commonMunicipalities.includes(r.kommune.navn));
+        let filteredRoad2 = road2Segments.filter(r => commonMunicipalities.includes(r.kommune.navn));
+
+        console.log('Filtrerede Road1 Segments:', filteredRoad1);
+        console.log('Filtrerede Road2 Segments:', filteredRoad2);
+
+        drawRoadSegments(filteredRoad1, roadLayerGroup, 'blue');
+        drawRoadSegments(filteredRoad2, roadLayerGroup, 'red');
+
+        let midpoint = calculateMidpoint(filteredRoad1, filteredRoad2);
         if (midpoint) {
-            map.setView(midpoint, 16); // Zoom til midtpunktet
+            map.setView(midpoint, 14);
+            alert('Veje er blevet farvet og zoomet ind.');
         } else {
             alert('Ingen overlap fundet mellem de to veje.');
         }
     })
-    .catch(err => console.error('Fejl ved vejsegment-opslag:', err)); // Fang eventuelle fejl
+    .catch(err => {
+        console.error('Fejl under behandlingen:', err);
+        alert('Der opstod en fejl under behandlingen. Tjek konsollen for detaljer.');
+    });
 });
+
+// Funktion til at tegne vejsegmenter
+function drawRoadSegments(roadSegments, layerGroup, color) {
+    layerGroup.clearLayers(); // Ryd tidligere lag
+
+    roadSegments.forEach(segment => {
+        if (segment.geometri && segment.geometri.coordinates) {
+            const coordinates = segment.geometri.coordinates.map(coord => [coord[1], coord[0]]); // Vend lat/lon
+            L.polyline(coordinates, { color: color, weight: 4 }).addTo(layerGroup);
+        } else {
+            console.warn('Segmentet mangler gyldige koordinater:', segment);
+        }
+    });
+}
 
 // Funktion til at beregne midtpunktet mellem to vejsegmenter
 function calculateMidpoint(road1Segments, road2Segments) {
     let allCoords1 = road1Segments.flatMap(segment => segment.geometri?.coordinates || []);
     let allCoords2 = road2Segments.flatMap(segment => segment.geometri?.coordinates || []);
 
-    // Find gennemsnit af alle koordinater fra begge veje
     let allCoords = [...allCoords1, ...allCoords2];
     if (allCoords.length === 0) {
         console.error('Ingen koordinater fundet.');
