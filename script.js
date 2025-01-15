@@ -55,7 +55,8 @@ document.getElementById('search').addEventListener('input', function () {
                 });
                 results.appendChild(li);
             });
-        });
+        })
+        .catch(err => console.error('Fejl ved søgefunktion:', err));
 });
 
 // Funktion til placering af markør
@@ -94,6 +95,8 @@ document.getElementById('findIntersection').addEventListener('click', function (
         return;
     }
 
+    console.log('Søger efter veje:', road1, road2);
+
     // Hent vejsegmenter for begge veje
     Promise.all([
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road1}`).then(res => res.json()),
@@ -102,6 +105,11 @@ document.getElementById('findIntersection').addEventListener('click', function (
     .then(([road1Segments, road2Segments]) => {
         console.log('Road1 Segments:', road1Segments);
         console.log('Road2 Segments:', road2Segments);
+
+        if (road1Segments.length === 0 || road2Segments.length === 0) {
+            alert('Ingen data fundet for et eller begge vejnavne.');
+            return;
+        }
 
         // Find fælles kommuner
         const road1Kommuner = [...new Set(road1Segments.map(seg => seg.kommune?.kode))];
@@ -123,7 +131,7 @@ document.getElementById('findIntersection').addEventListener('click', function (
 
         // Visualiser vejene
         visualizeRoads(road1Segments, 'blue');
-        visualizeRoads(road2Segments, 'blue');
+        visualizeRoads(road2Segments, 'red');
     })
     .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
 });
