@@ -5,10 +5,87 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-var road1Layer = L.layerGroup().addTo(map);
-var road2Layer = L.layerGroup().addTo(map);
+var roadLayerGroup = L.layerGroup().addTo(map); // Til vejesegmenter
+var currentMarker;
 
-document.getElementById('findIntersection').addEventListener('click', async function () {
+// Klik på kortet for at finde en adresse
+map.on('click', function (e) {
+    var lat = e.latlng.lat;
+    var lon = e.latlng.lng;
+
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+    }
+
+    currentMarker = L.marker([lat, lon]).addTo(map);
+
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('address').innerHTML = `
+                Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
+                <br>
+                <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
+            `;
+        })
+        .catch(err => console.error('Fejl ved reverse geocoding:', err));
+});
+
+// Søgefunktion
+document.getElementById('search').addEventListener('input', function () {
+    var query = this.value.trim();
+    if (query.length < 2) return;
+
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+        .then(response => response.json())
+        .then(data => {
+            var results = document.getElementById('results');
+            results.innerHTML = '';
+
+            data.slice(0, 5).forEach(item => {
+                var li = document.createElement('li');
+                li.textContent = item.tekst;
+                li.addEventListener('click', function () {
+                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                        .then(res => res.json())
+                        .then(addressData => {
+                            var [lon, lat] = addressData.adgangspunkt.koordinater;
+                            placeMarkerAndZoom([lon, lat], item.tekst);
+                        });
+                });
+                results.appendChild(li);
+            });
+        });
+});
+
+// Funktion til placering af markør
+function placeMarkerAndZoom([lon, lat], addressText) {
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+    }
+
+    currentMarker = L.marker([lat, lon]).addTo(map);
+    map.setView([lat, lon], 16);
+
+    document.getElementById('address').innerHTML = `
+        Valgt adresse: ${addressText}
+        <br>
+        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
+    `;
+}
+
+// Ryd søgning
+document.getElementById('clearSearch').addEventListener('click', function () {
+    document.getElementById('search').value = '';
+    document.getElementById('results').innerHTML = '';
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+        currentMarker = null;
+    }
+});
+
+// Find kryds-knap
+document.getElementById('findIntersection').addEventListener('click', function () {
     var road1 = document.getElementById('road1').value.trim().toLowerCase();
     var road2 = document.getElementById('road2').value.trim().toLowerCase();
 
@@ -17,61 +94,13 @@ document.getElementById('findIntersection').addEventListener('click', async func
         return;
     }
 
-    console.log(`Søger efter veje: ${road1} ${road2}`);
-
-    try {
-        // Hent vejsegmenter
-        const [road1Segments, road2Segments] = await Promise.all([
-            fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road1}`).then(res => res.json()),
-            fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
-        ]);
-
+    // Hent vejsegmenter for begge veje
+    Promise.all([
+        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road1}`).then(res => res.json()),
+        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
+    ])
+    .then(([road1Segments, road2Segments]) => {
         console.log('Road1 Segments:', road1Segments);
         console.log('Road2 Segments:', road2Segments);
 
-        // Find fælles kommuner
-        const road1Kommuner = road1Segments.map(segment => segment.kommune.navn);
-        const road2Kommuner = road2Segments.map(segment => segment.kommune.navn);
-        const fællesKommuner = road1Kommuner.filter(kommune => road2Kommuner.includes(kommune));
-
-        console.log('Fælles Kommuner:', fællesKommuner);
-
-        if (fællesKommuner.length === 0) {
-            alert('Ingen fælles kommuner fundet.');
-            return;
-        }
-
-        // Filtrer segmenter efter fælles kommuner
-        const road1Filtered = road1Segments.filter(segment => fællesKommuner.includes(segment.kommune.navn));
-        const road2Filtered = road2Segments.filter(segment => fællesKommuner.includes(segment.kommune.navn));
-
-        console.log('Filtrerede Road1 Segments:', road1Filtered);
-        console.log('Filtrerede Road2 Segments:', road2Filtered);
-
-        // Ryd gamle lag
-        road1Layer.clearLayers();
-        road2Layer.clearLayers();
-
-        // Tegn veje på kortet
-        drawRoadSegments(road1Filtered, road1Layer, 'blue');
-        drawRoadSegments(road2Filtered, road2Layer, 'green');
-
-        // Zoom til området for de filtrerede segmenter
-        const bounds = L.featureGroup([road1Layer, road2Layer]).getBounds();
-        map.fitBounds(bounds);
-
-        alert('Veje er blevet farvet og zoomet ind på kortet.');
-
-    } catch (error) {
-        console.error('Fejl under behandling:', error);
-        alert('Der opstod en fejl under behandlingen. Tjek konsollen for detaljer.');
-    }
-});
-
-// Funktion til at tegne vejsegmenter på kortet
-function drawRoadSegments(segments, layerGroup, color) {
-    segments.forEach(segment => {
-        const coordinates = segment.geometri.coordinates.map(coord => [coord[1], coord[0]]);
-        L.polyline(coordinates, { color }).addTo(layerGroup);
-    });
-}
+        let commonMunicipalities = road1Segments.map(r => r.kommune.n
