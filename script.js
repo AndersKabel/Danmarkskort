@@ -6,7 +6,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 var currentMarker;
-var roadLayers = []; // Holder lag for visualiserede veje
+var roadLayers = []; // Holder styr på visualiserede veje
 
 // Klik på kortet for at finde en adresse
 map.on('click', function (e) {
@@ -55,8 +55,7 @@ document.getElementById('search').addEventListener('input', function () {
                 });
                 results.appendChild(li);
             });
-        })
-        .catch(err => console.error('Fejl ved søgefunktion:', err));
+        });
 });
 
 // Funktion til placering af markør
@@ -85,19 +84,18 @@ document.getElementById('clearSearch').addEventListener('click', function () {
     }
 });
 
-// Funktion til at finde og farve veje
+// Funktion til at finde og visualisere veje
 document.getElementById('findIntersection').addEventListener('click', function () {
     var road1 = document.getElementById('road1').value.trim().toLowerCase();
     var road2 = document.getElementById('road2').value.trim().toLowerCase();
+
+    console.log(`Søger efter veje: ${road1} ${road2}`);
 
     if (road1.length < 2 || road2.length < 2) {
         alert('Indtast mindst 2 bogstaver for begge veje.');
         return;
     }
 
-    console.log('Søger efter veje:', road1, road2);
-
-    // Hent vejsegmenter for begge veje
     Promise.all([
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road1}`).then(res => res.json()),
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
@@ -106,46 +104,38 @@ document.getElementById('findIntersection').addEventListener('click', function (
         console.log('Road1 Segments:', road1Segments);
         console.log('Road2 Segments:', road2Segments);
 
-        if (road1Segments.length === 0 || road2Segments.length === 0) {
-            alert('Ingen data fundet for et eller begge vejnavne.');
-            return;
-        }
+        // Filtrer segmenter baseret på fælles kommuner
+        var road1Kommuner = road1Segments.map(seg => seg.kommune.navn);
+        var road2Kommuner = road2Segments.map(seg => seg.kommune.navn);
+        var fællesKommuner = road1Kommuner.filter(kommune => road2Kommuner.includes(kommune));
 
-        // Find fælles kommuner
-        const road1Kommuner = [...new Set(road1Segments.map(seg => seg.kommune?.kode))];
-        const road2Kommuner = [...new Set(road2Segments.map(seg => seg.kommune?.kode))];
-        const fællesKommuner = road1Kommuner.filter(kode => road2Kommuner.includes(kode));
         console.log('Fælles Kommuner:', fællesKommuner);
 
-        if (fællesKommuner.length === 0) {
-            alert('Ingen fælles kommuner fundet.');
-            return;
-        }
+        var filtreredeRoad1 = road1Segments.filter(seg => fællesKommuner.includes(seg.kommune.navn));
+        var filtreredeRoad2 = road2Segments.filter(seg => fællesKommuner.includes(seg.kommune.navn));
 
-        // Filtrer segmenter baseret på fælles kommuner
-        road1Segments = road1Segments.filter(seg => fællesKommuner.includes(seg.kommune?.kode));
-        road2Segments = road2Segments.filter(seg => fællesKommuner.includes(seg.kommune?.kode));
+        console.log('Filtrerede Road1 Segments:', filtreredeRoad1);
+        console.log('Filtrerede Road2 Segments:', filtreredeRoad2);
 
-        console.log('Filtrerede Road1 Segments:', road1Segments);
-        console.log('Filtrerede Road2 Segments:', road2Segments);
-
-        // Visualiser vejene
-        visualizeRoads(road1Segments, 'blue');
-        visualizeRoads(road2Segments, 'red');
+        visualizeRoads(filtreredeRoad1, 'blue');
+        visualizeRoads(filtreredeRoad2, 'red');
     })
     .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
 });
 
-// Funktion til at visualisere vejsegmenter
+// Funktion til at visualisere veje
 function visualizeRoads(segments, color) {
-    roadLayers.forEach(layer => map.removeLayer(layer));
+    roadLayers.forEach(layer => map.removeLayer(layer)); // Fjern tidligere lag
     roadLayers = [];
 
     segments.forEach(segment => {
-        if (segment.geometri?.coordinates) {
+        if (segment.geometri && segment.geometri.coordinates) {
+            console.log(`Visualiserer segment: ${segment.navnvej}`);
             var coords = segment.geometri.coordinates.map(coord => [coord[1], coord[0]]);
-            var polyline = L.polyline(coords, { color: color }).addTo(map);
+            var polyline = L.polyline(coords, { color: color, weight: 5 }).addTo(map); // Gør linjen tykkere for synlighed
             roadLayers.push(polyline);
+        } else {
+            console.warn('Segment har ingen koordinater:', segment);
         }
     });
 }
