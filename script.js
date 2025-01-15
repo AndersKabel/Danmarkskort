@@ -119,7 +119,7 @@ document.getElementById('findIntersection').addEventListener('click', function (
     .catch(err => console.error('Fejl ved vejsegment-opslag:', err)); // Fang eventuelle fejl
 });
 
-// Funktion til at beregne midtpunktet mellem to vejsegmenter
+// Funktion til at beregne midtpunktet mellem to vejsegmenter med tolerance
 function calculateMidpoint(road1Segments, road2Segments) {
     let allCoords1 = road1Segments.flatMap(segment => segment.geometri?.coordinates || []);
     let allCoords2 = road2Segments.flatMap(segment => segment.geometri?.coordinates || []);
@@ -129,30 +129,30 @@ function calculateMidpoint(road1Segments, road2Segments) {
         return null;
     }
 
-    let minDistance = Infinity;
-    let closestPoint1 = null;
-    let closestPoint2 = null;
+    const tolerance = 0.00005; // Tolerance for sammenligning af koordinater (~5 meter)
 
-    // Gå igennem alle punkter og find de to nærmeste punkter
+    let closestPoints = [];
+
     allCoords1.forEach(coord1 => {
         allCoords2.forEach(coord2 => {
-            let distance = getDistance(coord1, coord2);
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestPoint1 = coord1;
-                closestPoint2 = coord2;
+            let latDiff = Math.abs(coord1[1] - coord2[1]);
+            let lonDiff = Math.abs(coord1[0] - coord2[0]);
+
+            if (latDiff < tolerance && lonDiff < tolerance) {
+                closestPoints.push([coord1, coord2]);
             }
         });
     });
 
-    if (closestPoint1 && closestPoint2) {
-        // Beregn midtpunktet
+    if (closestPoints.length > 0) {
+        // Beregn midtpunktet for det første fundne punktpar
+        let [closestPoint1, closestPoint2] = closestPoints[0];
         let midpointLon = (closestPoint1[0] + closestPoint2[0]) / 2;
         let midpointLat = (closestPoint1[1] + closestPoint2[1]) / 2;
         return [midpointLat, midpointLon];
     }
 
-    return null;
+    return null; // Ingen nærliggende punkter fundet
 }
 
 // Funktion til at beregne afstanden mellem to punkter (Haversine-formel)
