@@ -133,8 +133,20 @@ document.getElementById('findIntersection').addEventListener('click', function (
         visualizeRoads(road1Segments, 'blue');
         visualizeRoads(road2Segments, 'red');
 
+        // Hent alle koordinater og debug
+        let allCoords1 = road1Segments.flatMap(segment => segment.geometri?.coordinates || []);
+        let allCoords2 = road2Segments.flatMap(segment => segment.geometri?.coordinates || []);
+
+        console.log('All Coords Road1:', allCoords1);
+        console.log('All Coords Road2:', allCoords2);
+
+        if (allCoords1.length === 0 || allCoords2.length === 0) {
+            console.error('Ingen koordinater fundet.');
+            return;
+        }
+
         // Beregn midtpunktet mellem de to veje
-        var midpoint = calculateMidpoint(road1Segments, road2Segments);
+        var midpoint = calculateMidpoint(allCoords1, allCoords2);
         if (midpoint) {
             map.setView(midpoint, 16); // Zoom til midtpunktet
         } else {
@@ -146,7 +158,6 @@ document.getElementById('findIntersection').addEventListener('click', function (
 
 // Funktion til at visualisere vejsegmenter
 function visualizeRoads(segments, color) {
-    // Fjern tidligere visualiseringer
     roadLayers.forEach(layer => map.removeLayer(layer));
     roadLayers = [];
 
@@ -159,29 +170,14 @@ function visualizeRoads(segments, color) {
     });
 }
 
-// Funktion til at beregne midtpunktet mellem to vejsegmenter med øget tolerance
-function calculateMidpoint(road1Segments, road2Segments) {
-    console.log('Road1 Segments:', road1Segments);
-    console.log('Road2 Segments:', road2Segments);
-
-    // Hent alle koordinater fra vejsegmenter
-    let allCoords1 = road1Segments.flatMap(segment => segment.geometri?.coordinates || []);
-    let allCoords2 = road2Segments.flatMap(segment => segment.geometri?.coordinates || []);
-
-    console.log('All Coords Road1:', allCoords1);
-    console.log('All Coords Road2:', allCoords2);
-
-    if (allCoords1.length === 0 || allCoords2.length === 0) {
-        console.error('Ingen koordinater fundet.');
-        return null;
-    }
-
-    const tolerance = 0.0001; // Forøget tolerance (~10 meter)
+// Funktion til at beregne midtpunktet
+function calculateMidpoint(coords1, coords2) {
+    const tolerance = 0.0001; // Tolerance (~10 meter)
 
     let closestPoints = [];
 
-    allCoords1.forEach(coord1 => {
-        allCoords2.forEach(coord2 => {
+    coords1.forEach(coord1 => {
+        coords2.forEach(coord2 => {
             let latDiff = Math.abs(coord1[1] - coord2[1]);
             let lonDiff = Math.abs(coord1[0] - coord2[0]);
 
@@ -200,5 +196,5 @@ function calculateMidpoint(road1Segments, road2Segments) {
     }
 
     console.log('Ingen nærliggende punkter fundet.');
-    return null; // Ingen nærliggende punkter fundet
+    return null;
 }
