@@ -104,9 +104,8 @@ document.getElementById('findIntersection').addEventListener('click', function (
         console.log('Road1 Segments:', road1Segments);
         console.log('Road2 Segments:', road2Segments);
 
-        // Filtrer segmenter baseret på fælles kommuner
-        var road1Kommuner = road1Segments.map(seg => seg.kommune.navn);
-        var road2Kommuner = road2Segments.map(seg => seg.kommune.navn);
+        var road1Kommuner = [...new Set(road1Segments.map(seg => seg.kommune.navn))];
+        var road2Kommuner = [...new Set(road2Segments.map(seg => seg.kommune.navn))];
         var fællesKommuner = road1Kommuner.filter(kommune => road2Kommuner.includes(kommune));
 
         console.log('Fælles Kommuner:', fællesKommuner);
@@ -130,9 +129,8 @@ function visualizeRoads(segments, color) {
 
     segments.forEach(segment => {
         if (segment.geometri && segment.geometri.coordinates) {
-            console.log(`Visualiserer segment: ${segment.navnvej}`);
             var coords = segment.geometri.coordinates.map(coord => [coord[1], coord[0]]);
-            var polyline = L.polyline(coords, { color: color, weight: 5 }).addTo(map); // Gør linjen tykkere for synlighed
+            var polyline = L.polyline(coords, { color: color, weight: 5 }).addTo(map); // Gør linjen tydeligere
             roadLayers.push(polyline);
         } else {
             console.warn('Segment har ingen koordinater:', segment);
