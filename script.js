@@ -21,93 +21,150 @@ map.on('click', function (e) {
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
-            document.getElementById('address').innerHTML = `
-                Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
-                <br>
-                <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
-            `;
+            var addressElement = document.getElementById('address');
+            if (addressElement) {
+                addressElement.innerHTML = `
+                    Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
+                    <br>
+                    <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
+                `;
+            }
         })
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
 });
 
-// Søgefunktion med autocomplete for vejnavne
-document.getElementById('road1').addEventListener('input', function () {
-    autocompleteRoad(this, 'results1');
-});
-document.getElementById('road2').addEventListener('input', function () {
-    autocompleteRoad(this, 'results2');
-});
+// Søgefunktion
+var searchInput = document.getElementById('search');
+if (searchInput) {
+    searchInput.addEventListener('input', function () {
+        var query = this.value.trim();
+        if (query.length < 2) return;
 
-function autocompleteRoad(inputElement, resultsElementId) {
-    var query = inputElement.value.trim();
-    if (query.length < 2) return;
-
-    fetch(`https://api.dataforsyningen.dk/vejnavne/autocomplete?q=${query}`)
-        .then(response => response.json())
-        .then(data => {
-            var results = document.getElementById(resultsElementId);
-            results.innerHTML = '';
-
-            data.forEach(item => {
-                var li = document.createElement('li');
-                li.textContent = item.vejnavn;
-                li.addEventListener('click', function () {
-                    inputElement.value = item.vejnavn;
+        fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+            .then(response => response.json())
+            .then(data => {
+                var results = document.getElementById('results');
+                if (results) {
                     results.innerHTML = '';
-                });
-                results.appendChild(li);
+
+                    data.slice(0, 5).forEach(item => {
+                        var li = document.createElement('li');
+                        li.textContent = item.tekst;
+                        li.addEventListener('click', function () {
+                            fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                                .then(res => res.json())
+                                .then(addressData => {
+                                    var [lon, lat] = addressData.adgangspunkt.koordinater;
+                                    placeMarkerAndZoom([lon, lat], item.tekst);
+                                });
+                        });
+                        results.appendChild(li);
+                    });
+                }
             });
-        })
-        .catch(err => console.error('Fejl ved autocomplete:', err));
+    });
+}
+
+// Funktion til placering af markør
+function placeMarkerAndZoom([lon, lat], addressText) {
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+    }
+
+    currentMarker = L.marker([lat, lon]).addTo(map);
+    map.setView([lat, lon], 16);
+
+    var addressElement = document.getElementById('address');
+    if (addressElement) {
+        addressElement.innerHTML = `
+            Valgt adresse: ${addressText}
+            <br>
+            <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
+        `;
+    }
+}
+
+// Ryd søgning
+var clearSearchButton = document.getElementById('clearSearch');
+if (clearSearchButton) {
+    clearSearchButton.addEventListener('click', function () {
+        var searchInput = document.getElementById('search');
+        var results = document.getElementById('results');
+        if (searchInput) searchInput.value = '';
+        if (results) results.innerHTML = '';
+        if (currentMarker) {
+            map.removeLayer(currentMarker);
+            currentMarker = null;
+        }
+    });
 }
 
 // Funktion til at finde og zoome til området, hvor to veje mødes
-document.getElementById('findIntersection').addEventListener('click', function () {
-    var road1 = document.getElementById('road1').value.trim();
-    var road2 = document.getElementById('road2').value.trim();
+var findIntersectionButton = document.getElementById('findIntersection');
+if (findIntersectionButton) {
+    findIntersectionButton.addEventListener('click', function () {
+        var road1Input = document.getElementById('road1');
+        var road2Input = document.getElementById('road2');
 
-    if (road1.length < 2 || road2.length < 2) {
-        alert('Indtast mindst 2 bogstaver for begge veje.');
-        return;
-    }
-
-    // Hent vejsegmenter for begge veje
-    Promise.all([
-        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road1}`).then(res => res.json()),
-        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
-    ])
-    .then(([road1Segments, road2Segments]) => {
-        console.log('Road1 Segments:', road1Segments);
-        console.log('Road2 Segments:', road2Segments);
-
-        // Filtrer på fælles kommuner
-        var commonMunicipalities = getCommonMunicipalities(road1Segments, road2Segments);
-        console.log('Fælles Kommuner:', commonMunicipalities);
-
-        if (commonMunicipalities.length === 0) {
-            alert('Ingen fælles kommuner fundet mellem de to veje.');
+        if (!road1Input || !road2Input) {
+            console.error('Mangler inputfelter for veje.');
             return;
         }
 
-        drawRoadSegments(road1Segments, 'blue');
-        drawRoadSegments(road2Segments, 'blue');
-    })
-    .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
-});
+        var road1 = road1Input.value.trim().toLowerCase();
+        var road2 = road2Input.value.trim().toLowerCase();
 
-// Funktion til at finde fælles kommuner
-function getCommonMunicipalities(road1Segments, road2Segments) {
-    var road1Municipalities = road1Segments.map(segment => segment.kommunekode);
-    var road2Municipalities = road2Segments.map(segment => segment.kommunekode);
-    return road1Municipalities.filter(value => road2Municipalities.includes(value));
+        if (road1.length < 2 || road2.length < 2) {
+            alert('Indtast mindst 2 bogstaver for begge veje.');
+            return;
+        }
+
+        // Hent vejsegmenter for begge veje
+        Promise.all([
+            fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road1}`).then(res => res.json()),
+            fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
+        ])
+        .then(([road1Segments, road2Segments]) => {
+            console.log('Road1 Segments:', road1Segments);
+            console.log('Road2 Segments:', road2Segments);
+
+            if (road1Segments.length === 0 || road2Segments.length === 0) {
+                alert('Ingen data fundet for et eller begge vejnavne.');
+                return;
+            }
+
+            // Beregn midtpunktet mellem de to veje
+            var midpoint = calculateMidpoint(road1Segments, road2Segments);
+            if (midpoint) {
+                map.setView(midpoint, 16); // Zoom til midtpunktet
+            } else {
+                alert('Ingen overlap fundet mellem de to veje.');
+            }
+        })
+        .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
+    });
 }
 
-// Funktion til at tegne vejsegmenter på kortet
-function drawRoadSegments(segments, color) {
-    segments.forEach(segment => {
-        if (segment.geometri && segment.geometri.coordinates) {
-            var latlngs = segment.geometri.coordinates.map(coord => [coord[1], coord[0]]);
-            L.polyline(latlngs, { color: color }).addTo(map);
-        }
+// Funktion til at beregne midtpunktet mellem to vejsegmenter
+function calculateMidpoint(road1Segments, road2Segments) {
+    let allCoords1 = road1Segments.flatMap(segment => segment.geometri?.coordinates || []);
+    let allCoords2 = road2Segments.flatMap(segment => segment.geometri?.coordinates || []);
+
+    let allCoords = [...allCoords1, ...allCoords2];
+    if (allCoords.length === 0) {
+        console.error('Ingen koordinater fundet.');
+        return null;
+    }
+
+    let totalLat = 0, totalLon = 0;
+
+    allCoords.forEach(coord => {
+        totalLon += coord[0]; // Longitude
+        totalLat += coord[1]; // Latitude
     });
+
+    let avgLon = totalLon / allCoords.length;
+    let avgLat = totalLat / allCoords.length;
+
+    return [avgLat, avgLon];
 }
