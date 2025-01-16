@@ -1,42 +1,32 @@
 <!DOCTYPE html>
-<html lang="da">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danmarkskort med Adressesøgning</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>Danmarkskort</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* Sørg for at kortet har fastsat højde og bredde */
         #map {
-            height: 500px;
-            width: 100%;
+            height: 600px;
         }
-        .controls, .intersection-controls {
-            margin: 10px 0;
+        #controls {
+            margin-top: 10px;
         }
     </style>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
-    <!-- Kortet -->
     <div id="map"></div>
-
-    <!-- Adresse søgning -->
-    <div class="controls">
-        <input type="text" id="search" placeholder="Søg efter adresse..." />
-        <button id="clearSearch">Ryd</button>
-        <p id="address">Klik på kortet eller vælg en adresse fra listen</p>
-    </div>
-    <ul id="results"></ul>
-
-    <!-- Find kryds -->
-    <div class="intersection-controls">
-        <input type="text" id="road1" placeholder="Indtast første vejnavn" />
-        <input type="text" id="road2" placeholder="Indtast anden vejnavn" />
+    <div id="controls">
+        <input type="text" id="road1" placeholder="Indtast første vejnavn">
+        <input type="text" id="road2" placeholder="Indtast anden vejnavn">
         <button id="findIntersection">Find kryds</button>
+        <ul id="results"></ul>
+        <br>
+        <input type="text" id="search" placeholder="Søg efter adresse...">
+        <button id="clearSearch">Ryd</button>
+        <div id="address"></div>
     </div>
-
-    <!-- JavaScript-fil -->
     <script src="script.js"></script>
 </body>
 </html>
