@@ -1,5 +1,5 @@
 // Initialiser kortet
-var map = L.map('map').setView([56, 10], 7);
+var map = L.map('map').setView([56, 10], 7); // Standardvisning over Danmark
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
@@ -30,7 +30,7 @@ map.on('click', function (e) {
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
 });
 
-// Søgefunktion for adresser
+// Søgefunktion
 document.getElementById('search').addEventListener('input', function () {
     var query = this.value.trim();
     if (query.length < 2) return;
@@ -55,35 +55,6 @@ document.getElementById('search').addEventListener('input', function () {
                 results.appendChild(li);
             });
         });
-});
-
-// Søgefunktion for vejnavne
-document.getElementById('roadSearch').addEventListener('input', function () {
-    var query = this.value.trim().toLowerCase();
-    if (query.length < 2) return;
-
-    fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${query}`)
-        .then(response => response.json())
-        .then(data => {
-            var roadResults = document.getElementById('roadResults');
-            roadResults.innerHTML = '';
-
-            if (data.length === 0) {
-                roadResults.innerHTML = '<li>Ingen vejnavne fundet</li>';
-                return;
-            }
-
-            data.forEach(item => {
-                var li = document.createElement('li');
-                li.textContent = `${item.navn} (${item.kommune.navn})`;
-                li.addEventListener('click', function () {
-                    document.getElementById('roadSearch').value = item.navn;
-                    roadResults.innerHTML = '';
-                });
-                roadResults.appendChild(li);
-            });
-        })
-        .catch(err => console.error('Fejl ved søgning af vejnavne:', err));
 });
 
 // Funktion til placering af markør
@@ -112,25 +83,6 @@ document.getElementById('clearSearch').addEventListener('click', function () {
     }
 });
 
-// Funktion til at finde og zoome til området, hvor to veje mødes
-document.getElementById('findIntersection').addEventListener('click', function () {
-    var road1 = document.getElementById('road1').value.trim().toLowerCase();
-    var road2 = document.getElementById('road2').value.trim().toLowerCase();
 
-    if (road1.length < 2 || road2.length < 2) {
-        alert('Indtast mindst 2 bogstaver for begge veje.');
-        return;
-    }
 
-    Promise.all([
-        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road1}`).then(res => res.json()),
-        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
-    ])
-    .then(([road1Segments, road2Segments]) => {
-        console.log('Road1 Segments:', road1Segments);
-        console.log('Road2 Segments:', road2Segments);
 
-        alert('Logikken for kryds-finder skal implementeres yderligere.');
-    })
-    .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
-});
