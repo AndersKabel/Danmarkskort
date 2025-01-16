@@ -30,7 +30,7 @@ map.on('click', function (e) {
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
 });
 
-// Søgefunktion
+// Søgefunktion for adresser
 document.getElementById('search').addEventListener('input', function () {
     var query = this.value.trim();
     if (query.length < 2) return;
@@ -43,7 +43,7 @@ document.getElementById('search').addEventListener('input', function () {
 
             data.slice(0, 5).forEach(item => {
                 var li = document.createElement('li');
-                li.textContent = `${item.tekst} (${item.adgangsadresse.vejstykke.navn}, ${item.adgangsadresse.postnr})`;
+                li.textContent = item.tekst;
                 li.addEventListener('click', function () {
                     fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
                         .then(res => res.json())
@@ -55,6 +55,35 @@ document.getElementById('search').addEventListener('input', function () {
                 results.appendChild(li);
             });
         });
+});
+
+// Søgefunktion for vejnavne
+document.getElementById('roadSearch').addEventListener('input', function () {
+    var query = this.value.trim().toLowerCase();
+    if (query.length < 2) return;
+
+    fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${query}`)
+        .then(response => response.json())
+        .then(data => {
+            var roadResults = document.getElementById('roadResults');
+            roadResults.innerHTML = '';
+
+            if (data.length === 0) {
+                roadResults.innerHTML = '<li>Ingen vejnavne fundet</li>';
+                return;
+            }
+
+            data.forEach(item => {
+                var li = document.createElement('li');
+                li.textContent = `${item.navn} (${item.kommune.navn})`;
+                li.addEventListener('click', function () {
+                    document.getElementById('roadSearch').value = item.navn;
+                    roadResults.innerHTML = '';
+                });
+                roadResults.appendChild(li);
+            });
+        })
+        .catch(err => console.error('Fejl ved søgning af vejnavne:', err));
 });
 
 // Funktion til placering af markør
@@ -83,13 +112,13 @@ document.getElementById('clearSearch').addEventListener('click', function () {
     }
 });
 
-// Find kryds mellem veje
+// Funktion til at finde og zoome til området, hvor to veje mødes
 document.getElementById('findIntersection').addEventListener('click', function () {
     var road1 = document.getElementById('road1').value.trim().toLowerCase();
     var road2 = document.getElementById('road2').value.trim().toLowerCase();
 
-    if (!road1 || !road2) {
-        alert('Indtast begge vejnavne.');
+    if (road1.length < 2 || road2.length < 2) {
+        alert('Indtast mindst 2 bogstaver for begge veje.');
         return;
     }
 
@@ -98,39 +127,10 @@ document.getElementById('findIntersection').addEventListener('click', function (
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
     ])
     .then(([road1Segments, road2Segments]) => {
-        if (!road1Segments.length || !road2Segments.length) {
-            alert('Ingen data fundet for et eller begge vejnavne.');
-            return;
-        }
+        console.log('Road1 Segments:', road1Segments);
+        console.log('Road2 Segments:', road2Segments);
 
-        var coords1 = road1Segments.flatMap(segment => segment.geometri?.coordinates || []);
-        var coords2 = road2Segments.flatMap(segment => segment.geometri?.coordinates || []);
-
-        if (!coords1.length || !coords2.length) {
-            alert('Ingen koordinater fundet.');
-            return;
-        }
-
-        // Beregn og vis kryds
-        var intersection = calculateMidpoint(coords1, coords2);
-        if (intersection) {
-            placeMarkerAndZoom(intersection, `Kryds mellem ${road1} og ${road2}`);
-        } else {
-            alert('Ingen overlap fundet.');
-        }
+        alert('Logikken for kryds-finder skal implementeres yderligere.');
     })
-    .catch(err => console.error('Fejl:', err));
+    .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
 });
-
-// Beregn midtpunkt mellem koordinater
-function calculateMidpoint(coords1, coords2) {
-    let allCoords = [...coords1, ...coords2];
-    let totalLat = 0, totalLon = 0;
-
-    allCoords.forEach(coord => {
-        totalLon += coord[0];
-        totalLat += coord[1];
-    });
-
-    return [totalLon / allCoords.length, totalLat / allCoords.length];
-}
