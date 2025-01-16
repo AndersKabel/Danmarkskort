@@ -1,70 +1,28 @@
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-}
-
 #map {
+    height: 600px;
     width: 100%;
-    height: 70vh; /* Brug 70% af skærmhøjden til kortet */
-    margin-bottom: 10px;
 }
 
-.controls, .intersection-controls {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
+#controls {
     padding: 10px;
-    background: #f9f9f9;
+    font-family: Arial, sans-serif;
 }
 
-#search, #road1, #road2 {
-    width: 300px;
+ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+li {
+    cursor: pointer;
     padding: 5px;
     border: 1px solid #ddd;
-    border-radius: 5px;
+    margin-top: -1px; /* Avoid double borders */
+    background-color: #f9f9f9;
+    transition: background-color 0.3s;
 }
 
-#clearSearch, #findIntersection {
-    padding: 5px 10px;
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-#clearSearch:hover, #findIntersection:hover {
-    background: #e0e0e0;
-}
-
-#address {
-    font-size: 14px;
-    font-weight: bold;
-    background: #f9f9f9;
-    padding: 10px;
-    text-align: center;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-}
-
-#results {
-    list-style: none;
-    margin: 0;
-    padding: 10px;
-    background: white;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-#results li {
-    padding: 10px;
-    margin: 5px 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
-    background: #f9f9f9;
-}
-
-#results li:hover {
-    background: #e0f7fa;
+li:hover {
+    background-color: #f1f1f1;
 }
