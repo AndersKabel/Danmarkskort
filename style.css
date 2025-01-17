@@ -14,15 +14,21 @@ body {
     background: #f9f9f9;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
     gap: 10px;
 }
 
 .controls input, .intersection-controls input, button {
-    margin: 5px 0;
     padding: 8px;
     font-size: 14px;
-    width: 100%;
+}
+
+.intersection-controls .road-inputs {
+    display: flex;
+    gap: 10px;
+}
+
+.road-inputs input {
+    width: 45%;
 }
 
 #results {
@@ -31,7 +37,6 @@ body {
     max-height: 100px;
     overflow-y: auto;
     margin: 5px 0;
-    width: 100%;
     border: 1px solid #ccc;
 }
 
