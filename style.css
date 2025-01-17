@@ -1,50 +1,22 @@
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-}
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danmarkskort med Adressesøgning</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="controls">
+        <input type="text" id="search" placeholder="Søg efter adresse..." />
+        <button id="clearSearch">Ryd</button>
+        <p id="address">Klik på kortet eller vælg en adresse fra listen</p>
+    </div>
+    <ul id="results"></ul>
+    <script src="script.js"></script>
+</body>
+</html>
 
-#map {
-    height: 70vh;
-    width: 100%;
-    border: 1px solid #ccc;
-}
-
-.controls, .intersection-controls {
-    padding: 10px;
-    background: #f9f9f9;
-    margin: 0;
-    border-top: 1px solid #ddd;
-    border-bottom: 1px solid #ddd;
-}
-
-.controls input, 
-.controls button, 
-.intersection-controls input, 
-.intersection-controls button {
-    margin: 5px;
-    padding: 8px;
-    font-size: 14px;
-}
-
-.intersection-controls {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-}
-
-.road-inputs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    flex-grow: 1;
-}
-
-.road-inputs input {
-    flex: 1;
-    min-width: 120px;
-}
-
-button {
-    padding: 10px 15px;
-}
