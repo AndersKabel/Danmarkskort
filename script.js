@@ -83,7 +83,7 @@ document.getElementById('clearSearch').addEventListener('click', function () {
     }
 });
 
-// Funktion til at finde kryds mellem vejsegmenter
+// Funktion til at finde og zoome til området, hvor to veje mødes
 document.getElementById('findIntersection').addEventListener('click', function () {
     var road1 = document.getElementById('road1').value.trim().toLowerCase();
     var road2 = document.getElementById('road2').value.trim().toLowerCase();
@@ -95,56 +95,42 @@ document.getElementById('findIntersection').addEventListener('click', function (
 
     // Hent vejsegmenter for begge veje
     Promise.all([
-        fetch(`https://api.dataforsyningen.dk/vejnavne?navn=${road1}`).then(res => res.json()),
-        fetch(`https://api.dataforsyningen.dk/vejnavne?navn=${road2}`).then(res => res.json())
+        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road1}`).then(res => res.json()),
+        fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
     ])
     .then(([road1Segments, road2Segments]) => {
-        // Find nærmeste punkter mellem vejsegmenter
-        var intersection = findNearestIntersection(road1Segments, road2Segments);
-        if (intersection) {
-            var [lon, lat] = intersection;
-            placeMarkerAndZoom([lon, lat], `Kryds mellem ${road1} og ${road2}`);
+        if (road1Segments.length === 0 || road2Segments.length === 0) {
+            alert('Ingen data fundet for et eller begge vejnavne.');
+            return;
+        }
+
+        // Beregn midtpunktet mellem de to veje
+        var midpoint = calculateMidpoint(road1Segments, road2Segments);
+        if (midpoint) {
+            map.setView(midpoint, 16); // Zoom til midtpunktet
         } else {
-            alert('Ingen kryds fundet mellem de to veje.');
+            alert('Ingen overlap fundet mellem de to veje.');
         }
     })
     .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
 });
 
-// Hjælpefunktion til at finde nærmeste punkter mellem vejsegmenter
-function findNearestIntersection(road1Segments, road2Segments) {
-    let minDistance = Infinity;
-    let nearestPoint = null;
+// Funktion til at beregne midtpunktet mellem to vejsegmenter
+function calculateMidpoint(road1Segments, road2Segments) {
+    let allCoords1 = road1Segments.flatMap(segment => segment.geometri.coordinates);
+    let allCoords2 = road2Segments.flatMap(segment => segment.geometri.coordinates);
 
-    road1Segments.forEach(segment1 => {
-        road2Segments.forEach(segment2 => {
-            segment1.koordinater.forEach(coord1 => {
-                segment2.koordinater.forEach(coord2 => {
-                    var distance = calculateDistance(coord1[1], coord1[0], coord2[1], coord2[0]);
-                    if (distance < minDistance) {
-                        minDistance = distance;
-                        nearestPoint = coord1; // Gem nærmeste koordinat
-                    }
-                });
-            });
-        });
+    // Find gennemsnit af alle koordinater fra begge veje
+    let allCoords = [...allCoords1, ...allCoords2];
+    let totalLat = 0, totalLon = 0;
+
+    allCoords.forEach(coord => {
+        totalLon += coord[0]; // Longitude
+        totalLat += coord[1]; // Latitude
     });
 
-    return minDistance <= 100 ? nearestPoint : null; // Returner kun hvis inden for radius
-}
+    let avgLon = totalLon / allCoords.length;
+    let avgLat = totalLat / allCoords.length;
 
-// Funktion til at beregne afstand mellem to koordinater (Haversine-formel)
-function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Jordens radius i meter
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // Afstand i meter
+    return [avgLat, avgLon];
 }
