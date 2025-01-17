@@ -46,13 +46,15 @@ function setupAutocomplete(inputId) {
             .then(data => {
                 resultsContainer.innerHTML = '';
                 data.forEach(item => {
-                    const li = document.createElement('li');
-                    li.textContent = `${item.tekst} (${item.kommune.navn})`;
-                    li.addEventListener('click', () => {
-                        input.value = item.tekst;
-                        resultsContainer.innerHTML = '';
-                    });
-                    resultsContainer.appendChild(li);
+                    if (item.kommune && item.kommune.navn) {
+                        const li = document.createElement('li');
+                        li.textContent = `${item.tekst} (${item.kommune.navn})`;
+                        li.addEventListener('click', () => {
+                            input.value = item.tekst;
+                            resultsContainer.innerHTML = '';
+                        });
+                        resultsContainer.appendChild(li);
+                    }
                 });
             })
             .catch(err => console.error('Fejl ved autocomplete:', err));
@@ -77,8 +79,8 @@ document.getElementById('findIntersection').addEventListener('click', function (
         fetch(`https://api.dataforsyningen.dk/vejstykker?vejnavn=${road2}`).then(res => res.json())
     ])
         .then(([road1Data, road2Data]) => {
-            const road1Coords = road1Data.flatMap(segment => segment.geometri.coordinates || []);
-            const road2Coords = road2Data.flatMap(segment => segment.geometri.coordinates || []);
+            const road1Coords = road1Data.flatMap(segment => segment.geometri?.coordinates || []);
+            const road2Coords = road2Data.flatMap(segment => segment.geometri?.coordinates || []);
 
             if (road1Coords.length && road2Coords.length) {
                 // Simplistisk krydslogik: vælg første koordinat fra hver vej og beregn midtpunkt
