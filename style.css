@@ -1,22 +1,70 @@
-<!DOCTYPE html>
-<html lang="da">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danmarkskort med Adressesøgning</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-</head>
-<body>
-    <div id="map"></div>
-    <div class="controls">
-        <input type="text" id="search" placeholder="Søg efter adresse..." />
-        <button id="clearSearch">Ryd</button>
-        <p id="address">Klik på kortet eller vælg en adresse fra listen</p>
-    </div>
-    <ul id="results"></ul>
-    <script src="script.js"></script>
-</body>
-</html>
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
 
+#map {
+    width: 100%;
+    height: 70vh; /* Brug 70% af skærmhøjden til kortet */
+    margin-bottom: 10px;
+}
+
+.controls, .intersection-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px;
+    background: #f9f9f9;
+}
+
+#search, #road1, #road2 {
+    width: 300px;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+#clearSearch, #findIntersection {
+    padding: 5px 10px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#clearSearch:hover, #findIntersection:hover {
+    background: #e0e0e0;
+}
+
+#address {
+    font-size: 14px;
+    font-weight: bold;
+    background: #f9f9f9;
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+#results {
+    list-style: none;
+    margin: 0;
+    padding: 10px;
+    background: white;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+#results li {
+    padding: 10px;
+    margin: 5px 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    background: #f9f9f9;
+}
+
+#results li:hover {
+    background: #e0f7fa;
+}
