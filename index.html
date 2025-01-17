@@ -1,29 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="da">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Danmarkskort</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css">
-    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 </head>
 <body>
     <div id="map"></div>
-    <div id="address"></div>
+    <div id="controls">
+        <div id="address"></div>
+        <input type="text" id="search" placeholder="Søg efter adresse...">
+        <button id="clearSearch">Ryd</button>
+        <ul id="results"></ul>
 
-    <div>
         <label for="road1">Vejnavn 1:</label>
         <input type="text" id="road1" placeholder="Indtast første vejnavn">
-        <ul id="road1Results" class="autocomplete-results"></ul>
-    </div>
-    <div>
         <label for="road2">Vejnavn 2:</label>
         <input type="text" id="road2" placeholder="Indtast anden vejnavn">
-        <ul id="road2Results" class="autocomplete-results"></ul>
+        <button id="findIntersection">Find kryds</button>
     </div>
-    <button id="findIntersection">Find kryds</button>
-
     <script src="script.js"></script>
 </body>
 </html>
