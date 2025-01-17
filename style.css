@@ -4,8 +4,9 @@ body {
 }
 
 #map {
-    height: 80vh;
+    height: 70vh;
     width: 100%;
+    border: 1px solid #ccc;
 }
 
 #controls {
@@ -15,9 +16,16 @@ body {
 
 #controls input,
 #controls button {
-    margin: 5px 0;
+    margin: 5px;
     padding: 8px;
     font-size: 14px;
+}
+
+#controls #road-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
 }
 
 #results {
@@ -25,4 +33,5 @@ body {
     padding: 0;
     max-height: 100px;
     overflow-y: auto;
+    margin: 5px 0;
 }
