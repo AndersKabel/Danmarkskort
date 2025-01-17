@@ -3,33 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danmarkskort med Adressesøgning</title>
+    <title>Testkort</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        /* Indsæt den opdaterede CSS her */
+        #map {
+            height: 500px;
+            width: 100%;
+        }
     </style>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
-    <!-- Kortet -->
     <div id="map"></div>
-
-    <!-- Adresse søgning -->
-    <div class="controls">
-        <input type="text" id="search" placeholder="Søg efter adresse..." />
-        <button id="clearSearch">Ryd</button>
-        <p id="address">Klik på kortet eller vælg en adresse fra listen</p>
-    </div>
-    <ul id="results"></ul>
-
-    <!-- Find kryds -->
-    <div class="intersection-controls">
-        <input type="text" id="road1" placeholder="Indtast første vejnavn" />
-        <input type="text" id="road2" placeholder="Indtast anden vejnavn" />
-        <button id="findIntersection">Find kryds</button>
-    </div>
-
-    <!-- JavaScript-fil -->
-    <script src="script.js"></script>
+    <script>
+        var map = L.map('map').setView([56, 10], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+    </script>
 </body>
 </html>
