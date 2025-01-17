@@ -4,28 +4,25 @@ body {
 }
 
 #map {
-    height: 500px;
+    height: 80vh;
     width: 100%;
 }
 
-.autocomplete-results {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    border: 1px solid #ddd;
-    max-height: 150px;
-    overflow-y: auto;
-    background: white;
-    position: absolute;
-    z-index: 1000;
-    width: 300px;
-}
-
-.autocomplete-results li {
+#controls {
     padding: 10px;
-    cursor: pointer;
+    background: #f9f9f9;
 }
 
-.autocomplete-results li:hover {
-    background-color: #f1f1f1;
+#controls input,
+#controls button {
+    margin: 5px 0;
+    padding: 8px;
+    font-size: 14px;
+}
+
+#results {
+    list-style-type: none;
+    padding: 0;
+    max-height: 100px;
+    overflow-y: auto;
 }
