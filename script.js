@@ -112,7 +112,7 @@ document.getElementById('findIntersection').addEventListener('click', function (
             alert('Ingen overlap fundet mellem de to veje.');
         }
     })
-    .catch(err => console.error('Fejl ved vejsegment-opslag:', err));
+    .catch(err => console.error('Fejl ved vejsegment-opslag:', err)); // Fang eventuelle fejl
 });
 
 // Funktion til at beregne midtpunktet mellem to vejsegmenter
