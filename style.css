@@ -12,39 +12,39 @@ body {
 .controls, .intersection-controls {
     padding: 10px;
     background: #f9f9f9;
-    display: flex;
-    gap: 10px;
-    align-items: center;
+    margin: 0;
+    border-top: 1px solid #ddd;
+    border-bottom: 1px solid #ddd;
 }
 
-.controls input {
-    flex: 1;
+.controls input, 
+.controls button, 
+.intersection-controls input, 
+.intersection-controls button {
+    margin: 5px;
     padding: 8px;
-}
-
-.controls button {
-    padding: 8px 16px;
+    font-size: 14px;
 }
 
 .intersection-controls {
     display: flex;
-    gap: 10px;
     align-items: center;
+    justify-content: space-between;
+    gap: 10px;
 }
 
-.intersection-controls input {
+.road-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    flex-grow: 1;
+}
+
+.road-inputs input {
     flex: 1;
-    padding: 8px;
+    min-width: 120px;
 }
 
-.intersection-controls button {
-    padding: 8px 16px;
-}
-
-#results {
-    list-style-type: none;
-    padding: 0;
-    max-height: 100px;
-    overflow-y: auto;
-    margin: 5px 0;
+button {
+    padding: 10px 15px;
 }
