@@ -54,8 +54,6 @@ body {
     background: white;
     max-height: 200px;
     overflow-y: auto;
-    border: 1px solid #ddd;
-    border-radius: 5px;
 }
 
 #results li {
