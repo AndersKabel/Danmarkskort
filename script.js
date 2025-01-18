@@ -1,5 +1,5 @@
 // Initialiser kortet
-var map = L.map('map').setView([56, 10], 7); // Danmark som standardvisning
+var map = L.map('map').setView([56, 10], 7); // Standardvisning over Danmark
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
@@ -18,14 +18,14 @@ map.on('click', function (e) {
 
     currentMarker = L.marker([lat, lon]).addTo(map);
 
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
+    fetch(https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad)
         .then(response => response.json())
         .then(data => {
-            document.getElementById('address').innerHTML = `
+            document.getElementById('address').innerHTML = 
                 Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
                 <br>
                 <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
-            `;
+            ;
         })
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
 });
@@ -35,7 +35,7 @@ document.getElementById('search').addEventListener('input', function () {
     var query = this.value.trim();
     if (query.length < 2) return;
 
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+    fetch(https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query})
         .then(response => response.json())
         .then(data => {
             var results = document.getElementById('results');
@@ -45,7 +45,7 @@ document.getElementById('search').addEventListener('input', function () {
                 var li = document.createElement('li');
                 li.textContent = item.tekst;
                 li.addEventListener('click', function () {
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                    fetch(https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id})
                         .then(res => res.json())
                         .then(addressData => {
                             var [lon, lat] = addressData.adgangspunkt.koordinater;
@@ -66,11 +66,11 @@ function placeMarkerAndZoom([lon, lat], addressText) {
     currentMarker = L.marker([lat, lon]).addTo(map);
     map.setView([lat, lon], 16);
 
-    document.getElementById('address').innerHTML = `
+    document.getElementById('address').innerHTML = 
         Valgt adresse: ${addressText}
         <br>
         <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
-    `;
+    ;
 }
 
 // Ryd søgning
