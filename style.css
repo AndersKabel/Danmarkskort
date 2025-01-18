@@ -6,7 +6,7 @@ body {
 
 #map {
     width: 100%;
-    height: 70vh; /* Brug 70% af skærmhøjden til kortet */
+    height: 80vh; /* Brug 80% af skærmhøjden til kortet */
     margin-bottom: 10px;
 }
 
