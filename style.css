@@ -12,20 +12,17 @@ body {
 
 .controls {
     display: flex;
-    justify-content: space-between; /* Fordeler elementerne */
-    align-items: flex-start; /* Justerer elementerne i toppen */
+    justify-content: flex-start; /* Flytter felterne til venstre */
     gap: 10px; /* Hold afstand mellem felterne */
     padding: 10px;
     background: #f9f9f9;
 }
 
 #search {
-    width: 45%; /* Fylder halvdelen af skærmen */
-    padding: 10px;
+    width: 300px;
+    padding: 5px;
     border: 1px solid #ddd;
     border-radius: 5px;
-    height: 40px; /* Ensartet højde */
-    box-sizing: border-box; /* Inkluder padding i højden */
 }
 
 #clearSearch {
@@ -53,16 +50,12 @@ body {
 }
 
 #results {
-    width: 45%; /* Fylder halvdelen af skærmen */
-    max-height: 200px; /* Beholder max-højde */
-    overflow-y: auto;
     list-style: none;
+    margin: 0;
     padding: 10px;
     background: white;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    height: 40px; /* Ensartet højde */
-    box-sizing: border-box; /* Inkluder padding i højden */
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 #results li {
