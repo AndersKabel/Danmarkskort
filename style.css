@@ -21,6 +21,11 @@ body {
 
 #search {
     width: 45%; /* Fylder halvdelen af skærmen */
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    height: 40px; /* Ensartet højde */
+    box-sizing: border-box; /* Inkluder padding i højden */
 }
 
 #clearSearch {
@@ -56,6 +61,8 @@ body {
     background: white;
     border: 1px solid #ddd;
     border-radius: 5px;
+    height: 40px; /* Ensartet højde */
+    box-sizing: border-box; /* Inkluder padding i højden */
 }
 
 #results li {
