@@ -1,6 +1,6 @@
 // Initialiser kortet
 var map = L.map('map').setView([56, 10], 7); // Standardvisning over Danmark
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
