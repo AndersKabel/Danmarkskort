@@ -1,72 +1,72 @@
 body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
+    font-family: Arial, sans-serif; /* Sætter skrifttypen til Arial */
+    margin: 0; /* Fjerner margin omkring body */
+    padding: 0; /* Fjerner padding omkring body */
 }
 
 #map {
-    width: 100%;
+    width: 100%; /* Kortet fylder hele bredden */
     height: 80vh; /* Brug 80% af skærmhøjden til kortet */
-    margin-bottom: 10px;
+    margin-bottom: 10px; /* Tilføjer afstand under kortet */
 }
 
 .controls {
-    display: flex;
+    display: flex; /* Aktiverer flexbox-layout for elementerne */
     justify-content: flex-start; /* Flytter felterne til venstre */
     gap: 10px; /* Hold afstand mellem felterne */
-    padding: 10px;
-    background: #f9f9f9;
+    padding: 10px; /* Tilføjer indre afstand omkring containeren */
+    background: #f9f9f9; /* Sætter en lys baggrundsfarve */
 }
 
 #search {
-    width: 300px;
-    padding: 5px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+    width: 300px; /* Sætter bredden på søgefeltet */
+    padding: 5px; /* Tilføjer indre afstand i søgefeltet */
+    border: 1px solid #ddd; /* Tilføjer en grå kant omkring feltet */
+    border-radius: 5px; /* Giver feltet afrundede hjørner */
 }
 
 #clearSearch {
-    padding: 5px 10px;
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
+    padding: 5px 10px; /* Tilføjer indre afstand omkring knappen */
+    background: #f0f0f0; /* Sætter en lys baggrundsfarve */
+    border: 1px solid #ddd; /* Tilføjer en grå kant */
+    border-radius: 5px; /* Giver knappen afrundede hjørner */
+    cursor: pointer; /* Ændrer musemarkøren til en hånd, når den holdes over knappen */
 }
 
 #clearSearch:hover {
-    background: #e0e0e0;
+    background: #e0e0e0; /* Ændrer baggrundsfarve ved hover-effekt */
 }
 
 #address {
-    font-size: 14px;
-    font-weight: bold;
-    background: #f9f9f9;
-    padding: 10px;
+    font-size: 14px; /* Sætter skriftstørrelsen */
+    font-weight: bold; /* Gør teksten fed */
+    background: #f9f9f9; /* Sætter en lys baggrundsfarve */
+    padding: 10px; /* Tilføjer indre afstand omkring teksten */
     text-align: left; /* Flytter teksten til venstre */
-    border: 1px solid #ddd;
-    border-radius: 5px;
+    border: 1px solid #ddd; /* Tilføjer en grå kant */
+    border-radius: 5px; /* Giver feltet afrundede hjørner */
     width: 50%; /* Sætter bredden til 50% af skærmen */
     margin-left: 10px; /* Tilføjer lidt afstand fra venstre */
 }
 
 #results {
-    list-style: none;
-    margin: 0;
-    padding: 10px;
-    background: white;
-    max-height: 200px;
-    overflow-y: auto;
+    list-style: none; /* Fjerner punkter eller tal foran listen */
+    margin: 0; /* Fjerner ydre afstand omkring listen */
+    padding: 10px; /* Tilføjer indre afstand i containeren */
+    background: white; /* Sætter baggrundsfarven til hvid */
+    max-height: 200px; /* Begrænser den maksimale højde */
+    overflow-y: auto; /* Gør det muligt at scrolle, hvis indholdet overstiger max-højden */
 }
 
 #results li {
-    padding: 10px;
-    margin: 5px 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
-    background: #f9f9f9;
+    padding: 10px; /* Tilføjer indre afstand i listeelementerne */
+    margin: 5px 0; /* Tilføjer afstand mellem listeelementerne */
+    border: 1px solid #ddd; /* Tilføjer en grå kant omkring listeelementerne */
+    border-radius: 5px; /* Giver listeelementerne afrundede hjørner */
+    cursor: pointer; /* Ændrer musemarkøren til en hånd, når den holdes over elementerne */
+    background: #f9f9f9; /* Sætter en lys baggrundsfarve */
 }
 
 #results li:hover {
-    background: #e0f7fa;
+    background: #e0f7fa; /* Ændrer baggrundsfarve ved hover-effekt */
 }
