@@ -12,8 +12,8 @@ body {
 
 .controls {
     display: flex;
-    justify-content: center;
-    gap: 10px;
+    justify-content: flex-start; /* Flytter felterne til venstre */
+    gap: 10px; /* Hold afstand mellem felterne */
     padding: 10px;
     background: #f9f9f9;
 }
