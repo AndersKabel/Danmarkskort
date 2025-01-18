@@ -15,7 +15,7 @@ body {
     justify-content: flex-start; /* Flytter felterne til venstre */
     gap: 10px; /* Hold afstand mellem felterne */
     padding: 10px; /* Tilføjer indre afstand omkring containeren */
-    height: 60px; /* Sætter en fast højde for containeren */
+    height: 50px; /* Sætter en fast højde for containeren */
     background: #f9f9f9; /* Sætter en lys baggrundsfarve */
 }
 
