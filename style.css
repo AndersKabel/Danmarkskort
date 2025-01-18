@@ -45,6 +45,8 @@ body {
     text-align: center;
     border: 1px solid #ddd;
     border-radius: 5px;
+    width: 50%; /* Sætter bredden til 50% af skærmen */
+    margin: 0 auto; /* Centrerer elementet på skærmen */
 }
 
 #results {
