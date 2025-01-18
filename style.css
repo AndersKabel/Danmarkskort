@@ -42,11 +42,11 @@ body {
     font-weight: bold;
     background: #f9f9f9;
     padding: 10px;
-    text-align: center;
+    text-align: left; /* Flytter teksten til venstre */
     border: 1px solid #ddd;
     border-radius: 5px;
     width: 50%; /* Sætter bredden til 50% af skærmen */
-    margin: 0 auto; /* Centrerer elementet på skærmen */
+    margin-left: 10px; /* Tilføjer lidt afstand fra venstre */
 }
 
 #results {
