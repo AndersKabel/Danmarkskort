@@ -41,7 +41,7 @@ document.getElementById('search').addEventListener('input', function () {
             var results = document.getElementById('results');
             results.innerHTML = '';
 
-            data.slice(0, 5).forEach(item => {
+            data.forEach(item => {
                 var li = document.createElement('li');
                 li.textContent = item.tekst;
                 li.addEventListener('click', function () {
