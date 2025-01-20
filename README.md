@@ -1,2 +1,2 @@
 # Danmarkskort
-Simpel hjemmeside der viser danmarkskort med reverse geocoding
+Hjemmeside der viser danmarkskort med reverse geocoding
