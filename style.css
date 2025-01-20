@@ -21,8 +21,8 @@ body {
 
 #search {
     width: 300px; /* Sætter bredden på søgefeltet */
-    height: 35.4px; /* Tilføjet højde for at matche #address */
-    padding: 5px; /* Tilføjer indre afstand i søgefeltet */
+    height: 38.4px; /* Tilføjet højde for at matche #address */
+    padding: 10px; /* Tilføjer indre afstand i søgefeltet */
     border: 1px solid #ddd; /* Tilføjer en grå kant omkring feltet */
     border-radius: 5px; /* Giver feltet afrundede hjørner */
 }
