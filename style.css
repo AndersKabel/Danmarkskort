@@ -20,23 +20,26 @@ body {
 }
 
 #search {
-    flex-grow: 1; /* Gør søgefeltet fleksibelt og fylder resten af pladsen */
-    width: auto; /* Fjerner den faste bredde */
-    height: 38.4px; /* Tilføjet højde for at matche #address */
-    padding: 10px; /* Tilføjer indre afstand i søgefeltet */
-    border: 1px solid #ddd; /* Tilføjer en grå kant omkring feltet */
-    border-radius: 5px; /* Giver feltet afrundede hjørner */
+    flex-grow: 1; /* Gør søgefeltet fleksibelt */
+    flex-basis: 0; /* Sørger for, at feltet kan justere sig */
+    max-width: calc(50% - 60px); /* Juster bredden, så det fylder sin del */
+    height: 38.4px; /* Holder samme højde */
+    padding: 10px; /* Indre afstand */
+    border: 1px solid #ddd; /* Grå kant */
+    border-radius: 5px; /* Afrundede hjørner */
     box-sizing: border-box; /* Inkluder padding og border i bredden */
 }
 
 #clearSearch {
-    flex-shrink: 0; /* Sørger for, at knappen ikke bliver mindre */
-    width: auto; /* Beholder sin egen naturlige bredde */
-    padding: 5px 10px; /* Tilføjer indre afstand omkring knappen */
-    background: #f0f0f0; /* Sætter en lys baggrundsfarve */
-    border: 1px solid #ddd; /* Tilføjer en grå kant */
-    border-radius: 5px; /* Giver knappen afrundede hjørner */
-    cursor: pointer; /* Ændrer musemarkøren til en hånd, når den holdes over knappen */
+    flex-shrink: 0; /* Sørger for, at knappen bevarer sin størrelse */
+    width: 60px; /* Fast bredde til knappen */
+    height: 38.4px; /* Holder samme højde */
+    padding: 5px 10px; /* Indre afstand */
+    background: #f0f0f0; /* Lys baggrund */
+    border: 1px solid #ddd; /* Grå kant */
+    border-radius: 5px; /* Afrundede hjørner */
+    cursor: pointer; /* Sørger for klik-ikon */
+    box-sizing: border-box; /* Inkluder padding og border i bredden */
 }
 
 #clearSearch:hover {
