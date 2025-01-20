@@ -20,14 +20,18 @@ body {
 }
 
 #search {
-    width: 300px; /* Sætter bredden på søgefeltet */
+    flex-grow: 1; /* Gør søgefeltet fleksibelt og fylder resten af pladsen */
+    width: auto; /* Fjerner den faste bredde */
     height: 38.4px; /* Tilføjet højde for at matche #address */
     padding: 10px; /* Tilføjer indre afstand i søgefeltet */
     border: 1px solid #ddd; /* Tilføjer en grå kant omkring feltet */
     border-radius: 5px; /* Giver feltet afrundede hjørner */
+    box-sizing: border-box; /* Inkluder padding og border i bredden */
 }
 
 #clearSearch {
+    flex-shrink: 0; /* Sørger for, at knappen ikke bliver mindre */
+    width: auto; /* Beholder sin egen naturlige bredde */
     padding: 5px 10px; /* Tilføjer indre afstand omkring knappen */
     background: #f0f0f0; /* Sætter en lys baggrundsfarve */
     border: 1px solid #ddd; /* Tilføjer en grå kant */
