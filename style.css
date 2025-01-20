@@ -20,7 +20,7 @@ body {
 }
 
 #search {
-    flex-grow: 0,5; /* Gør søgefeltet fleksibelt og fylder resten af pladsen */
+    flex-grow: 1; /* Gør søgefeltet fleksibelt og fylder resten af pladsen */
     width: auto; /* Fjerner den faste bredde */
     height: 38.4px; /* Tilføjet højde for at matche #address */
     padding: 10px; /* Tilføjer indre afstand i søgefeltet */
