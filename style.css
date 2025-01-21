@@ -16,7 +16,7 @@ body {
     gap: 10px; /* Hold afstand mellem felterne */
     padding: 10px; /* Tilføjer indre afstand omkring containeren */
     align-items: center; /* Vertikal centrering af indhold */
-    background: #f9f9f9; /* Sætter en lys baggrundsfarve */
+    background: #000000; /* Sætter en lys baggrundsfarve */
 }
 
 #search {
