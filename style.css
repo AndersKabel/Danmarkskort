@@ -15,8 +15,9 @@ body {
     justify-content: flex-start; /* Flytter felterne til venstre */
     gap: 10px; /* Hold afstand mellem felterne */
     padding: 10px; /* Tilføjer indre afstand omkring containeren */
-    align-items: center; /* Vertikal centrering af indhold */
+    align-items: flex-start; /* Justerer elementerne øverst */
     background: #f9f9f9; /* Sætter en lys baggrundsfarve */
+    flex-wrap: wrap; /* Tillader elementerne at bryde til næste linje, hvis nødvendigt */
 }
 
 #search {
@@ -59,12 +60,16 @@ body {
 }
 
 #results {
+    flex-grow: 1; /* Gør listen fleksibel og udfylder den resterende plads */
+    max-width: 50%; /* Justerer bredden til at fylde halvdelen af linjen */
     list-style: none; /* Fjerner punkter eller tal foran listen */
     margin: 0; /* Fjerner ydre afstand omkring listen */
     padding: 10px; /* Tilføjer indre afstand i containeren */
     background: white; /* Sætter baggrundsfarven til hvid */
     max-height: 200px; /* Begrænser den maksimale højde */
     overflow-y: auto; /* Gør det muligt at scrolle, hvis indholdet overstiger max-højden */
+    border: 1px solid #ddd; /* Tilføjer en grå kant */
+    border-radius: 5px; /* Giver feltet afrundede hjørner */
 }
 
 #results li {
