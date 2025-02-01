@@ -55,8 +55,9 @@ body {
     text-align: left; /* Flytter teksten til venstre */
     border: 1px solid #ddd; /* Tilføjer en grå kant */
     border-radius: 5px; /* Giver feltet afrundede hjørner */
-    width: 50%; /* Sætter bredden til 50% af skærmen */
-    margin-left: 10px; /* Tilføjer lidt afstand fra venstre */
+    flex-grow: 1; /* Gør det fleksibelt */
+    max-width: 50%; /* Sætter bredden til 50% af skærmen */
+    box-sizing: border-box; /* Sørger for padding og border */
 }
 
 #results {
@@ -70,6 +71,11 @@ body {
     overflow-y: auto; /* Gør det muligt at scrolle, hvis indholdet overstiger max-højden */
     border: 1px solid #ddd; /* Tilføjer en grå kant */
     border-radius: 5px; /* Giver feltet afrundede hjørner */
+    display: none; /* Skjuler listen som standard */
+}
+
+#results.active {
+    display: block; /* Viser listen, når den har klassen "active" */
 }
 
 #results li {
