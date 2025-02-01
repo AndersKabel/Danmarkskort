@@ -22,10 +22,11 @@ map.on('click', function (e) {
         .then(response => response.json())
         .then(data => {
             document.getElementById('address').innerHTML = `
-                Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
+                Valgt adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
                 <br>
                 <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
             `;
+            document.getElementById('results').classList.remove('active'); // Skjuler resultaterne
         })
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
 });
@@ -40,6 +41,7 @@ document.getElementById('search').addEventListener('input', function () {
         .then(data => {
             var results = document.getElementById('results');
             results.innerHTML = '';
+            results.classList.add('active'); // Viser resultaterne
 
             data.forEach(item => {
                 var li = document.createElement('li');
@@ -71,12 +73,14 @@ function placeMarkerAndZoom([lon, lat], addressText) {
         <br>
         <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
     `;
+    document.getElementById('results').classList.remove('active'); // Skjuler resultaterne
 }
 
 // Ryd søgning
 document.getElementById('clearSearch').addEventListener('click', function () {
     document.getElementById('search').value = '';
     document.getElementById('results').innerHTML = '';
+    document.getElementById('results').classList.remove('active'); // Skjuler resultaterne
     if (currentMarker) {
         map.removeLayer(currentMarker);
         currentMarker = null;
