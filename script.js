@@ -83,6 +83,7 @@ function placeMarkerAndZoom([lon, lat], addressText) {
 document.getElementById('clearSearch').addEventListener('click', function () {
     document.getElementById('search').value = '';
     document.getElementById('results').innerHTML = '';
+    document.getElementById('address').innerHTML = 'Klik på kortet eller søg efter en adresse';
     document.getElementById('results').classList.remove('active'); // Skjuler resultaterne
     if (currentMarker) {
         map.removeLayer(currentMarker);
