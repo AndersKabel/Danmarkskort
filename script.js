@@ -43,6 +43,9 @@ document.getElementById('search').addEventListener('input', function () {
             results.innerHTML = '';
             results.classList.add('active'); // Viser resultaterne
 
+            // Rul listen til toppen
+            results.scrollTop = 0; // Sørger for at starte fra toppen af listen
+
             data.forEach(item => {
                 var li = document.createElement('li');
                 li.textContent = item.tekst;
