@@ -1,11 +1,12 @@
 // Initialiser kortet
-var map = L.map('map').setView([56, 10], 7); // Standardvisning over Danmark
+var map = L.map('map').setView([56, 10], 7);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
 var currentMarker;
+var currentLayer;
 
 // Klik på kortet for at finde en adresse
 map.on('click', function (e) {
@@ -22,11 +23,10 @@ map.on('click', function (e) {
         .then(response => response.json())
         .then(data => {
             document.getElementById('address').innerHTML = `
-                Valgt adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
+                Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
                 <br>
                 <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
             `;
-            document.getElementById('results').classList.remove('active'); // Skjuler resultaterne
         })
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
 });
@@ -41,10 +41,6 @@ document.getElementById('search').addEventListener('input', function () {
         .then(data => {
             var results = document.getElementById('results');
             results.innerHTML = '';
-            results.classList.add('active'); // Viser resultaterne
-
-            // Rul listen til toppen
-            results.scrollTop = 0; // Sørger for at starte fra toppen af listen
 
             data.forEach(item => {
                 var li = document.createElement('li');
@@ -76,17 +72,50 @@ function placeMarkerAndZoom([lon, lat], addressText) {
         <br>
         <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
     `;
-    document.getElementById('results').classList.remove('active'); // Skjuler resultaterne
 }
 
 // Ryd søgning
 document.getElementById('clearSearch').addEventListener('click', function () {
     document.getElementById('search').value = '';
     document.getElementById('results').innerHTML = '';
-    document.getElementById('address').innerHTML = 'Klik på kortet eller søg efter en adresse';
-    document.getElementById('results').classList.remove('active'); // Skjuler resultaterne
     if (currentMarker) {
         map.removeLayer(currentMarker);
         currentMarker = null;
     }
+    document.getElementById('address').innerHTML = 'Klik på kortet eller søg efter en adresse';
 });
+
+// Lag-håndtering
+document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+        if (currentLayer) {
+            map.removeLayer(currentLayer);
+        }
+
+        const layerType = this.value;
+        const bounds = map.getBounds();
+        const southWest = bounds.getSouthWest();
+        const northEast = bounds.getNorthEast();
+
+        fetchPOIData(layerType, [southWest.lat, southWest.lng, northEast.lat, northEast.lng]);
+    });
+});
+
+// Hent og vis POI-data
+function fetchPOIData(poiType, bounds) {
+    const [south, west, north, east] = bounds;
+    const url = `https://overpass-api.de/api/interpreter?data=[out:json];node["amenity"="${poiType}"](${south},${west},${north},${east});out;`;
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            const layerGroup = L.layerGroup().addTo(map);
+            data.elements.forEach(poi => {
+                L.marker([poi.lat, poi.lon])
+                    .addTo(layerGroup)
+                    .bindPopup(`${poi.tags.name || "Ukendt navn"} <br> ${poi.tags.amenity || "Ukendt type"}`);
+            });
+            currentLayer = layerGroup;
+        })
+        .catch(err => console.error('Fejl ved hentning af POI-data:', err));
+}
