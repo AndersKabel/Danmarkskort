@@ -1,111 +1,46 @@
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-}
-
-#map {
-    width: 100%;
-    height: 80vh;
-    margin-bottom: 10px;
-}
-
 .controls {
-    display: flex;
-    justify-content: flex-start;
-    gap: 10px;
-    padding: 10px;
-    align-items: center;
-    background: #f9f9f9;
+    display: flex; /* Flex layout */
+    justify-content: space-between; /* Placerer elementerne med plads imellem */
+    gap: 10px; /* Afstand mellem elementerne */
+    padding: 10px; /* Indre afstand */
+    align-items: center; /* Vertikal centrering */
+    background: #f9f9f9; /* Baggrundsfarve */
+    width: 50%; /* Begrænser bredden til halvdelen af skærmen */
+    margin: auto; /* Centerer containeren */
 }
 
 #search {
-    flex-grow: 1;
-    height: 38.4px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    box-sizing: border-box;
+    flex-grow: 1; /* Gør søgefeltet fleksibelt */
+    height: 38.4px; /* Ens højde */
+    padding: 10px; /* Indre afstand */
+    border: 1px solid #ddd; /* Kant */
+    border-radius: 5px; /* Afrundede hjørner */
+    box-sizing: border-box; /* Medregner padding i bredden */
 }
 
 #clearSearch {
-    width: 60px;
-    height: 38.4px;
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
-    box-sizing: border-box;
+    width: 60px; /* Fast bredde */
+    height: 38.4px; /* Ens højde */
+    background: #f0f0f0; /* Baggrundsfarve */
+    border: 1px solid #ddd; /* Kant */
+    border-radius: 5px; /* Afrundede hjørner */
+    cursor: pointer; /* Klik-ikon */
+    box-sizing: border-box; /* Medregner padding i bredden */
 }
 
 #clearSearch:hover {
-    background: #e0e0e0;
-}
-
-#address {
-    font-size: 14px;
-    font-weight: bold;
-    background: #f9f9f9;
-    padding: 10px;
-    text-align: left;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    width: 50%;
-    margin-left: 10px;
+    background: #e0e0e0; /* Baggrundsfarve ved hover */
 }
 
 #results {
-    list-style: none;
-    margin: 0;
-    padding: 10px;
-    background: white;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-#results li {
-    padding: 10px;
-    margin: 5px 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
-    background: #f9f9f9;
-}
-
-#results li:hover {
-    background: #e0f7fa;
-}
-
-#layerControl {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 1000;
-}
-
-#layerToggle {
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    cursor: pointer;
-}
-
-#layerMenu {
-    display: none;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    margin-top: 5px;
-}
-
-#layerMenu label {
-    display: block;
-    margin-bottom: 5px;
-}
-
-#layerToggle:focus + #layerMenu,
-#layerMenu:hover {
-    display: block;
+    list-style: none; /* Fjern listepunkter */
+    margin: 10px auto; /* Center og afstand */
+    padding: 10px; /* Indre afstand */
+    background: white; /* Baggrundsfarve */
+    max-height: 200px; /* Begrænset højde */
+    overflow-y: auto; /* Gør listen scroll-bar */
+    width: 50%; /* Fylder anden halvdel af skærmen */
+    border: 1px solid #ddd; /* Kant */
+    border-radius: 5px; /* Afrundede hjørner */
+    box-sizing: border-box; /* Medregner padding i bredden */
 }
