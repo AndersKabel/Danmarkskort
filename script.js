@@ -100,7 +100,7 @@ document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
             currentLayerGroup = null; // Nulstil laggruppen
         }
 
-        // Hvis "Ingen lag" vælges, fjern alle POI'er fra kortet
+        // Hvis "Ingen lag" vælges, stop her
         if (selectedLayerType === "none") {
             return;
         }
@@ -112,63 +112,83 @@ document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
 
 // Hent og vis POI-data
 function fetchPOIData(poiType) {
-    const bounds = map.getBounds();
-    const southWest = bounds.getSouthWest();
-    const northEast = bounds.getNorthEast();
-    const [south, west, north, east] = [southWest.lat, southWest.lng, northEast.lat, northEast.lng];
+    if (poiType === "charging_station") {
+        // OpenChargeMap API
+        const url = `https://api.openchargemap.io/v3/poi/?output=json&countrycode=DK&maxresults=100&latitude=${map.getCenter().lat}&longitude=${map.getCenter().lng}&distance=50&distanceunit=KM&key=DIN_API_NØGLE`;
 
-    let queryType, queryValue;
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const layerGroup = L.layerGroup();
 
-    // Tilpas forespørgslen baseret på POI-type
-    if (poiType === "supermarket") {
-        queryType = "shop";
-        queryValue = '["shop"~"supermarket|convenience|grocery"]'; // Flere butikstyper
-    } else if (poiType === "fuel") {
-        queryType = "amenity";
-        queryValue = '["amenity"="fuel"]';
-    } else if (poiType === "parking") {
-        queryType = "amenity";
-        queryValue = '["amenity"="parking"]';
-        } else if (poiType === "charging_station") { // Håndter ladestandere
-        queryType = "amenity";
-        queryValue = '["amenity"="charging_station"]';
+                data.forEach(poi => {
+                    let name = poi.AddressInfo.Title || "Ukendt ladestander";
+                    let address = poi.AddressInfo.AddressLine1 || "Ukendt adresse";
+                    let operator = poi.OperatorInfo?.Title || "Ukendt operatør";
+                    let connections = poi.Connections.map(conn => conn.ConnectionType?.Title).join(", ") || "Ukendt stiktype";
+
+                    let popupContent = `<strong>${name}</strong><br>
+                                        Adresse: ${address}<br>
+                                        Operatør: ${operator}<br>
+                                        Stiktyper: ${connections}`;
+
+                    L.marker([poi.AddressInfo.Latitude, poi.AddressInfo.Longitude])
+                        .addTo(layerGroup)
+                        .bindPopup(popupContent);
+                });
+
+                layerGroup.addTo(map);
+                currentLayerGroup = layerGroup;
+            })
+            .catch(err => console.error('Fejl ved hentning af ladestander-data:', err));
     } else {
-        return; // Hvis ingen gyldig type vælges, gør intet
+        // OSM API
+        const bounds = map.getBounds();
+        const southWest = bounds.getSouthWest();
+        const northEast = bounds.getNorthEast();
+        const [south, west, north, east] = [southWest.lat, southWest.lng, northEast.lat, northEast.lng];
+
+        let queryType, queryValue;
+
+        if (poiType === "supermarket") {
+            queryType = "shop";
+            queryValue = '["shop"~"supermarket|convenience|grocery"]';
+        } else if (poiType === "fuel") {
+            queryType = "amenity";
+            queryValue = '["amenity"="fuel"]';
+        } else if (poiType === "parking") {
+            queryType = "amenity";
+            queryValue = '["amenity"="parking"]';
+        } else {
+            return;
+        }
+
+        const url = `https://overpass-api.de/api/interpreter?data=[out:json];node${queryValue}(${south},${west},${north},${east});out;`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const layerGroup = L.layerGroup();
+
+                data.elements.forEach(poi => {
+                    let name = poi.tags.name || "Ukendt navn";
+                    let type = poi.tags.amenity || poi.tags.shop || "Ukendt type";
+                    let address = `${poi.tags["addr:street"] || ""} ${poi.tags["addr:housenumber"] || ""}, ${poi.tags["addr:postcode"] || ""} ${poi.tags["addr:city"] || ""}`.trim();
+
+                    let popupContent = `<strong>${name}</strong><br>
+                                        ${type}<br>
+                                        ${address}`;
+
+                    L.marker([poi.lat, poi.lon])
+                        .addTo(layerGroup)
+                        .bindPopup(popupContent);
+                });
+
+                layerGroup.addTo(map);
+                currentLayerGroup = layerGroup;
+            })
+            .catch(err => console.error('Fejl ved hentning af OSM-data:', err));
     }
-
-    // Byg URL til Overpass API
-    const url = `https://overpass-api.de/api/interpreter?data=[out:json];node${queryValue}(${south},${west},${north},${east});out;`;
-
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            const layerGroup = L.layerGroup(); // Opretter en ny LayerGroup
-
-            data.elements.forEach(poi => {
-                let name = poi.tags.name || "Ukendt navn";
-                let type = poi.tags.amenity || poi.tags.shop || "Ukendt type";
-                let address = `${poi.tags["addr:street"] || ""} ${poi.tags["addr:housenumber"] || ""}, ${poi.tags["addr:postcode"] || ""} ${poi.tags["addr:city"] || ""}`.trim();
-                let openingHours = poi.tags.opening_hours ? `Åbningstider: ${poi.tags.opening_hours}` : "";
-                let phone = poi.tags.phone ? `📞 ${poi.tags.phone}` : "";
-                let website = poi.tags.website ? `<a href="${poi.tags.website}" target="_blank">Besøg hjemmeside</a>` : "";
-
-                let popupContent = `<strong>${name}</strong><br>
-                                    ${type}<br>
-                                    ${address ? address + "<br>" : ""}
-                                    ${openingHours ? openingHours + "<br>" : ""}
-                                    ${phone ? phone + "<br>" : ""}
-                                    ${website}`;
-
-                L.marker([poi.lat, poi.lon])
-                    .addTo(layerGroup)
-                    .bindPopup(popupContent);
-            });
-
-            // Tilføj det nye lag til kortet og gem referencen
-            layerGroup.addTo(map);
-            currentLayerGroup = layerGroup;
-        })
-        .catch(err => console.error('Fejl ved hentning af POI-data:', err));
 }
 
 // Opdater lag ved kortbevægelse eller zoom
