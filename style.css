@@ -1,92 +1,111 @@
 body {
-    font-family: Arial, sans-serif; /* Sætter skrifttypen til Arial */
-    margin: 0; /* Fjerner margin omkring body */
-    padding: 0; /* Fjerner padding omkring body */
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
 }
 
 #map {
-    width: 100%; /* Kortet fylder hele bredden */
-    height: 80vh; /* Brug 80% af skærmhøjden til kortet */
-    margin-bottom: 10px; /* Tilføjer afstand under kortet */
+    width: 100%;
+    height: 80vh;
+    margin-bottom: 10px;
 }
 
 .controls {
-    display: flex; /* Aktiverer flexbox-layout for elementerne */
-    justify-content: flex-start; /* Flytter felterne til venstre */
-    gap: 10px; /* Hold afstand mellem felterne */
-    padding: 10px; /* Tilføjer indre afstand omkring containeren */
-    align-items: flex-start; /* Justerer elementerne øverst */
-    background: #f9f9f9; /* Sætter en lys baggrundsfarve */
-    flex-wrap: wrap; /* Tillader elementerne at bryde til næste linje, hvis nødvendigt */
+    display: flex;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 10px;
+    align-items: center;
+    background: #f9f9f9;
 }
 
 #search {
-    flex-grow: 1; /* Gør søgefeltet fleksibelt */
-    flex-basis: 0; /* Sørger for, at feltet kan justere sig */
-    max-width: calc(50% - 60px); /* Juster bredden, så det fylder sin del */
-    height: 38.4px; /* Holder samme højde */
-    padding: 10px; /* Indre afstand */
-    border: 1px solid #ddd; /* Grå kant */
-    border-radius: 5px; /* Afrundede hjørner */
-    box-sizing: border-box; /* Inkluder padding og border i bredden */
+    flex-grow: 1;
+    height: 38.4px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box;
 }
 
 #clearSearch {
-    flex-shrink: 0; /* Sørger for, at knappen bevarer sin størrelse */
-    width: 60px; /* Fast bredde til knappen */
-    height: 38.4px; /* Holder samme højde */
-    padding: 5px 10px; /* Indre afstand */
-    background: #f0f0f0; /* Lys baggrund */
-    border: 1px solid #ddd; /* Grå kant */
-    border-radius: 5px; /* Afrundede hjørner */
-    cursor: pointer; /* Sørger for klik-ikon */
-    box-sizing: border-box; /* Inkluder padding og border i bredden */
+    width: 60px;
+    height: 38.4px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    box-sizing: border-box;
 }
 
 #clearSearch:hover {
-    background: #e0e0e0; /* Ændrer baggrundsfarve ved hover-effekt */
+    background: #e0e0e0;
 }
 
 #address {
-    font-size: 14px; /* Sætter skriftstørrelsen */
-    font-weight: bold; /* Gør teksten fed */
-    background: #f9f9f9; /* Sætter en lys baggrundsfarve */
-    padding: 10px; /* Tilføjer indre afstand omkring teksten */
-    text-align: left; /* Flytter teksten til venstre */
-    border: 1px solid #ddd; /* Tilføjer en grå kant */
-    border-radius: 5px; /* Giver feltet afrundede hjørner */
-    flex-grow: 1; /* Gør det fleksibelt */
-    max-width: 50%; /* Sætter bredden til 50% af skærmen */
-    box-sizing: border-box; /* Sørger for padding og border */
+    font-size: 14px;
+    font-weight: bold;
+    background: #f9f9f9;
+    padding: 10px;
+    text-align: left;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    width: 50%;
+    margin-left: 10px;
 }
 
 #results {
-    flex-grow: 1; /* Gør listen fleksibel og udfylder den resterende plads */
-    max-width: 50%; /* Justerer bredden til at fylde halvdelen af linjen */
-    list-style: none; /* Fjerner punkter eller tal foran listen */
-    margin: 0; /* Fjerner ydre afstand omkring listen */
-    padding: 10px; /* Tilføjer indre afstand i containeren */
-    background: white; /* Sætter baggrundsfarven til hvid */
-    max-height: 200px; /* Begrænser den maksimale højde */
-    overflow-y: auto; /* Gør det muligt at scrolle, hvis indholdet overstiger max-højden */
-    border: 1px solid #ddd; /* Tilføjer en grå kant */
-    border-radius: 5px; /* Giver feltet afrundede hjørner */
-    display: none; /* Skjuler listen som standard */
-}
-
-#results.active {
-    display: block; /* Viser listen, når den har klassen "active" */
+    list-style: none;
+    margin: 0;
+    padding: 10px;
+    background: white;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 #results li {
-    padding: 10px; /* Tilføjer indre afstand i listeelementerne */
-    margin: 5px 0; /* Tilføjer afstand mellem listeelementerne */
-    border: 1px solid #ddd; /* Tilføjer en grå kant omkring listeelementerne */
-    border-radius: 5px; /* Giver listeelementerne afrundede hjørner */
-    cursor: pointer; /* Ændrer musemarkøren til en hånd, når den holdes over elementerne */
-    background: #f9f9f9; /* Sætter en lys baggrundsfarve */
+    padding: 10px;
+    margin: 5px 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    background: #f9f9f9;
 }
 
 #results li:hover {
-    background: #e0f7fa; /* Ændrer baggrundsfarve ved hover-effekt */
+    background: #e0f7fa;
+}
+
+#layerControl {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+}
+
+#layerToggle {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    cursor: pointer;
+}
+
+#layerMenu {
+    display: none;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 5px;
+}
+
+#layerMenu label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+#layerToggle:focus + #layerMenu,
+#layerMenu:hover {
+    display: block;
 }
