@@ -93,9 +93,12 @@ document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
 
         // Fjern det nuværende lag, hvis det eksisterer
         if (currentLayerGroup) {
-            currentLayerGroup.clearLayers();
-            map.removeLayer(currentLayerGroup);
-            currentLayerGroup = null;
+    currentLayerGroup.eachLayer(function (layer) {
+        map.removeLayer(layer);
+    });
+    currentLayerGroup.clearLayers();
+}
+currentLayerGroup = null; // Nulstil laggruppen
         }
 
         // Hvis "Ingen lag" vælges, gør intet yderligere
