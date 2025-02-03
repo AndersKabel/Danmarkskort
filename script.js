@@ -114,7 +114,7 @@ document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
 function fetchPOIData(poiType) {
     if (poiType === "charging_station") {
         // OpenChargeMap API
-        const url = `https://api.openchargemap.io/v3/poi/?output=json&countrycode=DK&maxresults=100&latitude=${map.getCenter().lat}&longitude=${map.getCenter().lng}&distance=50&distanceunit=KM&key=DIN_API_NØGLE`;
+        const url = `https://api.openchargemap.io/v3/poi/?output=json&countrycode=DK&maxresults=100&latitude=${map.getCenter().lat}&longitude=${map.getCenter().lng}&distance=50&distanceunit=KM&key=3c33b286-7067-426b-8e46-a727dd12f6f3`;
 
         fetch(url)
             .then(response => response.json())
