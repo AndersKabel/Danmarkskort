@@ -6,7 +6,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 var currentMarker;
-var currentLayer;
+var currentLayerGroup = null; // Holder referencen til det nuværende aktive lag
 
 // Klik på kortet for at finde en adresse
 map.on('click', function (e) {
@@ -88,35 +88,41 @@ document.getElementById('clearSearch').addEventListener('click', function () {
 // Lag-håndtering
 document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
     radio.addEventListener('change', function () {
-        if (currentLayer) {
-            map.removeLayer(currentLayer);
+        const layerType = this.value;
+
+        // Fjern det nuværende lag, hvis det eksisterer
+        if (currentLayerGroup) {
+            map.removeLayer(currentLayerGroup);
         }
 
-        const layerType = this.value;
-        const bounds = map.getBounds();
-        const southWest = bounds.getSouthWest();
-        const northEast = bounds.getNorthEast();
-
-        fetchPOIData(layerType, [southWest.lat, southWest.lng, northEast.lat, northEast.lng]);
+        // Hent og vis det nye lag
+        fetchPOIData(layerType);
     });
 });
 
 // Hent og vis POI-data
-function fetchPOIData(poiType, bounds) {
-    const [south, west, north, east] = bounds;
+function fetchPOIData(poiType) {
+    const bounds = map.getBounds();
+    const southWest = bounds.getSouthWest();
+    const northEast = bounds.getNorthEast();
+    const [south, west, north, east] = [southWest.lat, southWest.lng, northEast.lat, northEast.lng];
+
     const url = `https://overpass-api.de/api/interpreter?data=[out:json];node["amenity"="${poiType}"](${south},${west},${north},${east});out;`;
 
     fetch(url)
         .then(response => response.json())
         .then(data => {
-            const layerGroup = L.layerGroup().addTo(map);
+            const layerGroup = L.layerGroup(); // Opretter en ny LayerGroup
+
             data.elements.forEach(poi => {
                 L.marker([poi.lat, poi.lon])
                     .addTo(layerGroup)
                     .bindPopup(`${poi.tags.name || "Ukendt navn"} <br> ${poi.tags.amenity || "Ukendt type"}`);
             });
-            currentLayer = layerGroup;
+
+            // Tilføj det nye lag til kortet og gem referencen
+            layerGroup.addTo(map);
+            currentLayerGroup = layerGroup;
         })
         .catch(err => console.error('Fejl ved hentning af POI-data:', err));
 }
-
