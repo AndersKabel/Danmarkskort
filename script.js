@@ -123,7 +123,7 @@ function fetchPOIData(poiType) {
     // Tilpas forespørgslen baseret på POI-type
     if (poiType === "supermarket") {
         queryType = "shop";
-        queryValue = '["shop"~"supermarket|convenience|grocery"]'; // Hent flere butikstyper
+        queryValue = '["shop"~"supermarket|convenience|grocery"]'; // Flere butikstyper
     } else if (poiType === "fuel") {
         queryType = "amenity";
         queryValue = '["amenity"="fuel"]';
@@ -143,9 +143,23 @@ function fetchPOIData(poiType) {
             const layerGroup = L.layerGroup(); // Opretter en ny LayerGroup
 
             data.elements.forEach(poi => {
+                let name = poi.tags.name || "Ukendt navn";
+                let type = poi.tags.amenity || poi.tags.shop || "Ukendt type";
+                let address = `${poi.tags["addr:street"] || ""} ${poi.tags["addr:housenumber"] || ""}, ${poi.tags["addr:postcode"] || ""} ${poi.tags["addr:city"] || ""}`.trim();
+                let openingHours = poi.tags.opening_hours ? `Åbningstider: ${poi.tags.opening_hours}` : "";
+                let phone = poi.tags.phone ? `📞 ${poi.tags.phone}` : "";
+                let website = poi.tags.website ? `<a href="${poi.tags.website}" target="_blank">Besøg hjemmeside</a>` : "";
+
+                let popupContent = `<strong>${name}</strong><br>
+                                    ${type}<br>
+                                    ${address ? address + "<br>" : ""}
+                                    ${openingHours ? openingHours + "<br>" : ""}
+                                    ${phone ? phone + "<br>" : ""}
+                                    ${website}`;
+
                 L.marker([poi.lat, poi.lon])
                     .addTo(layerGroup)
-                    .bindPopup(`${poi.tags.name || "Ukendt navn"} <br> ${poi.tags.amenity || poi.tags.shop || "Ukendt type"}`);
+                    .bindPopup(popupContent);
             });
 
             // Tilføj det nye lag til kortet og gem referencen
@@ -154,6 +168,7 @@ function fetchPOIData(poiType) {
         })
         .catch(err => console.error('Fejl ved hentning af POI-data:', err));
 }
+
 
 
 // Opdater lag ved kortbevægelse eller zoom
