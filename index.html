@@ -1,7 +1,42 @@
-<div class="controls-container">
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danmarkskort</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Din egen CSS-fil -->
+    <link rel="stylesheet" href="style.css">
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+    </style>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <div id="map"></div>
     <div class="controls">
         <input type="text" id="search" placeholder="Søg efter adresse...">
         <button id="clearSearch">Ryd</button>
     </div>
+    <p id="address">Klik på kortet eller søg efter en adresse</p>
     <ul id="results"></ul>
-</div>
+
+    <!-- Dropdown Menu for Layers -->
+    <div id="layerControl">
+        <button id="layerToggle">☰ Lag</button>
+        <div id="layerMenu">
+            <label><input type="radio" name="layer" value="none" checked> Ingen lag</label>
+            <label><input type="radio" name="layer" value="fuel"> Tankstationer</label>
+            <label><input type="radio" name="layer" value="parking"> Parkeringspladser</label>
+            <label><input type="radio" name="layer" value="supermarket"> Supermarkeder</label>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
