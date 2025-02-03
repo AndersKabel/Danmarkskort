@@ -100,7 +100,7 @@ document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
             currentLayerGroup = null; // Nulstil laggruppen
         }
 
-        // Hvis "Ingen lag" vælges, stop her
+        // Hvis "Ingen lag" vælges, fjern alle POI'er fra kortet
         if (selectedLayerType === "none") {
             return;
         }
@@ -109,7 +109,6 @@ document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
         fetchPOIData(selectedLayerType);
     });
 });
-
 
 // Hent og vis POI-data
 function fetchPOIData(poiType) {
@@ -168,8 +167,6 @@ function fetchPOIData(poiType) {
         })
         .catch(err => console.error('Fejl ved hentning af POI-data:', err));
 }
-
-
 
 // Opdater lag ved kortbevægelse eller zoom
 map.on('moveend', function () {
