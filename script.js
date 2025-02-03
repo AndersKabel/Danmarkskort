@@ -93,15 +93,14 @@ document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
 
         // Fjern det nuværende lag, hvis det eksisterer
         if (currentLayerGroup) {
-    currentLayerGroup.eachLayer(function (layer) {
-        map.removeLayer(layer);
-    });
-    currentLayerGroup.clearLayers();
-}
-currentLayerGroup = null; // Nulstil laggruppen
+            currentLayerGroup.eachLayer(function (layer) {
+                map.removeLayer(layer);
+            });
+            currentLayerGroup.clearLayers();
+            currentLayerGroup = null; // Nulstil laggruppen
         }
 
-        // Hvis "Ingen lag" vælges, gør intet yderligere
+        // Hvis "Ingen lag" vælges, stop her
         if (selectedLayerType === "none") {
             return;
         }
@@ -110,6 +109,7 @@ currentLayerGroup = null; // Nulstil laggruppen
         fetchPOIData(selectedLayerType);
     });
 });
+
 
 // Hent og vis POI-data
 function fetchPOIData(poiType) {
