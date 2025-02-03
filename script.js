@@ -118,9 +118,24 @@ function fetchPOIData(poiType) {
     const northEast = bounds.getNorthEast();
     const [south, west, north, east] = [southWest.lat, southWest.lng, northEast.lat, northEast.lng];
 
-    const queryType = poiType === "supermarket" ? "shop" : "amenity"; // Brug "shop" til supermarkeder, ellers "amenity"
-    const url = `https://overpass-api.de/api/interpreter?data=[out:json];node["${queryType}"="${poiType}"](${south},${west},${north},${east});out;`;
+    let queryType, queryValue;
 
+    // Tilpas forespørgslen baseret på POI-type
+    if (poiType === "supermarket") {
+        queryType = "shop";
+        queryValue = '["shop"~"supermarket|convenience|grocery"]'; // Hent flere butikstyper
+    } else if (poiType === "fuel") {
+        queryType = "amenity";
+        queryValue = '["amenity"="fuel"]';
+    } else if (poiType === "parking") {
+        queryType = "amenity";
+        queryValue = '["amenity"="parking"]';
+    } else {
+        return; // Hvis ingen gyldig type vælges, gør intet
+    }
+
+    // Byg URL til Overpass API
+    const url = `https://overpass-api.de/api/interpreter?data=[out:json];node${queryValue}(${south},${west},${north},${east});out;`;
 
     fetch(url)
         .then(response => response.json())
@@ -130,7 +145,7 @@ function fetchPOIData(poiType) {
             data.elements.forEach(poi => {
                 L.marker([poi.lat, poi.lon])
                     .addTo(layerGroup)
-                    .bindPopup(`${poi.tags.name || "Ukendt navn"} <br> ${poi.tags.amenity || "Ukendt type"}`);
+                    .bindPopup(`${poi.tags.name || "Ukendt navn"} <br> ${poi.tags.amenity || poi.tags.shop || "Ukendt type"}`);
             });
 
             // Tilføj det nye lag til kortet og gem referencen
@@ -139,6 +154,7 @@ function fetchPOIData(poiType) {
         })
         .catch(err => console.error('Fejl ved hentning af POI-data:', err));
 }
+
 
 // Opdater lag ved kortbevægelse eller zoom
 map.on('moveend', function () {
