@@ -129,6 +129,9 @@ function fetchPOIData(poiType) {
     } else if (poiType === "parking") {
         queryType = "amenity";
         queryValue = '["amenity"="parking"]';
+        } else if (poiType === "charging_station") { // Håndter ladestandere
+        queryType = "amenity";
+        queryValue = '["amenity"="charging_station"]';
     } else {
         return; // Hvis ingen gyldig type vælges, gør intet
     }
