@@ -115,7 +115,9 @@ function fetchPOIData(poiType) {
     const northEast = bounds.getNorthEast();
     const [south, west, north, east] = [southWest.lat, southWest.lng, northEast.lat, northEast.lng];
 
-    const url = `https://overpass-api.de/api/interpreter?data=[out:json];node["amenity"="${poiType}"](${south},${west},${north},${east});out;`;
+    const queryType = poiType === "supermarket" ? "shop" : "amenity"; // Brug "shop" til supermarkeder, ellers "amenity"
+    const url = `https://overpass-api.de/api/interpreter?data=[out:json];node["${queryType}"="${poiType}"](${south},${west},${north},${east});out;`;
+
 
     fetch(url)
         .then(response => response.json())
