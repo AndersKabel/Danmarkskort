@@ -7,7 +7,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 var currentMarker;
 var currentLayerGroup = null; // Holder referencen til det nuværende aktive lag
-var currentLayerType = "none"; // Standardlaget er "Ingen lag"
 
 // Klik på kortet for at finde en adresse
 map.on('click', function (e) {
@@ -89,19 +88,22 @@ document.getElementById('clearSearch').addEventListener('click', function () {
 // Lag-håndtering
 document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
     radio.addEventListener('change', function () {
-        currentLayerType = this.value;
+        const layerType = this.value;
 
         // Fjern det nuværende lag, hvis det eksisterer
         if (currentLayerGroup) {
-            map.removeLayer(currentLayerGroup);
-            currentLayerGroup = null;
+            currentLayerGroup.clearLayers(); // Fjern alle lag i gruppen
+            map.removeLayer(currentLayerGroup); // Fjern gruppen fra kortet
+            currentLayerGroup = null; // Nulstil referencen
         }
 
-        // Hvis "Ingen lag" er valgt, afslut her
-        if (currentLayerType === "none") return;
+        // Hvis "Ingen lag" vælges, gør intet yderligere
+        if (layerType === "none") {
+            return; // Stop her, hvis "Ingen lag" er valgt
+        }
 
         // Hent og vis det nye lag
-        fetchPOIData(currentLayerType);
+        fetchPOIData(layerType);
     });
 });
 
@@ -131,10 +133,3 @@ function fetchPOIData(poiType) {
         })
         .catch(err => console.error('Fejl ved hentning af POI-data:', err));
 }
-
-// Opdater lag, når kortet flyttes eller zoomes
-map.on('moveend', function () {
-    if (currentLayerType !== "none") {
-        fetchPOIData(currentLayerType);
-    }
-});
