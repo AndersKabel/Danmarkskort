@@ -7,6 +7,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 var currentMarker;
 var currentLayerGroup = null; // Holder referencen til det nuværende aktive lag
+var currentLayerType = null; // Holder referencen til den aktuelle lagtype
 
 // Klik på kortet for at finde en adresse
 map.on('click', function (e) {
@@ -95,9 +96,17 @@ document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
             map.removeLayer(currentLayerGroup);
         }
 
-        // Hent og vis det nye lag
+        // Gem den nye lagtype og hent POI-data
+        currentLayerType = layerType;
         fetchPOIData(layerType);
     });
+});
+
+// Opdater lag, når kortet flyttes eller zoomes
+map.on('moveend', function () {
+    if (currentLayerType) {
+        fetchPOIData(currentLayerType); // Hent POI-data for den aktuelle lagtype
+    }
 });
 
 // Hent og vis POI-data
