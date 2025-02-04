@@ -27,8 +27,14 @@
     <ul id="results"></ul>
     
 <div class="cross-search">
-    <input type="text" id="road1" placeholder="Vejnavn 1">
-    <input type="text" id="road2" placeholder="Vejnavn 2">
+    <div style="position: relative;">
+        <input type="text" id="road1" placeholder="Vejnavn 1">
+        <div id="road1-suggestions" class="suggestions"></div>
+    </div>
+    <div style="position: relative;">
+        <input type="text" id="road2" placeholder="Vejnavn 2">
+        <div id="road2-suggestions" class="suggestions"></div>
+    </div>
     <button id="findIntersection">Find kryds</button>
 </div>
 
