@@ -10,17 +10,26 @@ body {
     margin-bottom: 10px;
 }
 
-.controls {
+.container {
     display: flex;
-    justify-content: flex-start;
-    gap: 10px;
+    width: 100%;
+}
+
+.search-clear {
+    width: 50%;
     padding: 10px;
-    align-items: center;
-    background: #f9f9f9;
+    box-sizing: border-box;
+}
+
+#result {
+    width: 50%;
+    padding: 10px;
+    box-sizing: border-box;
+    border-left: 1px solid #ccc;
 }
 
 #search {
-    flex-grow: 1;
+    width: 100%;
     height: 38.4px;
     padding: 10px;
     border: 1px solid #ddd;
@@ -29,7 +38,8 @@ body {
 }
 
 #clearSearch {
-    width: 60px;
+    margin-top: 10px;
+    width: 100%;
     height: 38.4px;
     background: #f0f0f0;
     border: 1px solid #ddd;
@@ -50,8 +60,7 @@ body {
     text-align: left;
     border: 1px solid #ddd;
     border-radius: 5px;
-    width: 50%;
-    margin-left: 10px;
+    margin-bottom: 10px;
 }
 
 #results {
