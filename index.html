@@ -1,143 +1,77 @@
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-}
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danmarkskort</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Din egen CSS-fil -->
+    <link rel="stylesheet" href="style.css">
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
 
-#map {
-    width: 100%;
-    height: 80vh;
-    margin-bottom: 10px;
-}
+        .cross-search {
+            display: flex;
+            justify-content: flex-start;
+            gap: 10px;
+            padding: 10px;
+            align-items: center;
+            background: #f9f9f9;
+        }
 
-.controls {
-    display: flex;
-    justify-content: flex-start;
-    gap: 10px;
-    padding: 10px;
-    align-items: center;
-    background: #f9f9f9;
-}
+        .cross-search input {
+            flex-grow: 1;
+            height: 38.4px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
 
-#search {
-    flex-grow: 1;
-    height: 38.4px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    box-sizing: border-box;
-}
+        .cross-search button {
+            height: 38.4px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
 
-#clearSearch {
-    width: 60px;
-    height: 38.4px;
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
-    box-sizing: border-box;
-}
+        .cross-search button:hover {
+            background: #e0e0e0;
+        }
+    </style>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="controls">
+        <input type="text" id="search" placeholder="Søg efter adresse...">
+        <button id="clearSearch">Ryd</button>
+    </div>
+    <p id="address">Klik på kortet eller søg efter en adresse</p>
+    <ul id="results"></ul>
 
-#clearSearch:hover {
-    background: #e0e0e0;
-}
+    <!-- Nye søgefelter til kryds -->
+    <div class="cross-search">
+        <input type="text" id="road1" placeholder="Vejnavn 1">
+        <input type="text" id="road2" placeholder="Vejnavn 2">
+        <button id="findIntersection">Find kryds</button>
+    </div>
 
-/* Ny CSS til krydssøgning */
-.cross-search {
-    display: flex;
-    justify-content: flex-start;
-    gap: 10px;
-    padding: 10px;
-    align-items: center;
-    background: #f9f9f9;
-}
-
-.cross-search input {
-    flex-grow: 1;
-    height: 38.4px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    box-sizing: border-box;
-}
-
-.cross-search button {
-    height: 38.4px;
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
-    box-sizing: border-box;
-}
-
-.cross-search button:hover {
-    background: #e0e0e0;
-}
-
-#address {
-    font-size: 14px;
-    font-weight: bold;
-    background: #f9f9f9;
-    padding: 10px;
-    text-align: left;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    width: 50%;
-    margin-left: 10px;
-}
-
-#results {
-    list-style: none;
-    margin: 0;
-    padding: 10px;
-    background: white;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-#results li {
-    padding: 10px;
-    margin: 5px 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
-    background: #f9f9f9;
-}
-
-#results li:hover {
-    background: #e0f7fa;
-}
-
-#layerControl {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 1000;
-}
-
-#layerToggle {
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    cursor: pointer;
-}
-
-#layerMenu {
-    display: none;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    margin-top: 5px;
-}
-
-#layerMenu label {
-    display: block;
-    margin-bottom: 5px;
-}
-
-#layerToggle:focus + #layerMenu,
-#layerMenu:hover {
-    display: block;
-}
+    <!-- Dropdown Menu for Layers -->
+    <div id="layerControl">
+        <button id="layerToggle">☰ Lag</button>
+        <div id="layerMenu">
+            <label><input type="radio" name="layer" value="none" checked> Ingen lag</label>
+            <label><input type="radio" name="layer" value="fuel"> Tankstationer</label>
+            <label><input type="radio" name="layer" value="parking"> Parkeringspladser</label>
+            <label><input type="radio" name="layer" value="supermarket"> Supermarkeder</label>
+            <label><input type="radio" name="layer" value="charging_station"> Ladestandere</label>
+        </div>
+    </div>
