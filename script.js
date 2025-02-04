@@ -256,3 +256,44 @@ function findIntersections(road1Data, road2Data) {
 
     return intersections;
 }
+// Funktion til at opsætte autocomplete
+function setupAutocomplete(inputId, suggestionsId) {
+    const input = document.getElementById(inputId);
+    const suggestions = document.getElementById(suggestionsId);
+
+    input.addEventListener('input', function () {
+        const query = input.value.trim();
+        if (query.length < 2) {
+            suggestions.innerHTML = '';
+            return;
+        }
+
+        // Hent forslag til vejnavne fra DAWA
+        fetch(`https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`)
+            .then(response => response.json())
+            .then(data => {
+                suggestions.innerHTML = '';
+                data.forEach(item => {
+                    const suggestion = document.createElement('div');
+                    suggestion.textContent = item.tekst;
+                    suggestion.addEventListener('click', function () {
+                        input.value = item.tekst; // Sæt værdien i input-feltet
+                        suggestions.innerHTML = ''; // Ryd forslag
+                    });
+                    suggestions.appendChild(suggestion);
+                });
+            })
+            .catch(err => console.error('Fejl i autocomplete:', err));
+    });
+
+    // Luk forslag, hvis brugeren klikker udenfor
+    document.addEventListener('click', function (e) {
+        if (!suggestions.contains(e.target) && e.target !== input) {
+            suggestions.innerHTML = '';
+        }
+    });
+}
+
+// Opsæt autocomplete for begge krydsfelter
+setupAutocomplete('road1', 'road1-suggestions');
+setupAutocomplete('road2', 'road2-suggestions');
