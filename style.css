@@ -42,6 +42,37 @@ body {
     background: #e0e0e0;
 }
 
+.cross-search {
+    display: flex;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 10px;
+    align-items: center;
+    background: #f9f9f9;
+}
+
+.cross-search input {
+    flex-grow: 1;
+    height: 38.4px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+.cross-search button {
+    height: 38.4px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.cross-search button:hover {
+    background: #e0e0e0;
+}
+
 #address {
     font-size: 14px;
     font-weight: bold;
