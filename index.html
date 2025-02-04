@@ -13,37 +13,6 @@
             height: 500px;
             width: 100%;
         }
-
-        .cross-search {
-            display: flex;
-            justify-content: flex-start;
-            gap: 10px;
-            padding: 10px;
-            align-items: center;
-            background: #f9f9f9;
-        }
-
-        .cross-search input {
-            flex-grow: 1;
-            height: 38.4px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-sizing: border-box;
-        }
-
-        .cross-search button {
-            height: 38.4px;
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            cursor: pointer;
-            box-sizing: border-box;
-        }
-
-        .cross-search button:hover {
-            background: #e0e0e0;
-        }
     </style>
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -57,13 +26,6 @@
     <p id="address">Klik på kortet eller søg efter en adresse</p>
     <ul id="results"></ul>
 
-    <!-- Nye søgefelter til kryds -->
-    <div class="cross-search">
-        <input type="text" id="road1" placeholder="Vejnavn 1">
-        <input type="text" id="road2" placeholder="Vejnavn 2">
-        <button id="findIntersection">Find kryds</button>
-    </div>
-
     <!-- Dropdown Menu for Layers -->
     <div id="layerControl">
         <button id="layerToggle">☰ Lag</button>
@@ -75,3 +37,7 @@
             <label><input type="radio" name="layer" value="charging_station"> Ladestandere</label>
         </div>
     </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
