@@ -10,20 +10,13 @@ body {
     margin-bottom: 10px;
 }
 
-.container {
+.controls {
     display: flex;
-    flex-direction: column;
-    width: 100%;
-    padding: 10px;
-    box-sizing: border-box;
-}
-
-.search-clear {
-    display: flex;
-    width: 100%;
-    align-items: center;
+    justify-content: flex-start;
     gap: 10px;
-    margin-bottom: 10px;
+    padding: 10px;
+    align-items: center;
+    background: #f9f9f9;
 }
 
 #search {
@@ -36,13 +29,12 @@ body {
 }
 
 #clearSearch {
-    width: auto;
+    width: 60px;
     height: 38.4px;
     background: #f0f0f0;
     border: 1px solid #ddd;
     border-radius: 5px;
     cursor: pointer;
-    padding: 0 10px;
     box-sizing: border-box;
 }
 
@@ -58,17 +50,15 @@ body {
     text-align: left;
     border: 1px solid #ddd;
     border-radius: 5px;
-    width: 100%;
-    margin-bottom: 10px;
+    width: 50%;
+    margin-left: 10px;
 }
 
-#result {
-    width: 100%;
+#results {
+    list-style: none;
+    margin: 0;
     padding: 10px;
-    box-sizing: border-box;
     background: white;
-    border: 1px solid #ddd;
-    border-radius: 5px;
     max-height: 200px;
     overflow-y: auto;
 }
