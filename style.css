@@ -1,16 +1,4 @@
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-}
-
-#map {
-    width: 100%;
-    height: 80vh;
-    margin-bottom: 10px;
-}
-
-.controls {
+.cross-search {
     display: flex;
     justify-content: flex-start;
     gap: 10px;
@@ -19,7 +7,7 @@ body {
     background: #f9f9f9;
 }
 
-#search {
+.cross-search input {
     flex-grow: 1;
     height: 38.4px;
     padding: 10px;
@@ -28,8 +16,7 @@ body {
     box-sizing: border-box;
 }
 
-#clearSearch {
-    width: 60px;
+.cross-search button {
     height: 38.4px;
     background: #f0f0f0;
     border: 1px solid #ddd;
@@ -38,74 +25,6 @@ body {
     box-sizing: border-box;
 }
 
-#clearSearch:hover {
+.cross-search button:hover {
     background: #e0e0e0;
-}
-
-#address {
-    font-size: 14px;
-    font-weight: bold;
-    background: #f9f9f9;
-    padding: 10px;
-    text-align: left;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    width: 50%;
-    margin-left: 10px;
-}
-
-#results {
-    list-style: none;
-    margin: 0;
-    padding: 10px;
-    background: white;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-#results li {
-    padding: 10px;
-    margin: 5px 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
-    background: #f9f9f9;
-}
-
-#results li:hover {
-    background: #e0f7fa;
-}
-
-#layerControl {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 1000;
-}
-
-#layerToggle {
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    cursor: pointer;
-}
-
-#layerMenu {
-    display: none;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    margin-top: 5px;
-}
-
-#layerMenu label {
-    display: block;
-    margin-bottom: 5px;
-}
-
-#layerToggle:focus + #layerMenu,
-#layerMenu:hover {
-    display: block;
 }
