@@ -6,7 +6,6 @@
     <title>Danmarkskort</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Din egen CSS-fil -->
     <link rel="stylesheet" href="style.css">
     <style>
         #map {
@@ -25,6 +24,13 @@
     </div>
     <p id="address">Klik på kortet eller søg efter en adresse</p>
     <ul id="results"></ul>
+
+    <!-- Nye søgefelter til kryds -->
+    <div class="cross-search">
+        <input type="text" id="road1" placeholder="Vejnavn 1">
+        <input type="text" id="road2" placeholder="Vejnavn 2">
+        <button id="findIntersection">Find kryds</button>
+    </div>
 
     <!-- Dropdown Menu for Layers -->
     <div id="layerControl">
