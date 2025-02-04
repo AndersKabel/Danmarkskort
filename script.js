@@ -99,8 +99,8 @@ document.getElementById('findIntersection').addEventListener('click', function (
 
 // Funktion til at finde kryds mellem to sæt vejforløb
 function findIntersections(road1Data, road2Data) {
-    const road1Coordinates = road1Data.flatMap(road => road.geometri.coordinates || []);
-    const road2Coordinates = road2Data.flatMap(road => road.geometri.coordinates || []);
+    const road1Coordinates = road1Data.flatMap(road => road.geometri?.coordinates || []);
+    const road2Coordinates = road2Data.flatMap(road => road.geometri?.coordinates || []);
 
     const intersections = [];
 
