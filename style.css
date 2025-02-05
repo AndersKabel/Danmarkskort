@@ -52,19 +52,12 @@ body {
 }
 
 .cross-search input {
+    flex-grow: 1;
     height: 38.4px;
     padding: 10px;
     border: 1px solid #ddd;
     border-radius: 5px;
     box-sizing: border-box;
-}
-
-#postcode {
-    width: 100px; /* Mindre bredde for postnummerfelt */
-}
-
-#road1, #road2 {
-    flex-grow: 1; /* Tilpas bredde til de resterende felter */
 }
 
 .cross-search button {
@@ -78,25 +71,6 @@ body {
 
 .cross-search button:hover {
     background: #e0e0e0;
-}
-
-.suggestions {
-    position: absolute;
-    background: white;
-    border: 1px solid #ddd;
-    max-height: 150px;
-    overflow-y: auto;
-    z-index: 1000;
-    width: calc(100% - 20px); /* Tilpas bredde til inputfeltet */
-}
-
-.suggestions div {
-    padding: 5px;
-    cursor: pointer;
-}
-
-.suggestions div:hover {
-    background: #f0f0f0;
 }
 
 #address {
