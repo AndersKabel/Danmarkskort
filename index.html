@@ -25,15 +25,12 @@
     </div>
     <p id="address">Klik på kortet eller søg efter en adresse</p>
     <ul id="results"></ul>
-
-    <div class="cross-search">
-        <input type="text" id="postcode" placeholder="Postnr">
-        <input type="text" id="road1" placeholder="Vejnavn 1">
-        <div id="road1-suggestions" class="suggestions"></div>
-        <input type="text" id="road2" placeholder="Vejnavn 2">
-        <div id="road2-suggestions" class="suggestions"></div>
-        <button id="findIntersection">Find kryds</button>
-    </div>
+    
+<div class="cross-search">
+    <input type="text" id="road1" placeholder="Vejnavn 1">
+    <input type="text" id="road2" placeholder="Vejnavn 2">
+    <button id="findIntersection">Find kryds</button>
+</div>
 
     <!-- Dropdown Menu for Layers -->
     <div id="layerControl">
@@ -46,7 +43,3 @@
             <label><input type="radio" name="layer" value="charging_station"> Ladestandere</label>
         </div>
     </div>
-
-    <script src="script.js"></script>
-</body>
-</html>
