@@ -140,3 +140,22 @@ body {
 #layerMenu:hover {
     display: block;
 }
+
+.suggestions {
+    position: absolute;
+    background: white;
+    border: 1px solid #ddd;
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 1000;
+    width: calc(100% - 20px); /* Tilpas bredde til inputfeltet */
+}
+
+.suggestions div {
+    padding: 5px;
+    cursor: pointer;
+}
+
+.suggestions div:hover {
+    background: #f0f0f0;
+}
