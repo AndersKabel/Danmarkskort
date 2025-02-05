@@ -44,21 +44,41 @@ body {
 
 .cross-search {
     display: flex;
-    justify-content: flex-start;
+    flex-wrap: wrap;
     gap: 10px;
-    padding: 10px;
     align-items: center;
     background: #f9f9f9;
+    padding: 10px;
 }
 
 .cross-search input {
-    flex-grow: 1;
+    flex: 1;
     height: 38.4px;
     padding: 10px;
     border: 1px solid #ddd;
     border-radius: 5px;
     box-sizing: border-box;
 }
+
+.suggestions {
+    position: absolute;
+    background: white;
+    border: 1px solid #ddd;
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 1000;
+    width: calc(100% - 20px); /* Tilpas bredde til inputfeltet */
+}
+
+.suggestions div {
+    padding: 5px;
+    cursor: pointer;
+}
+
+.suggestions div:hover {
+    background: #f0f0f0;
+}
+
 
 .cross-search button {
     height: 38.4px;
