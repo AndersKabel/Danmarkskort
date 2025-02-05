@@ -17,6 +17,60 @@ map.on('click', function (e) {
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
+    
+// Funktion til at opsætte autocomplete med postnummer-filter
+function setupAutocomplete(inputId, suggestionsId) {
+    const input = document.getElementById(inputId);
+    const suggestions = document.getElementById(suggestionsId);
+    const postcodeInput = document.getElementById('postcode'); // Postnummerfeltet
+
+    input.addEventListener('input', function () {
+        const query = input.value.trim();
+        const postcode = postcodeInput.value.trim(); // Hent postnummer, hvis det er udfyldt
+
+        if (query.length < 2) {
+            suggestions.innerHTML = '';
+            return;
+        }
+
+        // API-url med valgfrit postnummer
+        const url = postcode
+            ? `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&postnr=${postcode}`
+            : `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
+
+        // Hent forslag til vejnavne
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                suggestions.innerHTML = '';
+                if (data.length === 0) {
+                    const noResults = document.createElement('div');
+                    noResults.textContent = 'Ingen resultater fundet';
+                    noResults.style.color = 'red';
+                    suggestions.appendChild(noResults);
+                    return;
+                }
+
+                data.forEach(item => {
+                    const suggestion = document.createElement('div');
+                    suggestion.textContent = item.tekst;
+                    suggestion.addEventListener('click', function () {
+                        input.value = item.tekst; // Sæt værdien i input-feltet
+                        suggestions.innerHTML = ''; // Ryd forslag
+                    });
+                    suggestions.appendChild(suggestion);
+                });
+            })
+            .catch(err => console.error('Fejl i autocomplete:', err));
+    });
+
+    // Luk forslag, hvis brugeren klikker udenfor
+    document.addEventListener('click', function (e) {
+        if (!suggestions.contains(e.target) && e.target !== input) {
+            suggestions.innerHTML = '';
+        }
+    });
+}
 
     currentMarker = L.marker([lat, lon]).addTo(map);
 
@@ -33,39 +87,73 @@ map.on('click', function (e) {
 });
 
 // Søgefunktion
-function setupSearch() {
-    const searchInput = document.getElementById('search');
-    const resultsList = document.getElementById('results');
+document.getElementById('search').addEventListener('input', function () {
+    var query = this.value.trim();
+    if (query.length < 2) return;
 
-    searchInput.addEventListener('input', function () {
-        const query = this.value.trim();
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+        .then(response => response.json())
+        .then(data => {
+            var results = document.getElementById('results');
+            results.innerHTML = '';
+
+            data.forEach(item => {
+                var li = document.createElement('li');
+                li.textContent = item.tekst;
+                li.addEventListener('click', function () {
+                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                        .then(res => res.json())
+                        .then(addressData => {
+                            var [lon, lat] = addressData.adgangspunkt.koordinater;
+                            placeMarkerAndZoom([lon, lat], item.tekst);
+                        });
+                });
+                results.appendChild(li);
+            });
+        });
+});
+
+// Funktion til at opsætte autocomplete
+function setupAutocomplete(inputId, suggestionsId) {
+    const input = document.getElementById(inputId);
+    const suggestions = document.getElementById(suggestionsId);
+
+    input.addEventListener('input', function () {
+        const query = input.value.trim();
         if (query.length < 2) {
-            resultsList.innerHTML = '';
+            suggestions.innerHTML = '';
             return;
         }
 
-        fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+        // Hent forslag til vejnavne fra DAWA
+        fetch(`https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`)
             .then(response => response.json())
             .then(data => {
-                resultsList.innerHTML = '';
+                suggestions.innerHTML = '';
                 data.forEach(item => {
-                    const li = document.createElement('li');
-                    li.textContent = item.tekst;
-                    li.addEventListener('click', function () {
-                        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-                            .then(res => res.json())
-                            .then(addressData => {
-                                const [lon, lat] = addressData.adgangspunkt.koordinater;
-                                placeMarkerAndZoom([lon, lat], item.tekst);
-                            });
+                    const suggestion = document.createElement('div');
+                    suggestion.textContent = item.tekst;
+                    suggestion.addEventListener('click', function () {
+                        input.value = item.tekst; // Sæt værdien i input-feltet
+                        suggestions.innerHTML = ''; // Ryd forslag
                     });
-                    resultsList.appendChild(li);
+                    suggestions.appendChild(suggestion);
                 });
             })
-            .catch(err => console.error('Fejl ved autocomplete:', err));
+            .catch(err => console.error('Fejl i autocomplete:', err));
+    });
+
+    // Luk forslag, hvis brugeren klikker udenfor
+    document.addEventListener('click', function (e) {
+        if (!suggestions.contains(e.target) && e.target !== input) {
+            suggestions.innerHTML = '';
+        }
     });
 }
-setupSearch();
+
+// Opsæt autocomplete for begge krydsfelter
+setupAutocomplete('road1', 'road1-suggestions');
+setupAutocomplete('road2', 'road2-suggestions');
 
 // Funktion til placering af markør
 function placeMarkerAndZoom([lon, lat], addressText) {
@@ -84,152 +172,44 @@ function placeMarkerAndZoom([lon, lat], addressText) {
 }
 
 // Ryd søgning
-function setupClearSearch() {
-    const clearButton = document.getElementById('clearSearch');
-    clearButton.addEventListener('click', function () {
-        document.getElementById('search').value = '';
-        document.getElementById('results').innerHTML = '';
-        if (currentMarker) {
-            map.removeLayer(currentMarker);
-            currentMarker = null;
-        }
-        document.getElementById('address').innerHTML = 'Klik på kortet eller søg efter en adresse';
-    });
-}
-setupClearSearch();
-
-// Autocomplete for vejnavne med postnummer-filter
-function setupAutocomplete(inputId, suggestionsId) {
-    const input = document.getElementById(inputId);
-    const suggestions = document.getElementById(suggestionsId);
-    const postcodeInput = document.getElementById('postcode');
-
-    input.addEventListener('input', function () {
-        const query = input.value.trim();
-        const postcode = postcodeInput.value.trim();
-
-        if (query.length < 2) {
-            suggestions.innerHTML = '';
-            return;
-        }
-
-        const url = postcode
-            ? `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&postnr=${postcode}`
-            : `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
-
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                suggestions.innerHTML = '';
-                data.forEach(item => {
-                    const suggestion = document.createElement('div');
-                    suggestion.textContent = item.tekst;
-                    suggestion.addEventListener('click', function () {
-                        input.value = item.tekst;
-                        suggestions.innerHTML = '';
-                    });
-                    suggestions.appendChild(suggestion);
-                });
-            })
-            .catch(err => console.error('Fejl i autocomplete:', err));
-    });
-
-    document.addEventListener('click', function (e) {
-        if (!suggestions.contains(e.target) && e.target !== input) {
-            suggestions.innerHTML = '';
-        }
-    });
-}
-setupAutocomplete('road1', 'road1-suggestions');
-setupAutocomplete('road2', 'road2-suggestions');
-
-// Funktion til at finde kryds mellem to veje
-function setupFindIntersection() {
-    const findButton = document.getElementById('findIntersection');
-    findButton.addEventListener('click', function () {
-        const road1 = document.getElementById('road1').value.trim();
-        const road2 = document.getElementById('road2').value.trim();
-
-        if (!road1 || !road2) {
-            alert("Indtast venligst begge vejnavne.");
-            return;
-        }
-
-        fetch(`https://api.dataforsyningen.dk/vejstykker?navn=${road1}`)
-            .then(res => res.json())
-            .then(data1 => {
-                if (data1.length === 0) {
-                    alert(`Vejnavn '${road1}' blev ikke fundet.`);
-                    return;
-                }
-
-                fetch(`https://api.dataforsyningen.dk/vejstykker?navn=${road2}`)
-                    .then(res => res.json())
-                    .then(data2 => {
-                        if (data2.length === 0) {
-                            alert(`Vejnavn '${road2}' blev ikke fundet.`);
-                            return;
-                        }
-
-                        const intersections = findIntersections(data1, data2);
-
-                        if (intersections.length > 0) {
-                            const [lon, lat] = intersections[0];
-                            placeMarkerAndZoom([lon, lat], `Kryds mellem ${road1} og ${road2}`);
-                        } else {
-                            alert("Ingen kryds fundet mellem de to veje.");
-                        }
-                    });
-            });
-    });
-}
-setupFindIntersection();
-
-// Funktion til at finde kryds mellem to sæt vejforløb
-function findIntersections(road1Data, road2Data) {
-    const road1Coordinates = road1Data.flatMap(road => road.geometri?.coordinates || []);
-    const road2Coordinates = road2Data.flatMap(road => road.geometri?.coordinates || []);
-
-    const intersections = [];
-
-    road1Coordinates.forEach(coord1 => {
-        road2Coordinates.forEach(coord2 => {
-            if (Math.abs(coord1[0] - coord2[0]) < 0.0001 && Math.abs(coord1[1] - coord2[1]) < 0.0001) {
-                intersections.push(coord1);
-            }
-        });
-    });
-
-    return intersections;
-}
+document.getElementById('clearSearch').addEventListener('click', function () {
+    document.getElementById('search').value = '';
+    document.getElementById('results').innerHTML = '';
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+        currentMarker = null;
+    }
+    document.getElementById('address').innerHTML = 'Klik på kortet eller søg efter en adresse';
+});
 
 // Lag-håndtering
-function setupLayerControl() {
-    document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
-        radio.addEventListener('change', function () {
-            selectedLayerType = this.value;
+document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+        selectedLayerType = this.value;
 
-            if (currentLayerGroup) {
-                currentLayerGroup.eachLayer(function (layer) {
-                    map.removeLayer(layer);
-                });
-                currentLayerGroup.clearLayers();
-                currentLayerGroup = null;
-            }
+        // Fjern det nuværende lag, hvis det eksisterer
+        if (currentLayerGroup) {
+            currentLayerGroup.eachLayer(function (layer) {
+                map.removeLayer(layer);
+            });
+            currentLayerGroup.clearLayers();
+            currentLayerGroup = null; // Nulstil laggruppen
+        }
 
-            if (selectedLayerType === "none") {
-                return;
-            }
+        // Hvis "Ingen lag" vælges, stop her
+        if (selectedLayerType === "none") {
+            return;
+        }
 
-            fetchPOIData(selectedLayerType);
-        });
+        // Hent og vis det nye lag
+        fetchPOIData(selectedLayerType);
     });
-}
-setupLayerControl();
+});
 
 // Hent og vis POI-data
 function fetchPOIData(poiType) {
     if (poiType === "charging_station") {
+        // OpenChargeMap API
         const url = `https://api.openchargemap.io/v3/poi/?output=json&countrycode=DK&maxresults=100&latitude=${map.getCenter().lat}&longitude=${map.getCenter().lng}&distance=50&distanceunit=KM&key=3c33b286-7067-426b-8e46-a727dd12f6f3`;
 
         fetch(url)
@@ -238,12 +218,12 @@ function fetchPOIData(poiType) {
                 const layerGroup = L.layerGroup();
 
                 data.forEach(poi => {
-                    const name = poi.AddressInfo.Title || "Ukendt ladestander";
-                    const address = poi.AddressInfo.AddressLine1 || "Ukendt adresse";
-                    const operator = poi.OperatorInfo?.Title || "Ukendt operatør";
-                    const connections = poi.Connections.map(conn => conn.ConnectionType?.Title).join(", ") || "Ukendt stiktype";
+                    let name = poi.AddressInfo.Title || "Ukendt ladestander";
+                    let address = poi.AddressInfo.AddressLine1 || "Ukendt adresse";
+                    let operator = poi.OperatorInfo?.Title || "Ukendt operatør";
+                    let connections = poi.Connections.map(conn => conn.ConnectionType?.Title).join(", ") || "Ukendt stiktype";
 
-                    const popupContent = `<strong>${name}</strong><br>
+                    let popupContent = `<strong>${name}</strong><br>
                                         Adresse: ${address}<br>
                                         Operatør: ${operator}<br>
                                         Stiktyper: ${connections}`;
@@ -258,6 +238,7 @@ function fetchPOIData(poiType) {
             })
             .catch(err => console.error('Fejl ved hentning af ladestander-data:', err));
     } else {
+        // OSM API
         const bounds = map.getBounds();
         const southWest = bounds.getSouthWest();
         const northEast = bounds.getNorthEast();
@@ -286,11 +267,11 @@ function fetchPOIData(poiType) {
                 const layerGroup = L.layerGroup();
 
                 data.elements.forEach(poi => {
-                    const name = poi.tags.name || "Ukendt navn";
-                    const type = poi.tags.amenity || poi.tags.shop || "Ukendt type";
-                    const address = `${poi.tags["addr:street"] || ""} ${poi.tags["addr:housenumber"] || ""}, ${poi.tags["addr:postcode"] || ""} ${poi.tags["addr:city"] || ""}`.trim();
+                    let name = poi.tags.name || "Ukendt navn";
+                    let type = poi.tags.amenity || poi.tags.shop || "Ukendt type";
+                    let address = `${poi.tags["addr:street"] || ""} ${poi.tags["addr:housenumber"] || ""}, ${poi.tags["addr:postcode"] || ""} ${poi.tags["addr:city"] || ""}`.trim();
 
-                    const popupContent = `<strong>${name}</strong><br>
+                    let popupContent = `<strong>${name}</strong><br>
                                         ${type}<br>
                                         ${address}`;
 
@@ -316,3 +297,62 @@ map.on('moveend', function () {
         fetchPOIData(selectedLayerType);
     }
 });
+// Funktion til at finde kryds mellem to veje
+document.getElementById('findIntersection').addEventListener('click', function () {
+    const road1 = document.getElementById('road1').value.trim();
+    const road2 = document.getElementById('road2').value.trim();
+
+    if (!road1 || !road2) {
+        alert("Indtast venligst begge vejnavne.");
+        return;
+    }
+
+    fetch(`https://api.dataforsyningen.dk/vejstykker?navn=${road1}`)
+        .then(res => res.json())
+        .then(data1 => {
+            if (data1.length === 0) {
+                alert(`Vejnavn '${road1}' blev ikke fundet.`);
+                return;
+            }
+
+            fetch(`https://api.dataforsyningen.dk/vejstykker?navn=${road2}`)
+                .then(res => res.json())
+                .then(data2 => {
+                    if (data2.length === 0) {
+                        alert(`Vejnavn '${road2}' blev ikke fundet.`);
+                        return;
+                    }
+
+                    const intersections = findIntersections(data1, data2);
+
+                    if (intersections.length > 0) {
+                        const [lon, lat] = intersections[0];
+                        placeMarkerAndZoom([lon, lat], `Kryds mellem ${road1} og ${road2}`);
+                    } else {
+                        alert("Ingen kryds fundet mellem de to veje.");
+                    }
+                });
+        });
+});
+
+// Opsæt autocomplete for begge krydsfelter
+setupAutocomplete('road1', 'road1-suggestions');
+setupAutocomplete('road2', 'road2-suggestions');
+
+// Funktion til at finde kryds mellem to sæt vejforløb
+function findIntersections(road1Data, road2Data) {
+    const road1Coordinates = road1Data.flatMap(road => road.geometri?.coordinates || []);
+    const road2Coordinates = road2Data.flatMap(road => road.geometri?.coordinates || []);
+
+    const intersections = [];
+
+    road1Coordinates.forEach(coord1 => {
+        road2Coordinates.forEach(coord2 => {
+            if (Math.abs(coord1[0] - coord2[0]) < 0.0001 && Math.abs(coord1[1] - coord2[1]) < 0.0001) {
+                intersections.push(coord1); // Tilføj koordinat, hvis de er tæt på hinanden
+            }
+        });
+    });
+
+    return intersections;
+}
