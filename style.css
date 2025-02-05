@@ -43,13 +43,15 @@ body {
 }
 
 .cross-search {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
-    background: #f9f9f9;
+    display: flex; /* Holder felterne på linje */
+    gap: 10px; /* Afstand mellem felterne */
     padding: 10px;
+    align-items: center; /* Centrerer felterne lodret */
+    background: #f9f9f9;
+    width: 100%; /* Sørger for, at det fylder hele containeren */
+    box-sizing: border-box; /* Inkluder padding i den samlede bredde */
 }
+
 
 .cross-search input {
     flex: 1;
