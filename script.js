@@ -59,23 +59,39 @@ document.getElementById('search').addEventListener('input', function () {
         });
 });
 
-// Funktion til at opsætte autocomplete
+// Funktion til at opsætte autocomplete med postnummer-filter
 function setupAutocomplete(inputId, suggestionsId) {
     const input = document.getElementById(inputId);
     const suggestions = document.getElementById(suggestionsId);
+    const postcodeInput = document.getElementById('postcode'); // Postnummerfeltet
 
     input.addEventListener('input', function () {
         const query = input.value.trim();
+        const postcode = postcodeInput.value.trim(); // Hent postnummer, hvis det er udfyldt
+
         if (query.length < 2) {
             suggestions.innerHTML = '';
             return;
         }
 
-        // Hent forslag til vejnavne fra DAWA
-        fetch(`https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`)
+        // API-url med valgfrit postnummer
+        const url = postcode
+            ? `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&postnr=${postcode}`
+            : `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
+
+        // Hent forslag til vejnavne
+        fetch(url)
             .then(response => response.json())
             .then(data => {
                 suggestions.innerHTML = '';
+                if (data.length === 0) {
+                    const noResults = document.createElement('div');
+                    noResults.textContent = 'Ingen resultater fundet';
+                    noResults.style.color = 'red';
+                    suggestions.appendChild(noResults);
+                    return;
+                }
+
                 data.forEach(item => {
                     const suggestion = document.createElement('div');
                     suggestion.textContent = item.tekst;
@@ -100,6 +116,7 @@ function setupAutocomplete(inputId, suggestionsId) {
 // Opsæt autocomplete for begge krydsfelter
 setupAutocomplete('road1', 'road1-suggestions');
 setupAutocomplete('road2', 'road2-suggestions');
+
 
 // Funktion til placering af markør
 function placeMarkerAndZoom([lon, lat], addressText) {
