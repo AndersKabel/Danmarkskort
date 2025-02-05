@@ -188,6 +188,7 @@ body {
 
 #road1, #road2 {
     flex-grow: 1; /* Sørger for at de to vejfelter deles ligeligt */
+    min-width: 450px; /* Sæt en minimumsbredde for felterne */
 }
 
 #findIntersection {
