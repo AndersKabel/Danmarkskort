@@ -181,12 +181,12 @@ body {
 }
 
 #postcode {
-    width: 100px; /* Justér bredden som ønsket */
+    width: 150px; /* Justér bredden som ønsket */
 }
 
 #road1, #road2 {
     flex-grow: 1; /* Sørger for at de to vejfelter deles ligeligt */
-    min-width: 150px; /* Sæt en minimumsbredde for felterne */
+    min-width: 250px; /* Sæt en minimumsbredde for felterne */
 }
 
 #findIntersection {
