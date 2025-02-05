@@ -188,3 +188,16 @@ body {
     flex-grow: 1; /* Sørger for at de to vejfelter deles ligeligt */
     min-width: 150px; /* Sæt en minimumsbredde for felterne */
 }
+
+#findIntersection {
+    width: 120px; /* Justér bredden som ønsket */
+    height: 38.4px; /* Matcher højden af de andre felter */
+    background: #f0f0f0; /* Baggrundsfarve */
+    border: 1px solid #ddd; /* Kant */
+    border-radius: 5px; /* Runde hjørner */
+    cursor: pointer; /* Gør det tydeligt, det er en knap */
+}
+
+#findIntersection:hover {
+    background: #e0e0e0; /* Baggrundsfarve ved hover */
+}
