@@ -145,6 +145,9 @@ document.getElementById('clearSearch').addEventListener('click', function () {
     document.getElementById('address').innerHTML = 'Klik på kortet eller søg efter en adresse';
 });
 
+// Fjern evt. uønskede tooltips
+document.querySelectorAll('[title]').forEach(el => el.removeAttribute('title'));
+
 // Lag-håndtering
 document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
     radio.addEventListener('change', function () {
