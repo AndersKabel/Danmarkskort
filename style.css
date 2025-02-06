@@ -17,7 +17,6 @@ body {
     padding: 10px;
     align-items: center;
     background: #f9f9f9;
-    pointer-events: none; /* Forhindrer værktøjstip */
 }
 
 #search {
