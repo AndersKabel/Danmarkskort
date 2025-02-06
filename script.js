@@ -35,6 +35,13 @@ map.on('click', function (e) {
 // Søgefunktion
 document.getElementById('search').addEventListener('input', function () {
     var query = this.value.trim();
+    var results = document.getElementById('results');
+    
+    // Hvis tekstfeltet er tomt, ryd resultaterne og stop her
+    if (query.length === 0) {
+        results.innerHTML = '';
+        return;
+    }
     if (query.length < 2) return;
 
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
