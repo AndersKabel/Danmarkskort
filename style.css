@@ -81,7 +81,6 @@ body {
     background: #f0f0f0;
 }
 
-
 .cross-search button {
     flex-shrink: 0; /* Sørger for, at knappen holder sin faste bredde */
     height: 38.4px;
@@ -96,25 +95,26 @@ body {
     background: #e0e0e0;
 }
 
-#address {
-    font-size: 14px;
-    font-weight: bold;
-    background: #f9f9f9;
+.address-results-container {
+    display: flex;
+    gap: 10px; /* Afstand mellem #address og #results */
+    padding: 10px 0;
+}
+
+#address, #results {
+    flex: 1; /* Gør begge elementer lige brede */
+    margin: 0;
     padding: 10px;
-    text-align: left;
+    background: #f9f9f9;
     border: 1px solid #ddd;
     border-radius: 5px;
-    width: 50%;
-    margin-left: 10px;
+    box-sizing: border-box;
 }
 
 #results {
-    list-style: none;
-    margin: 0;
-    padding: 10px;
-    background: white;
     max-height: 200px;
-    overflow-y: auto;
+    overflow-y: auto; /* Bevarer scroll-funktion for resultater */
+    list-style: none;
 }
 
 #results li {
