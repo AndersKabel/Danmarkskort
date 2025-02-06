@@ -112,10 +112,20 @@ body {
 }
 
 #results {
-    max-height: 200px;
-    overflow-y: auto; /* Bevarer scroll-funktion for resultater */
-    list-style: none;
+    position: absolute; /* Sørger for, at listen kan placeres frit */
+    bottom: 100%; /* Flytter listen opad */
+    left: 0; /* Justerer placeringen til venstre */
+    width: 100%; /* Sørger for, at listen fylder bredden af containeren */
+    background: white; /* Baggrundsfarve */
+    border: 1px solid #ddd; /* Kant */
+    max-height: 200px; /* Maksimal højde med mulighed for scrolling */
+    overflow-y: auto; /* Scroll, hvis listen bliver for lang */
+    z-index: 1000; /* Sørger for, at listen vises over andre elementer */
+    list-style: none; /* Fjerner standard punktopstilling */
+    margin: 0; /* Fjern margin */
+    padding: 0; /* Fjern padding */
 }
+
 
 #results li {
     padding: 10px;
