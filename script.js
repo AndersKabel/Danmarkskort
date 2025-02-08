@@ -18,7 +18,6 @@ map.on('click', function (e) {
         map.removeLayer(currentMarker);
     }
     
-// Funktion til at opsætte autocomplete med vejnavn og postnummer
 function setupAutocomplete(inputId, suggestionsId) {
     const input = document.getElementById(inputId);
     const suggestions = document.getElementById(suggestionsId);
@@ -35,10 +34,10 @@ function setupAutocomplete(inputId, suggestionsId) {
 
         // API-url med valgfrit postnummer
         const url = postcode
-            ? `https://api.dataforsyningen.dk/vejstykker?navn=${query}&kommunekode=${postcode}`
-            : `https://api.dataforsyningen.dk/vejstykker?navn=${query}`;
+            ? `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&postnr=${postcode}`
+            : `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
 
-        // Hent forslag til vejnavne inkl. postnummer
+        // Hent forslag til vejnavne
         fetch(url)
             .then(response => response.json())
             .then(data => {
@@ -53,13 +52,13 @@ function setupAutocomplete(inputId, suggestionsId) {
 
                 data.forEach(item => {
                     const suggestion = document.createElement('div');
-                    const vejnavn = item.navn;
-                    const postnr = item.postnummer?.nr || "Ukendt"; // Hent postnummer hvis tilgængeligt
+                    const vejnavn = item.tekst; // Vejnavn fra API
+                    const postnr = item.postnr || 'Ukendt'; // Tilføj postnummer, hvis tilgængeligt
 
-                    suggestion.textContent = `${vejnavn}, ${postnr}`; // Vis både vejnavn og postnummer
+                    // Vis både vejnavn og postnummer
+                    suggestion.textContent = `${vejnavn}, ${postnr}`;
                     suggestion.addEventListener('click', function () {
-                        input.value = vejnavn; // Sæt kun vejnavn i inputfeltet
-                        postcodeInput.value = postnr; // Sæt postnummerfeltet automatisk
+                        input.value = `${vejnavn}, ${postnr}`; // Sæt værdien i inputfeltet
                         suggestions.innerHTML = ''; // Ryd forslag
                     });
                     suggestions.appendChild(suggestion);
