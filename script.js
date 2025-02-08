@@ -134,22 +134,32 @@ function setupAutocomplete(inputId, suggestionsId) {
         }
 
         // Hent forslag til vejnavne fra DAWA
-        fetch(`https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&postnr=`)
-            .then(response => response.json())
-            .then(data => {
-                suggestions.innerHTML = '';
-                data.forEach(item => {
-                    const suggestion = document.createElement('div');
-                    suggestion.textContent = item.tekst;
-                    suggestion.addEventListener('click', function () {
-                        input.value = item.tekst; // Sæt værdien i input-feltet
-                        suggestions.innerHTML = ''; // Ryd forslag
-                    });
-                    suggestions.appendChild(suggestion);
-                });
-            })
-            .catch(err => console.error('Fejl i autocomplete:', err));
-    });
+       fetch(`https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`)
+    .then(response => response.json())
+    .then(data => {
+        suggestions.innerHTML = '';
+        if (data.length === 0) {
+            const noResults = document.createElement('div');
+            noResults.textContent = 'Ingen resultater fundet';
+            noResults.style.color = 'red';
+            suggestions.appendChild(noResults);
+            return;
+        }
+
+        data.forEach(item => {
+            const suggestion = document.createElement('div');
+            const vejnavn = item.navn;
+            const kommune = item.vejstykke?.kommunekode || "Ukendt kommune";
+            
+            suggestion.textContent = `${vejnavn}, Kommune: ${kommune}`;
+            suggestion.addEventListener('click', function () {
+                input.value = vejnavn; // Indsæt vejnavn i inputfeltet
+                suggestions.innerHTML = ''; // Ryd forslag
+            });
+            suggestions.appendChild(suggestion);
+        });
+    })
+    .catch(err => console.error('Fejl i autocomplete:', err));
 
     // Luk forslag, hvis brugeren klikker udenfor
     document.addEventListener('click', function (e) {
