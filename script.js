@@ -134,32 +134,54 @@ function setupAutocomplete(inputId, suggestionsId) {
         }
 
         // Hent forslag til vejnavne fra DAWA
-       fetch(`https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`)
-    .then(response => response.json())
-    .then(data => {
-        suggestions.innerHTML = '';
-        if (data.length === 0) {
-            const noResults = document.createElement('div');
-            noResults.textContent = 'Ingen resultater fundet';
-            noResults.style.color = 'red';
-            suggestions.appendChild(noResults);
+       function setupAutocomplete(inputId, suggestionsId) {
+    const input = document.getElementById(inputId);
+    const suggestions = document.getElementById(suggestionsId);
+    const postcodeInput = document.getElementById('postcode'); // Postnummerfeltet
+
+    input.addEventListener('input', function () {
+        const query = input.value.trim();
+        const postcode = postcodeInput.value.trim(); // Hent postnummer, hvis det er udfyldt
+
+        if (query.length < 2) {
+            suggestions.innerHTML = '';
             return;
         }
 
-        data.forEach(item => {
-            const suggestion = document.createElement('div');
-            const vejnavn = item.navn;
-            const kommune = item.vejstykke?.kommunekode || "Ukendt kommune";
-            
-            suggestion.textContent = `${vejnavn}, Kommune: ${kommune}`;
-            suggestion.addEventListener('click', function () {
-                input.value = vejnavn; // Indsæt vejnavn i inputfeltet
-                suggestions.innerHTML = ''; // Ryd forslag
-            });
-            suggestions.appendChild(suggestion);
-        });
-    })
-    .catch(err => console.error('Fejl i autocomplete:', err));
+        // API-url med valgfrit postnummer
+        const url = postcode
+            ? `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&postnr=${postcode}`
+            : `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
+
+        // Hent forslag til vejnavne
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                suggestions.innerHTML = '';
+                if (data.length === 0) {
+                    const noResults = document.createElement('div');
+                    noResults.textContent = 'Ingen resultater fundet';
+                    noResults.style.color = 'red';
+                    suggestions.appendChild(noResults);
+                    return;
+                }
+
+                data.forEach(item => {
+                    const suggestion = document.createElement('div');
+                    const vejnavn = item.tekst; // Vejnavn fra API
+                    const postnr = item.postnr || 'Ukendt'; // Tilføj postnummer, hvis tilgængeligt
+
+                    // Vis både vejnavn og postnummer
+                    suggestion.textContent = `${vejnavn}, ${postnr}`;
+                    suggestion.addEventListener('click', function () {
+                        input.value = `${vejnavn}, ${postnr}`; // Sæt værdien i inputfeltet
+                        suggestions.innerHTML = ''; // Ryd forslag
+                    });
+                    suggestions.appendChild(suggestion);
+                });
+            })
+            .catch(err => console.error('Fejl i autocomplete:', err));
+    });
 
     // Luk forslag, hvis brugeren klikker udenfor
     document.addEventListener('click', function (e) {
@@ -169,9 +191,10 @@ function setupAutocomplete(inputId, suggestionsId) {
     });
 }
 
-// Opsæt autocomplete for begge krydsfelter
+// Opsæt autocomplete for begge vejfelter
 setupAutocomplete('road1', 'road1-suggestions');
 setupAutocomplete('road2', 'road2-suggestions');
+
 
 // Funktion til placering af markør
 function placeMarkerAndZoom([lon, lat], addressText) {
