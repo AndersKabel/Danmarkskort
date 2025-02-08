@@ -18,7 +18,7 @@ map.on('click', function (e) {
         map.removeLayer(currentMarker);
     }
     
-// Funktion til at opsætte autocomplete med postnummer-filter
+// Funktion til at opsætte autocomplete med vejnavn og postnummer
 function setupAutocomplete(inputId, suggestionsId) {
     const input = document.getElementById(inputId);
     const suggestions = document.getElementById(suggestionsId);
@@ -35,10 +35,10 @@ function setupAutocomplete(inputId, suggestionsId) {
 
         // API-url med valgfrit postnummer
         const url = postcode
-            ? `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&postnr=${postcode}`
-            : `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
+            ? `https://api.dataforsyningen.dk/vejstykker?navn=${query}&kommunekode=${postcode}`
+            : `https://api.dataforsyningen.dk/vejstykker?navn=${query}`;
 
-        // Hent forslag til vejnavne
+        // Hent forslag til vejnavne inkl. postnummer
         fetch(url)
             .then(response => response.json())
             .then(data => {
@@ -53,9 +53,13 @@ function setupAutocomplete(inputId, suggestionsId) {
 
                 data.forEach(item => {
                     const suggestion = document.createElement('div');
-                    suggestion.textContent = item.tekst;
+                    const vejnavn = item.navn;
+                    const postnr = item.postnummer?.nr || "Ukendt"; // Hent postnummer hvis tilgængeligt
+
+                    suggestion.textContent = `${vejnavn}, ${postnr}`; // Vis både vejnavn og postnummer
                     suggestion.addEventListener('click', function () {
-                        input.value = item.tekst; // Sæt værdien i input-feltet
+                        input.value = vejnavn; // Sæt kun vejnavn i inputfeltet
+                        postcodeInput.value = postnr; // Sæt postnummerfeltet automatisk
                         suggestions.innerHTML = ''; // Ryd forslag
                     });
                     suggestions.appendChild(suggestion);
@@ -71,6 +75,10 @@ function setupAutocomplete(inputId, suggestionsId) {
         }
     });
 }
+
+// Opsæt autocomplete for begge vejfelter
+setupAutocomplete('road1', 'road1-suggestions');
+setupAutocomplete('road2', 'road2-suggestions');
 
     currentMarker = L.marker([lat, lon]).addTo(map);
 
