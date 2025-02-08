@@ -133,7 +133,7 @@ function setupAutocomplete(inputId, suggestionsId) {
         }
 
         // Hent forslag til vejnavne fra DAWA
-        fetch(`https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`)
+        fetch(`https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&postnr=`)
             .then(response => response.json())
             .then(data => {
                 suggestions.innerHTML = '';
