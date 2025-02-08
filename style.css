@@ -43,18 +43,16 @@ body {
 }
 
 .cross-search {
-    display: flex; /* Holder felterne på linje */
-    gap: 10px; /* Afstand mellem felterne */
+    display: flex;
+    justify-content: flex-start;
+    gap: 10px;
     padding: 10px;
-    align-items: center; /* Centrerer felterne lodret */
+    align-items: center;
     background: #f9f9f9;
-    width: 100%; /* Sørger for, at det fylder hele containeren */
-    box-sizing: border-box; /* Inkluder padding i den samlede bredde */
 }
 
-
 .cross-search input {
-    flex: 1;
+    flex-grow: 1;
     height: 38.4px;
     padding: 10px;
     border: 1px solid #ddd;
@@ -62,27 +60,7 @@ body {
     box-sizing: border-box;
 }
 
-.suggestions {
-    position: absolute;
-    background: white;
-    border: 1px solid #ddd;
-    max-height: 150px;
-    overflow-y: auto;
-    z-index: 1000;
-    width: calc(100% - 20px); /* Tilpas bredde til inputfeltet */
-}
-
-.suggestions div {
-    padding: 5px;
-    cursor: pointer;
-}
-
-.suggestions div:hover {
-    background: #f0f0f0;
-}
-
 .cross-search button {
-    flex-shrink: 0; /* Sørger for, at knappen holder sin faste bredde */
     height: 38.4px;
     background: #f0f0f0;
     border: 1px solid #ddd;
@@ -95,26 +73,25 @@ body {
     background: #e0e0e0;
 }
 
-.address-results-container {
-    display: flex;
-    gap: 10px; /* Afstand mellem #address og #results */
-    padding: 10px 0;
-}
-
-#address, #results {
-    flex: 1; /* Gør begge elementer lige brede */
-    margin: 0;
-    padding: 10px;
+#address {
+    font-size: 14px;
+    font-weight: bold;
     background: #f9f9f9;
+    padding: 10px;
+    text-align: left;
     border: 1px solid #ddd;
     border-radius: 5px;
-    box-sizing: border-box;
+    width: 50%;
+    margin-left: 10px;
 }
 
 #results {
-    max-height: 200px;
-    overflow-y: auto; /* Bevarer scroll-funktion for resultater */
     list-style: none;
+    margin: 0;
+    padding: 10px;
+    background: white;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 #results li {
@@ -162,46 +139,4 @@ body {
 #layerToggle:focus + #layerMenu,
 #layerMenu:hover {
     display: block;
-}
-
-.suggestions {
-    position: absolute;
-    background: white;
-    border: 1px solid #ddd;
-    max-height: 150px;
-    overflow-y: auto;
-    z-index: 1000;
-    width: calc(100% - 20px); /* Tilpas bredde til inputfeltet */
-}
-
-.suggestions div {
-    padding: 5px;
-    cursor: pointer;
-}
-
-.suggestions div:hover {
-    background: #f0f0f0;
-}
-
-#postcode {
-    width: 150px; /* Justér bredden som ønsket */
-    flex-shrink: 0; /* Sørger for, at det ikke krymper */
-}
-
-#road1, #road2 {
-    flex-grow: 1; /* Sørger for at de to vejfelter deles ligeligt */
-    min-width: 450px; /* Sæt en minimumsbredde for felterne */
-}
-
-#findIntersection {
-    width: 100px; /* Justér bredden som ønsket */
-    height: 38.4px; /* Matcher højden af de andre felter */
-    background: #f0f0f0; /* Baggrundsfarve */
-    border: 1px solid #ddd; /* Kant */
-    border-radius: 5px; /* Runde hjørner */
-    cursor: pointer; /* Gør det tydeligt, det er en knap */
-}
-
-#findIntersection:hover {
-    background: #e0e0e0; /* Baggrundsfarve ved hover */
 }
