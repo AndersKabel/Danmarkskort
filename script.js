@@ -66,23 +66,27 @@ document.getElementById('search').addEventListener('input', function () {
         });
 });
 
-// Funktion til at opsætte autocomplete med vejnavn og postnummer
+// Funktion til at opsætte autocomplete med postnummer inkluderet
 function setupAutocomplete(inputId, suggestionsId) {
     const input = document.getElementById(inputId);
     const suggestions = document.getElementById(suggestionsId);
+    const postcodeInput = document.getElementById('postcode'); // Postnummerfeltet
 
     input.addEventListener('input', function () {
         const query = input.value.trim();
+        const postcode = postcodeInput.value.trim(); // Hent postnummer, hvis det er udfyldt
 
         if (query.length < 2) {
             suggestions.innerHTML = '';
             return;
         }
 
-        // Brug Dataforsyningens API til vejnavne
-        const url = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
+        // API-url med valgfrit postnummer
+        const url = postcode
+            ? `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&postnr=${postcode}`
+            : `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
 
-        // Hent forslag
+        // Hent forslag til vejnavne og postnumre
         fetch(url)
             .then(response => response.json())
             .then(data => {
@@ -97,11 +101,14 @@ function setupAutocomplete(inputId, suggestionsId) {
 
                 data.forEach(item => {
                     const suggestion = document.createElement('div');
-                    const vejnavn = item.tekst; // Vejnavn fra API
+                    
+                    // Vejnavn og postnummer
+                    const vejnavn = item.tekst; // Vejnavnet
+                    const postnr = item.postnummer?.nr || "Ukendt"; // Postnummer, hvis tilgængeligt
 
-                    suggestion.textContent = vejnavn; // Vis vejnavn
+                    suggestion.textContent = `${vejnavn}, ${postnr}`; // Vis vejnavn og postnummer
                     suggestion.addEventListener('click', function () {
-                        input.value = vejnavn; // Sæt vejnavnet i inputfeltet
+                        input.value = `${vejnavn}, ${postnr}`; // Sæt værdien i input-feltet
                         suggestions.innerHTML = ''; // Ryd forslag
                     });
                     suggestions.appendChild(suggestion);
@@ -121,7 +128,6 @@ function setupAutocomplete(inputId, suggestionsId) {
 // Opsæt autocomplete for begge krydsfelter
 setupAutocomplete('road1', 'road1-suggestions');
 setupAutocomplete('road2', 'road2-suggestions');
-
 
 // Funktion til placering af markør
 function placeMarkerAndZoom([lon, lat], addressText) {
