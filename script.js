@@ -66,7 +66,8 @@ document.getElementById('search').addEventListener('input', function () {
         });
 });
 
-function setupAutocompleteWithPostcode(inputId, suggestionsId) {
+// Funktion til at opsætte autocomplete med vejnavn og postnummer
+function setupAutocomplete(inputId, suggestionsId) {
     const input = document.getElementById(inputId);
     const suggestions = document.getElementById(suggestionsId);
 
@@ -78,16 +79,11 @@ function setupAutocompleteWithPostcode(inputId, suggestionsId) {
             return;
         }
 
-        // URL til DAR API med vejnavn
-        const url = `https://services.datafordeler.dk/DAR/DAR/1/rest/navngivenvejkommunedel?vejnavn=${query}`;
+        // Brug Dataforsyningens API til vejnavne
+        const url = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
 
-        // Hent vejnavne
-        fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer DIN_API_NØGLE' // Udskift med din Datafordeler API-nøgle
-            }
-        })
+        // Hent forslag
+        fetch(url)
             .then(response => response.json())
             .then(data => {
                 suggestions.innerHTML = '';
@@ -101,12 +97,11 @@ function setupAutocompleteWithPostcode(inputId, suggestionsId) {
 
                 data.forEach(item => {
                     const suggestion = document.createElement('div');
-                    const vejnavn = item.navngivenVej.vejnavn;
-                    const postnr = item.navngivenVej.postnummerList[0]?.postnummer.postnr;
+                    const vejnavn = item.tekst; // Vejnavn fra API
 
-                    suggestion.textContent = `${vejnavn}, ${postnr}`; // Vis både vejnavn og postnummer
+                    suggestion.textContent = vejnavn; // Vis vejnavn
                     suggestion.addEventListener('click', function () {
-                        input.value = `${vejnavn}, ${postnr}`; // Sæt både vejnavn og postnummer i inputfeltet
+                        input.value = vejnavn; // Sæt vejnavnet i inputfeltet
                         suggestions.innerHTML = ''; // Ryd forslag
                     });
                     suggestions.appendChild(suggestion);
@@ -123,9 +118,10 @@ function setupAutocompleteWithPostcode(inputId, suggestionsId) {
     });
 }
 
-// Opsætning af autocomplete
-setupAutocompleteWithPostcode('road1', 'road1-suggestions');
-setupAutocompleteWithPostcode('road2', 'road2-suggestions');
+// Opsæt autocomplete for begge krydsfelter
+setupAutocomplete('road1', 'road1-suggestions');
+setupAutocomplete('road2', 'road2-suggestions');
+
 
 // Funktion til placering af markør
 function placeMarkerAndZoom([lon, lat], addressText) {
