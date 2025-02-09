@@ -56,6 +56,9 @@ document.getElementById('search').addEventListener('input', function () {
                         .then(addressData => {
                             var [lon, lat] = addressData.adgangspunkt.koordinater;
                             placeMarkerAndZoom([lon, lat], item.tekst);
+
+                            // Ryd resultater efter valg
+                            document.getElementById('results').innerHTML = '';
                         });
                 });
                 results.appendChild(li);
