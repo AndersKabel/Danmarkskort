@@ -42,11 +42,13 @@ document.getElementById('search').addEventListener('input', function () {
     if (query.length < 2) return;
 
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
-        .then(response => response.json())
-        .then(data => {
-            var results = document.getElementById('results');
-            results.innerHTML = '';
+    .then(response => response.json())
+    .then(data => {
+        var results = document.getElementById('results');
+        results.innerHTML = '';
 
+        if (data.length > 0) {
+            results.style.display = 'block'; // Vis resultaterne, hvis der er nogen
             data.forEach(item => {
                 var li = document.createElement('li');
                 li.textContent = item.tekst;
@@ -60,9 +62,11 @@ document.getElementById('search').addEventListener('input', function () {
                 });
                 results.appendChild(li);
             });
-        });
-});
-
+        } else {
+            results.style.display = 'none'; // Skjul resultaterne, hvis der ikke er nogen
+        }
+    });
+    
 // Funktion til placering af markør
 function placeMarkerAndZoom([lon, lat], addressText) {
     if (currentMarker) {
