@@ -95,6 +95,7 @@ body {
     z-index: 1000; /* Sørger for, at det vises over andre elementer */
     max-height: 200px; /* Tilføj en maksimal højde for at begrænse størrelsen */
     overflow-y: auto; /* Tilføj rullepanel, hvis indholdet overstiger maksimal højde */
+    display: none; /* Skjul elementet som standard */
 }
 
 #results li {
