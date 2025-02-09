@@ -86,14 +86,14 @@ body {
 }
 
 #results {
-    position: absolute; /* Gør det muligt at placere feltet præcist */
-    right: 10px; /* Justér afstand fra højre kant */
-    top: 50%; /* Justér, så det starter fra midten af linjen */
-    transform: translateY(-50%); /* Flyt det lidt op for at centrere */
-    width: 45%; /* Sørg for, at det fylder halvdelen af linjen */
+    position: relative; /* Ændret fra absolute til relative */
+    width: 100%; /* Justér bredden til 100% */
     background: white; /* Sørger for en tydelig baggrund */
     border: 1px solid #ddd; /* Giver en kant, hvis nødvendigt */
     z-index: 1000; /* Sørger for, at det vises over andre elementer */
+    max-height: 200px; /* Tilføj en maksimal højde for at begrænse størrelsen */
+    overflow-y: auto; /* Tilføj rullepanel, hvis indholdet overstiger maksimal højde */
+    margin-top: 5px; /* Tilføj en lille margin for at adskille fra inputfeltet */
 }
 
 #results li {
