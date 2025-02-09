@@ -260,3 +260,55 @@ function findIntersections(road1Data, road2Data) {
 
     return intersections;
 }
+// Autocomplete-funktion
+function setupAutocomplete(inputId, suggestionsId) {
+    const input = document.getElementById(inputId);
+    const suggestions = document.getElementById(suggestionsId);
+
+    input.addEventListener('input', function () {
+        const query = input.value.trim();
+        if (query.length < 2) {
+            suggestions.innerHTML = '';
+            return;
+        }
+
+        const url = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                suggestions.innerHTML = '';
+                if (data.length === 0) {
+                    const noResults = document.createElement('div');
+                    noResults.textContent = 'Ingen resultater fundet';
+                    noResults.style.color = 'red';
+                    suggestions.appendChild(noResults);
+                    return;
+                }
+
+                data.forEach(item => {
+                    const suggestion = document.createElement('div');
+                    const vejnavn = item.tekst; // Vejnavn fra API
+                    const postnr = item.postnr || 'Ukendt'; // Tilføj postnummer, hvis tilgængeligt
+
+                    suggestion.textContent = `${vejnavn}, ${postnr}`;
+                    suggestion.addEventListener('click', function () {
+                        input.value = `${vejnavn}, ${postnr}`;
+                        suggestions.innerHTML = ''; // Ryd forslag
+                    });
+                    suggestions.appendChild(suggestion);
+                });
+            })
+            .catch(err => console.error('Fejl i autocomplete:', err));
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!suggestions.contains(e.target) && e.target !== input) {
+            suggestions.innerHTML = '';
+        }
+    });
+}
+
+// Opsæt autocomplete for begge vejfelter
+setupAutocomplete('road1', 'road1-suggestions');
+setupAutocomplete('road2', 'road2-suggestions');
