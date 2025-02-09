@@ -86,12 +86,14 @@ body {
 }
 
 #results {
-    list-style: none;
-    margin: 0;
-    padding: 10px;
-    background: white;
-    max-height: 200px;
-    overflow-y: auto;
+    position: absolute; /* Gør det muligt at placere feltet præcist */
+    right: 10px; /* Justér afstand fra højre kant */
+    top: 50%; /* Justér, så det starter fra midten af linjen */
+    transform: translateY(-50%); /* Flyt det lidt op for at centrere */
+    width: 45%; /* Sørg for, at det fylder halvdelen af linjen */
+    background: white; /* Sørger for en tydelig baggrund */
+    border: 1px solid #ddd; /* Giver en kant, hvis nødvendigt */
+    z-index: 1000; /* Sørger for, at det vises over andre elementer */
 }
 
 #results li {
