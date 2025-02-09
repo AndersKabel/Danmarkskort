@@ -42,30 +42,32 @@ document.getElementById('search').addEventListener('input', function () {
     if (query.length < 2) return;
 
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
-    .then(response => response.json())
-    .then(data => {
-        var results = document.getElementById('results');
-        results.innerHTML = '';
+        .then(response => response.json())
+        .then(data => {
+            var results = document.getElementById('results');
+            results.innerHTML = '';
 
-        if (data.length > 0) {
-            results.style.display = 'block'; // Vis resultaterne, hvis der er nogen
-            data.forEach(item => {
-                var li = document.createElement('li');
-                li.textContent = item.tekst;
-                li.addEventListener('click', function () {
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-                        .then(res => res.json())
-                        .then(addressData => {
-                            var [lon, lat] = addressData.adgangspunkt.koordinater;
-                            placeMarkerAndZoom([lon, lat], item.tekst);
-                        });
+            if (data.length > 0) {
+                results.style.display = 'block'; // Vis resultaterne, hvis der er nogen
+                data.forEach(item => {
+                    var li = document.createElement('li');
+                    li.textContent = item.tekst;
+                    li.addEventListener('click', function () {
+                        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                            .then(res => res.json())
+                            .then(addressData => {
+                                var [lon, lat] = addressData.adgangspunkt.koordinater;
+                                placeMarkerAndZoom([lon, lat], item.tekst);
+                            });
+                    });
+                    results.appendChild(li);
                 });
-                results.appendChild(li);
-            });
-        } else {
-            results.style.display = 'none'; // Skjul resultaterne, hvis der ikke er nogen
-        }
-    });
+            } else {
+                results.style.display = 'none'; // Skjul resultaterne, hvis der ikke er nogen
+            }
+        })
+        .catch(err => console.error('Fejl i autocomplete:', err)); // Tilføj en catch for at håndtere fejl
+});
     
 // Funktion til placering af markør
 function placeMarkerAndZoom([lon, lat], addressText) {
