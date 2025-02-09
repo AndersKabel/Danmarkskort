@@ -86,8 +86,10 @@ body {
 }
 
 #results {
-    position: relative; /* Ændret fra absolute til relative */
-    width: 100%; /* Justér bredden til 100% */
+    position: absolute; /* Sørger for, at det er placeret i forhold til forældreelementet */
+    top: 100%; /* Placerer det lige under søgefeltet */
+    left: 0; /* Justér til venstre kant */
+    width: 100%; /* Sørger for, at det fylder hele bredden af forældreelementet */
     background: white; /* Sørger for en tydelig baggrund */
     border: 1px solid #ddd; /* Giver en kant, hvis nødvendigt */
     z-index: 1000; /* Sørger for, at det vises over andre elementer */
