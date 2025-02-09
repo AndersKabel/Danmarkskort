@@ -94,6 +94,12 @@ body {
     background: white; /* Sørger for en tydelig baggrund */
     border: 1px solid #ddd; /* Giver en kant, hvis nødvendigt */
     z-index: 1000; /* Sørger for, at det vises over andre elementer */
+    list-style-type: none; /* Bevarer eksisterende egenskaber */
+    margin: 0; /* Bevarer eksisterende egenskaber */
+    padding: 0; /* Bevarer eksisterende egenskaber */
+    max-height: 150px; /* Begrænser højden, så det ikke fylder for meget */
+    overflow-y: auto; /* Tilføjer rulning, hvis der er mange resultater */
+    border-radius: 4px; /* Giver lidt afrundede hjørner */
 }
 
 #results li {
