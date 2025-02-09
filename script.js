@@ -35,7 +35,7 @@ map.on('click', function (e) {
 // Søgefunktion
 document.getElementById('search').addEventListener('input', function () {
     var query = this.value.trim();
-
+    
     // Ryd resultater, hvis feltet ændres
     var results = document.getElementById('results');
     results.innerHTML = '';
@@ -44,6 +44,7 @@ document.getElementById('search').addEventListener('input', function () {
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
         .then(response => response.json())
         .then(data => {
+            var results = document.getElementById('results');
             results.innerHTML = '';
 
             data.forEach(item => {
@@ -55,9 +56,6 @@ document.getElementById('search').addEventListener('input', function () {
                         .then(addressData => {
                             var [lon, lat] = addressData.adgangspunkt.koordinater;
                             placeMarkerAndZoom([lon, lat], item.tekst);
-
-                            // Ryd resultater efter valg
-                            results.innerHTML = '';
                         });
                 });
                 results.appendChild(li);
@@ -207,7 +205,6 @@ map.on('moveend', function () {
         fetchPOIData(selectedLayerType);
     }
 });
-
 // Funktion til at finde kryds mellem to veje
 document.getElementById('findIntersection').addEventListener('click', function () {
     const road1 = document.getElementById('road1').value.trim();
@@ -263,7 +260,6 @@ function findIntersections(road1Data, road2Data) {
 
     return intersections;
 }
-
 // Autocomplete-funktion
 function setupAutocomplete(inputId, suggestionsId) {
     const input = document.getElementById(inputId);
