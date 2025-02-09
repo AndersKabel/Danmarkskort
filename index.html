@@ -23,10 +23,11 @@
     <input type="text" id="search" placeholder="Søg efter adresse...">
     <button id="clearSearch">Ryd</button>
 </div>
-<p id="address">Klik på kortet eller søg efter en adresse</p>
-<div style="position: relative; display: flex;">
-    <input type="text" id="search" placeholder="Søg efter adresse..." style="flex: 1;" />
-    <div id="results" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 10;"></div>
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px;">
+    <p id="address" style="flex: 1; margin-right: 10px;">Klik på kortet eller søg efter en adresse</p>
+    <div style="position: relative; flex: 1;">
+        <div id="results" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 10;"></div>
+    </div>
 </div>
     
 <div class="cross-search">
