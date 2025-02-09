@@ -19,10 +19,11 @@
 </head>
 <body>
     <div id="map"></div>
-    <div class="controls">
-        <input type="text" id="search" placeholder="Søg efter adresse...">
-        <button id="clearSearch">Ryd</button>
-    </div>
+   <div class="controls" style="position: relative; display: flex; flex-direction: column; gap: 5px;">
+    <input type="text" id="search" placeholder="Søg efter adresse...">
+    <ul id="results" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 10; background: white; border: 1px solid #ccc; border-radius: 4px; max-height: 150px; overflow-y: auto;"></ul>
+    <button id="clearSearch">Ryd</button>
+</div>
     <p id="address">Klik på kortet eller søg efter en adresse</p>
     <div style="position: relative; display: flex;">
     <input type="text" id="search" placeholder="Søg efter adresse..." style="flex: 1;" />
