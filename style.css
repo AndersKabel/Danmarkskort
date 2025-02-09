@@ -95,9 +95,7 @@ body {
     z-index: 1000; /* Sørger for, at det vises over andre elementer */
     max-height: 200px; /* Tilføj en maksimal højde for at begrænse størrelsen */
     overflow-y: auto; /* Tilføj rullepanel, hvis indholdet overstiger maksimal højde */
-    margin-top: 5px; /* Tilføj en lille margin for at adskille fra inputfeltet */
 }
-
 #results li {
     padding: 10px;
     margin: 5px 0;
