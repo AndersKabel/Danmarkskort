@@ -77,6 +77,109 @@ document.getElementById('search').addEventListener('input', function () {
         })
         .catch(err => console.error('Fejl i autocomplete:', err)); // Tilføj en catch for at håndtere fejl
 });
+Med disse ændringer vil vi kunne se logninger i konsollen, som kan hjælpe os med at debugge problemet. Hvis fetch-anmodningen returnerer data korrekt, men resultaterne stadig ikke vises, kan vi undersøge yderligere. Hvis der opstår en fejl, vil vi kunne se det i konsollen og tage de nødvendige skridt for at rette det.
+
+Anders Kabel
+Anders Kabel
+Uploaded Image 0
+Det hjalp ikke
+Default
+Default
+Det ser ud til, at der er en syntaksfejl i din JavaScript-kode. Lad os finde og rette fejlen.
+
+JavaScript-fil
+Lad os sikre, at alle parenteser og klammer er korrekt lukkede, og at der ikke mangler nogen afslutninger.
+
+Erstat følgende linjer:
+
+document.getElementById('search').addEventListener('input', function () {
+    var query = this.value.trim();
+    
+    // Ryd resultater, hvis feltet ændres
+    var results = document.getElementById('results');
+    results.innerHTML = '';
+    if (query.length < 2) return;
+
+    console.log('Søgeforespørgsel:', query); // Tilføj logning
+
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+        .then(response => {
+            console.log('Fetch response:', response); // Tilføj logning
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Autocomplete data:', data); // Tilføj logning
+            var results = document.getElementById('results');
+            results.innerHTML = '';
+
+            if (data.length > 0) {
+                results.style.display = 'block'; // Vis resultaterne, hvis der er nogen
+                data.forEach(item => {
+                    var li = document.createElement('li');
+                    li.textContent = item.tekst;
+                    li.addEventListener('click', function () {
+                        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                            .then(res => res.json())
+                            .then(addressData => {
+                                var [lon, lat] = addressData.adgangspunkt.koordinater;
+                                placeMarkerAndZoom([lon, lat], item.tekst);
+                            });
+                    });
+                    results.appendChild(li);
+                });
+            } else {
+                results.style.display = 'none'; // Skjul resultaterne, hvis der ikke er nogen
+            }
+        })
+        .catch(err => console.error('Fejl i autocomplete:', err)); // Tilføj en catch for at håndtere fejl
+});
+Med følgende linjer:
+
+document.getElementById('search').addEventListener('input', function () {
+    var query = this.value.trim();
+    
+    // Ryd resultater, hvis feltet ændres
+    var results = document.getElementById('results');
+    results.innerHTML = '';
+    if (query.length < 2) return;
+
+    console.log('Søgeforespørgsel:', query); // Tilføj logning
+
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+        .then(response => {
+            console.log('Fetch response:', response); // Tilføj logning
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Autocomplete data:', data); // Tilføj logning
+            var results = document.getElementById('results');
+            results.innerHTML = '';
+
+            if (data.length > 0) {
+                results.style.display = 'block'; // Vis resultaterne, hvis der er nogen
+                data.forEach(item => {
+                    var li = document.createElement('li');
+                    li.textContent = item.tekst;
+                    li.addEventListener('click', function () {
+                        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                            .then(res => res.json())
+                            .then(addressData => {
+                                var [lon, lat] = addressData.adgangspunkt.koordinater;
+                                placeMarkerAndZoom([lon, lat], item.tekst);
+                            });
+                    });
+                    results.appendChild(li);
+                });
+            } else {
+                results.style.display = 'none'; // Skjul resultaterne, hvis der ikke er nogen
+            }
+        })
         .catch(err => console.error('Fejl i autocomplete:', err)); // Tilføj en catch for at håndtere fejl
 });
     
