@@ -51,14 +51,14 @@ document.getElementById('search').addEventListener('input', function () {
                 var li = document.createElement('li');
                 li.textContent = item.tekst;
                 li.addEventListener('click', function () {
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-                        .then(res => res.json())
-                        .then(addressData => {
-                            var [lon, lat] = addressData.adgangspunkt.koordinater;
-                            placeMarkerAndZoom([lon, lat], item.tekst);
-                            document.getElementById('results').style.display = 'none'; // Skjul resultaterne, når en adresse er valgt
-                        });
-                });
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+        .then(res => res.json())
+        .then(addressData => {
+            var [lon, lat] = addressData.adgangspunkt.koordinater;
+            placeMarkerAndZoom([lon, lat], item.tekst);
+            document.getElementById('results').style.display = 'none'; // Skjul resultaterne, når en adresse er valgt
+        });
+});
                 results.appendChild(li);
             });
         });
