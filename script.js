@@ -42,24 +42,34 @@ document.getElementById('search').addEventListener('input', function () {
     if (query.length < 2) return;
 
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             var results = document.getElementById('results');
             results.innerHTML = '';
 
-            data.forEach(item => {
-                var li = document.createElement('li');
-                li.textContent = item.tekst;
-                li.addEventListener('click', function () {
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-                        .then(res => res.json())
-                        .then(addressData => {
-                            var [lon, lat] = addressData.adgangspunkt.koordinater;
-                            placeMarkerAndZoom([lon, lat], item.tekst);
-                            document.getElementById('results').style.display = 'none'; // Skjul resultaterne, når en adresse er valgt
-                        });
+            if (data.length > 0) {
+                results.style.display = 'block'; // Vis resultaterne, hvis der er nogen
+                data.forEach(item => {
+                    var li = document.createElement('li');
+                    li.textContent = item.tekst;
+                    li.addEventListener('click', function () {
+                        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                            .then(res => res.json())
+                            .then(addressData => {
+                                var [lon, lat] = addressData.adgangspunkt.koordinater;
+                                placeMarkerAndZoom([lon, lat], item.tekst);
+                                document.getElementById('results').style.display = 'none'; // Skjul resultaterne, når en adresse er valgt
+                            });
+                    });
+                    results.appendChild(li);
                 });
-                results.appendChild(li);
+            } else {
+                results.style.display = 'none'; // Skjul resultaterne, hvis der ikke er nogen
             });
         });
 });
