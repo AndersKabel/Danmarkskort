@@ -41,9 +41,18 @@ document.getElementById('search').addEventListener('input', function () {
     results.innerHTML = '';
     if (query.length < 2) return;
 
+    console.log('Søgeforespørgsel:', query); // Tilføj logning
+
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
-        .then(response => response.json())
+        .then(response => {
+            console.log('Fetch response:', response); // Tilføj logning
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Autocomplete data:', data); // Tilføj logning
             var results = document.getElementById('results');
             results.innerHTML = '';
 
@@ -66,6 +75,8 @@ document.getElementById('search').addEventListener('input', function () {
                 results.style.display = 'none'; // Skjul resultaterne, hvis der ikke er nogen
             }
         })
+        .catch(err => console.error('Fejl i autocomplete:', err)); // Tilføj en catch for at håndtere fejl
+});
         .catch(err => console.error('Fejl i autocomplete:', err)); // Tilføj en catch for at håndtere fejl
 });
     
