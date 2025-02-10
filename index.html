@@ -24,16 +24,18 @@
         <button id="clearSearch">Ryd</button>
     </div>
     <p id="address">Klik på kortet eller søg efter en adresse</p>
+    <div style="position: relative; display: flex;">
+    <input type="text" id="search" placeholder="Søg efter adresse..." style="flex: 1;" />
+    <div id="results" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 10;"></div>
+</div>
     
-    <div id="results" style="position: absolute; top: 50px; left: 0; width: 100%; z-index: 10;"></div> <!-- Flyttet herop -->
-    
-    <div class="cross-search">
-        <input type="text" id="road1" placeholder="Vejnavn 1">
-        <div id="road1-suggestions" class="suggestions"></div> <!-- Til autocomplete -->
-        <input type="text" id="road2" placeholder="Vejnavn 2">
-        <div id="road2-suggestions" class="suggestions"></div> <!-- Til autocomplete -->
-        <button id="findIntersection">Find kryds</button>
-    </div>
+<div class="cross-search">
+    <input type="text" id="road1" placeholder="Vejnavn 1">
+    <div id="road1-suggestions" class="suggestions"></div> <!-- Til autocomplete -->
+    <input type="text" id="road2" placeholder="Vejnavn 2">
+    <div id="road2-suggestions" class="suggestions"></div> <!-- Til autocomplete -->
+    <button id="findIntersection">Find kryds</button>
+</div>
 
     <!-- Dropdown Menu for Layers -->
     <div id="layerControl">
