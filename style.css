@@ -50,6 +50,7 @@ body {
     background: #f9f9f9;
     width: 100%; /* Sørger for, at det fylder hele containeren */
     box-sizing: border-box; /* Inkluder padding i den samlede bredde */
+    flex-wrap: nowrap; /* Forhindrer felterne i at bryde ned på en ny linje */
 }
 
 
