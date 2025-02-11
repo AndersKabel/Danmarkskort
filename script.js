@@ -78,9 +78,9 @@ function setupAutocomplete(inputId, suggestionsId) {
             suggestions.innerHTML = '';
             return;
         }
-
-        // API-url med valgfrit postnummer
-        const url = postcode: `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
+        
+// API-url til autocomplete (henter vejnavne baseret på brugerens input)
+const url = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
 
         // Hent forslag til vejnavne
         fetch(url)
