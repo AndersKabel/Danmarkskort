@@ -42,17 +42,22 @@ body {
     background: #e0e0e0;
 }
 
-.cross-search {
-    display: flex; /* Holder felterne på linje */
-    gap: 10px; /* Afstand mellem felterne */
-    padding: 10px;
-    align-items: center; /* Centrerer felterne lodret */
-    background: #f9f9f9;
-    width: 100%; /* Sørger for, at det fylder hele containeren */
-    box-sizing: border-box; /* Inkluder padding i den samlede bredde */
-    flex-wrap: nowrap; /* Forhindrer felterne i at bryde ned på en ny linje */
+.cross-search-container {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    padding: 10px 0;
 }
 
+.cross-search {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+    background: #f9f9f9;
+    box-sizing: border-box;
+    align-items: center;
+}
 
 .cross-search input {
     flex: 1;
