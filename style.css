@@ -59,6 +59,11 @@ body {
     align-items: center;
 }
 
+.cross-search > div {
+    display: flex; /* Sørger for, at indre div'er også respekterer flex */
+    flex-grow: 1; /* Giver dem mulighed for at vokse */
+}
+
 .cross-search input {
     flex-grow: 1; /* Sørger for, at inputfelterne fylder mest muligt */
     height: 38.4px;
