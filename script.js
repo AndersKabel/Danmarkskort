@@ -73,7 +73,6 @@ function setupAutocomplete(inputId, suggestionsId) {
     
     input.addEventListener('input', function () {
         const query = input.value.trim();
-        const postcode = postcodeInput.value.trim(); // Hent postnummer, hvis det er udfyldt
 
         if (query.length < 2) {
             suggestions.innerHTML = '';
@@ -82,7 +81,6 @@ function setupAutocomplete(inputId, suggestionsId) {
 
         // API-url med valgfrit postnummer
         const url = postcode
-            ? `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&postnr=${postcode}`
             : `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
 
         // Hent forslag til vejnavne
