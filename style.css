@@ -187,9 +187,9 @@ body {
 }
 
 #road1, #road2 {
-    flex-grow: 1; /* Sørger for at de to vejfelter deles ligeligt */
-    width: 100%; /* Gør felterne fleksible */
-    min-width: 0; /* Tillader dem at krympe */
+    flex: 1; /* Sørger for, at de begge fylder den tilgængelige plads */
+    min-width: 0; /* Forhindrer dem i at fastholde en for stor bredde */
+    width: auto; /* Sikrer, at de ikke bliver tvunget til at fylde hele linjen alene */
 }
 
 #findIntersection {
@@ -199,6 +199,7 @@ body {
     border: 1px solid #ddd; /* Kant */
     border-radius: 5px; /* Runde hjørner */
     cursor: pointer; /* Gør det tydeligt, det er en knap */
+    flex-shrink: 0; /* Sørger for, at knappen ikke krymper */
 }
 
 #findIntersection:hover {
