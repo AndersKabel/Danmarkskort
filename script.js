@@ -80,8 +80,7 @@ function setupAutocomplete(inputId, suggestionsId) {
         }
 
         // API-url med valgfrit postnummer
-        const url = postcode
-            : `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
+        const url = postcode: `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
 
         // Hent forslag til vejnavne
         fetch(url)
