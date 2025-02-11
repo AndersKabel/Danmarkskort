@@ -66,7 +66,7 @@ body {
     border: 1px solid #ddd;
     border-radius: 5px;
     box-sizing: border-box;
-    min-width: 0; /* Sørger for fleksibel justering */
+    width: auto; /* Sørger for, at det kan udvide sig */
 }
 
 .suggestions {
