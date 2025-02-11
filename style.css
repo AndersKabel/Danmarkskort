@@ -60,6 +60,7 @@ body {
     border: 1px solid #ddd;
     border-radius: 5px;
     box-sizing: border-box;
+    min-width: 0; /* Sørger for fleksibel justering */
 }
 
 .suggestions {
@@ -83,6 +84,7 @@ body {
 
 .cross-search button {
     flex-shrink: 0; /* Sørger for, at knappen holder sin faste bredde */
+    width: 120px; /* Bevarer en fast bredde */
     height: 38.4px;
     background: #f0f0f0;
     border: 1px solid #ddd;
