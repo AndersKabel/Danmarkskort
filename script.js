@@ -135,6 +135,8 @@ function placeMarkerAndZoom([lon, lat], addressText) {
         <br>
         <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
     `;
+    // Nulstil resultaterne i søgefeltet
+    document.getElementById('results').innerHTML = '';
 }
 
 // Ryd søgning
