@@ -70,8 +70,7 @@ document.getElementById('search').addEventListener('input', function () {
 function setupAutocomplete(inputId, suggestionsId) {
     const input = document.getElementById(inputId);
     const suggestions = document.getElementById(suggestionsId);
-    const postcodeInput = document.getElementById('postcode'); // Postnummerfeltet
-
+    
     input.addEventListener('input', function () {
         const query = input.value.trim();
         const postcode = postcodeInput.value.trim(); // Hent postnummer, hvis det er udfyldt
