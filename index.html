@@ -35,15 +35,11 @@
 
 <div class="cross-search-container">
     <div class="cross-search">
-        <div style="position: relative;">
+        <div> <!-- Denne div skal have display: flex -->
             <input type="text" id="road1" placeholder="Vejnavn 1">
-            <div id="road1-suggestions" class="suggestions"></div>
-        </div>
-        <div style="position: relative;">
             <input type="text" id="road2" placeholder="Vejnavn 2">
-            <div id="road2-suggestions" class="suggestions"></div>
+            <button id="findIntersection">Find kryds</button>
         </div>
-        <button id="findIntersection">Find kryds</button>
     </div>
 </div>
 
