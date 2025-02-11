@@ -60,8 +60,9 @@ body {
 }
 
 .cross-search > div {
-    display: flex; /* Sørger for, at indre div'er også respekterer flex */
-    flex-grow: 1; /* Giver dem mulighed for at vokse */
+    display: flex; /* Sørger for, at inputfelterne og knappen ligger på én linje */
+    gap: 10px; /* Afstand mellem elementerne */
+    width: 100%; /* Sørger for, at de fylder hele containeren */
 }
 
 .cross-search input {
