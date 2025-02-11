@@ -60,13 +60,14 @@ body {
 }
 
 .cross-search input {
-    flex: 1;
+    flex-grow: 1; /* Sørger for, at inputfelterne fylder mest muligt */
     height: 38.4px;
     padding: 10px;
     border: 1px solid #ddd;
     border-radius: 5px;
     box-sizing: border-box;
     width: auto; /* Sørger for, at det kan udvide sig */
+    min-width: 0; /* Forhindrer unødvendige begrænsninger */
 }
 
 .suggestions {
