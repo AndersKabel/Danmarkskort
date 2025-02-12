@@ -67,9 +67,10 @@ document.getElementById('search').addEventListener('input', function () {
                         placeMarkerAndZoom([lon, lat], item.tekst);
                     });
             } else if (item.visueltcenter) {
-                var [lon, lat] = item.visueltcenter.coordinates;
-                placeMarkerAndZoom([lon, lat], item.tekst);
-            }
+    var [lon, lat] = item.visueltcenter; // Stednavne bruger ikke `.coordinates`
+    placeMarkerAndZoom([lon, lat], item.navn || item.tekst);
+}
+
         });
         results.appendChild(li);
     });
