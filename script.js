@@ -32,7 +32,6 @@ map.on('click', function (e) {
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
 });
 
-// Funktion til at opsætte autocomplete med vejnavne og stednavne
 function setupAutocomplete(inputId, suggestionsId) {
     const input = document.getElementById(inputId);
     const suggestions = document.getElementById(suggestionsId);
@@ -53,7 +52,7 @@ function setupAutocomplete(inputId, suggestionsId) {
             fetch(vejnavneUrl).then(response => response.json()),
             fetch(stednavneUrl).then(response => response.json())
         ]).then(([vejnavne, stednavne]) => {
-            const combinedResults = [...vejnavne, ...stednavne]; // Kombinerer resultaterne
+            const combinedResults = [...vejnavne, ...stednavne]; // Kombiner resultaterne
             suggestions.innerHTML = '';
 
             if (combinedResults.length === 0) {
@@ -68,25 +67,31 @@ function setupAutocomplete(inputId, suggestionsId) {
                 const suggestion = document.createElement("div");
                 suggestion.textContent = item.tekst;
                 suggestion.addEventListener('click', function () {
-                    input.value = item.tekst; // Sæt værdien i input-feltet
+                    input.value = item.tekst;
                     suggestions.innerHTML = '';
 
-                    // Hvis det er et vejnavn, find og placer markør
                     if (item.adgangsadresse) {
+                        // Håndter vejnavne
                         fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
                             .then(res => res.json())
                             .then(addressData => {
-                                var [lon, lat] = addressData.adgangspunkt.koordinater;
-                                placeMarkerAndZoom([lon, lat], item.tekst);
+                                if (addressData.adgangspunkt && addressData.adgangspunkt.koordinater) {
+                                    placeMarkerAndZoom(addressData.adgangspunkt.koordinater, item.tekst);
+                                } else {
+                                    console.error("Ingen koordinater tilgængelige for adressen:", item);
+                                }
                             });
                     } else {
-                        // Hvis det er et stednavn, zoom på det
-                        https://api.dataforsyningen.dk/stednavne/autocomplete?q=${query}
+                        // Håndter stednavne korrekt
+                        fetch(`https://api.dataforsyningen.dk/stednavne?navn=${encodeURIComponent(item.tekst)}`)
                             .then(res => res.json())
                             .then(stedData => {
-                                if (stedData.length > 0) {
-                                    var [lon, lat] = stedData[0].visueltcenter.coordinates;
-                                    placeMarkerAndZoom([lon, lat], item.tekst);
+                                if (stedData.length > 0 && stedData[0].visueltcenter && stedData[0].visueltcenter.coordinates) {
+                                    let [lon, lat] = stedData[0].visueltcenter.coordinates;
+                                    console.log("Stednavn koordinater:", lon, lat);
+                                    placeMarkerAndZoom([lat, lon], item.tekst); // Lat/lon byttet pga. API format
+                                } else {
+                                    console.error("Ingen koordinater tilgængelige for stednavnet:", item);
                                 }
                             });
                     }
@@ -96,7 +101,6 @@ function setupAutocomplete(inputId, suggestionsId) {
         }).catch(err => console.error('Fejl i autocomplete:', err));
     });
 
-    // Luk forslag, hvis brugeren klikker udenfor
     document.addEventListener('click', function (e) {
         if (!suggestions.contains(e.target) && e.target !== input) {
             suggestions.innerHTML = '';
