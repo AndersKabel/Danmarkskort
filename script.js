@@ -44,7 +44,11 @@ document.getElementById('search').addEventListener('input', function () {
     }
     if (query.length < 2) return;
 
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+    Promise.all([
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`).then(response => response.json()),
+    fetch(`https://api.dataforsyningen.dk/stednavne/autocomplete?q=${query}`).then(response => response.json())
+])
+
         .then(response => response.json())
         .then(data => {
             var results = document.getElementById('results');
