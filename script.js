@@ -49,6 +49,8 @@ Promise.all([
         .then(res => res.json()),
     fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/REST/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query)}`)
         .then(res => res.json())
+    .then(data => {
+    console.log("API response:", data); // 🔍 Log API-svaret for at se strukturen
 ])
 .then(([adresser, stednavne]) => {
     var results = document.getElementById('results');
