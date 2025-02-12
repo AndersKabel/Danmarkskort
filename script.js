@@ -44,8 +44,8 @@ document.getElementById('search').addEventListener('input', function () {
     }
     if (query.length < 2) return;
 
-    const username = NUKALQTAFO;  // Erstat med dit brugernavn
-const password = Fw62huch!; // Erstat med din adgangskode
+    const username = "NUKALQTAFO";  // Erstat med dit brugernavn
+const password = "Fw62huch!"; // Erstat med din adgangskode
 const credentials = btoa(`${username}:${password}`); // Base64-kodning
 
 Promise.all([
