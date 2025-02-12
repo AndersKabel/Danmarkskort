@@ -47,21 +47,28 @@ document.getElementById('search').addEventListener('input', function () {
 Promise.all([
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
         .then(res => res.json()),
-
     fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/REST/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query)}`)
-        .then(res => res.json())  // 🔹 Sørg for at .then() er rigtigt lukket her
+        .then(res => res.json())
 ])
-.then(([adresser, stednavne]) => {
-    console.log("API response:", { adresser, stednavne }); // 🔍 Debug API-svaret
+.then(([adresser, stednavneData]) => {
+    console.log("API response:", { adresser, stednavneData }); // Debug-log for at se responsen
+
     var results = document.getElementById('results');
     results.innerHTML = '';
 
-    // Sørg for, at stednavne er en liste
-    const combinedResults = [...adresser, ...(Array.isArray(stednavne) ? stednavne : [])];
+    // Sikre os, at vi har features at arbejde med
+    const stednavneListe = stednavneData.features ? stednavneData.features.flatMap(feature => 
+        feature.properties.stednavneliste.map(sted => ({
+            navn: sted.navn,
+            bbox: feature.bbox // Bruger bbox til koordinater
+        }))
+    ) : [];
+
+    const combinedResults = [...adresser, ...stednavneListe];
 
     combinedResults.forEach(item => {
         var li = document.createElement('li');
-        li.textContent = item.tekst || item.navn; 
+        li.textContent = item.tekst || item.navn;
         li.addEventListener('click', function () {
             if (item.adgangsadresse) { 
                 fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
@@ -70,8 +77,8 @@ Promise.all([
                         var [lon, lat] = addressData.adgangspunkt.koordinater;
                         placeMarkerAndZoom([lon, lat], item.tekst);
                     });
-            } else if (item.visueltcenter) {
-                var [lon, lat] = item.visueltcenter;
+            } else if (item.bbox) {
+                var [lon, lat] = [item.bbox[0], item.bbox[1]]; // Bruger første punkt i bbox
                 placeMarkerAndZoom([lon, lat], item.navn);
             }
         });
