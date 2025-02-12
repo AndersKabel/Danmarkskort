@@ -323,5 +323,3 @@ function findIntersections(road1Data, road2Data) {
 
     return intersections;
 }
-
-
