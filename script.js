@@ -84,19 +84,7 @@ Promise.all([
 })
 .catch(err => console.error('Fejl ved hentning af søgedata:', err)); // 🔹 Fjernet unødvendig kode
 
-            data.forEach(item => {
-                var li = document.createElement('li');
-                li.textContent = item.tekst;
-                li.addEventListener('click', function () {
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-                        .then(res => res.json())
-                        .then(addressData => {
-                            var [lon, lat] = addressData.adgangspunkt.koordinater;
-                            placeMarkerAndZoom([lon, lat], item.tekst);
-                        });
-                });
-                results.appendChild(li);
-            });
+            
         });
 
 // Funktion til at opdatere kildeangivelse dynamisk
