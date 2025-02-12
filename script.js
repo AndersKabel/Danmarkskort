@@ -49,25 +49,32 @@ document.getElementById('search').addEventListener('input', function () {
     fetch(`https://api.dataforsyningen.dk/stednavne/autocomplete?q=${query}`).then(response => response.json())
 ])
 
-        .then(response => response.json())
-        .then(data => {
-            var results = document.getElementById('results');
-            results.innerHTML = '';
+        .then(([adresser, stednavne]) => {
+    var results = document.getElementById('results');
+    results.innerHTML = '';
 
-            data.forEach(item => {
-                var li = document.createElement('li');
-                li.textContent = item.tekst;
-                li.addEventListener('click', function () {
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-                        .then(res => res.json())
-                        .then(addressData => {
-                            var [lon, lat] = addressData.adgangspunkt.koordinater;
-                            placeMarkerAndZoom([lon, lat], item.tekst);
-                        });
-                });
-                results.appendChild(li);
-            });
+    const combinedResults = [...adresser, ...stednavne]; // Kombinerer vejnavne og stednavne
+
+    combinedResults.forEach(item => {
+        var li = document.createElement('li');
+        li.textContent = item.tekst;
+        li.addEventListener('click', function () {
+            if (item.adgangsadresse) { 
+                fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                    .then(res => res.json())
+                    .then(addressData => {
+                        var [lon, lat] = addressData.adgangspunkt.koordinater;
+                        placeMarkerAndZoom([lon, lat], item.tekst);
+                    });
+            } else if (item.visueltcenter) {
+                var [lon, lat] = item.visueltcenter.coordinates;
+                placeMarkerAndZoom([lon, lat], item.tekst);
+            }
         });
+        results.appendChild(li);
+    });
+});
+
 });
 
 // Funktion til at opsætte autocomplete med postnummer-filter
