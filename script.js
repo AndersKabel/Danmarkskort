@@ -55,9 +55,9 @@ Promise.all([
         headers: {
             "Authorization": `Basic ${credentials}`
         }
-    })
-    .then(res => res.json())
+    }).then(res => res.json()) // 🔹 Rigtig placering af `.then()`
 ])
+
 .then(([adresser, stednavne]) => {
     var results = document.getElementById('results');
     results.innerHTML = '';
