@@ -80,25 +80,37 @@ function setupAutocomplete(inputId, suggestionsId) {
         }
         
 // API-url til autocomplete (henter vejnavne baseret på brugerens input)
-const url = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
+const vejnavneUrl = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&type=adresse,vejnavn,bygningsnavn`;
+const stednavneUrl = `https://api.dataforsyningen.dk/stednavne/autocomplete?q=${query}`;
 
-        // Hent forslag til vejnavne
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                suggestions.innerHTML = '';
-                if (data.length === 0) {
-                    const noResults = document.createElement('div');
-                    noResults.textContent = 'Ingen resultater fundet';
-                    noResults.style.color = 'red';
-                    suggestions.appendChild(noResults);
-                    return;
-                }
+Promise.all([
+    fetch(vejnavneUrl).then(response => response.json()),
+    fetch(stednavneUrl).then(response => response.json())
+]).then(([vejnavne, stednavne]) => {
+    const combinedResults = [...vejnavne, ...stednavne]; // Kombinerer resultaterne
+    console.log("Autocomplete resultater:", combinedResults); // Debugging
 
-                data.forEach(item => {
-                    const suggestion = document.createElement('div');
-                    suggestion.textContent = item.tekst;
-                    suggestion.addEventListener('click', function () {
+    suggestions.innerHTML = '';
+
+    if (combinedResults.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.textContent = 'Ingen resultater fundet';
+        noResults.style.color = 'red';
+        suggestions.appendChild(noResults);
+        return;
+    }
+
+    combinedResults.forEach(item => {
+        const suggestion = document.createElement("div");
+        suggestion.textContent = item.tekst;
+        suggestion.addEventListener('click', function () {
+            searchInput.value = item.tekst; // Sæt værdien i input-feltet
+            suggestions.innerHTML = '';
+        });
+        suggestions.appendChild(suggestion);
+    });
+});
+
                         input.value = item.tekst; // Sæt værdien i input-feltet
                         suggestions.innerHTML = ''; // Ryd forslag
                     });
