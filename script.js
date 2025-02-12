@@ -44,43 +44,26 @@ document.getElementById('search').addEventListener('input', function () {
     }
     if (query.length < 2) return;
 
-    Promise.all([
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`).then(response => response.json()),
-    fetch(`https://api.dataforsyningen.dk/stednavne/autocomplete?q=${query}&type=landskabsform,by,hav,skov`).then(response => response.json())
-])
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+        .then(response => response.json())
+        .then(data => {
+            var results = document.getElementById('results');
+            results.innerHTML = '';
 
-        .then(([adresser, stednavne]) => {
-    var results = document.getElementById('results');
-    results.innerHTML = '';
-
-    const combinedResults = [
-    ...adresser.map(item => ({ tekst: item.tekst, type: "adresse", adgangsadresse: item.adgangsadresse })),
-    ...stednavne.map(item => ({ tekst: item.navn, type: "stednavn", visueltcenter: item.visueltcenter }))
-];
-
-console.log("Autocomplete resultater:", combinedResults); // Debugging
-
-    combinedResults.forEach(item => {
-        var li = document.createElement('li');
-        li.textContent = item.tekst;
-        li.addEventListener('click', function () {
-            if (item.adgangsadresse) { 
-                fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-                    .then(res => res.json())
-                    .then(addressData => {
-                        var [lon, lat] = addressData.adgangspunkt.koordinater;
-                        placeMarkerAndZoom([lon, lat], item.tekst);
-                    });
-            } else if (item.visueltcenter) {
-    var [lon, lat] = item.visueltcenter; // Stednavne bruger ikke `.coordinates`
-    placeMarkerAndZoom([lon, lat], item.navn || item.tekst);
-}
-
+            data.forEach(item => {
+                var li = document.createElement('li');
+                li.textContent = item.tekst;
+                li.addEventListener('click', function () {
+                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                        .then(res => res.json())
+                        .then(addressData => {
+                            var [lon, lat] = addressData.adgangspunkt.koordinater;
+                            placeMarkerAndZoom([lon, lat], item.tekst);
+                        });
+                });
+                results.appendChild(li);
+            });
         });
-        results.appendChild(li);
-    });
-});
-
 });
 
 // Funktion til at opsætte autocomplete med postnummer-filter
@@ -97,10 +80,7 @@ function setupAutocomplete(inputId, suggestionsId) {
         }
         
 // API-url til autocomplete (henter vejnavne baseret på brugerens input)
-Promise.all([
-    fetch(`https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`).then(response => response.json()),
-    fetch(`https://api.dataforsyningen.dk/stednavne/autocomplete?q=${query}`).then(response => response.json())
-])
+const url = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
 
         // Hent forslag til vejnavne
         fetch(url)
