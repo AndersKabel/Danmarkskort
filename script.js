@@ -91,7 +91,10 @@ function setupAutocomplete(inputId, suggestionsId) {
         }
         
 // API-url til autocomplete (henter vejnavne baseret på brugerens input)
-const url = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
+Promise.all([
+    fetch(`https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`).then(response => response.json()),
+    fetch(`https://api.dataforsyningen.dk/stednavne/autocomplete?q=${query}`).then(response => response.json())
+])
 
         // Hent forslag til vejnavne
         fetch(url)
