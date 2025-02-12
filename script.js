@@ -44,7 +44,45 @@ document.getElementById('search').addEventListener('input', function () {
     }
     if (query.length < 2) return;
 
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+    const username = "DIT_BRUGERNAVN";  // Erstat med dit brugernavn
+const password = "DIN_ADGANGSKODE"; // Erstat med din adgangskode
+const credentials = btoa(`${username}:${password}`); // Base64-kodning
+
+Promise.all([
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`).then(res => res.json()),
+    fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/REST/HentDKStednavne?stednavn=${encodeURIComponent(query)}`, {
+        headers: {
+            "Authorization": `Basic ${credentials}`
+        }
+    }).then(res => res.json())
+])
+.then(([adresser, stednavne]) => {
+    var results = document.getElementById('results');
+    results.innerHTML = '';
+
+    const combinedResults = [...adresser, ...stednavne]; // Kombiner resultaterne
+
+    combinedResults.forEach(item => {
+        var li = document.createElement('li');
+        li.textContent = item.tekst || item.navn; // Brug 'tekst' fra adgangsadresse eller 'navn' fra stednavne
+        li.addEventListener('click', function () {
+            if (item.adgangsadresse) { 
+                fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                    .then(res => res.json())
+                    .then(addressData => {
+                        var [lon, lat] = addressData.adgangspunkt.koordinater;
+                        placeMarkerAndZoom([lon, lat], item.tekst);
+                    });
+            } else if (item.visueltcenter) {
+                var [lon, lat] = item.visueltcenter; // Stednavne bruger ikke `.coordinates`
+                placeMarkerAndZoom([lon, lat], item.navn);
+            }
+        });
+        results.appendChild(li);
+    });
+})
+.catch(err => console.error('Fejl ved hentning af søgedata:', err));
+
         .then(response => response.json())
         .then(data => {
             var results = document.getElementById('results');
