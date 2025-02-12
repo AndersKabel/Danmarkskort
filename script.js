@@ -80,7 +80,7 @@ function setupAutocomplete(inputId, suggestionsId) {
         }
         
 // API-url til autocomplete (henter vejnavne baseret på brugerens input)
-const url = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
+const url = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&type=adresse,vejnavn,bygningsnavn,stednavn`;
 
         // Hent forslag til vejnavne
         fetch(url)
