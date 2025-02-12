@@ -53,7 +53,12 @@ document.getElementById('search').addEventListener('input', function () {
     var results = document.getElementById('results');
     results.innerHTML = '';
 
-    const combinedResults = [...adresser, ...stednavne]; // Kombinerer vejnavne og stednavne
+    const combinedResults = [
+    ...adresser.map(item => ({ tekst: item.tekst, type: "adresse", adgangsadresse: item.adgangsadresse })),
+    ...stednavne.map(item => ({ tekst: item.navn, type: "stednavn", visueltcenter: item.visueltcenter }))
+];
+
+console.log("Autocomplete resultater:", combinedResults); // Debugging
 
     combinedResults.forEach(item => {
         var li = document.createElement('li');
