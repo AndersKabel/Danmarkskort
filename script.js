@@ -98,7 +98,6 @@ Promise.all([
                 results.appendChild(li);
             });
         });
-});
 
 // Funktion til at opdatere kildeangivelse dynamisk
 function updateKildeangivelse() {
