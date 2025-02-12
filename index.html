@@ -1,64 +1,75 @@
-<!DOCTYPE html>
-<html lang="da">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danmarkskort</title>
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Din egen CSS-fil -->
-    <link rel="stylesheet" href="style.css">
+function setupAutocomplete(inputId, suggestionsId) {
+    const input = document.getElementById(inputId);
+    const suggestions = document.getElementById(suggestionsId);
 
-    <!-- Favicon (Forhindrer 404-fejl) -->
-    <link rel="icon" href="data:,">
-    
-    <style>
-        #map {
-            height: 500px;
-            width: 100%;
+    input.addEventListener('input', function () {
+        const query = input.value.trim();
+
+        if (query.length < 2) {
+            suggestions.innerHTML = '';
+            return;
         }
-    </style>
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-</head>
-<body>
-    <div id="map"></div>
-    <div class="controls">
-        <input type="text" id="search" placeholder="Søg efter adresse...">
-        <button id="clearSearch">Ryd</button>
-    </div>
-    
-    <div class="address-results-container">
-    <p id="address">Klik på kortet eller søg efter en adresse</p>
-    <ul id="results"></ul>
-</div>
 
-<div class="cross-search-container">
-    <div class="cross-search">
-        <div style="position: relative;">
-            <input type="text" id="road1" placeholder="Vejnavn 1">
-            <div id="road1-suggestions" class="suggestions"></div>
-        </div>
-        <div style="position: relative;">
-            <input type="text" id="road2" placeholder="Vejnavn 2">
-            <div id="road2-suggestions" class="suggestions"></div>
-        </div>
-        <button id="findIntersection">Find kryds</button>
-    </div>
-</div>
+        // API-url'er til vejnavne og stednavne
+        const vejnavneUrl = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&type=vejnavn`;
+        const stednavneUrl = `https://api.dataforsyningen.dk/stednavne/autocomplete?q=${query}`;
 
-    <!-- Dropdown Menu for Layers -->
-    <div id="layerControl">
-        <button id="layerToggle">☰ Lag</button>
-        <div id="layerMenu">
-            <label><input type="radio" name="layer" value="none" checked> Ingen lag</label>
-            <label><input type="radio" name="layer" value="fuel"> Tankstationer</label>
-            <label><input type="radio" name="layer" value="parking"> Parkeringspladser</label>
-            <label><input type="radio" name="layer" value="supermarket"> Supermarkeder</label>
-            <label><input type="radio" name="layer" value="charging_station"> Ladestandere</label>
-        </div>
-    </div>
+        Promise.all([
+            fetch(vejnavneUrl).then(response => response.json()),
+            fetch(stednavneUrl).then(response => response.json())
+        ]).then(([vejnavne, stednavne]) => {
+            const combinedResults = [...vejnavne, ...stednavne]; // Kombiner resultaterne
+            suggestions.innerHTML = '';
 
-    <script src="script.js"></script>
-</body>
-</html>
+            if (combinedResults.length === 0) {
+                const noResults = document.createElement('div');
+                noResults.textContent = 'Ingen resultater fundet';
+                noResults.style.color = 'red';
+                suggestions.appendChild(noResults);
+                return;
+            }
+
+            combinedResults.forEach(item => {
+                const suggestion = document.createElement("div");
+                suggestion.textContent = item.tekst;
+                suggestion.addEventListener('click', function () {
+                    input.value = item.tekst;
+                    suggestions.innerHTML = '';
+
+                    if (item.adgangsadresse) {
+                        // Håndter vejnavne
+                        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                            .then(res => res.json())
+                            .then(addressData => {
+                                if (addressData.adgangspunkt && addressData.adgangspunkt.koordinater) {
+                                    placeMarkerAndZoom(addressData.adgangspunkt.koordinater, item.tekst);
+                                } else {
+                                    console.error("Ingen koordinater tilgængelige for adressen:", item);
+                                }
+                            });
+                    } else {
+                        // Håndter stednavne korrekt
+                        fetch(`https://api.dataforsyningen.dk/stednavne?navn=${encodeURIComponent(item.tekst)}`)
+                            .then(res => res.json())
+                            .then(stedData => {
+                                if (stedData.length > 0 && stedData[0].visueltcenter && stedData[0].visueltcenter.coordinates) {
+                                    let [lon, lat] = stedData[0].visueltcenter.coordinates;
+                                    console.log("Stednavn koordinater:", lon, lat);
+                                    placeMarkerAndZoom([lat, lon], item.tekst); // Lat/lon byttet pga. API format
+                                } else {
+                                    console.error("Ingen koordinater tilgængelige for stednavnet:", item);
+                                }
+                            });
+                    }
+                });
+                suggestions.appendChild(suggestion);
+            });
+        }).catch(err => console.error('Fejl i autocomplete:', err));
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!suggestions.contains(e.target) && e.target !== input) {
+            suggestions.innerHTML = '';
+        }
+    });
+}
