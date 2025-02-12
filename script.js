@@ -56,7 +56,7 @@ Promise.all([
     var results = document.getElementById('results');
     results.innerHTML = '';
 
-    const combinedResults = [...adresser, ...stednavne];
+    const combinedResults = [...adresser, ...(Array.isArray(stednavne) ? stednavne : [])]; 
 
     combinedResults.forEach(item => {
         var li = document.createElement('li');
