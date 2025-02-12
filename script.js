@@ -48,13 +48,13 @@ Promise.all([
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
         .then(res => res.json()),
     fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/REST/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query)}`)
-.then(res => res.json())
+        .then(res => res.json())
 ])
 .then(([adresser, stednavne]) => {
     var results = document.getElementById('results');
     results.innerHTML = '';
 
-    const combinedResults = [...adresser, ...stednavne]; // Kombiner resultaterne
+    const combinedResults = [...adresser, ...stednavne];
 
     combinedResults.forEach(item => {
         var li = document.createElement('li');
@@ -68,16 +68,14 @@ Promise.all([
                         placeMarkerAndZoom([lon, lat], item.tekst);
                     });
             } else if (item.visueltcenter) {
-                var [lon, lat] = item.visueltcenter; // Stednavne bruger ikke `.coordinates`
+                var [lon, lat] = item.visueltcenter;
                 placeMarkerAndZoom([lon, lat], item.navn);
             }
         });
         results.appendChild(li);
     });
 })
-.catch(err => console.error('Fejl ved hentning af søgedata:', err)); // 🔹 Fjernet unødvendig kode
-
-            
+.catch(err => console.error('Fejl ved hentning af søgedata:', err));
         });
 
 // Funktion til at opdatere kildeangivelse dynamisk
