@@ -66,6 +66,22 @@ document.getElementById('search').addEventListener('input', function () {
         });
 });
 
+// Funktion til at opdatere kildeangivelse dynamisk
+function updateKildeangivelse() {
+    const now = new Date();
+    const monthNames = ["januar", "februar", "marts", "april", "maj", "juni",
+                        "juli", "august", "september", "oktober", "november", "december"];
+    const month = monthNames[now.getMonth()];
+    const year = now.getFullYear();
+
+    // Sæt kildeangivelse dynamisk
+    document.getElementById('kildeangivelse').innerHTML = 
+        `Indeholder data fra Dataforsyningen, Stednavne, ${month} ${year}`;
+}
+
+// Kald funktionen når siden indlæses
+document.addEventListener("DOMContentLoaded", updateKildeangivelse);
+
 // Funktion til at opsætte autocomplete med postnummer-filter
 function setupAutocomplete(inputId, suggestionsId) {
     const input = document.getElementById(inputId);
