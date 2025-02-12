@@ -55,9 +55,8 @@ Promise.all([
         headers: {
             "Authorization": `Basic ${credentials}`
         }
-    }).then(res => res.json()) // 🔹 Rigtig placering af `.then()`
+    }).then(res => res.json()) // 🔹 Rettet placering af `.then()`
 ])
-
 .then(([adresser, stednavne]) => {
     var results = document.getElementById('results');
     results.innerHTML = '';
@@ -83,7 +82,7 @@ Promise.all([
         results.appendChild(li);
     });
 })
-.catch(err => console.error('Fejl ved hentning af søgedata:', err));
+.catch(err => console.error('Fejl ved hentning af søgedata:', err)); // 🔹 Fjernet unødvendig kode
 
             data.forEach(item => {
                 var li = document.createElement('li');
