@@ -83,12 +83,7 @@ Promise.all([
         results.appendChild(li);
     });
 })
-.catch(err => console.error('Fejl ved hentning af søgedata:', err)); // 📌 Rigtigt placeret .catch()
-
-        .then(response => response.json())
-        .then(data => {
-            var results = document.getElementById('results');
-            results.innerHTML = '';
+.catch(err => console.error('Fejl ved hentning af søgedata:', err));
 
             data.forEach(item => {
                 var li = document.createElement('li');
