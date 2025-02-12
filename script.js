@@ -47,11 +47,8 @@ document.getElementById('search').addEventListener('input', function () {
 Promise.all([
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
         .then(res => res.json()),
-    fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/REST/HentDKStednavne?stednavn=${encodeURIComponent(query)}`, {
-        headers: {
-            "Authorization": `Basic ${credentials}`
-        }
-    }).then(res => res.json()) // 🔹 Rettet placering af `.then()`
+    fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/REST/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query)}`)
+.then(res => res.json())
 ])
 .then(([adresser, stednavne]) => {
     var results = document.getElementById('results');
