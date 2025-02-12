@@ -44,17 +44,19 @@ document.getElementById('search').addEventListener('input', function () {
     }
     if (query.length < 2) return;
 
-    const username = "NUKALQTAFO";  // Erstat med dit brugernavn
+   const username = "NUKALQTAFO";  // Erstat med dit brugernavn
 const password = "Fw62huch!"; // Erstat med din adgangskode
 const credentials = btoa(`${username}:${password}`); // Base64-kodning
 
 Promise.all([
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`).then(res => res.json()),
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+        .then(res => res.json()),
     fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/REST/HentDKStednavne?stednavn=${encodeURIComponent(query)}`, {
         headers: {
             "Authorization": `Basic ${credentials}`
         }
-    }).then(res => res.json())
+    })
+    .then(res => res.json())
 ])
 .then(([adresser, stednavne]) => {
     var results = document.getElementById('results');
@@ -81,7 +83,7 @@ Promise.all([
         results.appendChild(li);
     });
 })
-.catch(err => console.error('Fejl ved hentning af søgedata:', err));
+.catch(err => console.error('Fejl ved hentning af søgedata:', err)); // 📌 Rigtigt placeret .catch()
 
         .then(response => response.json())
         .then(data => {
