@@ -47,20 +47,21 @@ document.getElementById('search').addEventListener('input', function () {
 Promise.all([
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
         .then(res => res.json()),
+
     fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/REST/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query)}`)
-        .then(res => res.json())
-    .then(data => {
-    console.log("API response:", data); // 🔍 Log API-svaret for at se strukturen
+        .then(res => res.json())  // 🔹 Sørg for at .then() er rigtigt lukket her
 ])
 .then(([adresser, stednavne]) => {
+    console.log("API response:", { adresser, stednavne }); // 🔍 Debug API-svaret
     var results = document.getElementById('results');
     results.innerHTML = '';
 
-    const combinedResults = [...adresser, ...(Array.isArray(stednavne) ? stednavne : [])]; 
+    // Sørg for, at stednavne er en liste
+    const combinedResults = [...adresser, ...(Array.isArray(stednavne) ? stednavne : [])];
 
     combinedResults.forEach(item => {
         var li = document.createElement('li');
-        li.textContent = item.tekst || item.navn; // Brug 'tekst' fra adgangsadresse eller 'navn' fra stednavne
+        li.textContent = item.tekst || item.navn; 
         li.addEventListener('click', function () {
             if (item.adgangsadresse) { 
                 fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
@@ -78,6 +79,7 @@ Promise.all([
     });
 })
 .catch(err => console.error('Fejl ved hentning af søgedata:', err));
+
         });
 
 // Funktion til at opdatere kildeangivelse dynamisk
