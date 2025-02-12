@@ -81,7 +81,7 @@ function setupAutocomplete(inputId, suggestionsId) {
                             });
                     } else {
                         // Hvis det er et stednavn, zoom på det
-                        fetch(`https://api.dataforsyningen.dk/stednavne?navn=${encodeURIComponent(item.tekst)}`)
+                        https://api.dataforsyningen.dk/stednavne/autocomplete?q=${query}
                             .then(res => res.json())
                             .then(stedData => {
                                 if (stedData.length > 0) {
