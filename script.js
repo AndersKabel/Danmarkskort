@@ -32,10 +32,45 @@ map.on('click', function (e) {
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
 });
 
+// Søgefunktion
+document.getElementById('search').addEventListener('input', function () {
+    var query = this.value.trim();
+    var results = document.getElementById('results');
+    
+    // Hvis tekstfeltet er tomt, ryd resultaterne og stop her
+    if (query.length === 0) {
+        results.innerHTML = '';
+        return;
+    }
+    if (query.length < 2) return;
+
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+        .then(response => response.json())
+        .then(data => {
+            var results = document.getElementById('results');
+            results.innerHTML = '';
+
+            data.forEach(item => {
+                var li = document.createElement('li');
+                li.textContent = item.tekst;
+                li.addEventListener('click', function () {
+                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                        .then(res => res.json())
+                        .then(addressData => {
+                            var [lon, lat] = addressData.adgangspunkt.koordinater;
+                            placeMarkerAndZoom([lon, lat], item.tekst);
+                        });
+                });
+                results.appendChild(li);
+            });
+        });
+});
+
+// Funktion til at opsætte autocomplete med postnummer-filter
 function setupAutocomplete(inputId, suggestionsId) {
     const input = document.getElementById(inputId);
     const suggestions = document.getElementById(suggestionsId);
-
+    
     input.addEventListener('input', function () {
         const query = input.value.trim();
 
@@ -43,64 +78,37 @@ function setupAutocomplete(inputId, suggestionsId) {
             suggestions.innerHTML = '';
             return;
         }
+        
+// API-url til autocomplete (henter vejnavne baseret på brugerens input)
+const url = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}`;
 
-        // API-url'er til vejnavne og stednavne
-        const vejnavneUrl = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&type=vejnavn`;
-        const stednavneUrl = `https://api.dataforsyningen.dk/stednavne/autocomplete?q=${query}`;
+        // Hent forslag til vejnavne
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                suggestions.innerHTML = '';
+                if (data.length === 0) {
+                    const noResults = document.createElement('div');
+                    noResults.textContent = 'Ingen resultater fundet';
+                    noResults.style.color = 'red';
+                    suggestions.appendChild(noResults);
+                    return;
+                }
 
-        Promise.all([
-            fetch(vejnavneUrl).then(response => response.json()),
-            fetch(stednavneUrl).then(response => response.json())
-        ]).then(([vejnavne, stednavne]) => {
-            const combinedResults = [...vejnavne, ...stednavne]; // Kombiner resultaterne
-            suggestions.innerHTML = '';
-
-            if (combinedResults.length === 0) {
-                const noResults = document.createElement('div');
-                noResults.textContent = 'Ingen resultater fundet';
-                noResults.style.color = 'red';
-                suggestions.appendChild(noResults);
-                return;
-            }
-
-            combinedResults.forEach(item => {
-                const suggestion = document.createElement("div");
-                suggestion.textContent = item.tekst;
-                suggestion.addEventListener('click', function () {
-                    input.value = item.tekst;
-                    suggestions.innerHTML = '';
-
-                    if (item.adgangsadresse) {
-                        // Håndter vejnavne
-                        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-                            .then(res => res.json())
-                            .then(addressData => {
-                                if (addressData.adgangspunkt && addressData.adgangspunkt.koordinater) {
-                                    placeMarkerAndZoom(addressData.adgangspunkt.koordinater, item.tekst);
-                                } else {
-                                    console.error("Ingen koordinater tilgængelige for adressen:", item);
-                                }
-                            });
-                    } else {
-                        // Håndter stednavne korrekt
-                        fetch(`https://api.dataforsyningen.dk/stednavne?navn=${encodeURIComponent(item.tekst)}`)
-                            .then(res => res.json())
-                            .then(stedData => {
-                                if (stedData.length > 0 && stedData[0].visueltcenter && stedData[0].visueltcenter.coordinates) {
-                                    let [lon, lat] = stedData[0].visueltcenter.coordinates;
-                                    console.log("Stednavn koordinater:", lon, lat);
-                                    placeMarkerAndZoom([lat, lon], item.tekst); // Lat/lon byttet pga. API format
-                                } else {
-                                    console.error("Ingen koordinater tilgængelige for stednavnet:", item);
-                                }
-                            });
-                    }
+                data.forEach(item => {
+                    const suggestion = document.createElement('div');
+                    suggestion.textContent = item.tekst;
+                    suggestion.addEventListener('click', function () {
+                        input.value = item.tekst; // Sæt værdien i input-feltet
+                        suggestions.innerHTML = ''; // Ryd forslag
+                    });
+                    suggestions.appendChild(suggestion);
                 });
-                suggestions.appendChild(suggestion);
-            });
-        }).catch(err => console.error('Fejl i autocomplete:', err));
+            })
+            .catch(err => console.error('Fejl i autocomplete:', err));
     });
 
+    // Luk forslag, hvis brugeren klikker udenfor
     document.addEventListener('click', function (e) {
         if (!suggestions.contains(e.target) && e.target !== input) {
             suggestions.innerHTML = '';
@@ -111,6 +119,7 @@ function setupAutocomplete(inputId, suggestionsId) {
 // Opsæt autocomplete for begge krydsfelter
 setupAutocomplete('road1', 'road1-suggestions');
 setupAutocomplete('road2', 'road2-suggestions');
+
 
 // Funktion til placering af markør
 function placeMarkerAndZoom([lon, lat], addressText) {
@@ -126,7 +135,8 @@ function placeMarkerAndZoom([lon, lat], addressText) {
         <br>
         <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
     `;
-    document.getElementById('results').innerHTML = ''; // Ryd resultater
+    // Nulstil resultaterne i søgefeltet
+    document.getElementById('results').innerHTML = '';
 }
 
 // Ryd søgning
@@ -142,7 +152,6 @@ document.getElementById('clearSearch').addEventListener('click', function () {
 
 // Fjern evt. uønskede tooltips
 document.querySelectorAll('[title]').forEach(el => el.removeAttribute('title'));
-
 
 // Lag-håndtering
 document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
@@ -314,3 +323,5 @@ function findIntersections(road1Data, road2Data) {
 
     return intersections;
 }
+
+
