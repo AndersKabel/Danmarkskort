@@ -32,46 +32,11 @@ map.on('click', function (e) {
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
 });
 
-// Søgefunktion
-document.getElementById('search').addEventListener('input', function () {
-    var query = this.value.trim();
-    var results = document.getElementById('results');
-    
-    // Hvis tekstfeltet er tomt, ryd resultaterne og stop her
-    if (query.length === 0) {
-        results.innerHTML = '';
-        return;
-    }
-    if (query.length < 2) return;
-
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
-        .then(response => response.json())
-        .then(data => {
-            var results = document.getElementById('results');
-            results.innerHTML = '';
-
-            data.forEach(item => {
-                var li = document.createElement('li');
-                li.textContent = item.tekst;
-                li.addEventListener('click', function () {
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-                        .then(res => res.json())
-                        .then(addressData => {
-                            var [lon, lat] = addressData.adgangspunkt.koordinater;
-                            placeMarkerAndZoom([lon, lat], item.tekst);
-                        });
-                });
-                results.appendChild(li);
-            });
-        });
-});
-
-// Funktion til at opsætte autocomplete med postnummer-filter
 // Funktion til at opsætte autocomplete med vejnavne og stednavne
 function setupAutocomplete(inputId, suggestionsId) {
     const input = document.getElementById(inputId);
     const suggestions = document.getElementById(suggestionsId);
-    
+
     input.addEventListener('input', function () {
         const query = input.value.trim();
 
@@ -81,7 +46,7 @@ function setupAutocomplete(inputId, suggestionsId) {
         }
 
         // API-url'er til vejnavne og stednavne
-        const vejnavneUrl = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&type=vejnavn,bygningsnavn`;
+        const vejnavneUrl = `https://api.dataforsyningen.dk/vejstykker/autocomplete?q=${query}&type=vejnavn`;
         const stednavneUrl = `https://api.dataforsyningen.dk/stednavne/autocomplete?q=${query}`;
 
         Promise.all([
@@ -89,8 +54,6 @@ function setupAutocomplete(inputId, suggestionsId) {
             fetch(stednavneUrl).then(response => response.json())
         ]).then(([vejnavne, stednavne]) => {
             const combinedResults = [...vejnavne, ...stednavne]; // Kombinerer resultaterne
-            console.log("Autocomplete resultater:", combinedResults); // Debugging
-
             suggestions.innerHTML = '';
 
             if (combinedResults.length === 0) {
@@ -107,6 +70,26 @@ function setupAutocomplete(inputId, suggestionsId) {
                 suggestion.addEventListener('click', function () {
                     input.value = item.tekst; // Sæt værdien i input-feltet
                     suggestions.innerHTML = '';
+
+                    // Hvis det er et vejnavn, find og placer markør
+                    if (item.adgangsadresse) {
+                        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                            .then(res => res.json())
+                            .then(addressData => {
+                                var [lon, lat] = addressData.adgangspunkt.koordinater;
+                                placeMarkerAndZoom([lon, lat], item.tekst);
+                            });
+                    } else {
+                        // Hvis det er et stednavn, zoom på det
+                        fetch(`https://api.dataforsyningen.dk/stednavne?navn=${encodeURIComponent(item.tekst)}`)
+                            .then(res => res.json())
+                            .then(stedData => {
+                                if (stedData.length > 0) {
+                                    var [lon, lat] = stedData[0].visueltcenter.coordinates;
+                                    placeMarkerAndZoom([lon, lat], item.tekst);
+                                }
+                            });
+                    }
                 });
                 suggestions.appendChild(suggestion);
             });
@@ -139,8 +122,7 @@ function placeMarkerAndZoom([lon, lat], addressText) {
         <br>
         <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
     `;
-    // Nulstil resultaterne i søgefeltet
-    document.getElementById('results').innerHTML = '';
+    document.getElementById('results').innerHTML = ''; // Ryd resultater
 }
 
 // Ryd søgning
@@ -156,6 +138,7 @@ document.getElementById('clearSearch').addEventListener('click', function () {
 
 // Fjern evt. uønskede tooltips
 document.querySelectorAll('[title]').forEach(el => el.removeAttribute('title'));
+
 
 // Lag-håndtering
 document.querySelectorAll('input[name="layer"]').forEach(function (radio) {
