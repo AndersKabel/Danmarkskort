@@ -47,24 +47,38 @@ document.getElementById('search').addEventListener('input', function () {
 Promise.all([
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
         .then(res => res.json()),
+   Promise.all([
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+        .then(res => res.json()),
     fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=DIT_BRUGERNAVN&password=DIN_ADGANGSKODE&stednavn=${encodeURIComponent(query + '*')}`)
         .then(res => res.json())
+        .then(data => {
+            var stednavneListe = [];
+
+            // Håndter JSON-svaret korrekt og udtræk stednavne
+            if (data.features) {
+                data.features.forEach(feature => {
+                    feature.properties.stednavneliste.forEach(sted => {
+                        stednavneListe.push({
+                            navn: sted.navn,
+                            bbox: feature.bbox // Brug bbox som koordinat
+                        });
+                    });
+                });
+            }
+
+            // Filtrer dubletter fra stednavne
+            return [...new Set(stednavneListe.map(sted => JSON.stringify(sted)))]
+                .map(str => JSON.parse(str));
+        })
 ])
-.then(([adresser, stednavneData]) => {
-    console.log("API response:", { adresser, stednavneData }); // Debug-log for at se responsen
+.then(([adresser, stednavne]) => {
+    console.log("API response:", { adresser, stednavne });
 
     var results = document.getElementById('results');
     results.innerHTML = '';
 
-    // Sikre os, at vi har features at arbejde med
-    const stednavneListe = stednavneData.features ? stednavneData.features.flatMap(feature => 
-        feature.properties.stednavneliste.map(sted => ({
-            navn: sted.navn,
-            bbox: feature.bbox // Bruger bbox til koordinater
-        }))
-    ) : [];
-
-    const combinedResults = [...adresser, ...stednavneListe];
+    const combinedResults = [...adresser, ...stednavne];
 
     combinedResults.forEach(item => {
         var li = document.createElement('li');
@@ -76,6 +90,17 @@ Promise.all([
                     .then(addressData => {
                         var [lon, lat] = addressData.adgangspunkt.koordinater;
                         placeMarkerAndZoom([lon, lat], item.tekst);
+                    });
+            } else if (item.bbox) {
+                var [lon, lat] = [item.bbox[0], item.bbox[1]];
+                placeMarkerAndZoom([lon, lat], item.navn);
+            }
+        });
+        results.appendChild(li);
+    });
+})
+.catch(err => console.error('Fejl ved hentning af søgedata:', err));
+
                     });
             } else if (item.bbox) {
                 var [lon, lat] = [item.bbox[0], item.bbox[1]]; // Bruger første punkt i bbox
