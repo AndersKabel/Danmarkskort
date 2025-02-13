@@ -36,66 +36,64 @@ map.on('click', function (e) {
 document.getElementById('search').addEventListener('input', function () {
     var query = this.value.trim();
     var results = document.getElementById('results');
-    
-    // Hvis tekstfeltet er tomt, ryd resultaterne og stop her
+
+    // Ryd resultater, hvis tekstfeltet er tomt
     if (query.length === 0) {
         results.innerHTML = '';
         return;
     }
     if (query.length < 2) return;
 
-Promise.all([
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
-        .then(res => res.json()),
-    fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=DIT_BRUGERNAVN&password=DIN_ADGANGSKODE&stednavn=${encodeURIComponent(query + '*')}`)
-        .then(res => res.json())
-        .then(data => {
-            var stednavneListe = [];
+    Promise.all([
+        fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+            .then(res => res.json()),
+        fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=DIT_BRUGERNAVN&password=DIN_ADGANGSKODE&stednavn=${encodeURIComponent(query + '*')}`)
+            .then(res => res.json())
+            .then(data => {
+                let stednavneListe = [];
+                if (data.features) {
+                    data.features.forEach(feature => {
+                        if (feature.properties.stednavneliste) {
+                            feature.properties.stednavneliste.forEach(sted => {
+                                stednavneListe.push({
+                                    navn: sted.navn,
+                                    bbox: feature.bbox
+                                });
+                            });
+                        }
+                    });
+                }
+                return [...new Map(stednavneListe.map(sted => [sted.navn, sted])).values()];
+            })
+    ])
+    .then(([adresser, stednavne]) => {
+        console.log("API response:", { adresser, stednavne });
 
-            // Håndter JSON-svaret korrekt og udtræk stednavne
-            if (data.features) {
-                data.features.forEach(feature => {
-                    feature.properties.stednavneliste.forEach(sted => {
-                        stednavneListe.push({
-                            navn: sted.navn,
-                            bbox: feature.bbox // Brug bbox som koordinat
+        results.innerHTML = '';
+
+        const combinedResults = [...adresser, ...stednavne];
+
+        combinedResults.forEach(item => {
+            var li = document.createElement('li');
+            li.textContent = item.tekst || item.navn;
+            li.addEventListener('click', function () {
+                if (item.adgangsadresse) {
+                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                        .then(res => res.json())
+                        .then(addressData => {
+                            var [lon, lat] = addressData.adgangspunkt.koordinater;
+                            placeMarkerAndZoom([lon, lat], item.tekst);
                         });
-                    });
-                });
-            }
-
-            // Filtrer dubletter fra stednavne
-            return [...new Set(stednavneListe.map(sted => JSON.stringify(sted)))].map(str => JSON.parse(str));
-        })
-])
-.then(([adresser, stednavne]) => {
-    console.log("API response:", { adresser, stednavne });
-
-    var results = document.getElementById('results');
-    results.innerHTML = '';
-
-    const combinedResults = [...adresser, ...stednavne];
-
-    combinedResults.forEach(item => {
-        var li = document.createElement('li');
-        li.textContent = item.tekst || item.navn;
-        li.addEventListener('click', function () {
-            if (item.adgangsadresse) { 
-                fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-                    .then(res => res.json())
-                    .then(addressData => {
-                        var [lon, lat] = addressData.adgangspunkt.koordinater;
-                        placeMarkerAndZoom([lon, lat], item.tekst);
-                    });
-            } else if (item.bbox) {
-                var [lon, lat] = [item.bbox[0], item.bbox[1]];
-                placeMarkerAndZoom([lon, lat], item.navn);
-            }
+                } else if (item.bbox) {
+                    var [lon, lat] = [item.bbox[0], item.bbox[1]];
+                    placeMarkerAndZoom([lon, lat], item.navn);
+                }
+            });
+            results.appendChild(li);
         });
-        results.appendChild(li);
-    });
-})
-.catch(err => console.error('Fejl ved hentning af søgedata:', err));
+    })
+    .catch(err => console.error('Fejl ved hentning af søgedata:', err));
+});
 
         });
 
