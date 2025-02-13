@@ -45,27 +45,28 @@ document.getElementById('search').addEventListener('input', function () {
     if (query.length < 2) return;
 
     Promise.all([
-        fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
-            .then(res => res.json()),
-        fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=DIT_BRUGERNAVN&password=DIN_ADGANGSKODE&stednavn=${encodeURIComponent(query + '*')}`)
-            .then(res => res.json())
-            .then(data => {
-                let stednavneListe = [];
-                if (data.features) {
-                    data.features.forEach(feature => {
-                        if (feature.properties.stednavneliste) {
-                            feature.properties.stednavneliste.forEach(sted => {
-                                stednavneListe.push({
-                                    navn: sted.navn,
-                                    bbox: feature.bbox
-                                });
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+        .then(res => res.json()),
+    fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=DIT_BRUGERNAVN&password=DIN_ADGANGSKODE&stednavn=${encodeURIComponent(query + '*')}`)
+        .then(res => res.json())
+        .then(data => {
+            let stednavneListe = [];
+            if (data.features) {
+                data.features.forEach(feature => {
+                    if (feature.properties && feature.properties.stednavneliste) {
+                        feature.properties.stednavneliste.forEach(sted => {
+                            stednavneListe.push({
+                                navn: sted.navn,
+                                bbox: feature.bbox || null
                             });
-                        }
-                    });
-                }
-                return [...new Map(stednavneListe.map(sted => [sted.navn, sted])).values()];
-            })
-    ])
+                        });
+                    }
+                });
+            }
+            return Promise.resolve([...new Map(stednavneListe.map(sted => [sted.navn, sted])).values()]);
+        })
+])
+
     .then(([adresser, stednavne]) => {
         console.log("API response:", { adresser, stednavne });
 
