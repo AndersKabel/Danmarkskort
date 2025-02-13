@@ -47,9 +47,6 @@ document.getElementById('search').addEventListener('input', function () {
 Promise.all([
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
         .then(res => res.json()),
-   Promise.all([
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
-        .then(res => res.json()),
     fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=DIT_BRUGERNAVN&password=DIN_ADGANGSKODE&stednavn=${encodeURIComponent(query + '*')}`)
         .then(res => res.json())
         .then(data => {
@@ -68,8 +65,7 @@ Promise.all([
             }
 
             // Filtrer dubletter fra stednavne
-            return [...new Set(stednavneListe.map(sted => JSON.stringify(sted)))]
-                .map(str => JSON.parse(str));
+            return [...new Set(stednavneListe.map(sted => JSON.stringify(sted)))].map(str => JSON.parse(str));
         })
 ])
 .then(([adresser, stednavne]) => {
