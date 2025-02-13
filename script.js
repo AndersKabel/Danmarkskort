@@ -5,6 +5,35 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
+// Definer standard OpenStreetMap-lag
+var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+});
+
+// Definer skærmkort lag fra Datafordeleren (WMTS)
+var skaermkortWMTS = L.tileLayer.wms("https://services.datafordeler.dk/Dkskaermkort/topo_skaermkort_wmts/1.0.0/wmts", {
+    layers: "topo_skaermkort",
+    tilematrixSet: "EPSG:25832",
+    format: "image/png",
+    transparent: true,
+    attribution: "© Styrelsen for Dataforsyning og Infrastruktur",
+    username: "NUKALQTAFO",
+    password: "Fw62huch!"
+});
+
+// Opret lag-kontrol for at vælge mellem OpenStreetMap og Skærmkort
+var baseMaps = {
+    "OpenStreetMap": osmLayer,
+    "Skærmkort": skaermkortWMTS
+};
+
+// Tilføj lag-kontrol til kortet
+L.control.layers(baseMaps).addTo(map);
+
+// Tilføj som standardlag
+skaermkortWMTS.addTo(map);
+
 var currentMarker;
 var currentLayerGroup = null; // Holder referencen til det nuværende aktive lag
 var selectedLayerType = "none"; // Holder styr på det valgte lag
