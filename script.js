@@ -95,8 +95,6 @@ document.getElementById('search').addEventListener('input', function () {
     .catch(err => console.error('Fejl ved hentning af søgedata:', err));
 });
 
-        });
-
 // Funktion til at opdatere kildeangivelse dynamisk
 function updateKildeangivelse() {
     const now = new Date();
