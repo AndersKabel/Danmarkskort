@@ -47,7 +47,7 @@ document.getElementById('search').addEventListener('input', function () {
     Promise.all([
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
         .then(res => res.json()),
-    fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=DIT_BRUGERNAVN&password=DIN_ADGANGSKODE&stednavn=${encodeURIComponent(query + '*')}`)
+    fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`)
         .then(res => res.json())
         .then(data => {
             let stednavneListe = [];
