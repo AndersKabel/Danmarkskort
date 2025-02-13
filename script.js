@@ -97,17 +97,6 @@ Promise.all([
 })
 .catch(err => console.error('Fejl ved hentning af søgedata:', err));
 
-                    });
-            } else if (item.bbox) {
-                var [lon, lat] = [item.bbox[0], item.bbox[1]]; // Bruger første punkt i bbox
-                placeMarkerAndZoom([lon, lat], item.navn);
-            }
-        });
-        results.appendChild(li);
-    });
-})
-.catch(err => console.error('Fejl ved hentning af søgedata:', err));
-
         });
 
 // Funktion til at opdatere kildeangivelse dynamisk
