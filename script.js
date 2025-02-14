@@ -63,6 +63,33 @@ map.on('click', function (e) {
 
 // Søgefunktion
 document.getElementById('search').addEventListener('input', function () {
+    
+    // Funktion til at søge stednavne fra API
+function fetchStednavne(query) {
+    return fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`)
+        .then(res => res.json())
+        .then(data => {
+            let stednavneListe = [];
+            if (data.features) {
+                data.features.forEach(feature => {
+                    if (feature.properties && feature.properties.stednavneliste) {
+                        feature.properties.stednavneliste.forEach(sted => {
+                            stednavneListe.push({
+                                navn: sted.navn,
+                                bbox: feature.bbox || null
+                            });
+                        });
+                    }
+                });
+            }
+            return [...new Map(stednavneListe.map(sted => [sted.navn, sted])).values()];
+        })
+        .catch(err => {
+            console.error('Fejl ved hentning af stednavne:', err);
+            return [];
+        });
+}
+
     var query = this.value.trim();
     var results = document.getElementById('results');
 
