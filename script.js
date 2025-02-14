@@ -5,9 +5,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// Definer Proj4.js koordinatsystem
-proj4.defs("EPSG:25832", "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs");
-
 // Definer standard OpenStreetMap-lag
 var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -66,6 +63,33 @@ map.on('click', function (e) {
 
 // Søgefunktion
 document.getElementById('search').addEventListener('input', function () {
+    
+    // Funktion til at søge stednavne fra API
+function fetchStednavne(query) {
+    return fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`)
+        .then(res => res.json())
+        .then(data => {
+            let stednavneListe = [];
+            if (data.features) {
+                data.features.forEach(feature => {
+                    if (feature.properties && feature.properties.stednavneliste) {
+                        feature.properties.stednavneliste.forEach(sted => {
+                            stednavneListe.push({
+                                navn: sted.navn,
+                                bbox: feature.bbox || null
+                            });
+                        });
+                    }
+                });
+            }
+            return [...new Map(stednavneListe.map(sted => [sted.navn, sted])).values()];
+        })
+        .catch(err => {
+            console.error('Fejl ved hentning af stednavne:', err);
+            return [];
+        });
+}
+
     var query = this.value.trim();
     var results = document.getElementById('results');
 
@@ -77,10 +101,28 @@ document.getElementById('search').addEventListener('input', function () {
     if (query.length < 2) return;
 
     Promise.all([
-        fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
-            .then(res => res.json()),
-        fetchStednavne(query) // Brug funktionen i stedet for at skrive API-kaldet igen
-    ])
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${query}`)
+        .then(res => res.json()),
+    fetch(`https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`)
+        .then(res => res.json())
+        .then(data => {
+            let stednavneListe = [];
+            if (data.features) {
+                data.features.forEach(feature => {
+                    if (feature.properties && feature.properties.stednavneliste) {
+                        feature.properties.stednavneliste.forEach(sted => {
+                            stednavneListe.push({
+                                navn: sted.navn,
+                                bbox: feature.bbox || null
+                            });
+                        });
+                    }
+                });
+            }
+            return Promise.resolve([...new Map(stednavneListe.map(sted => [sted.navn, sted])).values()]);
+        })
+])
+
     .then(([adresser, stednavne]) => {
         console.log("API response:", { adresser, stednavne });
 
@@ -92,31 +134,18 @@ document.getElementById('search').addEventListener('input', function () {
             var li = document.createElement('li');
             li.textContent = item.tekst || item.navn;
             li.addEventListener('click', function () {
-    if (item.adgangsadresse) {
-        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-            .then(res => res.json())
-            .then(addressData => {
-                var [x, y] = addressData.adgangspunkt.koordinater;
-                
-                // Konverter fra EPSG:25832 til EPSG:4326 (Leaflet)
-                var convertedCoords = proj4("EPSG:25832", "EPSG:4326", [x, y]);
-                var lon = convertedCoords[0];
-                var lat = convertedCoords[1];
-
-                placeMarkerAndZoom([lat, lon], item.tekst);
+                if (item.adgangsadresse) {
+                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+                        .then(res => res.json())
+                        .then(addressData => {
+                            var [lon, lat] = addressData.adgangspunkt.koordinater;
+                            placeMarkerAndZoom([lon, lat], item.tekst);
+                        });
+                } else if (item.bbox) {
+                    var [lon, lat] = [item.bbox[0], item.bbox[1]];
+                    placeMarkerAndZoom([lon, lat], item.navn);
+                }
             });
-    } else if (item.bbox) {
-        var [x, y] = [item.bbox[0], item.bbox[1]];
-        
-        // Konverter fra EPSG:25832 til EPSG:4326
-        var convertedCoords = proj4("EPSG:25832", "EPSG:4326", [x, y]);
-        var lon = convertedCoords[0];
-        var lat = convertedCoords[1];
-
-        placeMarkerAndZoom([lat, lon], item.navn);
-    }
-});
-
             results.appendChild(li);
         });
     })
@@ -396,3 +425,4 @@ function findIntersections(road1Data, road2Data) {
 
     return intersections;
 }
+
