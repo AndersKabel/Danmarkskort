@@ -1,3 +1,11 @@
+// Definer koordinatsystem EPSG:25832
+proj4.defs("EPSG:25832", "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs");
+
+// Funktion til at konvertere koordinater fra EPSG:25832 til WGS84
+function convertToWGS84(x, y) {
+    return proj4("EPSG:25832", "EPSG:4326", [x, y]);
+}
+
 // Initialiser kortet
 var map = L.map('map').setView([56, 10], 7);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
