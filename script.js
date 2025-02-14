@@ -231,7 +231,7 @@ setupAutocomplete('road1', 'road1-suggestions');
 setupAutocomplete('road2', 'road2-suggestions');
 
 
-// Funktion til placering af markør
+// Funktion til placering af markør og zoom
 function placeMarkerAndZoom([lon, lat], addressText) {
     if (currentMarker) {
         map.removeLayer(currentMarker);
@@ -245,7 +245,6 @@ function placeMarkerAndZoom([lon, lat], addressText) {
         <br>
         <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
     `;
-    // Nulstil resultaterne i søgefeltet
     document.getElementById('results').innerHTML = '';
 }
 
