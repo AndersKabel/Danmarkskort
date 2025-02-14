@@ -89,18 +89,31 @@ document.getElementById('search').addEventListener('input', function () {
             var li = document.createElement('li');
             li.textContent = item.tekst || item.navn;
             li.addEventListener('click', function () {
-                if (item.adgangsadresse) {
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-                        .then(res => res.json())
-                        .then(addressData => {
-                            var [lon, lat] = addressData.adgangspunkt.koordinater;
-                            placeMarkerAndZoom([lon, lat], item.tekst);
-                        });
-                } else if (item.bbox) {
-                    var [lon, lat] = [item.bbox[0], item.bbox[1]];
-                    placeMarkerAndZoom([lon, lat], item.navn);
-                }
+    if (item.adgangsadresse) {
+        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+            .then(res => res.json())
+            .then(addressData => {
+                var [x, y] = addressData.adgangspunkt.koordinater;
+                
+                // Konverter fra EPSG:25832 til EPSG:4326 (Leaflet)
+                var convertedCoords = proj4("EPSG:25832", "EPSG:4326", [x, y]);
+                var lon = convertedCoords[0];
+                var lat = convertedCoords[1];
+
+                placeMarkerAndZoom([lat, lon], item.tekst);
             });
+    } else if (item.bbox) {
+        var [x, y] = [item.bbox[0], item.bbox[1]];
+        
+        // Konverter fra EPSG:25832 til EPSG:4326
+        var convertedCoords = proj4("EPSG:25832", "EPSG:4326", [x, y]);
+        var lon = convertedCoords[0];
+        var lat = convertedCoords[1];
+
+        placeMarkerAndZoom([lat, lon], item.navn);
+    }
+});
+
             results.appendChild(li);
         });
     })
