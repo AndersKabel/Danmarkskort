@@ -20,15 +20,17 @@ var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
 });
 
 // Definer skærmkort lag fra Datafordeleren (WMTS)
-var skaermkortWMTS = L.tileLayer.wms("https://services.datafordeler.dk/Dkskaermkort/topo_skaermkort_wmts/1.0.0/wmts", {
-    layers: "topo_skaermkort",
-    tilematrixSet: "EPSG:25832",
-    format: "image/png",
-    transparent: true,
-    attribution: "© Styrelsen for Dataforsyning og Infrastruktur",
-    username: "NUKALQTAFO",
-    password: "Fw62huch!"
-});
+var skaermkortWMTS = L.tileLayer(
+    "https://services.datafordeler.dk/Dkskaermkort/topo_skaermkort_wmts/1.0.0/wmts?"
+    + "username=NUKALQTAFO&password=Fw62huch!", // Tilføjer login direkte i URL'en
+    {
+        layer: "topo_skaermkort",
+        tilematrixSet: "EPSG:25832",
+        format: "image/png",
+        transparent: true,
+        attribution: "© Styrelsen for Dataforsyning og Infrastruktur"
+    }
+);
 
 // Opret lag-kontrol for at vælge mellem OpenStreetMap og Skærmkort
 var baseMaps = {
