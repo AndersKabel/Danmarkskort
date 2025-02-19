@@ -1,68 +1,11 @@
-<!DOCTYPE html>
-<html lang="da">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danmarkskort</title>
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Din egen CSS-fil -->
-    <link rel="stylesheet" href="style.css">
-
-    <!-- Favicon (Forhindrer 404-fejl) -->
-    <link rel="icon" href="data:,">
-    
-    <style>
-        #map {
-            height: 500px;
-            width: 100%;
-        }
-    </style>
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
-</head>
 <body>
     <div id="map"></div>
-    <div id="kildeangivelse" style="position: absolute; bottom: 10px; left: 10px; background: white; padding: 5px; font-size: 12px;">
-</div>
 
-    <div class="controls">
-        <input type="text" id="search" placeholder="Søg efter adresse...">
+    <div id="search-container">
+        <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
         <button id="clearSearch">Ryd</button>
-    </div>
-    
-    <div class="address-results-container">
-    <p id="address">Klik på kortet eller søg efter en adresse</p>
-    <ul id="results"></ul>
-</div>
-
-<div class="cross-search-container">
-    <div class="cross-search">
-        <div style="position: relative;">
-            <input type="text" id="road1" placeholder="Vejnavn 1">
-            <div id="road1-suggestions" class="suggestions"></div>
-        </div>
-        <div style="position: relative;">
-            <input type="text" id="road2" placeholder="Vejnavn 2">
-            <div id="road2-suggestions" class="suggestions"></div>
-        </div>
-        <button id="findIntersection">Find kryds</button>
-    </div>
-</div>
-
-    <!-- Dropdown Menu for Layers -->
-    <div id="layerControl">
-        <button id="layerToggle">☰ Lag</button>
-        <div id="layerMenu">
-            <label><input type="radio" name="layer" value="none" checked> Ingen lag</label>
-            <label><input type="radio" name="layer" value="fuel"> Tankstationer</label>
-            <label><input type="radio" name="layer" value="parking"> Parkeringspladser</label>
-            <label><input type="radio" name="layer" value="supermarket"> Supermarkeder</label>
-            <label><input type="radio" name="layer" value="charging_station"> Ladestandere</label>
-        </div>
+        <ul id="results"></ul>
     </div>
 
     <script src="script.js"></script>
 </body>
-</html>
