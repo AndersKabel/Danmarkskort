@@ -21,11 +21,24 @@
 
 /* Styling af søgefelt */
 #search {
-    width: 100%;
+    width: calc(100% - 50px);
     padding: 8px;
-    margin-bottom: 5px;
     border: 1px solid #ccc;
     border-radius: 4px;
+}
+
+/* Styling af ryd-knap */
+#clearSearch {
+    padding: 8px;
+    margin-left: 5px;
+    border: 1px solid #ccc;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#clearSearch:hover {
+    background-color: #ddd;
 }
 
 /* Styling af resultater */
@@ -33,6 +46,8 @@
     list-style-type: none;
     padding: 0;
     margin: 0;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 #results li {
@@ -44,4 +59,16 @@
 
 #results li:hover {
     background: #eaeaea;
+}
+
+/* Kildeangivelse i bunden */
+#kildeangivelse {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: white;
+    padding: 5px;
+    font-size: 12px;
+    border-radius: 4px;
+    opacity: 0.8;
 }
