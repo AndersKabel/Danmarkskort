@@ -1,11 +1,39 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danmarkskort</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Din egen CSS-fil -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Favicon (Forhindrer 404-fejl) -->
+    <link rel="icon" href="data:,">
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
 <body>
+
+    <!-- Kort container -->
     <div id="map"></div>
 
+    <!-- Søgefelt-container -->
     <div id="search-container">
         <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
         <button id="clearSearch">Ryd</button>
         <ul id="results"></ul>
     </div>
 
+    <!-- Kildeangivelse -->
+    <div id="kildeangivelse"></div>
+
+    <!-- Script -->
     <script src="script.js"></script>
+
 </body>
+</html>
