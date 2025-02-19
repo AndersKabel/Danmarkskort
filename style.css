@@ -1,219 +1,47 @@
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-}
-
+/* Gør kortet fullscreen */
 #map {
-    width: 100%;
-    height: 80vh;
-    margin-bottom: 10px;
-}
-
-.controls {
-    display: flex;
-    justify-content: flex-start;
-    gap: 10px;
-    padding: 10px;
-    align-items: center;
-    background: #f9f9f9;
-}
-
-#search {
-    flex-grow: 1;
-    height: 38.4px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    box-sizing: border-box;
-}
-
-#clearSearch {
-    width: 60px;
-    height: 38.4px;
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
-    box-sizing: border-box;
-}
-
-#clearSearch:hover {
-    background: #e0e0e0;
-}
-
-.cross-search-container {
-    display: flex;
-    width: 100%;
-    justify-content: center;
-    align-items: center;
-    padding: 10px 0;
-}
-
-.cross-search {
-    display: flex;
-    width: 100%;
-    gap: 10px;
-    background: #f9f9f9;
-    box-sizing: border-box;
-    align-items: center;
-}
-
-.cross-search > div {
-    display: flex; /* Sørger for, at inputfelterne og knappen ligger på én linje */
-    gap: 10px; /* Afstand mellem elementerne */
-    width: 100%; /* Sørger for, at de fylder hele containeren */
-}
-
-.cross-search input {
-    flex-grow: 1; /* Sørger for, at inputfelterne fylder mest muligt */
-    height: 38.4px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    box-sizing: border-box;
-    width: auto; /* Sørger for, at det kan udvide sig */
-    min-width: 0; /* Forhindrer unødvendige begrænsninger */
-}
-
-.suggestions {
     position: absolute;
-    background: white;
-    border: 1px solid #ddd;
-    max-height: 150px;
-    overflow-y: auto;
-    z-index: 1000;
-    width: calc(100% - 20px); /* Tilpas bredde til inputfeltet */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
 }
 
-.suggestions div {
-    padding: 5px;
-    cursor: pointer;
-}
-
-.suggestions div:hover {
-    background: #f0f0f0;
-}
-
-.cross-search button {
-    flex-shrink: 0; /* Sørger for, at knappen holder sin faste bredde */
-    width: 120px; /* Bevarer en fast bredde */
-    height: 38.4px;
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
-    box-sizing: border-box;
-}
-
-.cross-search button:hover {
-    background: #e0e0e0;
-}
-
-.address-results-container {
-    display: flex;
-    gap: 10px; /* Afstand mellem #address og #results */
-    padding: 10px 0;
-}
-
-#address, #results {
-    flex: 1; /* Gør begge elementer lige brede */
-    margin: 0;
+/* Styling af søgeboks */
+#search-container {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 300px;
+    background: rgba(255, 255, 255, 0.9);
     padding: 10px;
-    background: #f9f9f9;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    box-sizing: border-box;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
+/* Styling af søgefelt */
+#search {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Styling af resultater */
 #results {
-    max-height: 200px;
-    overflow-y: auto; /* Bevarer scroll-funktion for resultater */
-    list-style: none;
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
 }
 
 #results li {
-    padding: 10px;
-    margin: 5px 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    cursor: pointer;
+    padding: 8px;
     background: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+    cursor: pointer;
 }
 
 #results li:hover {
-    background: #e0f7fa;
-}
-
-#layerControl {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 1000;
-}
-
-#layerToggle {
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    cursor: pointer;
-}
-
-#layerMenu {
-    display: none;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    margin-top: 5px;
-}
-
-#layerMenu label {
-    display: block;
-    margin-bottom: 5px;
-}
-
-#layerToggle:focus + #layerMenu,
-#layerMenu:hover {
-    display: block;
-}
-
-.suggestions {
-    position: absolute;
-    background: white;
-    border: 1px solid #ddd;
-    max-height: 150px;
-    overflow-y: auto;
-    z-index: 1000;
-    width: calc(100% - 20px); /* Tilpas bredde til inputfeltet */
-}
-
-.suggestions div {
-    padding: 5px;
-    cursor: pointer;
-}
-
-.suggestions div:hover {
-    background: #f0f0f0;
-}
-
-#road1, #road2 {
-    flex: 1; /* Sørger for, at de begge fylder den tilgængelige plads */
-    min-width: 0; /* Forhindrer dem i at fastholde en for stor bredde */
-    width: auto; /* Sikrer, at de ikke bliver tvunget til at fylde hele linjen alene */
-}
-
-#findIntersection {
-    width: 100px; /* Justér bredden som ønsket */
-    height: 38.4px; /* Matcher højden af de andre felter */
-    background: #f0f0f0; /* Baggrundsfarve */
-    border: 1px solid #ddd; /* Kant */
-    border-radius: 5px; /* Runde hjørner */
-    cursor: pointer; /* Gør det tydeligt, det er en knap */
-    flex-shrink: 0; /* Sørger for, at knappen ikke krymper */
-}
-
-#findIntersection:hover {
-    background: #e0e0e0; /* Baggrundsfarve ved hover */
+    background: #eaeaea;
 }
