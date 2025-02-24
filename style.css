@@ -20,7 +20,12 @@
     z-index: 1000; /* Et tal højere end Leaflets default-kontrol */
 }
 
-/* Styling af søgefelt */
+/* Wrapper omkring søgefeltet */
+        .search-wrapper {
+            position: relative;
+            width: 100%;
+
+    /* Styling af søgefelt */
 #search {
     width: 100%;          
     padding: 8px;
@@ -30,6 +35,22 @@
     border-radius: 4px;
 }
 
+/* Kryds-knappen: START som "display: none" så den er skjult, 
+   og placer den i øverste venstre */
+.clear-button {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 18px;
+    color: #666;
+    cursor: pointer;
+    display: none; /* skjult indtil vi skriver i feltet */
+}
+
+.clear-button:hover {
+    color: #333;
+}
+            
 /* Styling af resultater */
 #results {
     list-style-type: none;
