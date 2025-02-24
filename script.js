@@ -34,7 +34,7 @@ L.control.layers(baseMaps, null, {
 
 // Tilføj nyt zoom-panel i øverste højre hjørne
 L.control.zoom({
-    position: 'topright'
+    position: 'bottomright'
 }).addTo(map);
 
 // Eventuelle øvrige variabler (fx currentMarker)
