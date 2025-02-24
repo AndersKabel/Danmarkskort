@@ -40,8 +40,9 @@
    og placer den i øverste venstre */
 .clear-button {
     position: absolute;
-    top: 8px;
-    left: 8px;
+    top: 50%;               /* lodret centreret */
+    right: 8px;            /* placer i højre side */
+    transform: translateY(-50%); /* justér centreringspunkt */
     font-size: 18px;
     color: #666;
     cursor: pointer;
