@@ -6,27 +6,41 @@ function convertToWGS84(x, y) {
     return proj4("EPSG:25832", "EPSG:4326", [x, y]);
 }
 
-// Initialiser kortet
-var map = L.map('map').setView([56, 10], 7);
+// Initialiser kortet – deaktiver standard zoom-knapper
+var map = L.map('map', {
+    center: [56, 10],
+    zoom: 7,
+    zoomControl: false
+});
 
 // Definer OpenStreetMap-lag med kildehenvisning
-var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur"
-}).addTo(map);
+var osmLayer = L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
+    {
+        maxZoom: 19,
+        attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur"
+    }
+).addTo(map);
 
 // Opret lag-kontrol (tilføj flere lag senere)
 var baseMaps = {
     "OpenStreetMap": osmLayer
 };
 
-L.control.layers(baseMaps).addTo(map);
+// Tilføj lag-kontrol i øverste højre hjørne
+L.control.layers(baseMaps, null, {
+    position: 'topright'
+}).addTo(map);
 
+// Tilføj nyt zoom-panel i øverste højre hjørne
+L.control.zoom({
+    position: 'topright'
+}).addTo(map);
+
+// Eventuelle øvrige variabler (fx currentMarker)
 var currentMarker;
-var currentLayerGroup = null; // Holder referencen til det nuværende aktive lag
-var selectedLayerType = "none"; // Holder styr på det valgte lag
 
-// Klik på kortet for at finde en adresse
+// ...din øvrige kode, fx klikkehåndtering, reverse geocoding osv.
 map.on('click', function (e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
@@ -40,11 +54,8 @@ map.on('click', function (e) {
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
-            document.getElementById('address').innerHTML = `
-                Adresse: ${data.vejnavn || "ukendt"} ${data.husnr || ""}, ${data.postnr || "ukendt"} ${data.postnrnavn || ""}
-                <br>
-                <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">Åbn i Google Street View</a>
-            `;
+            // Gør hvad du vil med data
+            console.log(data);
         })
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
 });
