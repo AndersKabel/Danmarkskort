@@ -15,7 +15,7 @@ var map = L.map('map', {
 
 // Definer OpenStreetMap-lag med kildehenvisning
 var osmLayer = L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', 
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
         maxZoom: 19,
         attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur"
@@ -32,57 +32,59 @@ L.control.layers(baseMaps, null, {
     position: 'topright'
 }).addTo(map);
 
-// Tilføj nyt zoom-panel i øverste højre hjørne
+// Tilføj zoom-panel i nederste højre hjørne
 L.control.zoom({
     position: 'bottomright'
 }).addTo(map);
 
-// Eventuelle øvrige variabler (fx currentMarker)
+// Variabel til marker (placeres ved klik på kortet)
 var currentMarker;
 
-// ...din øvrige kode, fx klikkehåndtering, reverse geocoding osv.
+/* ==================================
+   KLIK PÅ KORT => MARKER + GEOCODING
+================================== */
 map.on('click', function (e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
 
+    // Fjern tidligere marker, hvis den findes
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
-
+    // Tilføj ny marker
     currentMarker = L.marker([lat, lon]).addTo(map);
 
+    // Reverse geocoding via Dataforsyningen
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
-            // Gør hvad du vil med data
-            console.log(data);
+            console.log("Reverse geocoding resultat:", data);
+            // Her kan du fx vise adressen i en infoboks eller lignende
         })
-        .catch(err => console.error('Fejl ved reverse geocoding:', err));
+        .catch(err => console.error("Fejl ved reverse geocoding:", err));
 });
 
-document.getElementById("clearSearch").addEventListener("click", function() {
-    // Ryd tekst i søgefelt
-    document.getElementById("search").value = "";
-    // Ryd indhold i result-listen
-    document.getElementById("results").innerHTML = "";
-});
+/* ==================================
+   HÅNDTERING AF SØGEFELT OG KRYDS (×)
+================================== */
 
-// 1) Referencer til input og kryds
+// Hent elementerne fra HTML
 var searchInput = document.getElementById("search");
-var clearBtn = document.getElementById("clearSearch");
+var clearBtn    = document.getElementById("clearSearch");
+var resultsList = document.getElementById("results");
 
-// 2) Vis/skjul krydset når man skriver i inputfeltet
+// 1) Når brugeren skriver i feltet => vis/skjul kryds
 searchInput.addEventListener("input", function() {
     if (searchInput.value.trim() === "") {
         clearBtn.style.display = "none";
     } else {
-        clearBtn.style.display = "inline"; // eller "block"
+        clearBtn.style.display = "inline";
     }
 });
 
-// 3) Klik på krydset = ryd input + skjul kryds
+// 2) Klik på krydset => ryd felt + ryd søgeresultater + skjul kryds
 clearBtn.addEventListener("click", function() {
     searchInput.value = "";
-    document.getElementById("results").innerHTML = "";
+    resultsList.innerHTML = "";
     clearBtn.style.display = "none";
 });
