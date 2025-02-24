@@ -59,3 +59,10 @@ map.on('click', function (e) {
         })
         .catch(err => console.error('Fejl ved reverse geocoding:', err));
 });
+
+document.getElementById("clearSearch").addEventListener("click", function() {
+    // Ryd tekst i søgefelt
+    document.getElementById("search").value = "";
+    // Ryd indhold i result-listen
+    document.getElementById("results").innerHTML = "";
+});
