@@ -66,3 +66,23 @@ document.getElementById("clearSearch").addEventListener("click", function() {
     // Ryd indhold i result-listen
     document.getElementById("results").innerHTML = "";
 });
+
+// 1) Referencer til input og kryds
+var searchInput = document.getElementById("search");
+var clearBtn = document.getElementById("clearSearch");
+
+// 2) Vis/skjul krydset når man skriver i inputfeltet
+searchInput.addEventListener("input", function() {
+    if (searchInput.value.trim() === "") {
+        clearBtn.style.display = "none";
+    } else {
+        clearBtn.style.display = "inline"; // eller "block"
+    }
+});
+
+// 3) Klik på krydset = ryd input + skjul kryds
+clearBtn.addEventListener("click", function() {
+    searchInput.value = "";
+    document.getElementById("results").innerHTML = "";
+    clearBtn.style.display = "none";
+});
