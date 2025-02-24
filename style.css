@@ -22,24 +22,12 @@
 
 /* Styling af søgefelt */
 #search {
-    width: calc(100% - 50px);
+    width: 100%;          
     padding: 8px;
+    padding-right: 30px;  /* luft til krydset */
+    box-sizing: border-box;
     border: 1px solid #ccc;
     border-radius: 4px;
-}
-
-/* Styling af ryd-knap */
-#clearSearch {
-    padding: 8px;
-    margin-left: 5px;
-    border: 1px solid #ccc;
-    background-color: #f8f8f8;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-#clearSearch:hover {
-    background-color: #ddd;
 }
 
 /* Styling af resultater */
