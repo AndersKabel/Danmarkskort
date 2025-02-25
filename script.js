@@ -58,26 +58,19 @@ map.on('click', function (e) {
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
-            console.log("Reverse geocoding resultat:", data);
+    console.log("Reverse geocoding resultat:", data);
 
+    // -- Her er din nye kode:
     const streetviewLink = document.getElementById("streetviewLink");
     const chosenAddress  = document.getElementById("chosenAddress");
+    const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, `
+                     + `${data.postnr || "?"} ${data.postnrnavn || ""}`;
 
-    // Sammensæt en menneske-læselig adresse (vejnavn, husnr, postnr osv.)
-    const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ` +
-                       `${data.postnr || "?"} ${data.postnrnavn || ""}`;
-
-    // Sæt Street View-link (med lat/lon i Google’s “cbll=...”)
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
-    
-    // Skriv den fundne adresse i <p id="chosenAddress">
     chosenAddress.textContent = adresseStr;
-    // ========== SLUT PÅ NY KODE ==========
-
 })
-.catch(err => console.error("Fejl ved reverse geocoding:", err));
-        })
-        .catch(err => console.error("Fejl ved reverse geocoding:", err));
+.catch(err => {
+    console.error("Fejl ved reverse geocoding:", err);
 });
 
 /* ==================================
