@@ -87,9 +87,15 @@
 }
 
 /* Du kan evt. lave en ramme eller margin for boksens øvre/nedre del */
-.info-upper-box,
-.info-lower-box {
+.info-upper-box {
   margin-bottom: 8px;
+  /* evt. en bundstreg eller lign. */
+}
+
+.info-lower-box {
+  /* Indhold for adressen */
+  font-size: 14px;
+  color: #333;
 }
 
 /* Link-styling, hvis ønsket */
