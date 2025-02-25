@@ -58,21 +58,27 @@ map.on('click', function (e) {
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
-    console.log("Reverse geocoding resultat:", data);
+            console.log("Reverse geocoding resultat:", data);
 
-    // -- Her er din nye kode:
-    const streetviewLink = document.getElementById("streetviewLink");
-    const chosenAddress  = document.getElementById("chosenAddress");
-    const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, `
-                     + `${data.postnr || "?"} ${data.postnrnavn || ""}`;
+            // Her er din nye kode til Streetview-link + adresse
+            const streetviewLink = document.getElementById("streetviewLink");
+            const chosenAddress  = document.getElementById("chosenAddress");
+            const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, `
+                               + `${data.postnr || "?"} ${data.postnrnavn || ""}`;
 
-    streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
-    chosenAddress.textContent = adresseStr;
-})
-.catch(err => {
-    console.error("Fejl ved reverse geocoding:", err);
-    });
- });
+            // Sæt link til Google Street View
+            streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
+            // Skriv adressen
+            chosenAddress.textContent = adresseStr;
+
+            // VIS boksen (nu hvor vi har en adresse)
+            document.getElementById("infoBox").style.display = "block";
+        })
+        .catch(err => {
+            console.error("Fejl ved reverse geocoding:", err);
+        });
+});
+
 /* ==================================
    HÅNDTERING AF SØGEFELT OG KRYDS (×)
 ================================== */
@@ -96,4 +102,7 @@ clearBtn.addEventListener("click", function() {
     searchInput.value = "";
     resultsList.innerHTML = "";
     clearBtn.style.display = "none";
+
+    // SKJUL boksen igen
+    document.getElementById("infoBox").style.display = "none";
 });
