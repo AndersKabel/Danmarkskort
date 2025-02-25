@@ -59,7 +59,23 @@ map.on('click', function (e) {
         .then(response => response.json())
         .then(data => {
             console.log("Reverse geocoding resultat:", data);
-            // Her kan du fx vise adressen i en infoboks eller lignende
+
+    const streetviewLink = document.getElementById("streetviewLink");
+    const chosenAddress  = document.getElementById("chosenAddress");
+
+    // Sammensæt en menneske-læselig adresse (vejnavn, husnr, postnr osv.)
+    const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ` +
+                       `${data.postnr || "?"} ${data.postnrnavn || ""}`;
+
+    // Sæt Street View-link (med lat/lon i Google’s “cbll=...”)
+    streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
+    
+    // Skriv den fundne adresse i <p id="chosenAddress">
+    chosenAddress.textContent = adresseStr;
+    // ========== SLUT PÅ NY KODE ==========
+
+})
+.catch(err => console.error("Fejl ved reverse geocoding:", err));
         })
         .catch(err => console.error("Fejl ved reverse geocoding:", err));
 });
