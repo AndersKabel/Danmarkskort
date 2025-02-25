@@ -71,8 +71,8 @@ map.on('click', function (e) {
 })
 .catch(err => {
     console.error("Fejl ved reverse geocoding:", err);
-});
-
+    });
+ });
 /* ==================================
    HÅNDTERING AF SØGEFELT OG KRYDS (×)
 ================================== */
