@@ -36,8 +36,7 @@
     border-radius: 4px;
 }
 
-/* Kryds-knappen: START som "display: none" så den er skjult, 
-   og placer den i øverste venstre */
+/* Kryds-knappen: START som "display: none" så den er skjult, og placer den i øverste venstre */
 .clear-button {
     position: absolute;
     top: 50%;               /* lodret centreret */
@@ -75,6 +74,7 @@
 
 /* Generel boks til info under søgning */
 #infoBox {
+  display: none; /* Skjult som standard */
   position: absolute;
   top: 120px; /* Lige under søgefeltet, der måske er top:10px + 100px højt */
   left: 10px;
