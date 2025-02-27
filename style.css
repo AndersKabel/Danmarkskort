@@ -18,7 +18,11 @@
     z-index: 1000; /* Et tal højere end Leaflets default-kontrol */
 }
 
-    .search-wrapper { /* Wrapper omkring søgefeltet */
+.flex-row {
+    display: flex;
+    gap: 10px; /* afstand imellem de to felter */
+    
+.search-wrapper { /* Wrapper omkring søgefeltet */
        position: relative;
        width: 100%;
        margin-bottom: 10px;
