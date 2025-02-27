@@ -24,6 +24,7 @@
     
 .search-wrapper { /* Wrapper omkring søgefeltet */
        position: relative;
+       width: 100%;
        margin-bottom: 10px;
 }
 
