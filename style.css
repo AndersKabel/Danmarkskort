@@ -21,6 +21,7 @@
 .flex-row {
     display: flex;
     gap: 10px; /* afstand imellem de to find kryds felter*/
+}
     
 .search-wrapper { /* Wrapper omkring søgefeltet */
        position: relative;
@@ -58,7 +59,7 @@
 
 .clear-button:hover {
     color: #333;
-    cursor; pointer;
+    cursor: pointer;
 }
 
 /* Styling af resultater */
