@@ -27,9 +27,8 @@
        margin-bottom: 10px;
 }
 
-/* Kun i flex-row vil vi have 50% */
 .flex-row .search-wrapper {
-    width: 50%;
+    width: 50%; /* Kun i flex-row vil vi have 50% */
     heigh: 35px;
 }
             
