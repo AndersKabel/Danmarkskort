@@ -24,6 +24,7 @@
     
 .search-wrapper { /* Wrapper omkring søgefeltet */
        position: relative;
+       height: 35px;
        margin-bottom: 10px;
 }
 
@@ -36,7 +37,7 @@
     #vej1,
     #vej2 {
     width: 100%; 
-    height: 40px;         /* øg højden */
+    height: 35px;         /* øg højden */
     font-size: 16px;      /* evt. større skrift, så feltet ser pænere ud */
     padding: 8px;
     padding-right: 30px;  /* luft til krydset */
