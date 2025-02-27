@@ -28,9 +28,7 @@ L.control.zoom({ position: 'bottomright' }).addTo(map);
 // Variabel til marker (placeres ved klik)
 var currentMarker;
 
-/* ==================================
-   KLIK PÅ KORT => MARKER + GEOCODING
-================================== */
+/* KLIK PÅ KORT => MARKER + GEOCODING */
 map.on('click', function (e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
@@ -62,9 +60,7 @@ map.on('click', function (e) {
         });
 });
 
-/* ==================================
-   HÅNDTERING AF SØGEFELT OG KRYDS (×)
-================================== */
+/* HÅNDTERING AF SØGEFELT OG KRYDS (×) */
 
 // Hent elementerne fra HTML
 var searchInput  = document.getElementById("search");
@@ -77,20 +73,17 @@ var vej2Input    = document.getElementById("vej2");
 var vej1List     = document.getElementById("results-vej1");
 var vej2List     = document.getElementById("results-vej2");
 
-// 1) Når brugeren skriver i #search => vis/skjul kryds
-searchInput.addEventListener("input", function() {
+searchInput.addEventListener("input", function() { // Når brugeren skriver i #search => vis/skjul kryds
     if (searchInput.value.trim() === "") {
         clearBtn.style.display = "none";
         resultsList.innerHTML = "";
     } else {
         clearBtn.style.display = "inline";
-        // NYT: Kald autocomplete-funktion for #search
-        doAutocomplete(searchInput.value, resultsList);
+        doAutocomplete(searchInput.value, resultsList); // Kald autocomplete-funktion for #search
     }
 });
 
-// 2) Klik på krydset => ryd felt + ryd søgeresultater + skjul kryds + skjul boks
-clearBtn.addEventListener("click", function() {
+clearBtn.addEventListener("click", function() { // 2) Klik på krydset => ryd felt + ryd søgeresultater + skjul kryds + skjul boks
     searchInput.value = "";
     resultsList.innerHTML = "";
     clearBtn.style.display = "none";
@@ -99,7 +92,6 @@ clearBtn.addEventListener("click", function() {
     document.getElementById("infoBox").style.display = "none";
 });
 
-// NY KODE: Lyt på #vej1
 vej1Input.addEventListener("input", function() {
     const txt = vej1Input.value.trim();
     if (txt === "") {
@@ -109,7 +101,6 @@ vej1Input.addEventListener("input", function() {
     doAutocomplete(txt, vej1List);
 });
 
-// NY KODE: Lyt på #vej2
 vej2Input.addEventListener("input", function() {
     const txt = vej2Input.value.trim();
     if (txt === "") {
@@ -119,42 +110,28 @@ vej2Input.addEventListener("input", function() {
     doAutocomplete(txt, vej2List);
 });
 
-/* 
-   =====================================
-   FUNKTION: doAutocomplete(input, list)
-   =====================================
-   Kalder Dataforsyningen for at få adresseliste
-   og viser dem i en <ul> (list).
-*/
+/* Autocomplete Funktion */
 function doAutocomplete(query, listElement) {
     fetch("https://api.dataforsyningen.dk/adresser/autocomplete?q=" + encodeURIComponent(query))
         .then(resp => resp.json())
         .then(data => {
-            // Ryd gammel liste
-            listElement.innerHTML = "";
+            listElement.innerHTML = ""; // Ryd gammel liste
 console.log("Auto data for '" + query + "':", data);            
             
-            // Tilføj et <li> for hvert forslag
-            data.forEach(item => {
-                // item.forslagstekst kan fx ligne "Bjerlev Hedevej 16, 7300 Jelling"
-                let li = document.createElement("li");
+            
+            data.forEach(item => { // Tilføj et <li> for hvert forslag
+                let li = document.createElement("li"); // item.forslagstekst kan fx ligne "Bjerlev Hedevej 16, 7300 Jelling"
                 li.textContent = item.forslagstekst;
-
-                // Klik på forslaget => sæt det i feltet
-                li.addEventListener("click", () => {
-                    // Sæt fuld tekst i input
-                    if (listElement === resultsList) {
-                        // Det var #search
-                        searchInput.value = item.forslagstekst;
+                li.addEventListener("click", () => { // Klik på forslaget => sæt det i feltet
+                    if (listElement === resultsList) { // Sæt fuld tekst i input
+                        searchInput.value = item.forslagstekst; // Det var #search
                     } else if (listElement === vej1List) {
                         vej1Input.value = item.forslagstekst;
                     } else if (listElement === vej2List) {
                         vej2Input.value = item.forslagstekst;
                     }
-                    // Ryd listen, så den lukker
-                    listElement.innerHTML = "";
+                    listElement.innerHTML = ""; // Ryd listen, så den lukker
                 });
-
                 listElement.appendChild(li);
             });
         })
