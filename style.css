@@ -1,4 +1,3 @@
-/* Gør kortet fullscreen */
 #map {
     position: absolute;
     top: 0;
@@ -7,8 +6,7 @@
     height: 100%;
 }
 
-/* Styling af søgeboks */
-#search-container {
+#search-container { /* Styling af søgeboks */
     position: absolute;
     top: 10px;
     left: 10px;
@@ -20,14 +18,12 @@
     z-index: 1000; /* Et tal højere end Leaflets default-kontrol */
 }
 
-/* Wrapper omkring søgefeltet */
-        .search-wrapper {
+        .search-wrapper { /* Wrapper omkring søgefeltet */
             position: relative;
             width: 100%;
 }
             
-    /* Styling af søgefelt */
-#search {
+    #search { /* Styling af søgefelt */
     width: 100%;          
     padding: 8px;
     padding-right: 30px;  /* luft til krydset */
@@ -36,8 +32,7 @@
     border-radius: 4px;
 }
 
-/* Kryds-knappen: START som "display: none" så den er skjult, og placer den i øverste venstre */
-.clear-button {
+.clear-button { /* Kryds-knappen: START som "display: none" så den er skjult, og placer den i øverste venstre */
     position: absolute;
     top: 50%;               /* lodret centreret */
     right: 8px;            /* placer i højre side */
@@ -51,9 +46,11 @@
 .clear-button:hover {
     color: #333;
 }
-            
+
 /* Styling af resultater */
-#results {
+#results, 
+#results-vej1, 
+#results-vej2 {
     list-style-type: none;
     padding: 0;
     margin: 0;
@@ -61,19 +58,22 @@
     overflow-y: auto;
 }
 
-#results li {
+#results li,
+#results-vej1 li,
+#results-vej2 li {
     padding: 8px;
     background: #f9f9f9;
     border-bottom: 1px solid #ddd;
     cursor: pointer;
 }
 
-#results li:hover {
+#results li:hover,
+#results-vej1 li:hover,
+#results-vej2 li:hover {
     background: #eaeaea;
 }
 
-/* Generel boks til info under søgning */
-#infoBox {
+#infoBox { /* Generel boks til info under søgning */
   display: none; /* Skjult som standard */
   position: absolute;
   top: 120px; /* Lige under søgefeltet, der måske er top:10px + 100px højt */
@@ -86,8 +86,7 @@
   z-index: 999; 
 }
 
-/* Du kan evt. lave en ramme eller margin for boksens øvre/nedre del */
-.info-upper-box {
+.info-upper-box { /* Du kan evt. lave en ramme eller margin for boksens øvre/nedre del */
   margin-bottom: 8px;
   /* evt. en bundstreg eller lign. */
 }
