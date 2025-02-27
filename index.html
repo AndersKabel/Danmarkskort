@@ -17,38 +17,51 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
+    
 <body>
+  <!-- Kort container -->
+  <div id="map"></div>
 
-    <!-- Kort container -->
-    <div id="map"></div>
+  <!-- Søgefelt-container -->
+  <div id="search-container">
 
-    <!-- Søgefelt-container -->
-<div id="search-container">
-  <div class="search-wrapper">
-    <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
-    <span class="clear-button" id="clearSearch">&times;</span>
+    <!-- Eksisterende søgefelt + kryds -->
+    <div class="search-wrapper">
+      <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
+      <span class="clear-button" id="clearSearch">&times;</span>
+    </div>
+    <!-- Resultatliste for "search" -->
+    <ul id="results"></ul>
+
+    <!-- Nyt felt #vej1 -->
+    <div class="search-wrapper">
+      <input type="text" id="vej1" placeholder="Første vejnavn...">
+    </div>
+    <ul id="results-vej1"></ul> <!-- Resultater for vej1 -->
+
+    <!-- Nyt felt #vej2 -->
+    <div class="search-wrapper">
+      <input type="text" id="vej2" placeholder="Andet vejnavn...">
+    </div>
+    <ul id="results-vej2"></ul> <!-- Resultater for vej2 -->
+
   </div>
-  <ul id="results"></ul>
-</div>
-    
-<!-- Info-boks under søgefeltet -->
-<div id="infoBox">
-  <div class="info-upper-box">
-    <!-- Her indsætter vi link til Google Street View -->
-    <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
-  </div>
-  <div class="info-lower-box">
-    <!-- Her viser vi den fundne adresse -->
-    <p id="chosenAddress"></p>
-  </div>
-</div>
-    
-    <!-- Kildeangivelse -->
-    <div id="kildeangivelse"></div>
 
-    <!-- Script -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
-    <script src="script.js"></script>
+  <!-- Info-boks (StreetView + adresse) -->
+  <div id="infoBox">
+    <div class="info-upper-box">
+      <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
+    </div>
+    <div class="info-lower-box">
+      <p id="chosenAddress"></p>
+    </div>
+  </div>
 
+  <!-- Kildeangivelse -->
+  <div id="kildeangivelse"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
+  <script src="script.js"></script>
 </body>
-</html>
+
