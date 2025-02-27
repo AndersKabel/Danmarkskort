@@ -132,7 +132,8 @@ function doAutocomplete(query, listElement) {
         .then(data => {
             // Ryd gammel liste
             listElement.innerHTML = "";
-
+console.log("Auto data for '" + query + "':", data);            
+            
             // Tilføj et <li> for hvert forslag
             data.forEach(item => {
                 // item.forslagstekst kan fx ligne "Bjerlev Hedevej 16, 7300 Jelling"
