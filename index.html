@@ -33,17 +33,19 @@
     <!-- Resultatliste for "search" -->
     <ul id="results"></ul>
 
-    <!-- Nyt felt #vej1 -->
-    <div class="search-wrapper">
-      <input type="text" id="vej1" placeholder="Første vejnavn...">
-    </div>
-    <ul id="results-vej1"></ul> <!-- Resultater for vej1 -->
+   <!-- En fælles "row" til vej1 og vej2 --> 
+<div class="flex-row">
+  <div class="search-wrapper">
+    <input type="text" id="vej1" placeholder="Første vejnavn...">
+  </div>
+  <div class="search-wrapper">
+    <input type="text" id="vej2" placeholder="Andet vejnavn...">
+  </div>
+</div>
 
-    <!-- Nyt felt #vej2 -->
-    <div class="search-wrapper">
-      <input type="text" id="vej2" placeholder="Andet vejnavn...">
-    </div>
-    <ul id="results-vej2"></ul> <!-- Resultater for vej2 -->
+<!-- Vis resultater for vej1 og vej2 herunder -->
+<ul id="results-vej1"></ul>
+<ul id="results-vej2"></ul>
   </div>
 
   <!-- Info-boks (StreetView + adresse) -->
