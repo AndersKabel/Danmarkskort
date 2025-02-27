@@ -18,9 +18,10 @@
     z-index: 1000; /* Et tal højere end Leaflets default-kontrol */
 }
 
-        .search-wrapper { /* Wrapper omkring søgefeltet */
-            position: relative;
-            width: 100%;
+    .search-wrapper { /* Wrapper omkring søgefeltet */
+       position: relative;
+       width: 100%;
+       margin-bottom: 10px;
 }
             
     #search { /* Styling af søgefelt */
