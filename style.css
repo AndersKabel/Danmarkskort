@@ -32,8 +32,12 @@
     width: 50%;
 }
             
-    #search { /* Styling af søgefelt */
-    width: 100%;          
+    #search, /* Styling af søgefelt */
+    #vej1,
+    #vej2 {
+    width: 100%; 
+    height: 40px;         /* øg højden */
+    font-size: 16px;      /* evt. større skrift, så feltet ser pænere ud */
     padding: 8px;
     padding-right: 30px;  /* luft til krydset */
     box-sizing: border-box;
