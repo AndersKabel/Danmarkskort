@@ -24,13 +24,13 @@
     
 .search-wrapper { /* Wrapper omkring søgefeltet */
        position: relative;
-       height: 35px;
        margin-bottom: 10px;
 }
 
 /* Kun i flex-row vil vi have 50% */
 .flex-row .search-wrapper {
     width: 50%;
+    heigh: 35px;
 }
             
     #search, /* Styling af søgefelt */
