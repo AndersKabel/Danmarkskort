@@ -118,17 +118,16 @@ function doAutocomplete(query, listElement) {
             listElement.innerHTML = ""; // Ryd gammel liste
 console.log("Auto data for '" + query + "':", data);            
             
-            
             data.forEach(item => { // Tilføj et <li> for hvert forslag
-                let li = document.createElement("li"); // item.forslagstekst kan fx ligne "Bjerlev Hedevej 16, 7300 Jelling"
-                li.textContent = item.forslagstekst;
+                let li = document.createElement("li"); // item.tekst kan fx ligne "Bjerlev Hedevej 16, 7300 Jelling"
+                li.textContent = item.tekst;
                 li.addEventListener("click", () => { // Klik på forslaget => sæt det i feltet
                     if (listElement === resultsList) { // Sæt fuld tekst i input
-                        searchInput.value = item.forslagstekst; // Det var #search
+                        searchInput.value = item.tekst; // Det var #search
                     } else if (listElement === vej1List) {
-                        vej1Input.value = item.forslagstekst;
+                        vej1Input.value = item.tekst;
                     } else if (listElement === vej2List) {
-                        vej2Input.value = item.forslagstekst;
+                        vej2Input.value = item.tekst;
                     }
                     listElement.innerHTML = ""; // Ryd listen, så den lukker
                 });
