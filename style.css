@@ -20,12 +20,16 @@
 
 .flex-row {
     display: flex;
-    gap: 10px; /* afstand imellem de to felter */
+    gap: 10px; /* afstand imellem de to find kryds felter*/
     
 .search-wrapper { /* Wrapper omkring søgefeltet */
        position: relative;
-       width: 100%;
        margin-bottom: 10px;
+}
+
+/* Kun i flex-row vil vi have 50% */
+.flex-row .search-wrapper {
+    width: 50%;
 }
             
     #search { /* Styling af søgefelt */
