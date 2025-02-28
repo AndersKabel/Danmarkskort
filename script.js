@@ -217,7 +217,7 @@ function placeMarkerAndZoomFromCoords(x, y, addressText) {
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
     // Opdater eventuelt adressevisningen
-    document.getElementById('address').innerHTML = `
+    document.getElementById('chosenAddress').innerHTML = `
         Valgt adresse: ${addressText}
         <br>
         <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">
