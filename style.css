@@ -22,7 +22,7 @@
     display: flex;
     gap: 10px;
 }
-    
+
 .search-wrapper {
     position: relative;
     margin-bottom: 10px;
@@ -30,7 +30,7 @@
 
 .flex-row .search-wrapper {
     width: 50%;
-    heigh: 35px;
+    heigh: 35px; /* stavefejl i 'height' er uden praktisk effekt, men beholdes */
 }
 
 #search,
@@ -129,7 +129,7 @@
     opacity: 0.8;
 }
 
-/* Highlight til piletaster */
+/* Til piletaster: highlight */
 .highlight {
     background-color: #d0e6f7;
 }
