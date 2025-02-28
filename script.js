@@ -11,7 +11,6 @@ var map = L.map('map', {
     zoomControl: false
 });
 
-// Definer OpenStreetMap-lag med kildehenvisning
 var osmLayer = L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
@@ -24,10 +23,8 @@ var baseMaps = { "OpenStreetMap": osmLayer };
 L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-// Variabel til marker (placeres ved klik)
+// Marker ved klik på kort
 var currentMarker;
-
-// KLIK PÅ KORT => MARKER + GEOCODING
 map.on('click', function (e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
@@ -56,7 +53,7 @@ map.on('click', function (e) {
         });
 });
 
-// HÅNDTERING AF SØGEFELT OG KRYDS (×)
+// Variabler til søgefelt + lister
 var searchInput  = document.getElementById("search");
 var clearBtn     = document.getElementById("clearSearch");
 var resultsList  = document.getElementById("results");
@@ -66,20 +63,23 @@ var vej2Input    = document.getElementById("vej2");
 var vej1List     = document.getElementById("results-vej1");
 var vej2List     = document.getElementById("results-vej2");
 
-// Piletaster i hoved-søgning
+// Array til piletaster i #search
 var items = [];
 var currentIndex = -1;
 
+// Søgefelt #search => vis/skjul kryds, min. 2 bogstaver
 searchInput.addEventListener("input", function() {
-    if (searchInput.value.trim() === "") {
+    const txt = searchInput.value.trim();
+    if (txt.length < 2) {
         clearBtn.style.display = "none";
         resultsList.innerHTML = "";
-    } else {
-        clearBtn.style.display = "inline";
-        doAutocomplete(searchInput.value, resultsList);
+        return;
     }
+    clearBtn.style.display = "inline";
+    doAutocomplete(txt, resultsList);
 });
 
+// Piletaster i søgefelt (op/ned/enter)
 searchInput.addEventListener("keydown", function(e) {
     if (items.length === 0) return;
 
@@ -99,6 +99,7 @@ searchInput.addEventListener("keydown", function(e) {
     }
 });
 
+// Hjælpefunktion => highlight
 function highlightItem() {
     items.forEach(li => li.classList.remove("highlight"));
     if (currentIndex >= 0 && currentIndex < items.length) {
@@ -106,6 +107,7 @@ function highlightItem() {
     }
 }
 
+// Klik på kryds => ryd
 clearBtn.addEventListener("click", function() {
     searchInput.value = "";
     resultsList.innerHTML = "";
@@ -113,24 +115,27 @@ clearBtn.addEventListener("click", function() {
     document.getElementById("infoBox").style.display = "none";
 });
 
+// "Første vejnavn" => min. 2 bogstaver
 vej1Input.addEventListener("input", function() {
     const txt = vej1Input.value.trim();
-    if (txt === "") {
+    if (txt.length < 2) {
         vej1List.innerHTML = "";
         return;
     }
     doAutocomplete(txt, vej1List);
 });
 
+// "Andet vejnavn" => min. 2 bogstaver
 vej2Input.addEventListener("input", function() {
     const txt = vej2Input.value.trim();
-    if (txt === "") {
+    if (txt.length < 2) {
         vej2List.innerHTML = "";
         return;
     }
     doAutocomplete(txt, vej2List);
 });
 
+// Autocomplete => Dataforsyningen
 function doAutocomplete(query, listElement) {
     fetch("https://api.dataforsyningen.dk/adresser/autocomplete?q=" + encodeURIComponent(query))
         .then(resp => resp.json())
@@ -138,6 +143,7 @@ function doAutocomplete(query, listElement) {
             listElement.innerHTML = "";
             console.log("Auto data for '" + query + "':", data);
 
+            // Nulstil piletaster, hvis det er #search
             if (listElement === resultsList) {
                 items = [];
                 currentIndex = -1;
@@ -146,11 +152,15 @@ function doAutocomplete(query, listElement) {
             data.forEach(item => {
                 let li = document.createElement("li");
                 li.textContent = item.tekst;
+
+                // Klik => vælg
                 li.addEventListener("click", () => {
                     selectAddress(item, listElement);
                 });
+
                 listElement.appendChild(li);
 
+                // Hvis #search => gem i items
                 if (listElement === resultsList) {
                     items.push(li);
                 }
@@ -159,6 +169,7 @@ function doAutocomplete(query, listElement) {
         .catch(err => console.error("Fejl i autocomplete:", err));
 }
 
+// Vælg adresse => sæt input, zoom, StreetView
 function selectAddress(item, listElement) {
     if (listElement === resultsList) {
         searchInput.value = item.tekst;
@@ -168,10 +179,12 @@ function selectAddress(item, listElement) {
         vej2Input.value = item.tekst;
     }
     listElement.innerHTML = "";
+
     placeMarkerAndZoom(item);
     showStreetViewLink(item);
 }
 
+// Zoom + marker
 function placeMarkerAndZoom(item) {
     let x = item.data.x;
     let y = item.data.y;
@@ -180,13 +193,13 @@ function placeMarkerAndZoom(item) {
     let lon = coords[0];
 
     map.setView([lat, lon], 17);
-
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
 }
 
+// StreetView
 function showStreetViewLink(item) {
     let x = item.data.x;
     let y = item.data.y;
