@@ -6,7 +6,7 @@
     height: 100%;
 }
 
-#search-container { /* Styling af søgeboks */
+#search-container {
     position: absolute;
     top: 10px;
     left: 10px;
@@ -15,46 +15,46 @@
     padding: 10px;
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    z-index: 1000; /* Et tal højere end Leaflets default-kontrol */
+    z-index: 1000;
 }
 
 .flex-row {
     display: flex;
-    gap: 10px; /* afstand imellem de to find kryds felter*/
+    gap: 10px;
 }
     
-.search-wrapper { /* Wrapper omkring søgefeltet */
-       position: relative;
-       margin-bottom: 10px;
+.search-wrapper {
+    position: relative;
+    margin-bottom: 10px;
 }
 
 .flex-row .search-wrapper {
-    width: 50%; /* Kun i flex-row vil vi have 50% */
+    width: 50%;
     heigh: 35px;
 }
-            
-    #search, /* Styling af søgefelt */
-    #vej1,
-    #vej2 {
-    width: 100%; 
-    height: 40px;         /* øg højden */
-    font-size: 16px;      /* evt. større skrift, så feltet ser pænere ud */
+
+#search,
+#vej1,
+#vej2 {
+    width: 100%;
+    height: 40px;
+    font-size: 16px;
     padding: 8px;
-    padding-right: 40px;  /* luft til krydset */
+    padding-right: 40px;
     box-sizing: border-box;
     border: 1px solid #ccc;
     border-radius: 4px;
 }
 
-.clear-button { /* Kryds-knappen: START som "display: none" så den er skjult, og placer den i øverste venstre */
+.clear-button {
     position: absolute;
-    top: 50%;               /* lodret centreret */
-    right: 8px;            /* placer i højre side */
-    transform: translateY(-50%); /* justér centreringspunkt */
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
     font-size: 18px;
     color: #666;
     cursor: pointer;
-    display: none; /* skjult indtil vi skriver i feltet */
+    display: none;
 }
 
 .clear-button:hover {
@@ -62,9 +62,8 @@
     cursor: pointer;
 }
 
-/* Styling af resultater */
-#results, 
-#results-vej1, 
+#results,
+#results-vej1,
 #results-vej2 {
     list-style-type: none;
     padding: 0;
@@ -88,40 +87,37 @@
     background: #eaeaea;
 }
 
-#infoBox { /* Generel boks til info under søgning */
-  display: none; /* Skjult som standard */
+#infoBox {
+  display: none;
   position: absolute;
-  top: 120px; /* Lige under søgefeltet, der måske er top:10px + 100px højt */
+  top: 120px;
   left: 10px;
   width: 300px;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 999; 
+  z-index: 999;
 }
 
-.info-upper-box { /* Du kan evt. lave en ramme eller margin for boksens øvre/nedre del */
+.info-upper-box {
   margin-bottom: 8px;
-  /* evt. en bundstreg eller lign. */
 }
 
 .info-lower-box {
-  /* Indhold for adressen */
   font-size: 14px;
   color: #333;
 }
 
-/* Link-styling, hvis ønsket */
 #streetviewLink {
   color: #007bff;
   text-decoration: none;
 }
+
 #streetviewLink:hover {
   text-decoration: underline;
 }
 
-/* Kildeangivelse i bunden */
 #kildeangivelse {
     position: absolute;
     bottom: 10px;
@@ -131,4 +127,9 @@
     font-size: 12px;
     border-radius: 4px;
     opacity: 0.8;
+}
+
+/* Highlight til piletaster */
+.highlight {
+    background-color: #d0e6f7;
 }
