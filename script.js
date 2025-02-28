@@ -171,6 +171,7 @@ function doAutocomplete(query, listElement) {
 
 // Vælg adresse => sæt input, zoom, StreetView
 function selectAddress(item, listElement) {
+    // Sæt inputfeltets værdi afhængigt af hvilken liste vi kommer fra
     if (listElement === resultsList) {
         searchInput.value = item.tekst;
     } else if (listElement === vej1List) {
@@ -180,14 +181,31 @@ function selectAddress(item, listElement) {
     }
     listElement.innerHTML = "";
 
-    placeMarkerAndZoom(item);
-    showStreetViewLink(item);
+    // Tjek, om vi har koordinater direkte
+    if (item.adresse && item.adresse.x && item.adresse.y) {
+        // Brug koordinater fra item.adresse
+        placeMarkerAndZoomFromCoords(item.adresse.x, item.adresse.y, item.tekst);
+        showStreetViewLinkFromCoords(item.adresse.x, item.adresse.y);
+    } else if (item.adgangsadresse && item.adgangsadresse.id) {
+        // Fallback: Lav et ekstra fetch til adgangsadresser/{id}
+        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
+            .then(res => res.json())
+            .then(addressData => {
+                // Forvent, at addressData.adgangspunkt.koordinater indeholder [lon, lat]
+                var coords = addressData.adgangspunkt.koordinater;
+                // Koordinaterne kommer som [lon, lat], vi skal have dem i Leaflet-format [lat, lon]
+                placeMarkerAndZoomFromCoords(coords[0], coords[1], item.tekst);
+                showStreetViewLinkFromCoords(coords[0], coords[1]);
+            })
+            .catch(err => console.error("Fejl ved hentning af detaljerede koordinater:", err));
+    } else {
+        console.error("Ingen koordinater tilgængelige for valgt adresse");
+    }
 }
 
-// Zoom + marker
-function placeMarkerAndZoom(item) {
-    let x = item.data.x;
-    let y = item.data.y;
+function placeMarkerAndZoomFromCoords(x, y, addressText) {
+    // Hvis vi modtager fra DAR, skal vi konvertere fra EPSG:25832 til EPSG:4326
+    // Hvis x og y er fra item.adresse, forventes de at være i EPSG:25832
     let coords = convertToWGS84(x, y);
     let lat = coords[1];
     let lon = coords[0];
@@ -197,16 +215,20 @@ function placeMarkerAndZoom(item) {
         map.removeLayer(currentMarker);
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
+    // Opdater eventuelt adressevisningen
+    document.getElementById('address').innerHTML = `
+        Valgt adresse: ${addressText}
+        <br>
+        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">
+            Åbn i Google Street View
+        </a>
+    `;
 }
 
-// StreetView
-function showStreetViewLink(item) {
-    let x = item.data.x;
-    let y = item.data.y;
+function showStreetViewLinkFromCoords(x, y) {
     let coords = convertToWGS84(x, y);
     let lat = coords[1];
     let lon = coords[0];
-
     const streetviewLink = document.getElementById("streetviewLink");
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     document.getElementById("infoBox").style.display = "block";
