@@ -170,8 +170,8 @@ function doAutocomplete(query, listElement) {
 }
 
 // Vælg adresse => sæt input, zoom, StreetView
-console.log(item) // Viser hvilke felter der er tilgængelige
 function selectAddress(item, listElement) {
+    console.log(item) // Viser hvilke felter der er tilgængelige
     // Sæt inputfeltets værdi afhængigt af hvilken liste vi kommer fra
     if (listElement === resultsList) {
         searchInput.value = item.tekst;
