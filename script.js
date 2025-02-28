@@ -20,7 +20,6 @@ var osmLayer = L.tileLayer(
     }
 ).addTo(map);
 
-// Opret lag-kontrol
 var baseMaps = { "OpenStreetMap": osmLayer };
 L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -28,7 +27,7 @@ L.control.zoom({ position: 'bottomright' }).addTo(map);
 // Variabel til marker (placeres ved klik)
 var currentMarker;
 
-/* KLIK PÅ KORT => MARKER + GEOCODING */
+// KLIK PÅ KORT => MARKER + GEOCODING
 map.on('click', function (e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
@@ -38,7 +37,6 @@ map.on('click', function (e) {
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
 
-    // Reverse geocoding
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
@@ -51,8 +49,6 @@ map.on('click', function (e) {
 
             streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
             chosenAddress.textContent = adresseStr;
-
-            // Vis info-boksen
             document.getElementById("infoBox").style.display = "block";
         })
         .catch(err => {
@@ -60,35 +56,60 @@ map.on('click', function (e) {
         });
 });
 
-/* HÅNDTERING AF SØGEFELT OG KRYDS (×) */
-
-// Hent elementerne fra HTML
+// HÅNDTERING AF SØGEFELT OG KRYDS (×)
 var searchInput  = document.getElementById("search");
 var clearBtn     = document.getElementById("clearSearch");
 var resultsList  = document.getElementById("results");
 
-// NYE felter:
 var vej1Input    = document.getElementById("vej1");
 var vej2Input    = document.getElementById("vej2");
 var vej1List     = document.getElementById("results-vej1");
 var vej2List     = document.getElementById("results-vej2");
 
-searchInput.addEventListener("input", function() { // Når brugeren skriver i #search => vis/skjul kryds
+// Piletaster i hoved-søgning
+var items = [];
+var currentIndex = -1;
+
+searchInput.addEventListener("input", function() {
     if (searchInput.value.trim() === "") {
         clearBtn.style.display = "none";
         resultsList.innerHTML = "";
     } else {
         clearBtn.style.display = "inline";
-        doAutocomplete(searchInput.value, resultsList); // Kald autocomplete-funktion for #search
+        doAutocomplete(searchInput.value, resultsList);
     }
 });
 
-clearBtn.addEventListener("click", function() { // 2) Klik på krydset => ryd felt + ryd søgeresultater + skjul kryds + skjul boks
+searchInput.addEventListener("keydown", function(e) {
+    if (items.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+        e.preventDefault();
+        currentIndex = (currentIndex + 1) % items.length;
+        highlightItem();
+    } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        currentIndex = (currentIndex + items.length - 1) % items.length;
+        highlightItem();
+    } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (currentIndex >= 0) {
+            items[currentIndex].click();
+        }
+    }
+});
+
+function highlightItem() {
+    items.forEach(li => li.classList.remove("highlight"));
+    if (currentIndex >= 0 && currentIndex < items.length) {
+        items[currentIndex].classList.add("highlight");
+    }
+}
+
+clearBtn.addEventListener("click", function() {
     searchInput.value = "";
     resultsList.innerHTML = "";
     clearBtn.style.display = "none";
-
-    // Skjul evt. boksen
     document.getElementById("infoBox").style.display = "none";
 });
 
@@ -110,29 +131,70 @@ vej2Input.addEventListener("input", function() {
     doAutocomplete(txt, vej2List);
 });
 
-/* Autocomplete Funktion */
 function doAutocomplete(query, listElement) {
     fetch("https://api.dataforsyningen.dk/adresser/autocomplete?q=" + encodeURIComponent(query))
         .then(resp => resp.json())
         .then(data => {
-            listElement.innerHTML = ""; // Ryd gammel liste
-console.log("Auto data for '" + query + "':", data);            
-            
-            data.forEach(item => { // Tilføj et <li> for hvert forslag
-                let li = document.createElement("li"); // item.tekst kan fx ligne "Bjerlev Hedevej 16, 7300 Jelling"
+            listElement.innerHTML = "";
+            console.log("Auto data for '" + query + "':", data);
+
+            if (listElement === resultsList) {
+                items = [];
+                currentIndex = -1;
+            }
+
+            data.forEach(item => {
+                let li = document.createElement("li");
                 li.textContent = item.tekst;
-                li.addEventListener("click", () => { // Klik på forslaget => sæt det i feltet
-                    if (listElement === resultsList) { // Sæt fuld tekst i input
-                        searchInput.value = item.tekst; // Det var #search
-                    } else if (listElement === vej1List) {
-                        vej1Input.value = item.tekst;
-                    } else if (listElement === vej2List) {
-                        vej2Input.value = item.tekst;
-                    }
-                    listElement.innerHTML = ""; // Ryd listen, så den lukker
+                li.addEventListener("click", () => {
+                    selectAddress(item, listElement);
                 });
                 listElement.appendChild(li);
+
+                if (listElement === resultsList) {
+                    items.push(li);
+                }
             });
         })
         .catch(err => console.error("Fejl i autocomplete:", err));
+}
+
+function selectAddress(item, listElement) {
+    if (listElement === resultsList) {
+        searchInput.value = item.tekst;
+    } else if (listElement === vej1List) {
+        vej1Input.value = item.tekst;
+    } else if (listElement === vej2List) {
+        vej2Input.value = item.tekst;
+    }
+    listElement.innerHTML = "";
+    placeMarkerAndZoom(item);
+    showStreetViewLink(item);
+}
+
+function placeMarkerAndZoom(item) {
+    let x = item.data.x;
+    let y = item.data.y;
+    let coords = convertToWGS84(x, y);
+    let lat = coords[1];
+    let lon = coords[0];
+
+    map.setView([lat, lon], 17);
+
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+    }
+    currentMarker = L.marker([lat, lon]).addTo(map);
+}
+
+function showStreetViewLink(item) {
+    let x = item.data.x;
+    let y = item.data.y;
+    let coords = convertToWGS84(x, y);
+    let lat = coords[1];
+    let lon = coords[0];
+
+    const streetviewLink = document.getElementById("streetviewLink");
+    streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
+    document.getElementById("infoBox").style.display = "block";
 }
