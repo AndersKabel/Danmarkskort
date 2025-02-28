@@ -4,51 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Danmarkskort</title>
-
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <!-- Min egen CSS-fil -->
     <link rel="stylesheet" href="style.css">
-
-    <!-- Favicon (Forhindrer 404-fejl) -->
     <link rel="icon" href="data:,">
-
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
     
-  <!-- Kort container -->
   <div id="map"></div>
 
-  <!-- Søgefelt-container -->
   <div id="search-container">
-
-    <!-- Eksisterende søgefelt + kryds -->
     <div class="search-wrapper">
       <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
       <span class="clear-button" id="clearSearch">&times;</span>
     </div>
-    <!-- Resultatliste for "search" -->
     <ul id="results"></ul>
 
-   <!-- En fælles "row" til vej1 og vej2 --> 
-<div class="flex-row">
-  <div class="search-wrapper">
-    <input type="text" id="vej1" placeholder="Første vejnavn...">
-  </div>
-  <div class="search-wrapper">
-    <input type="text" id="vej2" placeholder="Andet vejnavn...">
-  </div>
-</div>
-
-<!-- Vis resultater for vej1 og vej2 herunder -->
-<ul id="results-vej1"></ul>
-<ul id="results-vej2"></ul>
+    <div class="flex-row">
+      <div class="search-wrapper">
+        <input type="text" id="vej1" placeholder="Første vejnavn...">
+      </div>
+      <div class="search-wrapper">
+        <input type="text" id="vej2" placeholder="Andet vejnavn...">
+      </div>
+    </div>
+    <ul id="results-vej1"></ul>
+    <ul id="results-vej2"></ul>
   </div>
 
-  <!-- Info-boks (StreetView + adresse) -->
   <div id="infoBox">
     <div class="info-upper-box">
       <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
@@ -58,10 +41,8 @@
     </div>
   </div>
 
-  <!-- Kildeangivelse -->
   <div id="kildeangivelse"></div>
 
-  <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
   <script src="script.js"></script>
 </body>
