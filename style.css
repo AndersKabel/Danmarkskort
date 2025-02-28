@@ -22,7 +22,7 @@
     display: flex;
     gap: 10px;
 }
-    
+
 .search-wrapper {
     position: relative;
     margin-bottom: 10px;
@@ -79,6 +79,8 @@
     background: #f9f9f9;
     border-bottom: 1px solid #ddd;
     cursor: pointer;
+    /* Gør li fokuserbart med TAB */
+    outline: none;
 }
 
 #results li:hover,
@@ -129,7 +131,7 @@
     opacity: 0.8;
 }
 
-/* Highlight til piletaster */
+/* Markering af det valgte resultat ved piletaster */
 .highlight {
     background-color: #d0e6f7;
 }
