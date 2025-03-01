@@ -168,11 +168,11 @@ function doAutocomplete(query, listElement) {
         .catch(err => console.error("Fejl i autocomplete:", err));
 }
 
-// Vælg adresse => sæt input, => KUN fallback (Plan B)
+// Vælg adresse => sæt input => fetch /adgangsadresser/{id}
 function selectAddress(item, listElement) {
     console.log("Valgt item:", item);
 
-    // Sæt inputfeltets værdi afhængigt af hvilken liste vi kommer fra
+    // Sæt inputfeltets værdi
     if (listElement === resultsList) {
         searchInput.value = item.tekst;
     } else if (listElement === vej1List) {
@@ -182,8 +182,7 @@ function selectAddress(item, listElement) {
     }
     listElement.innerHTML = "";
 
-    // Glem alt om item.adresse.x,y
-    // => Kald "adgangsadresser/{id}" for at få [lon, lat]
+    // Kald "adgangsadresser/{id}" for at få [lon, lat]
     if (item.adgangsadresse && item.adgangsadresse.id) {
         fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
             .then(res => res.json())
@@ -199,19 +198,14 @@ function selectAddress(item, listElement) {
 }
 
 function placeMarkerAndZoomFromCoords(lon, lat, addressText) {
-    // Koordinaterne kommer som [lon, lat] i EPSG:4326
-    // Men hvis "adgangspunkt.koordinater" er i ETRS89 (25832), skal du tjekke Data
-    //  => Dataforsyningen siger dog: /adgangsadresser/{id} giver [lon, lat] i WGS84
-    // Du kan evt. konvertere, hvis de er i ETRS89. Tjek i console
-
-    // For nu antager vi, at [lon, lat] er WGS84
+    // Ifølge Dataforsyningen er /adgangsadresser/{id} i WGS84 => [lon, lat].
     map.setView([lat, lon], 17);
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
 
-    // Evt. vis info
+    // Vis info
     document.getElementById('chosenAddress').textContent = addressText;
     const streetviewLink = document.getElementById("streetviewLink");
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
