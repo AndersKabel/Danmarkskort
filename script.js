@@ -241,8 +241,8 @@ function placeMarkerAndZoom([lon, lat], displayText) {
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
-    currentMarker = L.marker([lat, lon]).addTo(map);
-    map.setView([lat, lon], 16);
+    currentMarker = L.marker([lon, lat]).addTo(map);
+    map.setView([lon, lat], 16);
 
     // Sæt #address og StreetView
     document.getElementById("address").textContent = displayText;
