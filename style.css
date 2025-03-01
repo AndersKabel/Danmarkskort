@@ -30,7 +30,6 @@
 
 .flex-row .search-wrapper {
     width: 50%;
-    heigh: 35px; /* stavefejl i 'height' er uden praktisk effekt, men beholdes */
 }
 
 #search,
@@ -109,6 +108,12 @@
   color: #333;
 }
 
+/* #address i stedet for #chosenAddress */
+#address {
+  margin: 0;
+  padding: 0;
+}
+
 #streetviewLink {
   color: #007bff;
   text-decoration: none;
@@ -129,7 +134,7 @@
     opacity: 0.8;
 }
 
-/* Til piletaster: highlight */
+/* Piletaster highlight */
 .highlight {
     background-color: #d0e6f7;
 }
