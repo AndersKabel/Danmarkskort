@@ -146,7 +146,7 @@ function doSearch(query, listElement) {
 
     // B) Stednavne (Datafordeler)
     // Indsæt dit brugernavn/password i URL
-    let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?stednavn=${encodeURIComponent(query + '*')}&username=DIT_BRUGERNAVN&password=DIT_PASSWORD`;
+    let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?stednavn=${encodeURIComponent(query + '*')}&username=NUKALQTAFO&password=Fw62huch!`;
 
     Promise.all([
         fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Fejl i addresses:", err); return []; }),
