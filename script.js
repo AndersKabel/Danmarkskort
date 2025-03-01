@@ -161,8 +161,8 @@ function doSearch(query, listElement) {
     ])
     .then(([addrData, stedData]) => {
 
-        console.log("addrData:", addrData); // console.log:
-        console.log("stedData:", stedData); // console.log:
+        console.log("addrData:", addrData);
+        console.log("stedData:", stedData);
         
         listElement.innerHTML = "";
 
@@ -214,6 +214,7 @@ function doSearch(query, listElement) {
                             let coords = convertToWGS84(x, y);
                             let lat = coords[1];
                             let lon = coords[0];
+                            // KALD placeMarkerAndZoom med [lon, lat]
                             placeMarkerAndZoom([lon, lat], obj.tekst);
                         })
                         .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
@@ -241,8 +242,9 @@ function placeMarkerAndZoom([lon, lat], displayText) {
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
-    currentMarker = L.marker([lon, lat]).addTo(map);
-    map.setView([lon, lat], 16);
+    // OPDATERET: placér markør ved [lat, lon], da param[0]=lon, param[1]=lat
+    currentMarker = L.marker([lat, lon]).addTo(map);
+    map.setView([lat, lon], 16);
 
     // Sæt #address og StreetView
     document.getElementById("address").textContent = displayText;
