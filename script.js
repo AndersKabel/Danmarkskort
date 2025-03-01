@@ -99,7 +99,6 @@ searchInput.addEventListener("keydown", function(e) {
     }
 });
 
-// Hjælpefunktion => highlight
 function highlightItem() {
     items.forEach(li => li.classList.remove("highlight"));
     if (currentIndex >= 0 && currentIndex < items.length) {
@@ -169,9 +168,10 @@ function doAutocomplete(query, listElement) {
         .catch(err => console.error("Fejl i autocomplete:", err));
 }
 
-// Vælg adresse => sæt input, zoom, StreetView
+// Vælg adresse => sæt input, => KUN fallback (Plan B)
 function selectAddress(item, listElement) {
-    console.log(item) // Viser hvilke felter der er tilgængelige
+    console.log("Valgt item:", item);
+
     // Sæt inputfeltets værdi afhængigt af hvilken liste vi kommer fra
     if (listElement === resultsList) {
         searchInput.value = item.tekst;
@@ -182,54 +182,37 @@ function selectAddress(item, listElement) {
     }
     listElement.innerHTML = "";
 
-    // Tjek, om vi har koordinater direkte
-    if (item.adresse && item.adresse.x && item.adresse.y) {
-        // Brug koordinater fra item.adresse
-        placeMarkerAndZoomFromCoords(item.adresse.x, item.adresse.y, item.tekst);
-        showStreetViewLinkFromCoords(item.adresse.x, item.adresse.y);
-    } else if (item.adgangsadresse && item.adgangsadresse.id) {
-        // Fallback: Lav et ekstra fetch til adgangsadresser/{id}
+    // Glem alt om item.adresse.x,y
+    // => Kald "adgangsadresser/{id}" for at få [lon, lat]
+    if (item.adgangsadresse && item.adgangsadresse.id) {
         fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
             .then(res => res.json())
             .then(addressData => {
-                // Forvent, at addressData.adgangspunkt.koordinater indeholder [lon, lat]
-                var coords = addressData.adgangspunkt.koordinater;
-                // Koordinaterne kommer som [lon, lat], vi skal have dem i Leaflet-format [lat, lon]
+                // addressData.adgangspunkt.koordinater => [lon, lat]
+                let coords = addressData.adgangspunkt.koordinater;
                 placeMarkerAndZoomFromCoords(coords[0], coords[1], item.tekst);
-                showStreetViewLinkFromCoords(coords[0], coords[1]);
             })
             .catch(err => console.error("Fejl ved hentning af detaljerede koordinater:", err));
     } else {
-        console.error("Ingen koordinater tilgængelige for valgt adresse");
+        console.error("Ingen 'adgangsadresse.id' i item => kan ikke slå op på /adgangsadresser/{id}");
     }
 }
 
-function placeMarkerAndZoomFromCoords(x, y, addressText) {
-    // Hvis vi modtager fra DAR, skal vi konvertere fra EPSG:25832 til EPSG:4326
-    // Hvis x og y er fra item.adresse, forventes de at være i EPSG:25832
-    let coords = convertToWGS84(x, y);
-    let lat = coords[1];
-    let lon = coords[0];
+function placeMarkerAndZoomFromCoords(lon, lat, addressText) {
+    // Koordinaterne kommer som [lon, lat] i EPSG:4326
+    // Men hvis "adgangspunkt.koordinater" er i ETRS89 (25832), skal du tjekke Data
+    //  => Dataforsyningen siger dog: /adgangsadresser/{id} giver [lon, lat] i WGS84
+    // Du kan evt. konvertere, hvis de er i ETRS89. Tjek i console
 
+    // For nu antager vi, at [lon, lat] er WGS84
     map.setView([lat, lon], 17);
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
-    // Opdater eventuelt adressevisningen
-    document.getElementById('chosenAddress').innerHTML = `
-        Valgt adresse: ${addressText}
-        <br>
-        <a href="https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}" target="_blank">
-            Åbn i Google Street View
-        </a>
-    `;
-}
 
-function showStreetViewLinkFromCoords(x, y) {
-    let coords = convertToWGS84(x, y);
-    let lat = coords[1];
-    let lon = coords[0];
+    // Evt. vis info
+    document.getElementById('chosenAddress').textContent = addressText;
     const streetviewLink = document.getElementById("streetviewLink");
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     document.getElementById("infoBox").style.display = "block";
