@@ -1,16 +1,17 @@
-// Definer koordinatsystem EPSG:25832
+// EPSG:25832 opsætning
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs");
 function convertToWGS84(x, y) {
     return proj4("EPSG:25832", "EPSG:4326", [x, y]);
 }
 
-// Initialiser kortet – deaktiver standard zoom-knapper
+// Opret Leaflet-kort (ingen standard zoom-knapper)
 var map = L.map('map', {
     center: [56, 10],
     zoom: 7,
     zoomControl: false
 });
 
+// OSM-lag
 var osmLayer = L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
@@ -19,13 +20,14 @@ var osmLayer = L.tileLayer(
     }
 ).addTo(map);
 
+// Lag-kontrol
 var baseMaps = { "OpenStreetMap": osmLayer };
 L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-// Marker ved klik på kort
+// Klik på kort => Reverse geocoding
 var currentMarker;
-map.on('click', function (e) {
+map.on('click', function(e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
 
@@ -34,25 +36,22 @@ map.on('click', function (e) {
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
 
-    // Reverse geocoding via "adresser/reverse"
-    // (Behold 'adgangsadresser/reverse' hvis du vil)
-    fetch(`https://api.dataforsyningen.dk/adresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
-        .then(response => response.json())
+    // Reverse geocoding via /adgangsadresser/reverse
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
+        .then(r => r.json())
         .then(data => {
-            console.log("Reverse geocoding resultat:", data);
+            console.log("Reverse geocoding:", data);
 
-            const streetviewLink = document.getElementById("streetviewLink");
-            const chosenAddress  = document.getElementById("chosenAddress");
-            const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, `
-                             + `${data.postnr || "?"} ${data.postnrnavn || ""}`;
+            let streetviewLink = document.getElementById("streetviewLink");
+            let chosenAddress  = document.getElementById("chosenAddress");
 
+            let adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, `
+                           + `${data.postnr || "?"} ${data.postnrnavn || ""}`;
             streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
             chosenAddress.textContent = adresseStr;
             document.getElementById("infoBox").style.display = "block";
         })
-        .catch(err => {
-            console.error("Fejl ved reverse geocoding:", err);
-        });
+        .catch(err => console.error("Reverse geocoding fejl:", err));
 });
 
 // Variabler til søgefelt + lister
@@ -65,11 +64,11 @@ var vej2Input    = document.getElementById("vej2");
 var vej1List     = document.getElementById("results-vej1");
 var vej2List     = document.getElementById("results-vej2");
 
-// Array til piletaster i #search
+// Piletaster
 var items = [];
 var currentIndex = -1;
 
-// Søgefelt #search => vis/skjul kryds, min. 2 bogstaver
+// Søg i #search => min 2 tegn
 searchInput.addEventListener("input", function() {
     const txt = searchInput.value.trim();
     if (txt.length < 2) {
@@ -78,10 +77,10 @@ searchInput.addEventListener("input", function() {
         return;
     }
     clearBtn.style.display = "inline";
-    doAutocomplete(txt, resultsList);
+    doSearch(txt, resultsList);
 });
 
-// Piletaster i søgefelt (op/ned/enter)
+// Piletaster i #search
 searchInput.addEventListener("keydown", function(e) {
     if (items.length === 0) return;
 
@@ -116,108 +115,134 @@ clearBtn.addEventListener("click", function() {
     document.getElementById("infoBox").style.display = "none";
 });
 
-// "Første vejnavn" => min. 2 bogstaver
+// "Første vejnavn"
 vej1Input.addEventListener("input", function() {
     const txt = vej1Input.value.trim();
     if (txt.length < 2) {
         vej1List.innerHTML = "";
         return;
     }
-    doAutocomplete(txt, vej1List);
+    doSearch(txt, vej1List);
 });
 
-// "Andet vejnavn" => min. 2 bogstaver
+// "Andet vejnavn"
 vej2Input.addEventListener("input", function() {
     const txt = vej2Input.value.trim();
     if (txt.length < 2) {
         vej2List.innerHTML = "";
         return;
     }
-    doAutocomplete(txt, vej2List);
+    doSearch(txt, vej2List);
 });
 
-// Autocomplete => Dataforsyningen (adresser/autocomplete)
-function doAutocomplete(query, listElement) {
-    fetch("https://api.dataforsyningen.dk/adresser/autocomplete?q=" + encodeURIComponent(query))
-        .then(resp => resp.json())
-        .then(data => {
-            listElement.innerHTML = "";
-            console.log("Auto data for '" + query + "':", data);
+// ============== Søg i addresses + stednavne (Plan B) =============
+// 1) Hent addresses via "adgangsadresser/autocomplete"
+// 2) Hent stednavne via Datafordeleren
+// 3) Kombiner resultater, vis i liste
+function doSearch(query, listElement) {
+    // Hent addresses
+    let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
 
-            // Nulstil piletaster, hvis det er #search
-            if (listElement === resultsList) {
-                items = [];
-                currentIndex = -1;
-            }
+    // Hent stednavne
+    // Bemærk, at du skrev i din gamle kode:
+    // "https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?stednavn=..."
+    // Forudsætter "adgang: åben"
+    let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?stednavn=${encodeURIComponent(query + '*')}&username=BRUGERNAVN&password=PASSWORD`;
 
-            data.forEach(item => {
-                let li = document.createElement("li");
-                li.textContent = item.tekst;
+    // Promise.all => fetch begge
+    Promise.all([
+        fetch(addrUrl).then(r => r.json()),
+        fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; })
+    ])
+    .then(([addrData, stedData]) => {
+        listElement.innerHTML = "";
+        console.log("Addresses:", addrData);
+        console.log("Stednavne:", stedData);
 
-                // Klik => vælg
-                li.addEventListener("click", () => {
-                    selectAddress(item, listElement);
-                });
+        // Ryd piletaster, hvis #search
+        if (listElement === resultsList) {
+            items = [];
+            currentIndex = -1;
+        }
 
-                listElement.appendChild(li);
+        // Omdan addresses => { type: "adresse", item: ... } + "adgangsadresse"
+        let addrResults = (addrData || []).map(item => {
+            return {
+                type: "adresse",
+                tekst: item.tekst,
+                adgangsadresse: item.adgangsadresse // { id: "..." }
+            };
+        });
 
-                // Hvis #search => gem i items
-                if (listElement === resultsList) {
-                    items.push(li);
+        // Omdan stednavne => { type: "stednavn", navn: ..., bbox: ... }
+        let stedResults = [];
+        if (stedData && stedData.features) {
+            stedData.features.forEach(feature => {
+                if (feature.properties && feature.properties.stednavneliste) {
+                    feature.properties.stednavneliste.forEach(sted => {
+                        stedResults.push({
+                            type: "stednavn",
+                            navn: sted.navn,
+                            bbox: feature.bbox || null
+                        });
+                    });
                 }
             });
-        })
-        .catch(err => console.error("Fejl i autocomplete:", err));
+        }
+
+        // Kombiner i én liste
+        let combined = [...addrResults, ...stedResults];
+
+        // Fjern evt. dubletter i stednavne, etc. - i din gamle kode brugte du en Map
+        // Her forenkler vi og viser alt.
+
+        combined.forEach(obj => {
+            let li = document.createElement("li");
+            li.textContent = (obj.type === "adresse") ? obj.tekst : obj.navn;
+
+            li.addEventListener("click", function() {
+                if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
+                    // Plan B => fetch /adgangsadresser/{id}
+                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+                        .then(r => r.json())
+                        .then(addressData => {
+                            let [lon, lat] = addressData.adgangspunkt.koordinater; 
+                            placeMarkerAndZoom([lon, lat], obj.tekst);
+                        })
+                        .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+                } else if (obj.type === "stednavn" && obj.bbox) {
+                    // Stednavn => brug bbox
+                    // typisk [west, south, east, north], men i din gamle kode
+                    // brugte du [lon, lat] = [bbox[0], bbox[1]]
+                    let [lon, lat] = [obj.bbox[0], obj.bbox[1]];
+                    placeMarkerAndZoom([lon, lat], obj.navn);
+                }
+            });
+
+            listElement.appendChild(li);
+            if (listElement === resultsList) {
+                items.push(li);
+            }
+        });
+    })
+    .catch(err => console.error("Fejl i doSearch:", err));
 }
 
-// Vælg adresse => sæt input => fetch /adresser/{GUID}
-function selectAddress(item, listElement) {
-    console.log("Valgt item:", item);
+// placeMarkerAndZoom => Zoom + marker
+function placeMarkerAndZoom([lon, lat], displayText) {
+    // Ifølge doc: /adgangsadresser/{id} => adgangspunkt.koordinater = [lon, lat] i ETRS89?
+    // Du kan evt. checke console. Hvis i ETRS89 => convertToWGS84
+    // Her antager vi [lon, lat] i WGS84. 
+    // Tjek i console => hvis lat ~ 55..57, lon ~ 8..12, er det WGS84
 
-    // Sæt inputfeltets værdi
-    if (listElement === resultsList) {
-        searchInput.value = item.tekst;
-    } else if (listElement === vej1List) {
-        vej1Input.value = item.tekst;
-    } else if (listElement === vej2List) {
-        vej2Input.value = item.tekst;
-    }
-    listElement.innerHTML = "";
-
-    // Visse "adresser/autocomplete" resultater giver "adresse.href" i item.adresse
-    // => fx item.adresse.href = "https://api.dataforsyningen.dk/adresser/UUID..."
-    // => Kald fetch(item.adresse.href)
-    if (item.adresse && item.adresse.href) {
-        fetch(item.adresse.href)
-            .then(r => r.json())
-            .then(addressData => {
-                // addressData.adgangspunkt.koordinater => [x, y] i ETRS89? eller [lon, lat] i WGS84?
-                // Ifølge doc: "adgangspunkt.koordinater" er [x, y] i ETRS89 => konvertér med convertToWGS84
-                let [x, y] = addressData.adgangspunkt.koordinater;
-                placeMarkerAndZoomFromCoords(x, y, item.tekst);
-            })
-            .catch(err => console.error("Fejl ved fetch til item.adresse.href:", err));
-    } else {
-        console.error("Ingen 'adresse.href' => kan ikke slå op på /adresser/...");
-    }
-}
-
-// Zoom + marker
-function placeMarkerAndZoomFromCoords(x, y, addressText) {
-    // Ifølge doc for /adresser/{GUID}, "adgangspunkt.koordinater" = [x, y] i ETRS89
-    // => Konverter til lat/lon (WGS84)
-    let coords = convertToWGS84(x, y);
-    let lat = coords[1];
-    let lon = coords[0];
-
-    map.setView([lat, lon], 17);
+    map.setView([lat, lon], 16);
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
 
-    // Vis info
-    document.getElementById('chosenAddress').textContent = addressText;
+    // Opdater info
+    document.getElementById("chosenAddress").textContent = displayText;
     const streetviewLink = document.getElementById("streetviewLink");
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     document.getElementById("infoBox").style.display = "block";
