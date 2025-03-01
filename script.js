@@ -1,5 +1,5 @@
 /***************************************************
- * Konfiguration af EPSG:25832 => WGS84
+ * EPSG:25832 => WGS84
  ***************************************************/
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs");
 function convertToWGS84(x, y) {
@@ -7,15 +7,13 @@ function convertToWGS84(x, y) {
 }
 
 /***************************************************
- * Initialiser Leaflet-kort
+ * Leaflet-kort
  ***************************************************/
 var map = L.map('map', {
     center: [56, 10],
     zoom: 7,
     zoomControl: false
 });
-
-// OSM-lag
 var osmLayer = L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
@@ -23,16 +21,14 @@ var osmLayer = L.tileLayer(
         attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur"
     }
 ).addTo(map);
-
-// Lag-kontrol (valgfri)
-var baseMaps = { "OpenStreetMap": osmLayer };
-L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
+L.control.layers({ "OpenStreetMap": osmLayer }, null, { position: 'topright' }).addTo(map);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-/***************************************************
- * Klik på kort => Reverse geocoding (Plan B)
- ***************************************************/
 var currentMarker;
+
+/***************************************************
+ * Klik på kort => /adgangsadresser/reverse
+ ***************************************************/
 map.on('click', function(e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
@@ -42,17 +38,13 @@ map.on('click', function(e) {
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
 
-    // Kald .../adgangsadresser/reverse
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
-        .then(response => response.json())
+        .then(r => r.json())
         .then(data => {
-            console.log("Reverse geocoding resultat:", data);
-
             const streetviewLink = document.getElementById("streetviewLink");
             const chosenAddress  = document.getElementById("chosenAddress");
-            const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, `
-                             + `${data.postnr || "?"} ${data.postnrnavn || ""}`;
 
+            const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
             streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
             chosenAddress.textContent = adresseStr;
             document.getElementById("infoBox").style.display = "block";
@@ -61,7 +53,7 @@ map.on('click', function(e) {
 });
 
 /***************************************************
- * Variabler til søgefelter, resultatlister
+ * Søgefelter + result-lister
  ***************************************************/
 var searchInput  = document.getElementById("search");
 var clearBtn     = document.getElementById("clearSearch");
@@ -77,7 +69,7 @@ var items = [];
 var currentIndex = -1;
 
 /***************************************************
- * Søg i #search => min. 2 tegn => doSearch
+ * Søg i #search => doSearch
  ***************************************************/
 searchInput.addEventListener("input", function() {
     const txt = searchInput.value.trim();
@@ -90,7 +82,7 @@ searchInput.addEventListener("input", function() {
     doSearch(txt, resultsList);
 });
 
-// Piletaster i #search (ArrowUp/Down/Enter)
+// Piletaster (op/ned/enter) i #search
 searchInput.addEventListener("keydown", function(e) {
     if (items.length === 0) return;
 
@@ -110,7 +102,6 @@ searchInput.addEventListener("keydown", function(e) {
     }
 });
 
-// Fremhæv det valgte li
 function highlightItem() {
     items.forEach(li => li.classList.remove("highlight"));
     if (currentIndex >= 0 && currentIndex < items.length) {
@@ -129,7 +120,7 @@ clearBtn.addEventListener("click", function() {
 });
 
 /***************************************************
- * "Første vejnavn" => min. 2 tegn => doSearch
+ * Vej1 => doSearch
  ***************************************************/
 vej1Input.addEventListener("input", function() {
     const txt = vej1Input.value.trim();
@@ -141,7 +132,7 @@ vej1Input.addEventListener("input", function() {
 });
 
 /***************************************************
- * "Andet vejnavn" => min. 2 tegn => doSearch
+ * Vej2 => doSearch
  ***************************************************/
 vej2Input.addEventListener("input", function() {
     const txt = vej2Input.value.trim();
@@ -153,43 +144,40 @@ vej2Input.addEventListener("input", function() {
 });
 
 /***************************************************
- * doSearch => kombinerer addresses + stednavne
- * (Plan B for addresses: /adgangsadresser/autocomplete + /adgangsadresser/{id})
- * (Stednavne => datafordeler)
+ * doSearch => kombinerer /adgangsadresser/autocomplete + Stednavne
  ***************************************************/
 function doSearch(query, listElement) {
-    // 1) Hent addresses fra Dataforsyningen (Plan B)
+    // Adgangsadresser
     let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
-
-    // 2) Hent stednavne fra Datafordeleren (brugernavn/password i URL)
+    // Stednavne (Datafordeler) => username + password i URL
     let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`;
 
     Promise.all([
         fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
         fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; })
     ])
-    .then(([addrData, stedData]) => {
+    .then(([adresser, steddata]) => {
         listElement.innerHTML = "";
 
-        // Ryd piletaster, hvis det er #search
+        // Ryd piletaster, hvis #search
         if (listElement === resultsList) {
             items = [];
             currentIndex = -1;
         }
 
-        // Omdan addresses => { type: "adresse", tekst, adgangsadresse }
-        let addrResults = (addrData || []).map(item => {
+        // Omdan adresser => { type: "adresse", tekst, adgangsadresse: {id} }
+        let addrResults = (adresser || []).map(item => {
             return {
                 type: "adresse",
                 tekst: item.tekst,
-                adgangsadresse: item.adgangsadresse // { id: "..." }
+                adgangsadresse: item.adgangsadresse
             };
         });
 
         // Omdan stednavne => { type: "stednavn", navn, bbox }
         let stedResults = [];
-        if (stedData && stedData.features) {
-            stedData.features.forEach(feature => {
+        if (steddata && steddata.features) {
+            steddata.features.forEach(feature => {
                 if (feature.properties && feature.properties.stednavneliste) {
                     feature.properties.stednavneliste.forEach(sted => {
                         stedResults.push({
@@ -205,18 +193,16 @@ function doSearch(query, listElement) {
         // Kombiner
         let combined = [...addrResults, ...stedResults];
 
-        // Vis i liste
         combined.forEach(obj => {
             let li = document.createElement("li");
             li.textContent = (obj.type === "adresse") ? obj.tekst : obj.navn;
 
             li.addEventListener("click", function() {
                 if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-                    // Plan B => fetch /adgangsadresser/{id}
+                    // Kald /adgangsadresser/{id}
                     fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
                         .then(r => r.json())
                         .then(addressData => {
-                            // addressData.adgangspunkt.koordinater => [x, y] i ETRS89 => konvertér
                             let [x, y] = addressData.adgangspunkt.koordinater;
                             let coords = convertToWGS84(x, y);
                             let lat = coords[1];
@@ -224,9 +210,7 @@ function doSearch(query, listElement) {
                             placeMarkerAndZoom([lon, lat], obj.tekst);
                         })
                         .catch(err => console.error("Fejl ved /adgangsadresser/{id}:", err));
-                }
-                else if (obj.type === "stednavn" && obj.bbox) {
-                    // Stednavn => obj.bbox => [lon, lat]
+                } else if (obj.type === "stednavn" && obj.bbox) {
                     let [lon, lat] = [obj.bbox[0], obj.bbox[1]];
                     placeMarkerAndZoom([lon, lat], obj.navn);
                 }
@@ -243,7 +227,6 @@ function doSearch(query, listElement) {
 
 /***************************************************
  * placeMarkerAndZoom => Zoom + marker
- * Param: [lon, lat] i WGS84
  ***************************************************/
 function placeMarkerAndZoom([lon, lat], displayText) {
     if (currentMarker) {
@@ -252,7 +235,6 @@ function placeMarkerAndZoom([lon, lat], displayText) {
     currentMarker = L.marker([lat, lon]).addTo(map);
     map.setView([lat, lon], 16);
 
-    // Opdater info i infoBox (hvis du vil)
     document.getElementById("chosenAddress").textContent = displayText;
     const streetviewLink = document.getElementById("streetviewLink");
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
