@@ -160,6 +160,10 @@ function doSearch(query, listElement) {
         fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; })
     ])
     .then(([addrData, stedData]) => {
+
+        console.log("addrData:", addrData); // console.log:
+        console.log("stedData:", stedData); // console.log:
+        
         listElement.innerHTML = "";
 
         // Ryd piletaster hvis #search
