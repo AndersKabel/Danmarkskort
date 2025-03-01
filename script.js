@@ -34,7 +34,9 @@ map.on('click', function (e) {
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
 
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
+    // Reverse geocoding via "adresser/reverse"
+    // (Behold 'adgangsadresser/reverse' hvis du vil)
+    fetch(`https://api.dataforsyningen.dk/adresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(response => response.json())
         .then(data => {
             console.log("Reverse geocoding resultat:", data);
@@ -134,7 +136,7 @@ vej2Input.addEventListener("input", function() {
     doAutocomplete(txt, vej2List);
 });
 
-// Autocomplete => Dataforsyningen
+// Autocomplete => Dataforsyningen (adresser/autocomplete)
 function doAutocomplete(query, listElement) {
     fetch("https://api.dataforsyningen.dk/adresser/autocomplete?q=" + encodeURIComponent(query))
         .then(resp => resp.json())
@@ -168,7 +170,7 @@ function doAutocomplete(query, listElement) {
         .catch(err => console.error("Fejl i autocomplete:", err));
 }
 
-// Vælg adresse => sæt input => fetch /adgangsadresser/{id}
+// Vælg adresse => sæt input => fetch /adresser/{GUID}
 function selectAddress(item, listElement) {
     console.log("Valgt item:", item);
 
@@ -182,23 +184,32 @@ function selectAddress(item, listElement) {
     }
     listElement.innerHTML = "";
 
-    // Kald "adgangsadresser/{id}" for at få [lon, lat]
-    if (item.adgangsadresse && item.adgangsadresse.id) {
-        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${item.adgangsadresse.id}`)
-            .then(res => res.json())
+    // Visse "adresser/autocomplete" resultater giver "adresse.href" i item.adresse
+    // => fx item.adresse.href = "https://api.dataforsyningen.dk/adresser/UUID..."
+    // => Kald fetch(item.adresse.href)
+    if (item.adresse && item.adresse.href) {
+        fetch(item.adresse.href)
+            .then(r => r.json())
             .then(addressData => {
-                // addressData.adgangspunkt.koordinater => [lon, lat]
-                let coords = addressData.adgangspunkt.koordinater;
-                placeMarkerAndZoomFromCoords(coords[0], coords[1], item.tekst);
+                // addressData.adgangspunkt.koordinater => [x, y] i ETRS89? eller [lon, lat] i WGS84?
+                // Ifølge doc: "adgangspunkt.koordinater" er [x, y] i ETRS89 => konvertér med convertToWGS84
+                let [x, y] = addressData.adgangspunkt.koordinater;
+                placeMarkerAndZoomFromCoords(x, y, item.tekst);
             })
-            .catch(err => console.error("Fejl ved hentning af detaljerede koordinater:", err));
+            .catch(err => console.error("Fejl ved fetch til item.adresse.href:", err));
     } else {
-        console.error("Ingen 'adgangsadresse.id' i item => kan ikke slå op på /adgangsadresser/{id}");
+        console.error("Ingen 'adresse.href' => kan ikke slå op på /adresser/...");
     }
 }
 
-function placeMarkerAndZoomFromCoords(lon, lat, addressText) {
-    // Ifølge Dataforsyningen er /adgangsadresser/{id} i WGS84 => [lon, lat].
+// Zoom + marker
+function placeMarkerAndZoomFromCoords(x, y, addressText) {
+    // Ifølge doc for /adresser/{GUID}, "adgangspunkt.koordinater" = [x, y] i ETRS89
+    // => Konverter til lat/lon (WGS84)
+    let coords = convertToWGS84(x, y);
+    let lat = coords[1];
+    let lon = coords[0];
+
     map.setView([lat, lon], 17);
     if (currentMarker) {
         map.removeLayer(currentMarker);
