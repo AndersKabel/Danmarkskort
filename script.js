@@ -210,18 +210,20 @@ function doSearch(query, listElement) {
                     fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
                         .then(r => r.json())
                         .then(addressData => {
-                            let [x, y] = addressData.adgangspunkt.koordinater; // ETRS89 => konverter
+                            // [x, y] i ETRS89 => konverter => [lon, lat] i WGS84
+                            let [x, y] = addressData.adgangspunkt.koordinater;
                             let coords = convertToWGS84(x, y);
                             let lat = coords[1];
                             let lon = coords[0];
-                            // KALD placeMarkerAndZoom med [lon, lat]
-                            placeMarkerAndZoom([lon, lat], obj.tekst);
+                            // KALD placeMarkerAndZoom med [lat, lon] (y først)
+                            placeMarkerAndZoom([lat, lon], obj.tekst);
                         })
                         .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
                 }
                 else if (obj.type === "stednavn" && obj.bbox) {
+                    // [lon, lat] => men vi vil have y først, x sidst => [lat, lon]
                     let [lon, lat] = [obj.bbox[0], obj.bbox[1]];
-                    placeMarkerAndZoom([lon, lat], obj.navn);
+                    placeMarkerAndZoom([lat, lon], obj.navn);
                 }
             });
 
@@ -236,17 +238,15 @@ function doSearch(query, listElement) {
 
 /***************************************************
  * placeMarkerAndZoom => Zoom + marker
- * param: [lon, lat] i WGS84
+ * param: [lat, lon] (y først, x sidst)
  ***************************************************/
-function placeMarkerAndZoom([lon, lat], displayText) {
+function placeMarkerAndZoom([lat, lon], displayText) {
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
-    // OPDATERET: placér markør ved [lat, lon], da param[0]=lon, param[1]=lat
-    currentMarker = L.marker([lon, lat]).addTo(map);
-    map.setView([lon, lat], 16);
+    currentMarker = L.marker([lat, lon]).addTo(map);
+    map.setView([lat, lon], 16);
 
-    // Sæt #address og StreetView
     document.getElementById("address").textContent = displayText;
     const streetviewLink = document.getElementById("streetviewLink");
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
