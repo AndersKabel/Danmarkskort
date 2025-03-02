@@ -37,7 +37,7 @@ map.on('click', function(e) {
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
-    currentMarker = L.marker([lat, lon]).addTo(map);
+    currentMarker = L.marker([lon, lat]).addTo(map);
 
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(r => r.json())
