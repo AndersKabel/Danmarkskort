@@ -244,6 +244,7 @@ function doSearch(query, listElement) {
  * param: [lat, lon] (y først, x sidst)
  ***************************************************/
 function placeMarkerAndZoom([lat, lon], displayText) {
+    console.log("placeMarkerAndZoom kaldt med:", lat, lon, displayText);
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
