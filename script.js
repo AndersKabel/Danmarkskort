@@ -214,6 +214,7 @@ function doSearch(query, listElement) {
                             // [x, y] i ETRS89 => konverter => [lon, lat] i WGS84
                             let [x, y] = addressData.adgangspunkt.koordinater;
                             let coords = convertToWGS84(x, y);
+                            console.log("Koordinater før og efter konvertering:", x, y, coords);
                             // lat = coords[1], lon = coords[0]
                             let lat = coords[1];
                             let lon = coords[0];
