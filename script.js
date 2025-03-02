@@ -226,6 +226,7 @@ function doSearch(query, listElement) {
                 }
                 else if (obj.type === "stednavn" && obj.bbox) {
                     // bbox => [x, y], men vi vil have [y, x]
+                    console.log("BBOX før konvertering:", obj.bbox);
                     let [x, y] = [obj.bbox[0], obj.bbox[1]];
                     placeMarkerAndZoom([y, x], obj.navn);
                 }
