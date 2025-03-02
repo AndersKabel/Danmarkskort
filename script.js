@@ -205,7 +205,6 @@ function doSearch(query, listElement) {
             li.textContent = (obj.type === "adresse") ? obj.tekst : obj.navn;
 
             li.addEventListener("click", function() {
-                console.log("placeMarkerAndZoom kaldt med:", lat, lon, displayText);
                 if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
                     // => fetch /adgangsadresser/{id}
                     fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
