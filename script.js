@@ -213,17 +213,19 @@ function doSearch(query, listElement) {
                             // [x, y] i ETRS89 => konverter => [lon, lat] i WGS84
                             let [x, y] = addressData.adgangspunkt.koordinater;
                             let coords = convertToWGS84(x, y);
+                            // lat = coords[1], lon = coords[0]
                             let lat = coords[1];
                             let lon = coords[0];
-                            // KALD placeMarkerAndZoom med [lat, lon] (y først)
+
+                            // => Kald placeMarkerAndZoom med [lat, lon] (y først, x sidst)
                             placeMarkerAndZoom([lat, lon], obj.tekst);
                         })
                         .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
                 }
                 else if (obj.type === "stednavn" && obj.bbox) {
-                    // [lon, lat] => men vi vil have y først, x sidst => [lat, lon]
-                    let [lon, lat] = [obj.bbox[0], obj.bbox[1]];
-                    placeMarkerAndZoom([lat, lon], obj.navn);
+                    // bbox => [x, y], men vi vil have [y, x]
+                    let [x, y] = [obj.bbox[0], obj.bbox[1]];
+                    placeMarkerAndZoom([y, x], obj.navn);
                 }
             });
 
