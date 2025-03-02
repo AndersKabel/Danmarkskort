@@ -221,6 +221,8 @@ function doSearch(query, listElement) {
                             let lon = coords[0];
 
                             // => Kald placeMarkerAndZoom med [lat, lon] (y først, x sidst)
+                            console.log("Kald til placeMarkerAndZoom med:", lat, lon, obj.tekst);
+
                             placeMarkerAndZoom([lat, lon], obj.tekst);
                         })
                         .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
