@@ -213,14 +213,8 @@ function doSearch(query, listElement) {
                     fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
                         .then(r => r.json())
                         .then(addressData => {
-                            // [x, y] i ETRS89 => konverter => [lon, lat] i WGS84
                             let [lon, lat] = addressData.adgangspunkt.koordinater; // Brug direkte WGS84
-                            console.log("Modtaget direkte WGS84 koordinater:", lat, lon);
-                            console.log("Koordinater fra addressData:", x, y, "=> efter konvertering:", coords);
                             console.log("Koordinater før og efter konvertering:", x, y, coords);
-                            // lat = coords[1], lon = coords[0]
-                            let lat = coords[1];
-                            let lon = coords[0];
                             console.log("Endelige koordinater til placering:", lat, lon);
 
                             // => Kald placeMarkerAndZoom med [lat, lon] (y først, x sidst)
