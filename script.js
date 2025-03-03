@@ -214,7 +214,6 @@ function doSearch(query, listElement) {
                         .then(r => r.json())
                         .then(addressData => {
                             let [lon, lat] = addressData.adgangspunkt.koordinater; // Brug direkte WGS84
-                            console.log("Koordinater før og efter konvertering:", x, y, coords);
                             console.log("Endelige koordinater til placering:", lat, lon);
 
                             // => Kald placeMarkerAndZoom med [lat, lon] (y først, x sidst)
