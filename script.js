@@ -57,9 +57,9 @@ function updateInfoBox(data, lat, lon) {
     const streetviewLink = document.getElementById("streetviewLink");
     const addressEl = document.getElementById("address");
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
-    
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
+    resultsList.innerHTML = ""; // Ryd resultaterne, så listen forsvinder
     document.getElementById("infoBox").style.display = "block";
 }
 
