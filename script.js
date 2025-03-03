@@ -3,9 +3,8 @@
  ***************************************************/
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs");
 function convertToWGS84(x, y) {
-    let result = proj4("EPSG:25832", "EPSG:4326", [x, y]); // Korrekt rækkefølge
-    console.log("convertToWGS84 input:", x, y, "=> output:", result);
-    return result;
+    return proj4("EPSG:25832", "EPSG:4326", [x, y]);
+    
 }
 
 /***************************************************
