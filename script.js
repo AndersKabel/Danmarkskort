@@ -60,6 +60,8 @@ function updateInfoBox(data, lat, lon) {
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
     resultsList.innerHTML = ""; // Ryd resultaterne, så listen forsvinder
+    vej1List.innerHTML = "";
+    vej2List.innerHTML = "";
     document.getElementById("infoBox").style.display = "block";
 }
 
