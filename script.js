@@ -1,11 +1,11 @@
 /***************************************************
  * EPSG:25832 => WGS84
  ***************************************************/
-proj4.defs("EPSG:25832", "+proj=utm +zone=32 +datum=ETRS89 +ellps=GRS80 +units=m +no_defs +towgs84=0,0,0");
+proj4.defs("EPSG:25832", "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs");
 function convertToWGS84(x, y) {
-    let result = proj4("EPSG:25832", "EPSG:4326", [x, y]); // Brug korrekt rækkefølge
+    let result = proj4("EPSG:25832", "EPSG:4326", [x, y]); // Konverterer fra EPSG:25832 til EPSG:4326
     console.log("convertToWGS84 input:", x, y, "=> output:", result);
-    return result;  // returnerer [lon, lat]
+    return result;
 }
 
 /***************************************************
