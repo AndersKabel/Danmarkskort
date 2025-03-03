@@ -86,41 +86,44 @@
     background: #eaeaea;
 }
 
+/* Infoboks justeret til at placere sig korrekt under søgefeltet */
+#infoContainer {
+    position: absolute;
+    top: 120px;
+    left: 10px;
+    width: 400px;
+    z-index: 1000;
+}
+
 #infoBox {
-  display: none;
-  position: absolute;
-  top: 120px;
-  left: 10px;
-  width: 300px;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 10px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 999;
+    display: none;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .info-upper-box {
-  margin-bottom: 8px;
+    margin-bottom: 8px;
 }
 
 .info-lower-box {
-  font-size: 14px;
-  color: #333;
+    font-size: 14px;
+    color: #333;
 }
 
-/* #address i stedet for #chosenAddress */
 #address {
-  margin: 0;
-  padding: 0;
+    margin: 0;
+    padding: 0;
 }
 
 #streetviewLink {
-  color: #007bff;
-  text-decoration: none;
+    color: #007bff;
+    text-decoration: none;
 }
 
 #streetviewLink:hover {
-  text-decoration: underline;
+    text-decoration: underline;
 }
 
 #kildeangivelse {
@@ -134,7 +137,6 @@
     opacity: 0.8;
 }
 
-/* Piletaster highlight */
 .highlight {
     background-color: #d0e6f7;
 }
