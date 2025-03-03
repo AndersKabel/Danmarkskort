@@ -56,12 +56,19 @@ map.on('click', function(e) {
 function updateInfoBox(data, lat, lon) {
     const streetviewLink = document.getElementById("streetviewLink");
     const addressEl = document.getElementById("address");
+    const resultsList = document.getElementById("results");
+    const vej1List = document.getElementById("results-vej1");
+    const vej2List = document.getElementById("results-vej2");
+
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
-    resultsList.innerHTML = ""; // Ryd resultaterne, så listen forsvinder
-    vej1List.innerHTML = "";
-    vej2List.innerHTML = "";
+
+    // Tjek om elementerne eksisterer, før du prøver at ændre dem
+    if (resultsList) resultsList.innerHTML = "";
+    if (vej1List) vej1List.innerHTML = "";
+    if (vej2List) vej2List.innerHTML = "";
+
     document.getElementById("infoBox").style.display = "block";
 }
 
