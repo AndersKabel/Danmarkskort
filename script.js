@@ -45,16 +45,23 @@ map.on('click', function(e) {
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(r => r.json())
         .then(data => {
-            const streetviewLink = document.getElementById("streetviewLink");
-            const addressEl      = document.getElementById("address");
-            const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
-
-            streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
-            addressEl.textContent = adresseStr;
-            document.getElementById("infoBox").style.display = "block";
+            updateInfoBox(data, lat, lon);
         })
         .catch(err => console.error("Reverse geocoding fejl:", err));
 });
+
+/***************************************************
+ * Opdatering af info boks
+ ***************************************************/
+function updateInfoBox(data, lat, lon) {
+    const streetviewLink = document.getElementById("streetviewLink");
+    const addressEl = document.getElementById("address");
+    const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
+    
+    streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
+    addressEl.textContent = adresseStr;
+    document.getElementById("infoBox").style.display = "block";
+}
 
 /***************************************************
  * Søgefelter, lister
