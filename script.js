@@ -220,6 +220,7 @@ function doSearch(query, listElement) {
                             // lat = coords[1], lon = coords[0]
                             let lat = coords[0];
                             let lon = coords[1];
+                            console.log("Endelige koordinater til placering:", lat, lon);
 
                             // => Kald placeMarkerAndZoom med [lat, lon] (y først, x sidst)
                             console.log("Kald til placeMarkerAndZoom med:", lat, lon, obj.tekst);
