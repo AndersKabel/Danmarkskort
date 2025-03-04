@@ -191,7 +191,11 @@ function doSearch(query, listElement) {
         console.log("stedData:", stedData);
         
         listElement.innerHTML = "";
-
+        
+// Ryd items-arrayet hver gang en ny søgning starter
+        items = [];
+        currentIndex = -1;
+        
         // Ryd piletaster hvis #search
         if (listElement === resultsList) {
             items = [];
