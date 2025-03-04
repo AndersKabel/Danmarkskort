@@ -170,7 +170,13 @@ vej2Input.addEventListener("input", function () {
     }
     doSearchRoad(txt, vej2List, vej2Input);
 });
+vej1Input.addEventListener("keydown", function (e) {
+    handleKeyNavigation(e, vej1List, vej1Input);
+});
 
+vej2Input.addEventListener("keydown", function (e) {
+    handleKeyNavigation(e, vej2List, vej2Input);
+});
 vej2Input.addEventListener("keydown", function (e) {
     handleKeyNavigation(e, vej2List, vej2Input);
 });
