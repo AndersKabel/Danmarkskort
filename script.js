@@ -96,6 +96,7 @@ searchInput.addEventListener("input", function() {
     if (txt.length < 2) {
         clearBtn.style.display = "none";
         resultsList.innerHTML = "";
+        document.getElementById("infoBox").style.display = "none"; // Infoboksen skjules, når brugeren begynder at slette 
         return;
     }
     clearBtn.style.display = "inline";
