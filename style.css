@@ -99,7 +99,7 @@
 #infoBox {
   display: none;
   position: absolute;
-  top: 50px; /* Justér denne værdi, hvis boksen stadig ikke er lavt nok */
+  top: 15px; /* Justér denne værdi, hvis boksen stadig ikke er lavt nok */
   left: 0px;
   width: 400px; /* Justér denne værdi til at matche søgefeltets bredde */
   box-sizing: border-box;
