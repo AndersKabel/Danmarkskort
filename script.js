@@ -149,6 +149,7 @@ clearBtn.addEventListener("click", function() {
 /***************************************************
  * vej1 => doSearch
  ***************************************************/
+
 vej1Input.addEventListener("input", function () {
     const txt = vej1Input.value.trim();
     if (txt.length < 2) {
@@ -170,13 +171,7 @@ vej2Input.addEventListener("input", function () {
     }
     doSearchRoad(txt, vej2List, vej2Input);
 });
-vej1Input.addEventListener("keydown", function (e) {
-    handleKeyNavigation(e, vej1List, vej1Input);
-});
 
-vej2Input.addEventListener("keydown", function (e) {
-    handleKeyNavigation(e, vej2List, vej2Input);
-});
 vej2Input.addEventListener("keydown", function (e) {
     handleKeyNavigation(e, vej2List, vej2Input);
 });
