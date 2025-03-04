@@ -149,25 +149,25 @@ clearBtn.addEventListener("click", function() {
 /***************************************************
  * vej1 => doSearch
  ***************************************************/
-vej1Input.addEventListener("input", function() {
+vej1Input.addEventListener("input", function () {
     const txt = vej1Input.value.trim();
     if (txt.length < 2) {
         vej1List.innerHTML = "";
         return;
     }
-    doSearchRoad(txt, vej1List);
+    doSearchRoad(txt, vej1List, vej1Input);
 });
 
 /***************************************************
  * vej2 => doSearch
  ***************************************************/
-vej2Input.addEventListener("input", function() {
+vej2Input.addEventListener("input", function () {
     const txt = vej2Input.value.trim();
     if (txt.length < 2) {
         vej2List.innerHTML = "";
         return;
     }
-    doSearchRoad(txt, vej2List);
+    doSearchRoad(txt, vej2List, vej2Input);
 });
 
 /***************************************************
