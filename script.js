@@ -179,15 +179,13 @@ vej2Input.addEventListener("keydown", function (e) {
  * doSearch => henter addresses + stednavne
  * "Plan B" for addresses: /adgangsadresser/autocomplete => /adgangsadresser/{id}
  ***************************************************/
+
 function doSearchRoad(query, listElement, inputField) {
     let roadUrl = `https://api.dataforsyningen.dk/vejnavne?navn=${encodeURIComponent(query)}&struktur=flad`;
-
-    console.log("Henter vejnavne fra:", roadUrl); // Debug
 
     fetch(roadUrl)
         .then(response => response.json())
         .then(data => {
-            console.log("Modtaget vejnavne:", data); // Debug
             listElement.innerHTML = "";
             items = [];  // Ryd tidligere resultater
             currentIndex = -1;
@@ -196,10 +194,13 @@ function doSearchRoad(query, listElement, inputField) {
                 let li = document.createElement("li");
                 li.textContent = `${road.navn}, ${road.kommune.navn}`; // Viser kun vejnavn + kommune
                 li.setAttribute("data-index", index);
+                li.classList.add("autocomplete-item");
 
                 li.addEventListener("click", function () {
                     inputField.value = road.navn; // Indsæt kun vejnavnet
                     listElement.innerHTML = ""; // Ryd listen
+                    items = [];
+                    currentIndex = -1;
                 });
 
                 listElement.appendChild(li);
@@ -324,4 +325,31 @@ function placeMarkerAndZoom([lat, lon], displayText) {
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     console.log("HTML-elementer:", document.getElementById("address"), document.getElementById("streetviewLink"), document.getElementById("infoBox"));
     document.getElementById("infoBox").style.display = "block";
+}
+function handleKeyNavigation(e, listElement, inputField) {
+    if (items.length === 0) return; // Ingen resultater
+
+    if (e.key === "ArrowDown") {
+        e.preventDefault();
+        currentIndex = (currentIndex + 1) % items.length;
+        highlightItem();
+    } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        currentIndex = (currentIndex + items.length - 1) % items.length;
+        highlightItem();
+    } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (currentIndex >= 0) {
+            inputField.value = items[currentIndex].textContent.split(",")[0]; // Indsætter kun vejnavn
+            listElement.innerHTML = ""; // Ryd søgeresultaterne
+            items = [];
+            currentIndex = -1;
+        }
+    }
+}
+function highlightItem() {
+    items.forEach(li => li.classList.remove("highlight"));
+    if (currentIndex >= 0 && currentIndex < items.length) {
+        items[currentIndex].classList.add("highlight");
+    }
 }
