@@ -236,6 +236,11 @@ function doSearch(query, listElement) {
                             console.log("Kald til placeMarkerAndZoom med:", lat, lon, obj.tekst);
 
                             placeMarkerAndZoom([lat, lon], obj.tekst);
+                            
+                           // 🔽 Tilføj denne del for at rydde søgeresultaterne 🔽
+                           resultsList.innerHTML = "";
+                           vej1List.innerHTML = "";
+                           vej2List.innerHTML = "";    
                         })
                         .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
                 }
