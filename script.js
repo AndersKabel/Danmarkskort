@@ -103,6 +103,12 @@ searchInput.addEventListener("input", function() {
     doSearch(txt, resultsList);
 });
 
+searchInput.addEventListener("keydown", function(e) {
+    if (e.key === "Backspace") {
+        document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen med det samme
+    }
+});
+
 // Piletaster i #search
 searchInput.addEventListener("keydown", function(e) {
     if (items.length === 0) return;
