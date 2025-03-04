@@ -174,25 +174,31 @@ vej2Input.addEventListener("input", function() {
  * doSearch => henter addresses + stednavne
  * "Plan B" for addresses: /adgangsadresser/autocomplete => /adgangsadresser/{id}
  ***************************************************/
-function doSearchRoad(query, listElement) {
+function doSearchRoad(query, listElement, inputField) {
     let roadUrl = `https://api.dataforsyningen.dk/vejnavne?navn=${encodeURIComponent(query)}&struktur=flad`;
+
+    console.log("Henter vejnavne fra:", roadUrl); // Debug
 
     fetch(roadUrl)
         .then(response => response.json())
         .then(data => {
+            console.log("Modtaget vejnavne:", data); // Debug
             listElement.innerHTML = "";
+            items = [];  // Ryd tidligere resultater
+            currentIndex = -1;
 
-            data.forEach(road => {
+            data.forEach((road, index) => {
                 let li = document.createElement("li");
-                li.textContent = `${road.navn}, ${road.kommune.navn}`; // Kun vejnavn + kommune
+                li.textContent = `${road.navn}, ${road.kommune.navn}`; // Viser kun vejnavn + kommune
+                li.setAttribute("data-index", index);
 
-                li.addEventListener("click", function() {
-                    let inputField = listElement.previousElementSibling;
-                    inputField.value = road.navn; // Indsæt kun vejnavnet i inputfeltet
-                    listElement.innerHTML = "";
+                li.addEventListener("click", function () {
+                    inputField.value = road.navn; // Indsæt kun vejnavnet
+                    listElement.innerHTML = ""; // Ryd listen
                 });
 
                 listElement.appendChild(li);
+                items.push(li); // Gem elementer til navigation
             });
         })
         .catch(error => console.error("Fejl ved hentning af vejnavne:", error));
