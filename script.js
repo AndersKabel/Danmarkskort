@@ -330,7 +330,7 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 
 function handleKeyNavigation(e, listElement, inputField) {
     let items = listElement.getElementsByTagName("li");
-
+    
     if (items.length === 0) return;
 
     if (e.key === "ArrowDown" || e.key === "Tab") {
@@ -339,7 +339,7 @@ function handleKeyNavigation(e, listElement, inputField) {
         highlightItem(items);
     } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        currentIndex = (currentIndex - 1 + items.length) % items.length;
+        currentIndex = (currentIndex + items.length - 1) % items.length;
         highlightItem(items);
     } else if (e.key === "Enter") {
         e.preventDefault();
@@ -350,12 +350,10 @@ function handleKeyNavigation(e, listElement, inputField) {
 }
 
 function highlightItem(items) {
-    // Fjern highlight fra alle elementer
     Array.from(items).forEach(li => li.classList.remove("highlight"));
-
-    // Hvis et gyldigt element er valgt, highlight det
     if (currentIndex >= 0 && currentIndex < items.length) {
         items[currentIndex].classList.add("highlight");
         items[currentIndex].scrollIntoView({ block: "nearest" });
     }
 }
+
