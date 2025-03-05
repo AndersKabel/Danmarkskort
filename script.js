@@ -208,6 +208,11 @@ vej2Input.addEventListener("input", function() {
     }
     doSearch(txt, vej2List);
 });
+vej2Input.addEventListener("keydown", function (e) {
+    if (e.key === "Backspace") {
+        document.getElementById("infoBox").style.display = "none"; // Skjuler infoboksen
+    }
+});
 
 /***************************************************
  * doSearch => henter addresses + stednavne
