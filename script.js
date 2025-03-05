@@ -191,6 +191,11 @@ vej1Input.addEventListener("input", function() {
     }
     doSearch(txt, vej1List);
 });
+vej1Input.addEventListener("keydown", function (e) {
+    if (e.key === "Backspace") {
+        document.getElementById("infoBox").style.display = "none"; // Skjuler infoboksen
+    }
+});
 
 /***************************************************
  * vej2 => doSearch
