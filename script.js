@@ -327,9 +327,10 @@ function placeMarkerAndZoom([lat, lon], displayText) {
     console.log("HTML-elementer:", document.getElementById("address"), document.getElementById("streetviewLink"), document.getElementById("infoBox"));
     document.getElementById("infoBox").style.display = "block";
 }
+
 function handleKeyNavigation(e, listElement, inputField) {
     let items = listElement.getElementsByTagName("li");
-    
+
     if (items.length === 0) return;
 
     if (e.key === "ArrowDown" || e.key === "Tab") {
@@ -338,7 +339,7 @@ function handleKeyNavigation(e, listElement, inputField) {
         highlightItem(items);
     } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        currentIndex = (currentIndex + items.length - 1) % items.length;
+        currentIndex = (currentIndex - 1 + items.length) % items.length;
         highlightItem(items);
     } else if (e.key === "Enter") {
         e.preventDefault();
