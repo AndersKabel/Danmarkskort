@@ -179,17 +179,6 @@ clearBtn.addEventListener("click", function() {
     clearBtn.style.display = "none";
     document.getElementById("infoBox").style.display = "none";
 });
-document.getElementById("clearVej1").addEventListener("click", function() {
-    vej1Input.value = "";
-    vej1List.innerHTML = "";
-    document.getElementById("infoBox").style.display = "none"; // Skjuler infoboksen
-});
-
-document.getElementById("clearVej2").addEventListener("click", function() {
-    vej2Input.value = "";
-    vej2List.innerHTML = "";
-    document.getElementById("infoBox").style.display = "none"; // Skjuler infoboksen
-});
 
 /***************************************************
  * vej1 => doSearch
