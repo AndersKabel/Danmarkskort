@@ -328,29 +328,30 @@ function placeMarkerAndZoom([lat, lon], displayText) {
     document.getElementById("infoBox").style.display = "block";
 }
 function handleKeyNavigation(e, listElement, inputField) {
-    if (items.length === 0) return; // Ingen resultater
+    let items = listElement.getElementsByTagName("li");
+    
+    if (items.length === 0) return;
 
-    if (e.key === "ArrowDown") {
-        e.preventDefault();
+    if (e.key === "ArrowDown" || e.key === "Tab") {
+        e.preventDefault(); // Stopper standard scrolling/tab behavior
         currentIndex = (currentIndex + 1) % items.length;
-        highlightItem();
+        highlightItem(items);
     } else if (e.key === "ArrowUp") {
         e.preventDefault();
         currentIndex = (currentIndex + items.length - 1) % items.length;
-        highlightItem();
+        highlightItem(items);
     } else if (e.key === "Enter") {
         e.preventDefault();
         if (currentIndex >= 0) {
-            inputField.value = items[currentIndex].textContent.split(",")[0]; // Indsætter kun vejnavn
-            listElement.innerHTML = ""; // Ryd søgeresultaterne
-            items = [];
-            currentIndex = -1;
+            items[currentIndex].click();
         }
     }
 }
-function highlightItem() {
-    items.forEach(li => li.classList.remove("highlight"));
+
+function highlightItem(items) {
+    Array.from(items).forEach(li => li.classList.remove("highlight"));
     if (currentIndex >= 0 && currentIndex < items.length) {
         items[currentIndex].classList.add("highlight");
+        items[currentIndex].scrollIntoView({ block: "nearest" });
     }
 }
