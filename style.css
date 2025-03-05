@@ -46,6 +46,25 @@
     border-radius: 4px;
 }
 
+.search-wrapper {
+    position: relative;
+}
+
+.search-wrapper .clear-button {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: #666;
+    cursor: pointer;
+    display: none;
+}
+
+.search-wrapper .clear-button:hover {
+    color: #333;
+}
+
 .clear-button {
     position: absolute;
     top: 50%;
