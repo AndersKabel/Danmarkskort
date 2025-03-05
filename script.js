@@ -5,7 +5,6 @@ proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m
 
 function convertToWGS84(x, y) {
     let result = proj4("EPSG:25832", "EPSG:4326", [y, x]); // Bytter x og y
-    console.log("convertToWGS84 input:", x, y, "=> output:", result);
     return [result[1], result[0]]; // Returnerer lat, lon i korrekt rækkefølge
 }
 
@@ -64,7 +63,6 @@ function updateInfoBox(data, lat, lon) {
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
 
-    // Tjek om elementerne eksisterer, før du prøver at ændre dem
     if (resultsList) resultsList.innerHTML = "";
     if (vej1List) vej1List.innerHTML = "";
     if (vej2List) vej2List.innerHTML = "";
@@ -96,7 +94,7 @@ searchInput.addEventListener("input", function() {
     if (txt.length < 2) {
         clearBtn.style.display = "none";
         resultsList.innerHTML = "";
-        document.getElementById("infoBox").style.display = "none"; // Infoboksen skjules, når brugeren begynder at slette 
+        document.getElementById("infoBox").style.display = "none";
         return;
     }
     clearBtn.style.display = "inline";
@@ -104,16 +102,9 @@ searchInput.addEventListener("input", function() {
 });
 
 searchInput.addEventListener("keydown", function(e) {
-    if (e.key === "Backspace") {
-        document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen med det samme
-    }
-});
-
-// Piletaster i #search
-searchInput.addEventListener("keydown", function(e) {
     if (items.length === 0) return;
 
-    if (e.key === "ArrowDown") {
+    if (e.key === "ArrowDown" || e.key === "Tab") {
         e.preventDefault();
         currentIndex = (currentIndex + 1) % items.length;
         highlightItem();
@@ -133,54 +124,42 @@ function highlightItem() {
     items.forEach(li => li.classList.remove("highlight"));
     if (currentIndex >= 0 && currentIndex < items.length) {
         items[currentIndex].classList.add("highlight");
+        items[currentIndex].scrollIntoView({ block: "nearest" });
     }
 }
 
 /***************************************************
- * Klik på kryds => ryd
- ***************************************************/
-clearBtn.addEventListener("click", function() {
-    searchInput.value = "";
-    resultsList.innerHTML = "";
-    clearBtn.style.display = "none";
-    document.getElementById("infoBox").style.display = "none";
-});
-
-/***************************************************
- * vej1 => doSearch
- ***************************************************/
-
-vej1Input.addEventListener("input", function () {
-    const txt = vej1Input.value.trim();
-    if (txt.length < 2) {
-        vej1List.innerHTML = "";
-        return;
-    }
-    doSearchRoad(txt, vej1List, vej1Input);
-});
-
-vej1Input.addEventListener("keydown", function (e) {
-    handleKeyNavigation(e, vej1List, vej1Input);
-});
-
-vej2Input.addEventListener("input", function () {
-    const txt = vej2Input.value.trim();
-    if (txt.length < 2) {
-        vej2List.innerHTML = "";
-        return;
-    }
-    doSearchRoad(txt, vej2List, vej2Input);
-});
-
-vej2Input.addEventListener("keydown", function (e) {
-    handleKeyNavigation(e, vej2List, vej2Input);
-});
-
-/***************************************************
  * doSearch => henter addresses + stednavne
- * "Plan B" for addresses: /adgangsadresser/autocomplete => /adgangsadresser/{id}
  ***************************************************/
+function doSearch(query, listElement) {
+    let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
 
+    fetch(addrUrl)
+        .then(response => response.json())
+        .then(data => {
+            listElement.innerHTML = "";
+            items = [];  
+            currentIndex = -1;
+
+            data.forEach(obj => {
+                let li = document.createElement("li");
+                li.textContent = obj.tekst;
+
+                li.addEventListener("click", function() {
+                    searchInput.value = obj.tekst;
+                    listElement.innerHTML = "";
+                });
+
+                listElement.appendChild(li);
+                items.push(li);
+            });
+        })
+        .catch(error => console.error("Fejl ved hentning af adresser:", error));
+}
+
+/***************************************************
+ * doSearchRoad => henter vejnavne
+ ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
     let roadUrl = `https://api.dataforsyningen.dk/vejnavne?navn=${encodeURIComponent(query)}&struktur=flad`;
 
@@ -188,133 +167,30 @@ function doSearchRoad(query, listElement, inputField) {
         .then(response => response.json())
         .then(data => {
             listElement.innerHTML = "";
-            items = [];  // Ryd tidligere resultater
+            items = [];
             currentIndex = -1;
 
             data.forEach((road, index) => {
                 let li = document.createElement("li");
-                li.textContent = `${road.navn}, ${road.kommune.navn}`; // Viser kun vejnavn + kommune
+                li.textContent = `${road.navn}, ${road.kommune.navn}`;
                 li.setAttribute("data-index", index);
-                li.classList.add("autocomplete-item");
 
                 li.addEventListener("click", function () {
-                    inputField.value = road.navn; // Indsæt kun vejnavnet
-                    listElement.innerHTML = ""; // Ryd listen
-                    items = [];
-                    currentIndex = -1;
+                    inputField.value = road.navn;
+                    listElement.innerHTML = "";
                 });
 
                 listElement.appendChild(li);
-                items.push(li); // Gem elementer til navigation
+                items.push(li);
             });
         })
         .catch(error => console.error("Fejl ved hentning af vejnavne:", error));
 }
 
-function doSearch(query, listElement) {
-    // Adgangsadresser
-    let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
-
-    // Stednavne (brugernavn/password i URL)
-    let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`;
-
-    Promise.all([
-        fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
-        fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; })
-    ])
-    .then(([addrData, stedData]) => {
-
-        console.log("addrData:", addrData);
-        console.log("stedData:", stedData);
-        
-        listElement.innerHTML = "";
-        
-// Ryd items-arrayet hver gang en ny søgning starter
-        items = [];
-        currentIndex = -1;
-        
-        // Ryd piletaster hvis #search
-        if (listElement === resultsList) {
-            items = [];
-            currentIndex = -1;
-        }
-
-        // Omdan addresses => { type: "adresse", tekst, adgangsadresse:{id} }
-        let addrResults = (addrData || []).map(item => {
-            return {
-                type: "adresse",
-                tekst: item.tekst,
-                adgangsadresse: item.adgangsadresse // { id: "..." }
-            };
-        });
-
-        // Omdan stednavne => { type: "stednavn", navn, bbox }
-        let stedResults = [];
-        if (stedData && stedData.features) {
-            stedData.features.forEach(feature => {
-                if (feature.properties && feature.properties.stednavneliste) {
-                    feature.properties.stednavneliste.forEach(sted => {
-                        stedResults.push({
-                            type: "stednavn",
-                            navn: sted.navn,
-                            bbox: feature.bbox || null
-                        });
-                    });
-                }
-            });
-        }
-
-        // Kombiner
-        let combined = [...addrResults, ...stedResults];
-
-        combined.forEach(obj => {
-            let li = document.createElement("li");
-            li.textContent = (obj.type === "adresse") ? obj.tekst : obj.navn;
-
-            li.addEventListener("click", function() {
-                if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-                    // => fetch /adgangsadresser/{id}
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
-                        .then(r => r.json())
-                        .then(addressData => {
-                            let [lon, lat] = addressData.adgangspunkt.koordinater; // Brug direkte WGS84
-                            console.log("Endelige koordinater til placering:", lat, lon);
-
-                            // => Kald placeMarkerAndZoom med [lat, lon] (y først, x sidst)
-                            console.log("Kald til placeMarkerAndZoom med:", lat, lon, obj.tekst);
-
-                            placeMarkerAndZoom([lat, lon], obj.tekst);
-                            
-                           // 🔽 Tilføj denne del for at rydde søgeresultaterne 🔽
-                           resultsList.innerHTML = "";
-                           vej1List.innerHTML = "";
-                           vej2List.innerHTML = "";    
-                        })
-                        .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
-                }
-                else if (obj.type === "stednavn" && obj.bbox) {
-                    // bbox => [x, y], men vi vil have [y, x]
-                    console.log("BBOX før konvertering:", obj.bbox);
-                    let [x, y] = [obj.bbox[0], obj.bbox[1]];
-                    placeMarkerAndZoom([y, x], obj.navn);
-                }
-            });
-
-            listElement.appendChild(li);
-            if (listElement === resultsList) {
-                items.push(li);
-            }
-        });
-    })
-    .catch(err => console.error("Fejl i doSearch:", err));
-}
-
 /***************************************************
  * placeMarkerAndZoom => Zoom + marker
- * param: [lat, lon] (y først, x sidst)
  ***************************************************/
 function placeMarkerAndZoom([lat, lon], displayText) {
-    console.log("placeMarkerAndZoom kaldt med:", lat, lon, displayText);
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
@@ -322,19 +198,20 @@ function placeMarkerAndZoom([lat, lon], displayText) {
     map.setView([lat, lon], 16);
 
     document.getElementById("address").textContent = displayText;
-    const streetviewLink = document.getElementById("streetviewLink");
-    streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
-    console.log("HTML-elementer:", document.getElementById("address"), document.getElementById("streetviewLink"), document.getElementById("infoBox"));
+    document.getElementById("streetviewLink").href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     document.getElementById("infoBox").style.display = "block";
 }
 
-function handleKeyNavigation(e, listElement, inputField) {
+/***************************************************
+ * handleKeyNavigation => Styrer piletaster i søgeresultater
+ ***************************************************/
+function handleKeyNavigation(e, listElement) {
     let items = listElement.getElementsByTagName("li");
-    
+
     if (items.length === 0) return;
 
     if (e.key === "ArrowDown" || e.key === "Tab") {
-        e.preventDefault(); // Stopper standard scrolling/tab behavior
+        e.preventDefault();
         currentIndex = (currentIndex + 1) % items.length;
         highlightItem(items);
     } else if (e.key === "ArrowUp") {
@@ -348,12 +225,3 @@ function handleKeyNavigation(e, listElement, inputField) {
         }
     }
 }
-
-function highlightItem(items) {
-    Array.from(items).forEach(li => li.classList.remove("highlight"));
-    if (currentIndex >= 0 && currentIndex < items.length) {
-        items[currentIndex].classList.add("highlight");
-        items[currentIndex].scrollIntoView({ block: "nearest" });
-    }
-}
-
