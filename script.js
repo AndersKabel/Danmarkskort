@@ -350,7 +350,10 @@ function handleKeyNavigation(e, listElement, inputField) {
 }
 
 function highlightItem(items) {
+    // Fjern highlight fra alle elementer
     Array.from(items).forEach(li => li.classList.remove("highlight"));
+
+    // Hvis et gyldigt element er valgt, highlight det
     if (currentIndex >= 0 && currentIndex < items.length) {
         items[currentIndex].classList.add("highlight");
         items[currentIndex].scrollIntoView({ block: "nearest" });
