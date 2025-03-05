@@ -84,6 +84,40 @@ var vej2Input    = document.getElementById("vej2");
 var vej1List     = document.getElementById("results-vej1");
 var vej2List     = document.getElementById("results-vej2");
 
+// Funktion til at oprette clear-knap og tilføje den til et inputfelt
+function addClearButton(inputElement, listElement) {
+    let clearBtn = document.createElement("span");
+    clearBtn.innerHTML = "&times;";
+    clearBtn.classList.add("clear-button");
+    inputElement.parentElement.appendChild(clearBtn);
+
+    // Vis/skjul clear-knappen baseret på input
+    inputElement.addEventListener("input", function () {
+        clearBtn.style.display = inputElement.value.length > 0 ? "inline" : "none";
+    });
+
+    // Klik på clear-knappen rydder feltet
+    clearBtn.addEventListener("click", function () {
+        inputElement.value = "";
+        listElement.innerHTML = "";
+        clearBtn.style.display = "none";
+    });
+
+    // Backspace i tomt felt rydder resultater
+    inputElement.addEventListener("keydown", function (e) {
+        if (e.key === "Backspace" && inputElement.value.length === 0) {
+            listElement.innerHTML = "";
+        }
+    });
+
+    // Skjul clear-knappen initialt
+    clearBtn.style.display = "none";
+}
+
+// Tilføj clear-knapper og funktioner til begge vejnavn-inputfelter
+addClearButton(vej1Input, vej1List);
+addClearButton(vej2Input, vej2List);
+
 // Piletaster i #search
 var items = [];
 var currentIndex = -1;
