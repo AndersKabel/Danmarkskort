@@ -211,7 +211,7 @@ vej1Input.addEventListener("input", function() {
         vej1List.innerHTML = "";
         return;
     }
-    doSearch(txt, vej1List);
+    doSearchRoad(txt, vej1List, vej1Input);
 });
 
 /***************************************************
@@ -223,7 +223,7 @@ vej2Input.addEventListener("input", function() {
         vej2List.innerHTML = "";
         return;
     }
-    doSearch(txt, vej2List);
+    doSearchRoad(txt, vej2List, vej2Input);
 });
 
 /***************************************************
