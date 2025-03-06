@@ -242,10 +242,8 @@ function doSearch(query, listElement) {
         fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; })
     ])
     .then(([addrData, stedData]) => {
-
         console.log("addrData:", addrData);
         console.log("stedData:", stedData);
-        
         listElement.innerHTML = "";
         
 // Ryd items-arrayet hver gang en ny søgning starter
@@ -298,10 +296,7 @@ function doSearch(query, listElement) {
                         .then(addressData => {
                             let [lon, lat] = addressData.adgangspunkt.koordinater; // Brug direkte WGS84
                             console.log("Endelige koordinater til placering:", lat, lon);
-
-                            // => Kald placeMarkerAndZoom med [lat, lon] (y først, x sidst)
-                            console.log("Kald til placeMarkerAndZoom med:", lat, lon, obj.tekst);
-
+                            console.log("Kald til placeMarkerAndZoom med:", lat, lon, obj.tekst); // => Kald placeMarkerAndZoom med [lat, lon] (y først, x sidst)
                             placeMarkerAndZoom([lat, lon], obj.tekst);
                             
                            // 🔽 Tilføj denne del for at rydde søgeresultaterne 🔽
@@ -326,6 +321,39 @@ function doSearch(query, listElement) {
         });
     })
     .catch(err => console.error("Fejl i doSearch:", err));
+}
+
+/***************************************************
+ * Tilføj `doSearchRoad` lige efter `doSearch`
+ ***************************************************/
+function doSearchRoad(query, listElement, inputField) {
+    let roadUrl = `https://api.dataforsyningen.dk/vejnavne?navn=${encodeURIComponent(query)}&struktur=flad`;
+
+    fetch(roadUrl)
+        .then(response => response.json())
+        .then(data => {
+            listElement.innerHTML = ""; // Ryd søgeresultater
+            items = [];  // Ryd tidligere resultater
+            currentIndex = -1;
+
+            data.forEach((road, index) => {
+                let li = document.createElement("li");
+                li.textContent = `${road.navn}, ${road.kommune.navn}`; // Kun vejnavn + kommune
+                li.setAttribute("data-index", index);
+                li.classList.add("autocomplete-item");
+
+                li.addEventListener("click", function () {
+                    inputField.value = road.navn; // Indsæt kun vejnavnet
+                    listElement.innerHTML = ""; // Ryd listen
+                    items = [];
+                    currentIndex = -1;
+                });
+
+                listElement.appendChild(li);
+                items.push(li); // Gem elementer til navigation
+            });
+        })
+        .catch(error => console.error("Fejl ved hentning af vejnavne:", error));
 }
 
 /***************************************************
