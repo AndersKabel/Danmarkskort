@@ -149,10 +149,8 @@ vej1Input.addEventListener("keydown", function(e) {
     }
 });
 
-vej2Input.addEventListener("keydown", function(e) {
-    if (e.key === "Backspace") {
-        document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen ved backspace i vej2
-    }
+vej2Input.addEventListener("keydown", function() {
+    document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen ved tastetryk i vej2
 });
 
 // Piletaster i #search
