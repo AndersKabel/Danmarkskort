@@ -192,6 +192,18 @@ clearBtn.addEventListener("click", function() {
     document.getElementById("infoBox").style.display = "none";
 });
 
+vej1Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
+    vej1Input.value = "";
+    vej1List.innerHTML = "";
+    document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen når vej1 ryddes
+});
+
+vej2Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
+    vej2Input.value = "";
+    vej2List.innerHTML = "";
+    document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen når vej2 ryddes
+});
+
 /***************************************************
  * vej1 => doSearch
  ***************************************************/
