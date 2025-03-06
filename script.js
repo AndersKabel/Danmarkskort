@@ -143,6 +143,18 @@ searchInput.addEventListener("keydown", function(e) {
     }
 });
 
+vej1Input.addEventListener("keydown", function(e) {
+    if (e.key === "Backspace") {
+        document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen ved backspace i vej1
+    }
+});
+
+vej2Input.addEventListener("keydown", function(e) {
+    if (e.key === "Backspace") {
+        document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen ved backspace i vej2
+    }
+});
+
 // Piletaster i #search
 searchInput.addEventListener("keydown", function(e) {
     if (items.length === 0) return;
