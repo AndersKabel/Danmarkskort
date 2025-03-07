@@ -327,7 +327,7 @@ function doSearch(query, listElement) {
  * Tilføj `doSearchRoad` lige efter `doSearch`
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
-    let roadUrl = `https://api.dataforsyningen.dk/vejnavne/autocomplete?vejnavn=${encodeURIComponent(query)}`;
+    let roadUrl = `https://api.dataforsyningen.dk/vejnavne/autocomplete?vejnavn=${encodeURIComponent(query)}&struktur=flad`;
 
     fetch(roadUrl)
         .then(response => response.json())
