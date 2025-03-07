@@ -335,7 +335,12 @@ function doSearchRoad(query, listElement, inputField) {
             listElement.innerHTML = ""; // Ryd tidligere resultater
             items = [];
             currentIndex = -1;
-
+            
+        // Sorter resultaterne alfabetisk
+        data.sort((a, b) => {
+            return a.vejnavn.navn.localeCompare(b.vejnavn.navn);
+        });
+            
             data.forEach(item => {
                 let li = document.createElement("li");
                 let vejnavn = item.vejnavn.navn || item.tekst; // Brug vejnavn eller tekst
