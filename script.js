@@ -327,33 +327,30 @@ function doSearch(query, listElement) {
  * Tilføj `doSearchRoad` lige efter `doSearch`
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
-    let roadUrl = `https://api.dataforsyningen.dk/vejnavne?navn=${encodeURIComponent(query)}&struktur=flad&kommunekode=*`;
+    let roadUrl = `https://api.dataforsyningen.dk/vejnavne/autocomplete?vejnavn=${encodeURIComponent(query)}`;
 
     fetch(roadUrl)
         .then(response => response.json())
         .then(data => {
-            listElement.innerHTML = ""; // Ryd søgeresultater
-            items = [];  // Ryd tidligere resultater
+            listElement.innerHTML = ""; // Ryd tidligere resultater
+            items = [];
             currentIndex = -1;
 
-            data.forEach((road, index) => {
+            data.forEach(item => {
                 let li = document.createElement("li");
-                li.textContent = `${road.navn}, ${road.kommune.navn}`; // Kun vejnavn + kommune
-                li.setAttribute("data-index", index);
-                li.classList.add("autocomplete-item");
-
-                li.addEventListener("click", function () {
-                    inputField.value = road.navn; // Indsæt kun vejnavnet
-                    listElement.innerHTML = ""; // Ryd listen
-                    items = [];
-                    currentIndex = -1;
+                let vejnavn = item.vejnavn.navn || item.tekst; // Brug vejnavn eller tekst
+                li.textContent = vejnavn;
+                
+                li.addEventListener("click", function() {
+                    inputField.value = vejnavn;
+                    listElement.innerHTML = ""; // Ryd listen efter valg
                 });
 
                 listElement.appendChild(li);
-                items.push(li); // Gem elementer til navigation
+                items.push(li);
             });
         })
-        .catch(error => console.error("Fejl ved hentning af vejnavne:", error));
+        .catch(err => console.error("Fejl i doSearchRoad:", err));
 }
 
 /***************************************************
