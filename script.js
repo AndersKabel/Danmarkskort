@@ -341,7 +341,7 @@ function doSearchRoad(query, listElement, inputField) {
 
             data.forEach(item => {
                 let vejnavn = item.tekst.split(",")[0]; // Hent kun vejnavnet
-                let kommune = item.adgangsadresse.kommune.navn || "Ukendt kommune";
+                let kommune = item.adgangsadresse?.kommune?.navn || "Ukendt kommune";
 
                 let li = document.createElement("li");
                 li.textContent = `${vejnavn}, ${kommune}`;
@@ -349,11 +349,15 @@ function doSearchRoad(query, listElement, inputField) {
                 li.addEventListener("click", function() {
                     inputField.value = vejnavn;
                     listElement.innerHTML = ""; // Ryd listen efter valg
+                    listElement.style.display = "none"; // Skjul listen efter valg
                 });
 
                 listElement.appendChild(li);
                 items.push(li);
             });
+
+            // Sørg for, at listen vises, når der er resultater
+            listElement.style.display = data.length > 0 ? "block" : "none";
         })
         .catch(err => console.error("Fejl i doSearchRoad:", err));
 }
