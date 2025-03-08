@@ -33,14 +33,34 @@
     width: 100%;
 }
 
-.search-wrapper .autocomplete-list {
+/* Sørg for, at autocomplete-listen placeres korrekt */
+.autocomplete-list {
     position: absolute;
     top: 100%;
     left: 0;
     width: 100%;
     background: white;
     border: 1px solid #ccc;
-    z-index: 1000;
+    z-index: 2000; /* Sørger for at den vises over andre elementer */
+    max-height: 200px;
+    overflow-y: auto;
+    display: none; /* Skjules som standard */
+}
+
+/* Sikrer at hvert resultat er synligt og ikke skjules */
+.autocomplete-list li {
+    padding: 8px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+    cursor: pointer;
+    white-space: nowrap; /* Sikrer at teksten ikke brydes */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Klipper lange tekster */
+}
+
+/* Gør, at hover-effekten er tydelig */
+.autocomplete-list li:hover {
+    background: #eaeaea;
 }
 
 .flex-row .search-wrapper {
