@@ -29,6 +29,20 @@
     margin-bottom: 10px;
 }
 
+.search-wrapper input {
+    width: 100%;
+}
+
+.search-wrapper .autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: white;
+    border: 1px solid #ccc;
+    z-index: 1000;
+}
+
 .flex-row .search-wrapper {
     width: 50%;
 }
