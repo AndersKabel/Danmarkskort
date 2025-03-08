@@ -324,10 +324,10 @@ function doSearch(query, listElement) {
 }
 
 /***************************************************
- * Tilføj `doSearchRoad` lige efter `doSearch`
+ * vej1 og vej2 => autocomplete (vejnavn + kommune)
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
-    let roadUrl = `https://api.dataforsyningen.dk/vejnavne/autocomplete?vejnavn=${encodeURIComponent(query)}&struktur=flad`;
+    let roadUrl = `https://api.dataforsyningen.dk/vejnavne/autocomplete?vejnavn=${encodeURIComponent(query)}`;
 
     fetch(roadUrl)
         .then(response => response.json())
@@ -335,16 +335,16 @@ function doSearchRoad(query, listElement, inputField) {
             listElement.innerHTML = ""; // Ryd tidligere resultater
             items = [];
             currentIndex = -1;
-            
-        // Sorter resultaterne alfabetisk
-        data.sort((a, b) => {
-            return a.vejnavn.navn.localeCompare(b.vejnavn.navn);
-        });
-            
+
+            // Sorter resultaterne alfabetisk
+            data.sort((a, b) => a.vejnavn.localeCompare(b.vejnavn));
+
             data.forEach(item => {
                 let li = document.createElement("li");
-                let vejnavn = item.vejnavn.navn || item.tekst; // Brug vejnavn eller tekst
-                li.textContent = vejnavn;
+                let vejnavn = item.vejnavn;
+                let kommune = item.kommuner && item.kommuner.length > 0 ? item.kommuner[0].navn : "Ukendt kommune";
+
+                li.textContent = `${vejnavn}, ${kommune}`;
                 
                 li.addEventListener("click", function() {
                     inputField.value = vejnavn;
