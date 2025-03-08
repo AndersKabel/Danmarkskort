@@ -100,11 +100,19 @@
 
 #results li,
 #results-vej1 li,
-#results-vej2 li {
+#results-vej2 li,
+.autocomplete-list li {
     padding: 8px;
     background: #f9f9f9;
     border-bottom: 1px solid #ddd;
     cursor: pointer;
+}
+
+#results li:hover,
+#results-vej1 li:hover,
+#results-vej2 li:hover,
+.autocomplete-list li:hover {
+    background: #eaeaea;
 }
 
 #results li:hover,
