@@ -209,6 +209,7 @@ vej1Input.addEventListener("input", function() {
     const txt = vej1Input.value.trim();
     if (txt.length < 2) {
         vej1List.innerHTML = "";
+        vej1List.style.display = "none";
         return;
     }
     doSearchRoad(txt, vej1List, vej1Input);
@@ -221,6 +222,7 @@ vej2Input.addEventListener("input", function() {
     const txt = vej2Input.value.trim();
     if (txt.length < 2) {
         vej2List.innerHTML = "";
+        vej2List.style.display = "none";
         return;
     }
     doSearchRoad(txt, vej2List, vej2Input);
