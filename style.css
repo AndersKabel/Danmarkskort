@@ -83,12 +83,19 @@
 
 #results,
 #results-vej1,
-#results-vej2 {
+#results-vej2,
+.autocomplete-list {
     list-style-type: none;
     padding: 0;
     margin: 0;
     max-height: 200px;
     overflow-y: auto;
+    position: absolute;
+    background: white;
+    border: 1px solid #ccc;
+    width: 100%;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 #results li,
