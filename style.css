@@ -27,6 +27,7 @@
 .search-wrapper {
     position: relative;
     margin-bottom: 10px;
+    width: 100%; /* Sørger for, at inputfelt + liste bliver bredere */
 }
 
 .search-wrapper input {
