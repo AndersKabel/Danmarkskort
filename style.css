@@ -168,7 +168,7 @@
   display: none;
   position: absolute;
   top: 15px; /* Justér denne værdi, hvis boksen stadig ikke er lavt nok */
-  left: 0px;
+  left: -10px;
   width: 100%;  /* Ændret fra 400px til 100% */
   max-width: 400px; /* Sikrer, at den ikke bliver for bred */
   box-sizing: border-box;
