@@ -63,9 +63,10 @@ function updateInfoBox(data, lat, lon) {
     const vej2List = document.getElementById("results-vej2");
 
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
-    const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
+    const ekstraInfoStr = `Kommunekode: ${data.adgangsadresse?.kommunekode || "?"} | Vejkode: ${data.adgangsadresse?.vejkode || "?"}`;
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
+    if (extraInfoEl) {
     extraInfoEl.textContent = ekstraInfoStr;
     // Opdater Skråfoto-linket
     let eastNorth = convertToUTM32(lat, lon);
