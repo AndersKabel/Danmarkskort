@@ -120,15 +120,12 @@
 }
 
 /* Sørg for, at autocomplete-listen placeres korrekt og er bred nok */
-#results,
 #results-vej1,
 #results-vej2 {
     position: absolute;
     top: 100%;
     left: 0;
-    width: 100%;
-    min-width: 210px; /* Sikrer minimum bredde */
-    max-width: 400px; /* Sikrer, at den ikke bliver for bred */
+    width: 210px
     background: white;
     border: 1px solid #ccc;
     z-index: 2000;
