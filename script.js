@@ -72,7 +72,8 @@ function updateInfoBox(data, lat, lon) {
     let eastNorth = convertToUTM32(lat, lon);
     skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?orientation=east&center=${eastNorth[0]}%2C${eastNorth[1]}&year=2023`;
     skråfotoLink.style.display = "block"; // Vis linket
-
+}
+    
     // Tjek om elementerne eksisterer, før du prøver at ændre dem
     if (resultsList) resultsList.innerHTML = "";
     if (vej1List) vej1List.innerHTML = "";
