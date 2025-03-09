@@ -169,7 +169,8 @@
   position: absolute;
   top: 15px; /* Justér denne værdi, hvis boksen stadig ikke er lavt nok */
   left: 0px;
-  width: 400px; /* Justér denne værdi til at matche søgefeltets bredde */
+  width: 100%;  /* Ændret fra 400px til 100% */
+  max-width: 400px; /* Sikrer, at den ikke bliver for bred */
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
