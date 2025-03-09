@@ -56,14 +56,17 @@ map.on('click', function(e) {
 function updateInfoBox(data, lat, lon) {
     const streetviewLink = document.getElementById("streetviewLink");
     const addressEl = document.getElementById("address");
+    const extraInfoEl = document.getElementById("extra-info");
     const skråfotoLink = document.getElementById("skraafotoLink"); // Hent link-elementet
     const resultsList = document.getElementById("results");
     const vej1List = document.getElementById("results-vej1");
     const vej2List = document.getElementById("results-vej2");
 
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
+    const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
+    extraInfoEl.textContent = ekstraInfoStr;
     // Opdater Skråfoto-linket
     let eastNorth = convertToUTM32(lat, lon);
     skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?orientation=east&center=${eastNorth[0]}%2C${eastNorth[1]}&year=2023`;
