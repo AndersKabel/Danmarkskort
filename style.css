@@ -126,15 +126,16 @@
     position: absolute;
     top: 100%;
     left: 0;
-    width: calc(100% + 10px); /* Sikrer at listen matcher forælderen */
-    min-width: 100%; /* Sikrer at den ikke bliver for smal */
+    width: 100%;
+    min-width: 210px; /* Sikrer minimum bredde */
+    max-width: 400px; /* Sikrer, at den ikke bliver for bred */
     background: white;
     border: 1px solid #ccc;
     z-index: 2000;
     max-height: 200px;
     overflow-y: auto;
     display: none;
-    box-sizing: border-box; /* Sørger for korrekt bredde inkl. padding/border */
+    box-sizing: border-box;
 }
 
 /* Sikrer at hvert resultat er synligt og ikke skjules */
