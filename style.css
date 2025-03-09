@@ -124,13 +124,15 @@
     position: absolute;
     top: 100%;
     left: 0;
-    width: 100%; /* Sikrer at listen har samme bredde som inputfeltet */
+    width: calc(100% + 10px); /* Sikrer at listen matcher forælderen */
+    min-width: 100%; /* Sikrer at den ikke bliver for smal */
     background: white;
     border: 1px solid #ccc;
-    z-index: 2000; /* Sørger for at den vises over andre elementer */
+    z-index: 2000;
     max-height: 200px;
     overflow-y: auto;
-    display: block; /* Sikrer at listen vises */
+    display: none;
+    box-sizing: border-box; /* Sørger for korrekt bredde inkl. padding/border */
 }
 
 /* Sikrer at hvert resultat er synligt og ikke skjules */
