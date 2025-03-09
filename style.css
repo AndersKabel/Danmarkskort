@@ -193,6 +193,12 @@
     padding: 0;
 }
 
+#extra-info {
+    font-size: 14px;
+    color: #555;
+    margin-top: 5px;
+}
+
 #streetviewLink {
     color: #007bff;
     text-decoration: none;
