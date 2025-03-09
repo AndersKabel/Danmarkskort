@@ -66,8 +66,9 @@
 }
 
 .flex-row .search-wrapper {
-    flex-grow: 1; /* Sørger for, at begge inputfelter fylder pladsen */
-    position: relative; /* Sørger for, at autocomplete listen bliver placeret korrekt */
+    flex-grow: 1; /* Gør, at de to inputfelter fylder lige meget */
+    position: relative;
+    width: 100%; /* Sikrer fuld bredde til autocomplete */
 }
 
 #search,
