@@ -125,7 +125,7 @@
     position: absolute;
     top: 100%;
     left: 0;
-    width: 210px
+    width: 210px;
     background: white;
     border: 1px solid #ccc;
     z-index: 2000;
