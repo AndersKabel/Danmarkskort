@@ -347,7 +347,7 @@ function doSearchRoad(query, listElement, inputField) {
             data.sort((a, b) => a.tekst.localeCompare(b.tekst));
 
             data.forEach(item => {
-                let vejnavn = item.tekst.split(",")[0]; // Hent kun vejnavnet
+                let vejnavn = item.adgangsadresse?.vejnavn || "Ukendt vej";
                 let kommune = item.adgangsadresse?.postnrnavn || "Ukendt kommune";
 
                 let li = document.createElement("li");
