@@ -349,9 +349,10 @@ function doSearchRoad(query, listElement, inputField) {
             data.forEach(item => {
                 let vejnavn = item.adgangsadresse?.vejnavn || "Ukendt vej";
                 let kommune = item.adgangsadresse?.postnrnavn || "Ukendt kommune";
+                let postnr = item.adgangsadresse?.postnr || "?"; // Henter postnummeret
 
                 let li = document.createElement("li");
-                li.textContent = `${vejnavn}, ${kommune}`;
+                li.textContent = `${vejnavn}, ${kommune} (${postnr})`;
 
                 li.addEventListener("click", function() {
                     inputField.value = vejnavn;
