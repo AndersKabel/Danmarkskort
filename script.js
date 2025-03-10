@@ -431,9 +431,14 @@ function checkForStatsvej(lat, lon) {
                 } else {
                     hideStatsvejInfo();
                 }
+            } else {
+                hideStatsvejInfo();
             }
         })
-        .catch(err => console.error("Fejl ved hentning af vejdata:", err));
+        .catch(err => {
+            console.error("Fejl ved hentning af vejdata:", err);
+            hideStatsvejInfo();
+        });
 }
 
 function showStatsvejInfo(roadData) {
