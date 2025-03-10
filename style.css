@@ -179,6 +179,32 @@
   z-index: 1000;
 }
 
+#statsvejInfo {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: white;
+    padding: 12px;
+    border: 2px solid black;
+    border-radius: 5px;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+    display: none;
+    z-index: 1000;
+    font-family: Arial, sans-serif;
+    max-width: 250px;
+}
+
+#statsvejInfo h3 {
+    margin-top: 0;
+    font-size: 16px;
+    text-align: center;
+    color: #d9534f;
+}
+
+.hidden {
+    display: none;
+}
+
 .info-upper-box {
     margin-bottom: 8px;
 }
