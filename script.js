@@ -36,10 +36,7 @@ var currentMarker;
 map.on('click', function(e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
-    
-// Tjek om der er en statsvej på den valgte position
-    checkForStatsvej(lat, lon);
-    
+
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
@@ -401,7 +398,6 @@ function doSearchRoad(query, listElement, inputField) {
  * param: [lat, lon] (y først, x sidst)
  ***************************************************/
 function placeMarkerAndZoom([lat, lon], displayText) {
-    checkForStatsvej(lat, lon); // Tjek om der er en statsvej ved den søgte adresse
     console.log("placeMarkerAndZoom kaldt med:", lat, lon, displayText);
     if (currentMarker) {
         map.removeLayer(currentMarker);
@@ -414,75 +410,4 @@ function placeMarkerAndZoom([lat, lon], displayText) {
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     console.log("HTML-elementer:", document.getElementById("address"), document.getElementById("streetviewLink"), document.getElementById("infoBox"));
     document.getElementById("infoBox").style.display = "block";
-}
-
-function checkForStatsvej(lat, lon) {
-    // Beregn korrekt BBOX-værdi
-    let buffer = 10; // Justér evt. bufferstørrelse
-    let bbox = `${lon - buffer},${lat - buffer},${lon + buffer},${lat + buffer}`;
-
-    let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application%2Fjson&TRANSPARENT=true&LAYERS=veje&QUERY_LAYERS=veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${bbox}&x=50&y=50`;
-
-    console.log("Statsvej API URL:", url); // Debugging
-
-    fetch(url)
-    .then(response => response.text())  
-    .then(text => {
-        try {
-            let data = JSON.parse(text); 
-            if (data.features && data.features.length > 0) {
-                let roadData = data.features[0].properties;
-                if (roadData.BESTYRER === "Vejdirektoratet" || roadData.VEJTYPE === "Motortrafikvej") {
-                    showStatsvejInfo(roadData);
-                } else {
-                    hideStatsvejInfo();
-                }
-            } else {
-                console.warn("Ingen vejdata fundet for denne position.");
-                hideStatsvejInfo();
-            }
-        } catch (error) {
-            console.error("Fejl ved parsing af vejdata:", error, "Modtaget tekst:", text);
-            hideStatsvejInfo();
-        }
-    })
-    .catch(err => {
-        console.error("Fejl ved hentning af vejdata:", err);
-        hideStatsvejInfo();
-    });
-}
-
-function showStatsvejInfo(roadData) {
-    let statsvejBox = document.getElementById("statsvejInfo");
-    if (!statsvejBox) {
-        statsvejBox = document.createElement("div");
-        statsvejBox.id = "statsvejInfo";
-        statsvejBox.style.position = "absolute";
-        statsvejBox.style.top = "10px";
-        statsvejBox.style.right = "10px";
-        statsvejBox.style.background = "#fff";
-        statsvejBox.style.padding = "10px";
-        statsvejBox.style.border = "1px solid black";
-        statsvejBox.style.zIndex = "1000";
-        document.body.appendChild(statsvejBox);
-    }
-
-    statsvejBox.innerHTML = `
-        <strong>Statsvej Info</strong><br>
-        <strong>Vejnr:</strong> ${roadData.ADM_NR} <br>
-        <strong>Betegnelse:</strong> ${roadData.BETEGNELSE || "Ukendt"} <br>
-        <strong>Bestyrer:</strong> ${roadData.BESTYRER} <br>
-        <strong>Beskrivelse:</strong> ${roadData.BESKRIVELSE || "Ingen beskrivelse"} <br>
-        <strong>Kommune:</strong> ${roadData.KOMMUNE} <br>
-        <strong>Vejtype:</strong> ${roadData.VEJTYPE} <br>
-    `;
-
-    statsvejBox.style.display = "block";
-}
-
-function hideStatsvejInfo() {
-    let statsvejBox = document.getElementById("statsvejInfo");
-    if (statsvejBox) {
-        statsvejBox.style.display = "none";
-    }
 }
