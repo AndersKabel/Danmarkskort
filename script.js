@@ -310,7 +310,7 @@ function doSearch(query, listElement) {
                             console.log("Endelige koordinater til placering:", lat, lon);
                             console.log("Kald til placeMarkerAndZoom med:", lat, lon, obj.tekst); // => Kald placeMarkerAndZoom med [lat, lon] (y først, x sidst)
                             placeMarkerAndZoom([lat, lon], obj.tekst);
-                            updateInfoBox(addressData, lat, lon);
+                            updateInfoBox(addressData, lat, lon); // Infobox opdateres også ved adressesøgningen
                             
                            // 🔽 Tilføj denne del for at rydde søgeresultaterne 🔽
                            resultsList.innerHTML = "";
