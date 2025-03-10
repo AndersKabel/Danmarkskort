@@ -42,10 +42,18 @@ map.on('click', function(e) {
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
 
+    // Hent adgangsadresse fra Dataforsyningen
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(r => r.json())
         .then(data => {
-            updateInfoBox(data, lat, lon);
+            // Hent vejtype (statsvej eller ej)
+            fetch(`https://api.dataforsyningen.dk/vejnet?lat=${lat}&lon=${lon}`)
+                .then(r => r.json())
+                .then(roadData => {
+                    const isStatsvej = roadData.vejtype === "Statsvej" ? "Ja" : "Nej";
+                    updateInfoBox(data, lat, lon, isStatsvej);
+                })
+                .catch(err => console.error("Vejnet fejl:", err));
         })
         .catch(err => console.error("Reverse geocoding fejl:", err));
 });
