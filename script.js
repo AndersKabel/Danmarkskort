@@ -417,18 +417,21 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 }
 
 function checkForStatsvej(lat, lon) {
+    // Beregn korrekt BBOX-værdi
+    let buffer = 10; // Justér evt. bufferstørrelse
+    let bbox = `${lon - buffer},${lat - buffer},${lon + buffer},${lat + buffer}`;
+
     let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application%2Fjson&TRANSPARENT=true&LAYERS=veje&QUERY_LAYERS=veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${bbox}&x=50&y=50`;
-    console.log("Statsvej API URL:", url);
+
+    console.log("Statsvej API URL:", url); // Debugging
 
     fetch(url)
-    .then(response => response.text())  // Først hent data som tekst
+    .then(response => response.text())  
     .then(text => {
         try {
-            let data = JSON.parse(text); // Prøv at parse det som JSON
+            let data = JSON.parse(text); 
             if (data.features && data.features.length > 0) {
                 let roadData = data.features[0].properties;
-
-                // Tjek om vejen er en statsvej
                 if (roadData.BESTYRER === "Vejdirektoratet" || roadData.VEJTYPE === "Motortrafikvej") {
                     showStatsvejInfo(roadData);
                 } else {
@@ -448,7 +451,7 @@ function checkForStatsvej(lat, lon) {
         hideStatsvejInfo();
     });
 }
-    
+
 function showStatsvejInfo(roadData) {
     let statsvejBox = document.getElementById("statsvejInfo");
     if (!statsvejBox) {
