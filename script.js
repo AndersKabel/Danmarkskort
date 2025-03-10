@@ -36,7 +36,10 @@ var currentMarker;
 map.on('click', function(e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
-
+    
+// Tjek om der er en statsvej på den valgte position
+    checkForStatsvej(lat, lon);
+    
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
