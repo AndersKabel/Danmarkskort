@@ -415,3 +415,58 @@ function placeMarkerAndZoom([lat, lon], displayText) {
     console.log("HTML-elementer:", document.getElementById("address"), document.getElementById("streetviewLink"), document.getElementById("infoBox"));
     document.getElementById("infoBox").style.display = "block";
 }
+
+function checkForStatsvej(lat, lon) {
+    let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application%2Fjson&TRANSPARENT=true&query_layers=CVF%3Aveje&x=50&y=50&SRS=EPSG%3A25832&STYLES=&WIDTH=101&HEIGHT=101&BBOX=${lon-10},${lat-10},${lon+10},${lat+10}`;
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.features && data.features.length > 0) {
+                let roadData = data.features[0].properties;
+
+                // Tjek om vejen er en statsvej
+                if (roadData.BESTYRER === "Vejdirektoratet" || roadData.VEJTYPE === "Motortrafikvej") {
+                    showStatsvejInfo(roadData);
+                } else {
+                    hideStatsvejInfo();
+                }
+            }
+        })
+        .catch(err => console.error("Fejl ved hentning af vejdata:", err));
+}
+
+function showStatsvejInfo(roadData) {
+    let statsvejBox = document.getElementById("statsvejInfo");
+    if (!statsvejBox) {
+        statsvejBox = document.createElement("div");
+        statsvejBox.id = "statsvejInfo";
+        statsvejBox.style.position = "absolute";
+        statsvejBox.style.top = "10px";
+        statsvejBox.style.right = "10px";
+        statsvejBox.style.background = "#fff";
+        statsvejBox.style.padding = "10px";
+        statsvejBox.style.border = "1px solid black";
+        statsvejBox.style.zIndex = "1000";
+        document.body.appendChild(statsvejBox);
+    }
+
+    statsvejBox.innerHTML = `
+        <strong>Statsvej Info</strong><br>
+        <strong>Vejnr:</strong> ${roadData.ADM_NR} <br>
+        <strong>Betegnelse:</strong> ${roadData.BETEGNELSE || "Ukendt"} <br>
+        <strong>Bestyrer:</strong> ${roadData.BESTYRER} <br>
+        <strong>Beskrivelse:</strong> ${roadData.BESKRIVELSE || "Ingen beskrivelse"} <br>
+        <strong>Kommune:</strong> ${roadData.KOMMUNE} <br>
+        <strong>Vejtype:</strong> ${roadData.VEJTYPE} <br>
+    `;
+
+    statsvejBox.style.display = "block";
+}
+
+function hideStatsvejInfo() {
+    let statsvejBox = document.getElementById("statsvejInfo");
+    if (statsvejBox) {
+        statsvejBox.style.display = "none";
+    }
+}
