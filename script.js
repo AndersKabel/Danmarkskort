@@ -355,6 +355,7 @@ function doSearch(query, listElement) {
     vej2List.innerHTML = "";
 });
 
+    }
                         .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
                 else if (obj.type === "stednavn" && obj.bbox) {
                     // bbox => [x, y], men vi vil have [y, x]
