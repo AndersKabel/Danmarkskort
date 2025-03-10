@@ -61,25 +61,31 @@ map.on('click', function(e) {
 /***************************************************
  * Opdatering af info boks
  ***************************************************/
-function updateInfoBox(data, lat, lon) {
+function updateInfoBox(data, lat, lon, isStatsvej) {
     const streetviewLink = document.getElementById("streetviewLink");
     const addressEl = document.getElementById("address");
     const extraInfoEl = document.getElementById("extra-info");
-    const skråfotoLink = document.getElementById("skraafotoLink"); // Hent link-elementet
-    const resultsList = document.getElementById("results");
-    const vej1List = document.getElementById("results-vej1");
-    const vej2List = document.getElementById("results-vej2");
+    const skråfotoLink = document.getElementById("skraafotoLink");
 
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
     const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
+
+    // Ny information: Er det en statsvej?
+    const statsvejInfo = `Er det en statsvej? ${isStatsvej}`;
+
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
     if (extraInfoEl) {
-    extraInfoEl.textContent = ekstraInfoStr;
-    // Opdater Skråfoto-linket
-    let eastNorth = convertToWGS84(lat, lon);
-    skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
-    skråfotoLink.style.display = "block"; // Vis linket
+        extraInfoEl.innerHTML = `${ekstraInfoStr} <br>${statsvejInfo}`;
+    }
+
+    if (skråfotoLink) {
+        let eastNorth = convertToWGS84(lat, lon);
+        skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
+        skråfotoLink.style.display = "block";
+    }
+
+    document.getElementById("infoBox").style.display = "block";
 }
     
     // Tjek om elementerne eksisterer, før du prøver at ændre dem
