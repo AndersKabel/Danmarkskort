@@ -92,7 +92,6 @@ function updateInfoBox(data, lat, lon, isStatsvej) {
     if (vej2List) vej2List.innerHTML = "";
 
     document.getElementById("infoBox").style.display = "block";
-}
 
 /***************************************************
  * Søgefelter, lister
