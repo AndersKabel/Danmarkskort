@@ -70,7 +70,7 @@ function updateInfoBox(data, lat, lon) {
     extraInfoEl.textContent = ekstraInfoStr;
     // Opdater Skråfoto-linket
     let eastNorth = convertToWGS84(lat, lon);
-    skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?orientation=east&center=${eastNorth[0]}%2C${eastNorth[1]}&year=2023`;
+    skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
     skråfotoLink.style.display = "block"; // Vis linket
 }
     
