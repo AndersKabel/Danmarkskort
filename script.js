@@ -332,22 +332,32 @@ function doSearch(query, listElement) {
             li.textContent = (obj.type === "adresse") ? obj.tekst : obj.navn;
 
             li.addEventListener("click", function() {
-                if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-                    // => fetch /adgangsadresser/{id}
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
-                        .then(r => r.json())
-                        .then(addressData => {
-                            let [lon, lat] = addressData.adgangspunkt.koordinater; // Brug direkte WGS84
-                            console.log("Endelige koordinater til placering:", lat, lon);
-                            console.log("Kald til placeMarkerAndZoom med:", lat, lon, obj.tekst); // => Kald placeMarkerAndZoom med [lat, lon] (y først, x sidst)
-                            placeMarkerAndZoom([lat, lon], obj.tekst);
-                            // updateInfoBox(addressData, lat, lon); //
-                            
-                           // 🔽 Tilføj denne del for at rydde søgeresultaterne 🔽
-                           resultsList.innerHTML = "";
-                           vej1List.innerHTML = "";
-                           vej2List.innerHTML = "";    
-                        })
+    if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
+        // => fetch /adgangsadresser/{id}
+        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+            .then(r => r.json())
+            .then(addressData => {
+                let [lon, lat] = addressData.adgangspunkt.koordinater; // Brug direkte WGS84
+                console.log("Endelige koordinater til placering:", lat, lon);
+                
+                // Hent vejtype (statsvej eller ej)
+                fetch(`https://api.dataforsyningen.dk/vejnet?lat=${lat}&lon=${lon}`)
+                    .then(r => r.json())
+                    .then(roadData => {
+                        const isStatsvej = roadData.vejtype === "Statsvej" ? "Ja" : "Nej";
+                        placeMarkerAndZoom([lat, lon], obj.tekst, isStatsvej); // Send vejtype som parameter
+                    })
+                    .catch(err => console.error("Vejnet fejl:", err));
+            })
+            .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+    }
+
+    // Ryd søgeresultaterne
+    resultsList.innerHTML = "";
+    vej1List.innerHTML = "";
+    vej2List.innerHTML = "";
+});
+
                         .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
                 }
                 else if (obj.type === "stednavn" && obj.bbox) {
