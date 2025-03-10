@@ -446,7 +446,8 @@ function checkForStatsvej(lat, lon) {
         console.error("Fejl ved hentning af vejdata:", err);
         hideStatsvejInfo();
     });
-
+}
+    
 function showStatsvejInfo(roadData) {
     let statsvejBox = document.getElementById("statsvejInfo");
     if (!statsvejBox) {
