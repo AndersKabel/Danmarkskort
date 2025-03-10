@@ -421,8 +421,8 @@ function doSearchRoad(query, listElement, inputField) {
  * placeMarkerAndZoom => Zoom + marker
  * param: [lat, lon] (y først, x sidst)
  ***************************************************/
-function placeMarkerAndZoom([lat, lon], displayText) {
-    console.log("placeMarkerAndZoom kaldt med:", lat, lon, displayText);
+function placeMarkerAndZoom([lat, lon], displayText, isStatsvej) {
+    console.log("placeMarkerAndZoom kaldt med:", lat, lon, displayText, isStatsvej);
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
@@ -432,6 +432,10 @@ function placeMarkerAndZoom([lat, lon], displayText) {
     document.getElementById("address").textContent = displayText;
     const streetviewLink = document.getElementById("streetviewLink");
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
-    console.log("HTML-elementer:", document.getElementById("address"), document.getElementById("streetviewLink"), document.getElementById("infoBox"));
+
+    // Vis vejtypen (statsvej eller ej)
+    const statsvejInfo = `Er det en statsvej? ${isStatsvej}`;
+    document.getElementById("extra-info").innerHTML = statsvejInfo;
+
     document.getElementById("infoBox").style.display = "block";
 }
