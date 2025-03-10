@@ -357,6 +357,7 @@ function doSearch(query, listElement) {
 
     }
                         .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+    }
                 else if (obj.type === "stednavn" && obj.bbox) {
                     // bbox => [x, y], men vi vil have [y, x]
                     console.log("BBOX før konvertering:", obj.bbox);
