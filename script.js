@@ -417,7 +417,7 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 }
 
 function checkForStatsvej(lat, lon) {
-    let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application%2Fjson&TRANSPARENT=true&query_layers=CVF%3Aveje&x=50&y=50&SRS=EPSG%3A25832&STYLES=&WIDTH=101&HEIGHT=101&BBOX=${lon-10},${lat-10},${lon+10},${lat+10}`;
+    let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application%2Fjson&TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${lon-10},${lat-10},${lon+10},${lat+10}&x=50&y=50`;
 
     fetch(url)
         .then(response => response.json())
