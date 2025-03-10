@@ -401,6 +401,7 @@ function doSearchRoad(query, listElement, inputField) {
  * param: [lat, lon] (y først, x sidst)
  ***************************************************/
 function placeMarkerAndZoom([lat, lon], displayText) {
+    checkForStatsvej(lat, lon); // Tjek om der er en statsvej ved den søgte adresse
     console.log("placeMarkerAndZoom kaldt med:", lat, lon, displayText);
     if (currentMarker) {
         map.removeLayer(currentMarker);
