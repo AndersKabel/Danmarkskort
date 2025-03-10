@@ -420,8 +420,10 @@ function checkForStatsvej(lat, lon) {
     let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application%2Fjson&TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${lon-10},${lat-10},${lon+10},${lat+10}&x=50&y=50`;
 
     fetch(url)
-        .then(response => response.json())
-        .then(data => {
+    .then(response => response.text())  // Først hent data som tekst
+    .then(text => {
+        try {
+            let data = JSON.parse(text); // Prøv at parse det som JSON
             if (data.features && data.features.length > 0) {
                 let roadData = data.features[0].properties;
 
@@ -432,14 +434,18 @@ function checkForStatsvej(lat, lon) {
                     hideStatsvejInfo();
                 }
             } else {
+                console.warn("Ingen vejdata fundet for denne position.");
                 hideStatsvejInfo();
             }
-        })
-        .catch(err => {
-            console.error("Fejl ved hentning af vejdata:", err);
+        } catch (error) {
+            console.error("Fejl ved parsing af vejdata:", error, "Modtaget tekst:", text);
             hideStatsvejInfo();
-        });
-}
+        }
+    })
+    .catch(err => {
+        console.error("Fejl ved hentning af vejdata:", err);
+        hideStatsvejInfo();
+    });
 
 function showStatsvejInfo(roadData) {
     let statsvejBox = document.getElementById("statsvejInfo");
