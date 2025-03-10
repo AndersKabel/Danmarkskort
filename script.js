@@ -418,6 +418,7 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 
 function checkForStatsvej(lat, lon) {
     let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application%2Fjson&TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${lon-10},${lat-10},${lon+10},${lat+10}&x=50&y=50`;
+    console.log("Statsvej API URL:", url);
 
     fetch(url)
     .then(response => response.text())  // Først hent data som tekst
