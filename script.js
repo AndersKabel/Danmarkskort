@@ -200,6 +200,23 @@ clearBtn.addEventListener("click", function() {
     document.getElementById("infoBox").style.display = "none";
 });
 
+// Funktion til at nulstille info-boksen
+function resetInfoBox() {
+    document.getElementById("extra-info").textContent = "";
+    document.getElementById("skraafotoLink").style.display = "none";
+}
+
+// Tilføj nulstilling, når brugeren rydder søgefeltet
+searchInput.addEventListener("keydown", function(e) {
+    if (e.key === "Backspace" && searchInput.value.length === 0) {
+        resetInfoBox();
+    }
+});
+
+clearBtn.addEventListener("click", function() {
+    resetInfoBox();
+});
+
 vej1Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
     vej1Input.value = "";
     vej1List.innerHTML = "";
