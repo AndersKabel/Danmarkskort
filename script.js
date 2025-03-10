@@ -84,8 +84,6 @@ function updateInfoBox(data, lat, lon, isStatsvej) {
         skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
         skråfotoLink.style.display = "block";
     }
-
-    document.getElementById("infoBox").style.display = "block";
 }
     
     // Tjek om elementerne eksisterer, før du prøver at ændre dem
