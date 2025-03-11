@@ -79,7 +79,13 @@ function updateInfoBox(data, lat, lon) {
     if (vej1List) vej1List.innerHTML = "";
     if (vej2List) vej2List.innerHTML = "";
 
-    checkForStatsvej(lat, lon);
+    let statsvejData = await checkForStatsvej(lat, lon); // Vent på API-kaldet
+
+if (statsvejData) {
+    document.getElementById("statsvejInfo").innerHTML = statsvejData;
+    document.getElementById("statsvejInfoBox").style.display = "block";
+}
+
 
     document.getElementById("infoBox").style.display = "block";
 }
