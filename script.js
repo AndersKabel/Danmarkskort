@@ -53,7 +53,7 @@ map.on('click', function(e) {
 /***************************************************
  * Opdatering af info boks
  ***************************************************/
-function updateInfoBox(data, lat, lon) {
+async function updateInfoBox(data, lat, lon) {
     const streetviewLink = document.getElementById("streetviewLink");
     const addressEl = document.getElementById("address");
     const extraInfoEl = document.getElementById("extra-info");
@@ -85,7 +85,6 @@ if (statsvejData) {
     document.getElementById("statsvejInfo").innerHTML = statsvejData;
     document.getElementById("statsvejInfoBox").style.display = "block";
 }
-
 
     document.getElementById("infoBox").style.display = "block";
 }
