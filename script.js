@@ -42,18 +42,10 @@ map.on('click', function(e) {
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
 
-    // Hent adgangsadresse fra Dataforsyningen
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(r => r.json())
         .then(data => {
-            // Hent vejtype (statsvej eller ej)
-            fetch(`https://api.dataforsyningen.dk/vejnet?lat=${lat}&lon=${lon}`)
-                .then(r => r.json())
-                .then(roadData => {
-                    const isStatsvej = roadData.vejtype === "Statsvej" ? "Ja" : "Nej";
-                    updateInfoBox(data, lat, lon, isStatsvej);
-                })
-                .catch(err => console.error("Vejnet fejl:", err));
+            updateInfoBox(data, lat, lon);
         })
         .catch(err => console.error("Reverse geocoding fejl:", err));
 });
@@ -61,29 +53,25 @@ map.on('click', function(e) {
 /***************************************************
  * Opdatering af info boks
  ***************************************************/
-function updateInfoBox(data, lat, lon, isStatsvej) {
+function updateInfoBox(data, lat, lon) {
     const streetviewLink = document.getElementById("streetviewLink");
     const addressEl = document.getElementById("address");
     const extraInfoEl = document.getElementById("extra-info");
-    const skråfotoLink = document.getElementById("skraafotoLink");
+    const skråfotoLink = document.getElementById("skraafotoLink"); // Hent link-elementet
+    const resultsList = document.getElementById("results");
+    const vej1List = document.getElementById("results-vej1");
+    const vej2List = document.getElementById("results-vej2");
 
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
     const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
-
-    // Ny information: Er det en statsvej?
-    const statsvejInfo = `Er det en statsvej? ${isStatsvej}`;
-
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
     if (extraInfoEl) {
-        extraInfoEl.innerHTML = `${ekstraInfoStr} <br>${statsvejInfo}`;
-    }
-
-    if (skråfotoLink) {
-        let eastNorth = convertToWGS84(lat, lon);
-        skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
-        skråfotoLink.style.display = "block";
-    }
+    extraInfoEl.textContent = ekstraInfoStr;
+    // Opdater Skråfoto-linket
+    let eastNorth = convertToWGS84(lat, lon);
+    skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
+    skråfotoLink.style.display = "block"; // Vis linket
 }
     
     // Tjek om elementerne eksisterer, før du prøver at ændre dem
@@ -92,6 +80,7 @@ function updateInfoBox(data, lat, lon, isStatsvej) {
     if (vej2List) vej2List.innerHTML = "";
 
     document.getElementById("infoBox").style.display = "block";
+}
 
 /***************************************************
  * Søgefelter, lister
@@ -329,32 +318,24 @@ function doSearch(query, listElement) {
             li.textContent = (obj.type === "adresse") ? obj.tekst : obj.navn;
 
             li.addEventListener("click", function() {
-    if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-        // => fetch /adgangsadresser/{id}
-        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
-            .then(r => r.json())
-            .then(addressData => {
-                let [lon, lat] = addressData.adgangspunkt.koordinater; // Brug direkte WGS84
-                console.log("Endelige koordinater til placering:", lat, lon);
-                
-                // Hent vejtype (statsvej eller ej)
-                fetch(`https://api.dataforsyningen.dk/vejnet?lat=${lat}&lon=${lon}`)
-                    .then(r => r.json())
-                    .then(roadData => {
-                        const isStatsvej = roadData.vejtype === "Statsvej" ? "Ja" : "Nej";
-                        placeMarkerAndZoom([lat, lon], obj.tekst, isStatsvej); // Send vejtype som parameter
-                    })
-                    .catch(err => console.error("Vejnet fejl:", err));
-            })
-            .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
-    }
-
-    // Ryd søgeresultaterne
-    resultsList.innerHTML = "";
-    vej1List.innerHTML = "";
-    vej2List.innerHTML = "";
-});
-            
+                if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
+                    // => fetch /adgangsadresser/{id}
+                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+                        .then(r => r.json())
+                        .then(addressData => {
+                            let [lon, lat] = addressData.adgangspunkt.koordinater; // Brug direkte WGS84
+                            console.log("Endelige koordinater til placering:", lat, lon);
+                            console.log("Kald til placeMarkerAndZoom med:", lat, lon, obj.tekst); // => Kald placeMarkerAndZoom med [lat, lon] (y først, x sidst)
+                            placeMarkerAndZoom([lat, lon], obj.tekst);
+                            // updateInfoBox(addressData, lat, lon); //
+                            
+                           // 🔽 Tilføj denne del for at rydde søgeresultaterne 🔽
+                           resultsList.innerHTML = "";
+                           vej1List.innerHTML = "";
+                           vej2List.innerHTML = "";    
+                        })
+                        .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+                }
                 else if (obj.type === "stednavn" && obj.bbox) {
                     // bbox => [x, y], men vi vil have [y, x]
                     console.log("BBOX før konvertering:", obj.bbox);
@@ -416,8 +397,8 @@ function doSearchRoad(query, listElement, inputField) {
  * placeMarkerAndZoom => Zoom + marker
  * param: [lat, lon] (y først, x sidst)
  ***************************************************/
-function placeMarkerAndZoom([lat, lon], displayText, isStatsvej) {
-    console.log("placeMarkerAndZoom kaldt med:", lat, lon, displayText, isStatsvej);
+function placeMarkerAndZoom([lat, lon], displayText) {
+    console.log("placeMarkerAndZoom kaldt med:", lat, lon, displayText);
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
@@ -427,10 +408,6 @@ function placeMarkerAndZoom([lat, lon], displayText, isStatsvej) {
     document.getElementById("address").textContent = displayText;
     const streetviewLink = document.getElementById("streetviewLink");
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
-
-    // Vis vejtypen (statsvej eller ej)
-    const statsvejInfo = `Er det en statsvej? ${isStatsvej}`;
-    document.getElementById("extra-info").innerHTML = statsvejInfo;
-
+    console.log("HTML-elementer:", document.getElementById("address"), document.getElementById("streetviewLink"), document.getElementById("infoBox"));
     document.getElementById("infoBox").style.display = "block";
 }
