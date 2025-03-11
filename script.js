@@ -399,8 +399,6 @@ function doSearchRoad(query, listElement, inputField) {
  ***************************************************/
 function placeMarkerAndZoom([lat, lon], displayText) {
     console.log("placeMarkerAndZoom kaldt med:", lat, lon, displayText);
-    checkForStatsvej(lat, lon);
-
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
@@ -412,46 +410,4 @@ function placeMarkerAndZoom([lat, lon], displayText) {
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     console.log("HTML-elementer:", document.getElementById("address"), document.getElementById("streetviewLink"), document.getElementById("infoBox"));
     document.getElementById("infoBox").style.display = "block";
-}
-
-function checkForStatsvej(lat, lon) {
-    let token = a63a88838c24fc85d47f32cde0ec0144; // Indsæt dit API-token her
-    let buffer = 25;  // Justér buffer hvis nødvendigt
-    let bbox = `${lon - buffer},${lat - buffer},${lon + buffer},${lat + buffer}`;
-
-    let url = `https://api.dataforsyningen.dk/vejnavne?token=${token}&geometri=true&format=geojson`;
-
-    console.log("Statsvej API URL:", url); // Debugging, tjek URL'en i Console
-
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            console.log("Modtaget data fra API:", data); // Debugging
-
-            let isStatsvej = data.features.some(feature => 
-                feature.properties.bestyrer === "Vejdirektoratet"
-            );
-
-            if (isStatsvej) {
-                showStatsvejInfo();
-            } else {
-                hideStatsvejInfo();
-            }
-        })
-        .catch(err => console.error("Fejl ved hentning af vejdata:", err));
-}
-
-function showStatsvejInfo(roadData) {
-    document.getElementById("statsvejVejnr").textContent = roadData.ADM_NR || "Ukendt";
-    document.getElementById("statsvejBetegnelse").textContent = roadData.BETEGNELSE || "Ukendt";
-    document.getElementById("statsvejBestyrer").textContent = roadData.BESTYRER || "Ukendt";
-    document.getElementById("statsvejBeskrivelse").textContent = roadData.BESKRIVELSE || "Ingen beskrivelse";
-    document.getElementById("statsvejKommune").textContent = roadData.KOMMUNE || "Ukendt";
-    document.getElementById("statsvejVejtype").textContent = roadData.VEJTYPE || "Ukendt";
-
-    document.getElementById("statsvejBox").style.display = "block"; // Vis boksen
-}
-
-function hideStatsvejInfo() {
-    document.getElementById("statsvejBox").style.display = "none"; // Skjul boksen
 }
