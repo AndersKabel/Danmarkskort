@@ -37,6 +37,8 @@ map.on('click', function(e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
 
+checkForStatsvej(lat, lon);
+    
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
