@@ -415,35 +415,30 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 }
 
 function checkForStatsvej(lat, lon) {
-    // Byg API-url med buffer omkring koordinater
-    let buffer = 25;
+    let token = a63a88838c24fc85d47f32cde0ec0144; // Indsæt dit API-token her
+    let buffer = 25;  // Justér buffer hvis nødvendigt
     let bbox = `${lon - buffer},${lat - buffer},${lon + buffer},${lat + buffer}`;
 
-    let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application/json&TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${bbox}&x=50&y=50`;
+    let url = `https://api.dataforsyningen.dk/vejnavne?token=${token}&geometri=true&format=geojson`;
 
-    console.log("Statsvej API URL:", url);
+    console.log("Statsvej API URL:", url); // Debugging, tjek URL'en i Console
 
     fetch(url)
-    .then(response => response.text())  
-    .then(text => {
-        console.log("Modtaget API response:", text);
-        try {
-            let data = JSON.parse(text);
-            if (data.features && data.features.length > 0) {
-                let roadData = data.features[0].properties;
-                showStatsvejInfo(roadData);
+        .then(response => response.json())
+        .then(data => {
+            console.log("Modtaget data fra API:", data); // Debugging
+
+            let isStatsvej = data.features.some(feature => 
+                feature.properties.bestyrer === "Vejdirektoratet"
+            );
+
+            if (isStatsvej) {
+                showStatsvejInfo();
             } else {
                 hideStatsvejInfo();
             }
-        } catch (error) {
-            console.error("Fejl ved parsing af vejdata:", error, "Modtaget tekst:", text);
-            hideStatsvejInfo();
-        }
-    })
-    .catch(err => {
-        console.error("Fejl ved hentning af vejdata:", err);
-        hideStatsvejInfo();
-    });
+        })
+        .catch(err => console.error("Fejl ved hentning af vejdata:", err));
 }
 
 function showStatsvejInfo(roadData) {
