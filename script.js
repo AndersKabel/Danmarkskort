@@ -416,37 +416,26 @@ function placeMarkerAndZoom([lat, lon], displayText) {
     document.getElementById("infoBox").style.display = "block";
 }
 
-function checkForStatsvej(lat, lon) {
+async function checkForStatsvej(lat, lon) {
     let buffer = 25;
     let bbox = `${lon - buffer},${lat - buffer},${lon + buffer},${lat + buffer}`;
-
+    
     let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application/json&TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${bbox}&x=50&y=50`;
 
     console.log("Kalder statsvej API med URL:", url);
 
-    fetch(url)
-    .then(response => response.json())
-    .then(data => {
+    try {
+        let response = await fetch(url);
+        let data = await response.json();
+
         if (data.features && data.features.length > 0) {
-            let roadData = data.features[0].properties;
-            let infoText = `
-                <strong>Betegnelse:</strong> ${roadData.BETEGNELSE || "Ukendt"}<br>
-                <strong>Bestyrer:</strong> ${roadData.BESTYRER || "Ukendt"}<br>
-                <strong>Beskrivelse:</strong> ${roadData.BESKRIVELSE || "Ingen beskrivelse"}<br>
-                <strong>Fra km:</strong> ${roadData.FRAKMT || "-"}<br>
-                <strong>Til km:</strong> ${roadData.TILKMT || "-"}<br>
-                <strong>Vejtype:</strong> ${roadData.VEJTYPE || "Ukendt"}
-            `;
-            document.getElementById("statsvejInfo").innerHTML = infoText;
-            document.getElementById("statsvejInfoBox").style.display = "block";
+            return data.features[0].properties; // Returnér vejdata
         } else {
-            document.getElementById("statsvejInfo").textContent = "Ikke statsvej";
-            document.getElementById("statsvejInfoBox").style.display = "block";
+            return null; // Ingen statsvej fundet
         }
-    })
-    .catch(err => {
-        console.error("Fejl ved hentning af statsvejsdata:", err);
-        document.getElementById("statsvejInfo").textContent = "Ikke statsvej";
-        document.getElementById("statsvejInfoBox").style.display = "block";
-    });
+    } catch (error) {
+        console.error("Fejl ved hentning af vejdata:", error);
+        return null; // Hvis der opstår en fejl, returnér null
+    }
 }
+
