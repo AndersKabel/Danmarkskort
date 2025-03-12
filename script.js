@@ -440,6 +440,7 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 }
 
 async function checkForStatsvej(lat, lon) {
+    console.log("Koordinater sendt til Geocloud:", lat, lon);
     // Konverter WGS84 til EPSG:25832
     let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
 
@@ -466,5 +467,4 @@ async function checkForStatsvej(lat, lon) {
     }
 }
 
-console.log("Koordinater sendt til Geocloud:", lat, lon);
 console.log("API-kald til Geocloud:", url);
