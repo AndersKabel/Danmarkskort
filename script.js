@@ -442,3 +442,5 @@ async function checkForStatsvej(lat, lon) {
     }
 }
 
+console.log("Koordinater sendt til Geocloud:", lat, lon);
+console.log("API-kald til Geocloud:", url);
