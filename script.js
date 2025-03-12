@@ -449,6 +449,7 @@ async function checkForStatsvej(lat, lon) {
     
     let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application/json&TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${bbox}&x=50&y=50`;
 
+    console.log("API-kald til Geocloud:", url);
     console.log("Kalder statsvej API med URL:", url);
     console.log("Koordinater sendt til Geocloud:", utmX, utmY);
 
@@ -467,4 +468,4 @@ async function checkForStatsvej(lat, lon) {
     }
 }
 
-console.log("API-kald til Geocloud:", url);
+
