@@ -65,7 +65,6 @@ async function updateInfoBox(data, lat, lon) {
     const resultsList = document.getElementById("results");
     const vej1List = document.getElementById("results-vej1");
     const vej2List = document.getElementById("results-vej2");
-    const statsvejInfoEl = document.getElementById("statsvejInfo"); // Ny til statsvejsinfo
 
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
     const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
@@ -90,16 +89,24 @@ async function updateInfoBox(data, lat, lon) {
     // 🔹 Vent på statsvejsdata fra API-kaldet
     let statsvejData = await checkForStatsvej(lat, lon);
 
+    const statsvejInfoEl = document.getElementById("statsvejInfoBox"); // Brug den rigtige ID fra CSS
+
+if (statsvejData) {
+    statsvejInfoEl.innerHTML = `
+        <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
+        <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
+        <strong>Beskrivelse:</strong> ${statsvejData.BESKRIVELSE || "Ingen beskrivelse"}<br>
+        <strong>Fra km:</strong> ${statsvejData.FRAKMT || "-"}<br>
+        <strong>Til km:</strong> ${statsvejData.TILKMT || "-"}<br>
+        <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
+    `;
+    statsvejInfoEl.style.display = "block";
+} else {
+    statsvejInfoEl.innerHTML = "<strong>Ikke en statsvej</strong>";
+    statsvejInfoEl.style.display = "block";
+}
+
     if (statsvejData) {
-        statsvejInfoEl.innerHTML = `
-            <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
-            <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
-            <strong>Beskrivelse:</strong> ${statsvejData.BESKRIVELSE || "Ingen beskrivelse"}<br>
-            <strong>Fra km:</strong> ${statsvejData.FRAKMT || "-"}<br>
-            <strong>Til km:</strong> ${statsvejData.TILKMT || "-"}<br>
-            <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
-        `;
-        statsvejInfoEl.style.display = "block";
     } else {
         statsvejInfoEl.innerHTML = "<strong>Ikke en statsvej</strong>";
         statsvejInfoEl.style.display = "block";
