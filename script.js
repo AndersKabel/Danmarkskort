@@ -106,12 +106,6 @@ if (statsvejData) {
     statsvejInfoEl.style.display = "block";
 }
 
-    if (statsvejData) {
-    } else {
-        statsvejInfoEl.innerHTML = "<strong>Ikke en statsvej</strong>";
-        statsvejInfoEl.style.display = "block";
-    }
-
     document.getElementById("infoBox").style.display = "block";
 }
 
