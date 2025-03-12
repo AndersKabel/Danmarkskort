@@ -239,3 +239,18 @@
 .hidden {
     display: none;
 }
+
+#coordinateBox {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+    display: none; /* Starter skjult */
+    z-index: 1000;
+}
