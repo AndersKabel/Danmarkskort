@@ -455,7 +455,8 @@ async function checkForStatsvej(lat, lon) {
 
     try {
         let response = await fetch(url);
-        let data = await response.json();
+        let data = await response.text();
+        console.log("Tekstbaseret response:", data);
 
         if (data.features && data.features.length > 0) {
             return data.features[0].properties; // Returnér vejdata
