@@ -36,11 +36,15 @@ var currentMarker;
 map.on('click', function(e) {
     var lat = e.latlng.lat;
     var lon = e.latlng.lng;
-    
+
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
+
+    // Opdater koordinatboksen med de klik-koordinerede
+document.getElementById("coordinateBox").textContent = `Koordinater: ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+document.getElementById("coordinateBox").style.display = "block";
 
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
         .then(r => r.json())
