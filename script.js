@@ -70,10 +70,11 @@ async function updateInfoBox(data, lat, lon) {
     const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
+    
     if (extraInfoEl) {
     extraInfoEl.textContent = ekstraInfoStr;
-    // Opdater Skråfoto-linket
-    let eastNorth = convertToWGS84(lat, lon);
+    
+    let eastNorth = convertToWGS84(lat, lon); 
     skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
     skråfotoLink.style.display = "block"; // Vis linket
 }
