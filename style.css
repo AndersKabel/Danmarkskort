@@ -226,9 +226,9 @@
 #statsvejInfoBox {
     display: none;
     position: absolute;
-    top: 250px;
-    left: 10px;
-    width: 400px;
+    top: 255px;
+    left: 0px;
+    width: 380px;
     background: rgba(255, 255, 255, 0.95);
     padding: 10px;
     border-radius: 8px;
