@@ -440,39 +440,43 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 }
 
 async function checkForStatsvej(lat, lon) {
-    console.log("Koordinater sendt til Geocloud:", lat, lon);
+     console.log("Koordinater sendt til Geocloud:", lat, lon);
+let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
+let buffer = 25;
+     let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
-    let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    let buffer = 25;
-    let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
-    
-    let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application/json&TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${bbox}&x=50&y=50`;
+let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application/json&TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${bbox}&x=50&y=50`;
 
-    console.log("Kalder statsvej API med URL:", url);
+console.log("API-kald til Geocloud:", url);
+try {
+         let response = await fetch(url);
+         let textData = await response.text();
+         console.log("Rå server response:", textData);
+ 
+         // Se om svaret starter med "Results" – dvs. ikke JSON
+         if (textData.startsWith("Results")) {
+             console.warn("Modtaget et tekstsvar, ikke JSON. Prøver at udtrække data...");
+             
+             // Her kan du lave en funktion til at trække værdier ud fra tekstsvar
+             let extractedData = parseTextResponse(textData);
+             return extractedData;
+ }
 
-    try {
-        let response = await fetch(url);
-        let textData = await response.text();  // Hent data som tekst først
+// Ellers prøv at parse som JSON
+         let jsonData = JSON.parse(textData);
+         console.log("JSON-parsed data:", jsonData);
 
-        // 🔹 Tjek om svaret er en fejlbesked og ikke JSON
-        if (textData.includes("no features were found")) {
-            console.warn("Ingen statsvej fundet for koordinater:", lat, lon);
-            return null;  // Returnér null, da der ikke er nogen statsvej
-        }
-
-        // 🔹 Forsøg at parse som JSON
-        let data = JSON.parse(textData);
-
-        if (data.features && data.features.length > 0) {
-            return data.features[0].properties; // Returnér statsvejsdata
-        } else {
-            return null; // Ingen statsvej fundet
-        }
-    } catch (error) {
-        console.error("Fejl ved hentning af vejdata:", error);
-        return null; // Hvis der opstår en fejl, returnér null
-    }
+if (jsonData.features && jsonData.features.length > 0) {
+             return jsonData.features[0].properties;
+} else {
+return null;
 }
+     } catch (error) {
+         console.error("Fejl ved hentning af vejdata:", error);
+return null;
+         return null; 
+}
+ }
 
 // Funktion til at parse tekstsvar
 function parseTextResponse(text) {
