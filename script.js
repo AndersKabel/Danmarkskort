@@ -65,31 +65,45 @@ async function updateInfoBox(data, lat, lon) {
     const resultsList = document.getElementById("results");
     const vej1List = document.getElementById("results-vej1");
     const vej2List = document.getElementById("results-vej2");
+    const statsvejInfoEl = document.getElementById("statsvejInfo"); // Ny til statsvejsinfo
 
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
     const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
+
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
     
     if (extraInfoEl) {
-    extraInfoEl.textContent = ekstraInfoStr;
-    
+        extraInfoEl.textContent = ekstraInfoStr;
+    }
+
+    // Opdater Skråfoto-linket
     let eastNorth = convertToWGS84(lat, lon); 
     skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
     skråfotoLink.style.display = "block"; // Vis linket
-}
-    
-    // Tjek om elementerne eksisterer, før du prøver at ændre dem
+
+    // Ryd tidligere søgeresultater
     if (resultsList) resultsList.innerHTML = "";
     if (vej1List) vej1List.innerHTML = "";
     if (vej2List) vej2List.innerHTML = "";
 
-    let statsvejData = await checkForStatsvej(lat, lon); // Vent på API-kaldet
+    // 🔹 Vent på statsvejsdata fra API-kaldet
+    let statsvejData = await checkForStatsvej(lat, lon);
 
-if (statsvejData) {
-    document.getElementById("statsvejInfo").innerHTML = statsvejData;
-    document.getElementById("statsvejInfoBox").style.display = "block";
-}
+    if (statsvejData) {
+        statsvejInfoEl.innerHTML = `
+            <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
+            <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
+            <strong>Beskrivelse:</strong> ${statsvejData.BESKRIVELSE || "Ingen beskrivelse"}<br>
+            <strong>Fra km:</strong> ${statsvejData.FRAKMT || "-"}<br>
+            <strong>Til km:</strong> ${statsvejData.TILKMT || "-"}<br>
+            <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
+        `;
+        statsvejInfoEl.style.display = "block";
+    } else {
+        statsvejInfoEl.innerHTML = "<strong>Ikke en statsvej</strong>";
+        statsvejInfoEl.style.display = "block";
+    }
 
     document.getElementById("infoBox").style.display = "block";
 }
