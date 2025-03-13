@@ -1,3 +1,4 @@
+Script FØR opdatering:
 /***************************************************
  * EPSG:25832 => WGS84
  ***************************************************/
@@ -41,38 +42,12 @@ map.on('click', function(e) {
         map.removeLayer(currentMarker);
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
-    
-// Kald til referencegeometri API
-async function fetchReferenceGeometri(lat, lon) {
-    let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
 
-    let url = `https://cvf.vd.dk/api/reference?geometry=POINT(${utmX}%20${utmY})`;
-
-    try {
-        let response = await fetch(url);
-        let jsonData = await response.json();
-        console.log("Referencegeometri API svar:", jsonData);
-
-        if (jsonData.features && jsonData.features.length > 0) {
-            let properties = jsonData.features[0].properties;
-            return {
-                kmText: properties.from?.kmtText || "Ukendt km",
-                vejnummer: properties.road?.number || "Ukendt vej"
-            };
-        } else {
-            return null;
-        }
-    } catch (error) {
-        console.error("Fejl ved referencegeometri API:", error);
-        return null;
-    }
-}
-    
     // Opdater koordinatboksen med de klik-koordinerede
-document.getElementById("coordinateBox").textContent = `Koordinater: ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+document.getElementById("coordinateBox").textContent = Koordinater: ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)};
 document.getElementById("coordinateBox").style.display = "block";
 
-    fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
+    fetch(https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad)
         .then(r => r.json())
         .then(data => {
             updateInfoBox(data, lat, lon);
@@ -92,10 +67,10 @@ async function updateInfoBox(data, lat, lon) {
     const vej1List = document.getElementById("results-vej1");
     const vej2List = document.getElementById("results-vej2");
 
-    const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
-    const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
+    const adresseStr = ${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""};
+    const ekstraInfoStr = Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"};
 
-    streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
+    streetviewLink.href = https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon};
     addressEl.textContent = adresseStr;
     
     if (extraInfoEl) {
@@ -104,7 +79,7 @@ async function updateInfoBox(data, lat, lon) {
 
     // Opdater Skråfoto-linket
     let eastNorth = convertToWGS84(lat, lon); 
-    skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
+    skråfotoLink.href = https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)};
     skråfotoLink.style.display = "block"; // Vis linket
 
     // Ryd tidligere søgeresultater
@@ -118,16 +93,16 @@ async function updateInfoBox(data, lat, lon) {
     const statsvejInfoEl = document.getElementById("statsvejInfoBox"); // Brug den rigtige ID fra CSS
 
 if (statsvejData) {
-    statsvejInfoEl.innerHTML = `
+    statsvejInfoEl.innerHTML = 
     <strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
     <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
     <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
     <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
-    // <strong>Beskrivelse:</strong> ${statsvejData.BESKRIVELSE || "Ingen beskrivelse"}<br> //
-    // <strong>Fra km:</strong> ${statsvejData.FRAKMT || "-"}<br>
-    // <strong>Til km:</strong> ${statsvejData.TILKMT || "-"}<br>
+    <strong>Beskrivelse:</strong> ${statsvejData.BESKRIVELSE || "Ingen beskrivelse"}<br>
+    <strong>Fra km:</strong> ${statsvejData.FRAKMT || "-"}<br>
+    <strong>Til km:</strong> ${statsvejData.TILKMT || "-"}<br>
     <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
-`;
+;
 
     statsvejInfoEl.style.display = "block";
 } else {
@@ -317,10 +292,10 @@ vej2Input.addEventListener("input", function() {
  ***************************************************/
 function doSearch(query, listElement) {
     // Adgangsadresser
-    let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
+    let addrUrl = https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)};
 
     // Stednavne (brugernavn/password i URL)
-    let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`;
+    let stedUrl = https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')};
 
     Promise.all([
         fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
@@ -376,7 +351,7 @@ function doSearch(query, listElement) {
             li.addEventListener("click", function() {
                 if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
                     // => fetch /adgangsadresser/{id}
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+                    fetch(https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id})
                         .then(r => r.json())
                         .then(addressData => {
                             let [lon, lat] = addressData.adgangspunkt.koordinater; // Brug direkte WGS84
@@ -413,7 +388,7 @@ function doSearch(query, listElement) {
  * vej1 og vej2 => autocomplete (vejnavn + kommune)
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
-    let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
+    let addrUrl = https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)};
 
     fetch(addrUrl)
         .then(response => response.json())
@@ -431,7 +406,7 @@ function doSearchRoad(query, listElement, inputField) {
                 let postnr = item.adgangsadresse?.postnr || "?"; // Henter postnummeret
 
                 let li = document.createElement("li");
-                li.textContent = `${vejnavn}, ${kommune} (${postnr})`;
+                li.textContent = ${vejnavn}, ${kommune} (${postnr});
 
                 li.addEventListener("click", function() {
                     inputField.value = vejnavn;
@@ -463,7 +438,7 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 
     document.getElementById("address").textContent = displayText;
     const streetviewLink = document.getElementById("streetviewLink");
-    streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
+    streetviewLink.href = https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon};
     console.log("HTML-elementer:", document.getElementById("address"), document.getElementById("streetviewLink"), document.getElementById("infoBox"));
     document.getElementById("infoBox").style.display = "block";
 }
@@ -472,9 +447,9 @@ async function checkForStatsvej(lat, lon) {
      console.log("Koordinater sendt til Geocloud:", lat, lon);
 let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
 let buffer = 50;
-     let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
+     let bbox = ${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer};
 
-let url = `https://geocloud.vd.dk/CVF/wms?
+let url = https://geocloud.vd.dk/CVF/wms?
 SERVICE=WMS&
 VERSION=1.1.1&
 REQUEST=GetFeatureInfo&
@@ -487,7 +462,7 @@ WIDTH=101&
 HEIGHT=101&
 BBOX=${bbox}&
 X=50&
-Y=50`;
+Y=50;
 
 
 console.log("API-kald til Geocloud:", url);
