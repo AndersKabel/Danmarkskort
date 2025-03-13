@@ -95,6 +95,19 @@ async function updateInfoBox(data, lat, lon) {
 
     const statsvejInfoEl = document.getElementById("statsvejInfoBox"); // Brug den rigtige ID fra CSS
 
+        const kmInfoEl = document.getElementById("kmInfoBox");
+
+    if (referenceGeometriData) {
+        kmInfoEl.innerHTML = `
+        <strong>Kilometertekst:</strong> ${referenceGeometriData.kmText}<br>
+        <strong>Vejnummer:</strong> ${referenceGeometriData.vejnummer}
+        `;
+        kmInfoEl.style.display = "block";
+    } else {
+        kmInfoEl.innerHTML = "";
+        kmInfoEl.style.display = "none";
+    }
+    
 if (statsvejData) {
     statsvejInfoEl.innerHTML = 
     <strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
