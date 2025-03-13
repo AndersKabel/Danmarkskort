@@ -69,7 +69,7 @@ async function updateInfoBox(data, lat, lon) {
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
     const ekstraInfoStr = Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"};
 
-    streetviewLink.href = https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon};
+    streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
     
     if (extraInfoEl) {
@@ -453,7 +453,7 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 
     document.getElementById("address").textContent = displayText;
     const streetviewLink = document.getElementById("streetviewLink");
-    streetviewLink.href = https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon};
+    streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     console.log("HTML-elementer:", document.getElementById("address"), document.getElementById("streetviewLink"), document.getElementById("infoBox"));
     document.getElementById("infoBox").style.display = "block";
 }
