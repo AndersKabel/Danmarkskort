@@ -254,3 +254,7 @@
     display: none; /* Starter skjult */
     z-index: 1000;
 }
+
+.leaflet-grab, .leaflet-container {
+    cursor: default !important;
+}
