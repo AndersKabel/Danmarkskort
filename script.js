@@ -442,7 +442,7 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 async function checkForStatsvej(lat, lon) {
      console.log("Koordinater sendt til Geocloud:", lat, lon);
 let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
-let buffer = 25;
+let buffer = 50;
      let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
 let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&FORMAT=application/json&TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${bbox}&x=50&y=50`;
