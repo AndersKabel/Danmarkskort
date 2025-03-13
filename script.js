@@ -458,32 +458,9 @@ function placeMarkerAndZoom([lat, lon], displayText) {
     document.getElementById("infoBox").style.display = "block";
 }
 
+
 async function checkForStatsvej(lat, lon) {
-    async function fetchReferenceGeometri(lat, lon) {
-    let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
-    let url = `https://cvf.vd.dk/api/reference?geometry=POINT(${utmX}%20${utmY})`;
-
-    try {
-        let response = await fetch(url);
-        let jsonData = await response.json();
-        console.log("Referencegeometri API svar:", jsonData);
-
-        if (jsonData.features && jsonData.features.length > 0) {
-            let properties = jsonData.features[0].properties;
-            return {
-                kmText: properties.from?.kmtText || "Ukendt km",
-                vejnummer: properties.road?.number || "Ukendt vej"
-            };
-        } else {
-            return null;
-        }
-    } catch (error) {
-        console.error("Fejl ved referencegeometri API:", error);
-        return null;
-    }
-}
-
-     console.log("Koordinater sendt til Geocloud:", lat, lon);
+        console.log("Koordinater sendt til Geocloud:", lat, lon);
 let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
 let buffer = 50;
      let bbox = ${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer};
@@ -502,7 +479,6 @@ HEIGHT=101&
 BBOX=${bbox}&
 X=50&
 Y=50;
-
 
 console.log("API-kald til Geocloud:", url);
 try {
@@ -551,4 +527,28 @@ function parseTextResponse(text) {
 
     console.log("Parsed tekstbaserede data:", data);
     return data;
+}
+
+ async function fetchReferenceGeometri(lat, lon) {
+    let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
+    let url = `https://cvf.vd.dk/api/reference?geometry=POINT(${utmX}%20${utmY})`;
+
+    try {
+        let response = await fetch(url);
+        let jsonData = await response.json();
+        console.log("Referencegeometri API svar:", jsonData);
+
+        if (jsonData.features && jsonData.features.length > 0) {
+            let properties = jsonData.features[0].properties;
+            return {
+                kmText: properties.from?.kmtText || "Ukendt km",
+                vejnummer: properties.road?.number || "Ukendt vej"
+            };
+        } else {
+            return null;
+        }
+    } catch (error) {
+        console.error("Fejl ved referencegeometri API:", error);
+        return null;
+    }
 }
