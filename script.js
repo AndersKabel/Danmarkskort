@@ -465,7 +465,7 @@ let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WG
 let buffer = 50;
      let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
-let url = https://geocloud.vd.dk/CVF/wms?
+let url = `https://geocloud.vd.dk/CVF/wms?
 SERVICE=WMS&
 VERSION=1.1.1&
 REQUEST=GetFeatureInfo&
@@ -478,7 +478,7 @@ WIDTH=101&
 HEIGHT=101&
 BBOX=${bbox}&
 X=50&
-Y=50;
+Y=50`;
 
 console.log("API-kald til Geocloud:", url);
 try {
