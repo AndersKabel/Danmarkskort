@@ -90,6 +90,9 @@ async function updateInfoBox(data, lat, lon) {
     // 🔹 Vent på statsvejsdata fra API-kaldet
     let statsvejData = await checkForStatsvej(lat, lon);
 
+        // 🔹 Vent på referencegeometri-data
+    let referenceGeometriData = await fetchReferenceGeometri(lat, lon);
+
     const statsvejInfoEl = document.getElementById("statsvejInfoBox"); // Brug den rigtige ID fra CSS
 
 if (statsvejData) {
