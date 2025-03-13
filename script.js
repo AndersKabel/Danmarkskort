@@ -307,7 +307,7 @@ vej2Input.addEventListener("input", function() {
  ***************************************************/
 function doSearch(query, listElement) {
     // Adgangsadresser
-    let addrUrl = https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)};
+    let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
 
     // Stednavne (brugernavn/password i URL)
     let stedUrl = https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')};
@@ -403,7 +403,7 @@ function doSearch(query, listElement) {
  * vej1 og vej2 => autocomplete (vejnavn + kommune)
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
-    let addrUrl = https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)};
+    let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
 
     fetch(addrUrl)
         .then(response => response.json())
