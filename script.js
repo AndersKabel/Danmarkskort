@@ -53,7 +53,6 @@ document.getElementById("coordinateBox").style.display = "block";
         })
         .catch(err => console.error("Reverse geocoding fejl:", err));
 });
-)
 
 /***************************************************
  * Opdatering af info boks
