@@ -46,12 +46,12 @@ map.on('click', function(e) {
 document.getElementById("coordinateBox").textContent = `Koordinater: ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
 document.getElementById("coordinateBox").style.display = "block";
 
-    fetch(https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad);
-        .then(r => r.json())
-        .then(data => {
-            updateInfoBox(data, lat, lon);
-        })
-        .catch(err => console.error("Reverse geocoding fejl:", err));
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
+    .then(r => r.json())
+    .then(data => {
+        updateInfoBox(data, lat, lon);
+    })
+    .catch(err => console.error("Reverse geocoding fejl:", err));
 });
 
 /***************************************************
