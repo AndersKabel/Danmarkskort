@@ -463,7 +463,7 @@ async function checkForStatsvej(lat, lon) {
         console.log("Koordinater sendt til Geocloud:", lat, lon);
 let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
 let buffer = 50;
-     let bbox = ${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer};
+     let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
 let url = https://geocloud.vd.dk/CVF/wms?
 SERVICE=WMS&
