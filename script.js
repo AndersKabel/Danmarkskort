@@ -41,6 +41,7 @@ map.on('click', function(e) {
         map.removeLayer(currentMarker);
     }
     currentMarker = L.marker([lat, lon]).addTo(map);
+    
 // Kald til referencegeometri API
 async function fetchReferenceGeometri(lat, lon) {
     let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
