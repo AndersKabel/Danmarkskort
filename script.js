@@ -108,7 +108,7 @@ async function updateInfoBox(data, lat, lon) {
     }
     
 if (statsvejData) {
-    statsvejInfoEl.innerHTML = 
+    statsvejInfoEl.innerHTML = `
     <strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
     <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
     <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
@@ -117,7 +117,7 @@ if (statsvejData) {
     // <strong>Fra km:</strong> ${statsvejData.FRAKMT || "-"}<br>
     // <strong>Til km:</strong> ${statsvejData.TILKMT || "-"}<br>
     <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
-;
+`;
 
     statsvejInfoEl.style.display = "block";
 } else {
