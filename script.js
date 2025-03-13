@@ -78,7 +78,7 @@ async function updateInfoBox(data, lat, lon) {
 
     // Opdater Skråfoto-linket
     let eastNorth = convertToWGS84(lat, lon); 
-    skråfotoLink.href = https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)};
+    skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
     skråfotoLink.style.display = "block"; // Vis linket
 
     // Ryd tidligere søgeresultater
