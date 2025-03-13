@@ -47,11 +47,11 @@ document.getElementById("coordinateBox").textContent = `Koordinater: ${e.latlng.
 document.getElementById("coordinateBox").style.display = "block";
 
     fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`)
-    .then(r => r.json())
-    .then(data => {
-        updateInfoBox(data, lat, lon);
-    })
-    .catch(err => console.error("Reverse geocoding fejl:", err));
+        .then(r => r.json())
+        .then(data => {
+            updateInfoBox(data, lat, lon);
+        })
+        .catch(err => console.error("Reverse geocoding fejl:", err));
 });
 
 /***************************************************
@@ -67,7 +67,7 @@ async function updateInfoBox(data, lat, lon) {
     const vej2List = document.getElementById("results-vej2");
 
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
-    const ekstraInfoStr = Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"};
+    const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
 
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
@@ -89,33 +89,17 @@ async function updateInfoBox(data, lat, lon) {
     // 🔹 Vent på statsvejsdata fra API-kaldet
     let statsvejData = await checkForStatsvej(lat, lon);
 
-        // 🔹 Vent på referencegeometri-data
-    let referenceGeometriData = await fetchReferenceGeometri(lat, lon);
-
     const statsvejInfoEl = document.getElementById("statsvejInfoBox"); // Brug den rigtige ID fra CSS
 
-        const kmInfoEl = document.getElementById("kmInfoBox");
-
-    if (referenceGeometriData) {
-        kmInfoEl.innerHTML = `
-        <strong>Kilometertekst:</strong> ${referenceGeometriData.kmText}<br>
-        <strong>Vejnummer:</strong> ${referenceGeometriData.vejnummer}
-        `;
-        kmInfoEl.style.display = "block";
-    } else {
-        kmInfoEl.innerHTML = "";
-        kmInfoEl.style.display = "none";
-    }
-    
 if (statsvejData) {
     statsvejInfoEl.innerHTML = `
     <strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
     <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
     <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
     <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
-    // <strong>Beskrivelse:</strong> ${statsvejData.BESKRIVELSE || "Ingen beskrivelse"}<br>
-    // <strong>Fra km:</strong> ${statsvejData.FRAKMT || "-"}<br>
-    // <strong>Til km:</strong> ${statsvejData.TILKMT || "-"}<br>
+    <strong>Beskrivelse:</strong> ${statsvejData.BESKRIVELSE || "Ingen beskrivelse"}<br>
+    <strong>Fra km:</strong> ${statsvejData.FRAKMT || "-"}<br>
+    <strong>Til km:</strong> ${statsvejData.TILKMT || "-"}<br>
     <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
 `;
 
@@ -366,7 +350,7 @@ function doSearch(query, listElement) {
             li.addEventListener("click", function() {
                 if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
                     // => fetch /adgangsadresser/{id}
-                    fetch(https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id})
+                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
                         .then(r => r.json())
                         .then(addressData => {
                             let [lon, lat] = addressData.adgangspunkt.koordinater; // Brug direkte WGS84
@@ -421,7 +405,7 @@ function doSearchRoad(query, listElement, inputField) {
                 let postnr = item.adgangsadresse?.postnr || "?"; // Henter postnummeret
 
                 let li = document.createElement("li");
-                li.textContent = ${vejnavn}, ${kommune} (${postnr});
+                li.textContent = `${vejnavn}, ${kommune} (${postnr})`;
 
                 li.addEventListener("click", function() {
                     inputField.value = vejnavn;
@@ -458,9 +442,8 @@ function placeMarkerAndZoom([lat, lon], displayText) {
     document.getElementById("infoBox").style.display = "block";
 }
 
-
 async function checkForStatsvej(lat, lon) {
-        console.log("Koordinater sendt til Geocloud:", lat, lon);
+     console.log("Koordinater sendt til Geocloud:", lat, lon);
 let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
 let buffer = 50;
      let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
@@ -479,6 +462,7 @@ HEIGHT=101&
 BBOX=${bbox}&
 X=50&
 Y=50`;
+
 
 console.log("API-kald til Geocloud:", url);
 try {
@@ -529,26 +513,3 @@ function parseTextResponse(text) {
     return data;
 }
 
- async function fetchReferenceGeometri(lat, lon) {
-    let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
-    let url = `https://cvf.vd.dk/api/reference?geometry=POINT(${utmX}%20${utmY})`;
-
-    try {
-        let response = await fetch(url);
-        let jsonData = await response.json();
-        console.log("Referencegeometri API svar:", jsonData);
-
-        if (jsonData.features && jsonData.features.length > 0) {
-            let properties = jsonData.features[0].properties;
-            return {
-                kmText: properties.from?.kmtText || "Ukendt km",
-                vejnummer: properties.road?.number || "Ukendt vej"
-            };
-        } else {
-            return null;
-        }
-    } catch (error) {
-        console.error("Fejl ved referencegeometri API:", error);
-        return null;
-    }
-}
