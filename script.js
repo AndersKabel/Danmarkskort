@@ -102,8 +102,8 @@ if (statsvejData) {
     `;
     statsvejInfoEl.style.display = "block";
 } else {
-    statsvejInfoEl.innerHTML = "<strong>Ikke en statsvej</strong>";
-    statsvejInfoEl.style.display = "block";
+    statsvejInfoEl.innerHTML = ""; // Fjerner indholdet helt
+    statsvejInfoEl.style.display = "none"; // Skjuler boksen
 }
 
     document.getElementById("infoBox").style.display = "block";
