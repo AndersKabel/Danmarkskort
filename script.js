@@ -123,9 +123,9 @@ if (statsvejData) {
     <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
     <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
     <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
-    <strong>Beskrivelse:</strong> ${statsvejData.BESKRIVELSE || "Ingen beskrivelse"}<br>
-    <strong>Fra km:</strong> ${statsvejData.FRAKMT || "-"}<br>
-    <strong>Til km:</strong> ${statsvejData.TILKMT || "-"}<br>
+    // <strong>Beskrivelse:</strong> ${statsvejData.BESKRIVELSE || "Ingen beskrivelse"}<br> //
+    // <strong>Fra km:</strong> ${statsvejData.FRAKMT || "-"}<br>
+    // <strong>Til km:</strong> ${statsvejData.TILKMT || "-"}<br>
     <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
 `;
 
