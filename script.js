@@ -109,6 +109,7 @@ if (statsvejData) {
 
 // Til sidst kan vi vise den almindelige "infoBox"
 document.getElementById("infoBox").style.display = "block";
+}
 
 /***************************************************
  * Søgefelter, lister
