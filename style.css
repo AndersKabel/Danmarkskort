@@ -271,3 +271,16 @@
 #statsvejCloseBtn:hover {
   color: #333;
 }
+
+#infoCloseBtn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+}
+
+#infoCloseBtn:hover {
+  color: #333;
+}
