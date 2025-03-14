@@ -258,3 +258,16 @@
 .leaflet-grab, .leaflet-container {
     cursor: default !important;
 }
+
+#statsvejCloseBtn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 18px;
+  cursor: pointer;
+  color: #666;
+}
+
+#statsvejCloseBtn:hover {
+  color: #333;
+}
