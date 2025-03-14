@@ -92,16 +92,26 @@ async function updateInfoBox(data, lat, lon) {
     const statsvejInfoEl = document.getElementById("statsvejInfo");
 
 if (statsvejData) {
+    // Skriv statsvejsdata ind i <p id="statsvejInfo">
     statsvejInfoEl.innerHTML = `
-    <strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
-    <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
-    <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
-    <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
-    <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
-`;
+      <strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
+      <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
+      <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
+      <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
+      <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
+    `;
+    
+    // Vis selve statsvejInfoBox
+    document.getElementById("statsvejInfoBox").style.display = "block";
 
-    document.getElementById("infoBox").style.display = "block";
+} else {
+    // Der er ingen statsvejsdata – ryd <p> og skjul boksen
+    statsvejInfoEl.innerHTML = "";
+    document.getElementById("statsvejInfoBox").style.display = "none";
 }
+
+// Til sidst kan vi vise den almindelige "infoBox"
+document.getElementById("infoBox").style.display = "block";
 
 /***************************************************
  * Søgefelter, lister
