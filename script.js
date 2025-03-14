@@ -189,8 +189,16 @@ searchInput.addEventListener("keydown", function(e) {
 });
 
 vej1Input.addEventListener("keydown", function(e) {
-    if (e.key === "Backspace") {
-        document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen ved backspace i vej1
+    if (e.key === "Backspace" && vej1Input.value.length === 0) {
+        document.getElementById("infoBox").style.display = "none";
+        document.getElementById("coordinateBox").style.display = "none";
+        document.getElementById("statsvejInfoBox").style.display = "none";
+        document.getElementById("kmInfoBox").style.display = "none";
+
+        if (currentMarker) {
+            map.removeLayer(currentMarker);
+            currentMarker = null;
+        }
     }
 });
 
