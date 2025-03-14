@@ -221,11 +221,6 @@ function highlightItem() {
  * Klik på kryds => ryd
  ***************************************************/
 clearBtn.addEventListener("click", function() {
-    searchInput.value = "";
-    resultsList.innerHTML = "";
-    clearBtn.style.display = "none";
-    document.getElementById("infoBox").style.display = "none";
-});
 
 // Funktion til at nulstille info-boksen
 function resetInfoBox() {
