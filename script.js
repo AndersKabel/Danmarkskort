@@ -175,8 +175,16 @@ searchInput.addEventListener("input", function() {
 });
 
 searchInput.addEventListener("keydown", function(e) {
-    if (e.key === "Backspace") {
-        document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen med det samme
+    if (e.key === "Backspace" && searchInput.value.length === 0) {
+        document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen
+        document.getElementById("coordinateBox").style.display = "none"; // Skjul koordinatboksen
+        document.getElementById("statsvejInfoBox").style.display = "none"; // Skjul ekstra info
+        document.getElementById("kmInfoBox").style.display = "none"; // Skjul km-info-boksen
+
+        if (currentMarker) {
+            map.removeLayer(currentMarker); // Fjern markøren
+            currentMarker = null;
+        }
     }
 });
 
