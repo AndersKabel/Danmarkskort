@@ -472,6 +472,30 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 }
 
 async function checkForStatsvej(lat, lon) {
+    async function fetchReferenceGeometri(lat, lon) {
+    let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
+    let url = `https://cvf.vd.dk/api/reference?geometry=POINT(${utmX}%20${utmY})`;
+
+    try {
+        let response = await fetch(url);
+        let jsonData = await response.json();
+        console.log("Referencegeometri API svar:", jsonData);
+
+        if (jsonData.features && jsonData.features.length > 0) {
+            let properties = jsonData.features[0].properties;
+            return {
+                kmText: properties.from?.kmtText || "Ukendt km",
+                vejnummer: properties.road?.number || "Ukendt vej"
+            };
+        } else {
+            return null;
+        }
+    } catch (error) {
+        console.error("Fejl ved referencegeometri API:", error);
+        return null;
+    }
+}
+
      console.log("Koordinater sendt til Geocloud:", lat, lon);
 let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
 let buffer = 50;
