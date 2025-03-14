@@ -522,6 +522,7 @@ const statsvejCloseBtn  = document.getElementById("statsvejCloseBtn");
 statsvejCloseBtn.addEventListener("click", function() {
     // Skjul selve boksen
     statsvejInfoBox.style.display = "none";
+document.getElementById("infoBox").style.display = "none";
 
     // Fjern evt. den nuværende marker på kortet
     if (currentMarker) {
@@ -534,6 +535,7 @@ statsvejCloseBtn.addEventListener("click", function() {
 const infoCloseBtn = document.getElementById("infoCloseBtn");
 infoCloseBtn.addEventListener("click", function() {
     document.getElementById("infoBox").style.display = "none"; // Skjul #infoBox
+document.getElementById("statsvejInfoBox").style.display = "none";
 
     if (currentMarker) {
         map.removeLayer(currentMarker);
