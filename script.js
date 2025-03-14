@@ -268,7 +268,15 @@ clearBtn.addEventListener("click", function() {
 vej1Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
     vej1Input.value = "";
     vej1List.innerHTML = "";
-    document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen når vej1 ryddes
+    document.getElementById("infoBox").style.display = "none";
+    document.getElementById("coordinateBox").style.display = "none";
+    document.getElementById("statsvejInfoBox").style.display = "none";
+    document.getElementById("kmInfoBox").style.display = "none";
+
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+        currentMarker = null;
+    }
 });
 
 vej2Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
