@@ -282,7 +282,15 @@ vej1Input.parentElement.querySelector(".clear-button").addEventListener("click",
 vej2Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
     vej2Input.value = "";
     vej2List.innerHTML = "";
-    document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen når vej2 ryddes
+    document.getElementById("infoBox").style.display = "none";
+    document.getElementById("coordinateBox").style.display = "none";
+    document.getElementById("statsvejInfoBox").style.display = "none";
+    document.getElementById("kmInfoBox").style.display = "none";
+
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+        currentMarker = null;
+    }
 });
 
 /***************************************************
