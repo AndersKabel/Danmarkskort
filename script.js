@@ -89,7 +89,7 @@ async function updateInfoBox(data, lat, lon) {
     // 🔹 Vent på statsvejsdata fra API-kaldet
     let statsvejData = await checkForStatsvej(lat, lon);
 
-    const statsvejInfoEl = document.getElementById("statsvejInfoBox"); // Brug den rigtige ID fra CSS
+    const statsvejInfoEl = document.getElementById("statsvejInfo");
 
 if (statsvejData) {
     statsvejInfoEl.innerHTML = `
