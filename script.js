@@ -529,3 +529,14 @@ statsvejCloseBtn.addEventListener("click", function() {
         currentMarker = null;
     }
 });
+
+// --- TILFØJET: Luk-knap til #infoBox ---
+const infoCloseBtn = document.getElementById("infoCloseBtn");
+infoCloseBtn.addEventListener("click", function() {
+    document.getElementById("infoBox").style.display = "none"; // Skjul #infoBox
+
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+        currentMarker = null;
+    }
+});
