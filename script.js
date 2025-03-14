@@ -62,8 +62,7 @@ async function updateInfoBox(data, lat, lon) {
     const addressEl = document.getElementById("address");
     const extraInfoEl = document.getElementById("extra-info");
     const skråfotoLink = document.getElementById("skraafotoLink"); // Hent link-elementet
-    const vej1List = document.getElementById("results-vej1");
-    const vej2List = document.getElementById("results-vej2");
+    const resultsList    = document.getElementById("results");
 
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
     const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
