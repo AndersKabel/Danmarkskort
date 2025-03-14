@@ -100,12 +100,6 @@ if (statsvejData) {
     <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
 `;
 
-    statsvejInfoEl.style.display = "block";
-} else {
-    statsvejInfoEl.innerHTML = ""; // Fjerner indholdet helt
-    statsvejInfoEl.style.display = "none"; // Skjuler boksen
-}
-
     document.getElementById("infoBox").style.display = "block";
 }
 
