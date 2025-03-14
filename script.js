@@ -202,8 +202,18 @@ vej1Input.addEventListener("keydown", function(e) {
     }
 });
 
-vej2Input.addEventListener("keydown", function() {
-    document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen ved tastetryk i vej2
+vej2Input.addEventListener("keydown", function(e) {
+    if (e.key === "Backspace" && vej2Input.value.length === 0) {
+        document.getElementById("infoBox").style.display = "none";
+        document.getElementById("coordinateBox").style.display = "none";
+        document.getElementById("statsvejInfoBox").style.display = "none";
+        document.getElementById("kmInfoBox").style.display = "none";
+
+        if (currentMarker) {
+            map.removeLayer(currentMarker);
+            currentMarker = null;
+        }
+    }
 });
 
 // Piletaster i #search
