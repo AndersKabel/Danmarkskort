@@ -263,11 +263,6 @@ searchInput.addEventListener("keydown", function(e) {
 
 clearBtn.addEventListener("click", function() {
     resetInfoBox();
-});
-
-vej1Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
-    vej1Input.value = "";
-    vej1List.innerHTML = "";
     document.getElementById("infoBox").style.display = "none";
     document.getElementById("coordinateBox").style.display = "none";
     document.getElementById("statsvejInfoBox").style.display = "none";
