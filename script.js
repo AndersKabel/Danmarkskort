@@ -67,7 +67,7 @@ async function updateInfoBox(data, lat, lon) {
     const vej2List = document.getElementById("results-vej2");
 
     const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
-const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
+    const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
 
     streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
     addressEl.textContent = adresseStr;
@@ -97,6 +97,9 @@ if (statsvejData) {
     <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
     <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
     <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
+    <strong>Beskrivelse:</strong> ${statsvejData.BESKRIVELSE || "Ingen beskrivelse"}<br>
+    <strong>Fra km:</strong> ${statsvejData.FRAKMT || "-"}<br>
+    <strong>Til km:</strong> ${statsvejData.TILKMT || "-"}<br>
     <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
 `;
 
@@ -175,45 +178,19 @@ searchInput.addEventListener("input", function() {
 });
 
 searchInput.addEventListener("keydown", function(e) {
-    if (e.key === "Backspace" && searchInput.value.length === 0) {
-        document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen
-        document.getElementById("coordinateBox").style.display = "none"; // Skjul koordinatboksen
-        document.getElementById("statsvejInfoBox").style.display = "none"; // Skjul ekstra info
-        document.getElementById("kmInfoBox").style.display = "none"; // Skjul km-info-boksen
-
-        if (currentMarker) {
-            map.removeLayer(currentMarker); // Fjern markøren
-            currentMarker = null;
-        }
+    if (e.key === "Backspace") {
+        document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen med det samme
     }
 });
 
 vej1Input.addEventListener("keydown", function(e) {
-    if (e.key === "Backspace" && vej1Input.value.length === 0) {
-        document.getElementById("infoBox").style.display = "none";
-        document.getElementById("coordinateBox").style.display = "none";
-        document.getElementById("statsvejInfoBox").style.display = "none";
-        document.getElementById("kmInfoBox").style.display = "none";
-
-        if (currentMarker) {
-            map.removeLayer(currentMarker);
-            currentMarker = null;
-        }
+    if (e.key === "Backspace") {
+        document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen ved backspace i vej1
     }
 });
 
-vej2Input.addEventListener("keydown", function(e) {
-    if (e.key === "Backspace" && vej2Input.value.length === 0) {
-        document.getElementById("infoBox").style.display = "none";
-        document.getElementById("coordinateBox").style.display = "none";
-        document.getElementById("statsvejInfoBox").style.display = "none";
-        document.getElementById("kmInfoBox").style.display = "none";
-
-        if (currentMarker) {
-            map.removeLayer(currentMarker);
-            currentMarker = null;
-        }
-    }
+vej2Input.addEventListener("keydown", function() {
+    document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen ved tastetryk i vej2
 });
 
 // Piletaster i #search
@@ -247,6 +224,11 @@ function highlightItem() {
  * Klik på kryds => ryd
  ***************************************************/
 clearBtn.addEventListener("click", function() {
+    searchInput.value = "";
+    resultsList.innerHTML = "";
+    clearBtn.style.display = "none";
+    document.getElementById("infoBox").style.display = "none";
+});
 
 // Funktion til at nulstille info-boksen
 function resetInfoBox() {
@@ -263,29 +245,18 @@ searchInput.addEventListener("keydown", function(e) {
 
 clearBtn.addEventListener("click", function() {
     resetInfoBox();
-    document.getElementById("infoBox").style.display = "none";
-    document.getElementById("coordinateBox").style.display = "none";
-    document.getElementById("statsvejInfoBox").style.display = "none";
-    document.getElementById("kmInfoBox").style.display = "none";
+});
 
-    if (currentMarker) {
-        map.removeLayer(currentMarker);
-        currentMarker = null;
-    }
+vej1Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
+    vej1Input.value = "";
+    vej1List.innerHTML = "";
+    document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen når vej1 ryddes
 });
 
 vej2Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
     vej2Input.value = "";
     vej2List.innerHTML = "";
-    document.getElementById("infoBox").style.display = "none";
-    document.getElementById("coordinateBox").style.display = "none";
-    document.getElementById("statsvejInfoBox").style.display = "none";
-    document.getElementById("kmInfoBox").style.display = "none";
-
-    if (currentMarker) {
-        map.removeLayer(currentMarker);
-        currentMarker = null;
-    }
+    document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen når vej2 ryddes
 });
 
 /***************************************************
@@ -472,30 +443,6 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 }
 
 async function checkForStatsvej(lat, lon) {
-    async function fetchReferenceGeometri(lat, lon) {
-    let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
-    let url = `https://cvf.vd.dk/api/reference?geometry=POINT(${utmX}%20${utmY})`;
-
-    try {
-        let response = await fetch(url);
-        let jsonData = await response.json();
-        console.log("Referencegeometri API svar:", jsonData);
-
-        if (jsonData.features && jsonData.features.length > 0) {
-            let properties = jsonData.features[0].properties;
-            return {
-                kmText: properties.from?.kmtText || "Ukendt km",
-                vejnummer: properties.road?.number || "Ukendt vej"
-            };
-        } else {
-            return null;
-        }
-    } catch (error) {
-        console.error("Fejl ved referencegeometri API:", error);
-        return null;
-    }
-}
-
      console.log("Koordinater sendt til Geocloud:", lat, lon);
 let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]); // Konverter WGS84 til UTM
 let buffer = 50;
@@ -565,4 +512,3 @@ function parseTextResponse(text) {
     console.log("Parsed tekstbaserede data:", data);
     return data;
 }
-
