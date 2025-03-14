@@ -509,3 +509,21 @@ function parseTextResponse(text) {
     console.log("Parsed tekstbaserede data:", data);
     return data;
 }
+
+// --- Tilføj disse linjer efter parseTextResponse() er lukket ---
+
+// Hent elementerne
+const statsvejInfoBox   = document.getElementById("statsvejInfoBox");
+const statsvejCloseBtn  = document.getElementById("statsvejCloseBtn");
+
+// Klik på kryds => luk statsvejInfoBox og fjern evt. marker
+statsvejCloseBtn.addEventListener("click", function() {
+    // Skjul selve boksen
+    statsvejInfoBox.style.display = "none";
+
+    // Fjern evt. den nuværende marker på kortet
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+        currentMarker = null;
+    }
+});
