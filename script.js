@@ -191,9 +191,8 @@ searchInput.addEventListener("input", function() {
     }
     clearBtn.style.display = "inline";
     doSearch(txt, resultsList);
-});
-
-// (A) Tjek om brugeren har tastet koordinater i formatet "lat,lon"
+    
+    // (A) Tjek om brugeren har tastet koordinater i formatet "lat,lon"
 const coordRegex = /^(-?\d+(?:\.\d+))\s*,\s*(-?\d+(?:\.\d+))$/;
 if (coordRegex.test(txt)) {
     // Parse tallene
@@ -213,6 +212,7 @@ if (coordRegex.test(txt)) {
         .catch(err => console.error("Reverse geocoding fejl (koord-søgning):", err));
     return; // Spring doSearch over, hvis det var koordinater
 }
+});
 
 searchInput.addEventListener("keydown", function(e) {
     if (e.key === "Backspace") {
