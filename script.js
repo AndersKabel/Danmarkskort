@@ -176,6 +176,27 @@ searchInput.addEventListener("input", function() {
     doSearch(txt, resultsList);
 });
 
+// (A) Tjek om brugeren har tastet koordinater i formatet "lat,lon"
+const coordRegex = /^(-?\d+(?:\.\d+))\s*,\s*(-?\d+(?:\.\d+))$/;
+if (coordRegex.test(txt)) {
+    // Parse tallene
+    const match = txt.match(coordRegex);
+    const latNum = parseFloat(match[1]);
+    const lonNum = parseFloat(match[2]);
+    // Kald reverse geocoding, så vi får adresse mm.
+    fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lonNum}&y=${latNum}&struktur=flad`)
+        .then(r => r.json())
+        .then(data => {
+            // Ryd eksisterende resultater
+            resultsList.innerHTML = "";
+            // Sæt markør på kortet og vis info
+            placeMarkerAndZoom([latNum, lonNum], `Koordinater: ${latNum.toFixed(5)}, ${lonNum.toFixed(5)}`);
+            updateInfoBox(data, latNum, lonNum);
+        })
+        .catch(err => console.error("Reverse geocoding fejl (koord-søgning):", err));
+    return; // Spring doSearch over, hvis det var koordinater
+}
+
 searchInput.addEventListener("keydown", function(e) {
     if (e.key === "Backspace") {
         document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen med det samme
