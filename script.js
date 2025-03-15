@@ -111,6 +111,24 @@ if (statsvejData) {
 document.getElementById("infoBox").style.display = "block";
 }
 
+// (A) Hent kommunenavn, hvis data.kommunekode
+if (data.kommunekode) {
+    try {
+        let komUrl = `https://api.dataforsyningen.dk/kommuner/${data.kommunekode}`;
+        let komResp = await fetch(komUrl);
+        if (komResp.ok) {
+            let komData = await komResp.json();
+            let kommunenavn = komData.navn || "";
+            // Tilføj kommunenavn i extraInfoEl, f.eks. "Kommune: X"
+            if (extraInfoEl) {
+                extraInfoEl.textContent += ` | Kommune: ${kommunenavn}`;
+            }
+        }
+    } catch (e) {
+        console.error("Kunne ikke hente kommuneinfo:", e);
+    }
+}
+
 /***************************************************
  * Søgefelter, lister
  ***************************************************/
