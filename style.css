@@ -208,6 +208,15 @@
     text-decoration: underline;
 }
 
+#skraafotoLink {
+    color: #007bff;
+    text-decoration: none;
+}
+
+#skraafotoLink:hover {
+    text-decoration: underline;
+}
+
 #kildeangivelse {
     position: absolute;
     bottom: 10px;
