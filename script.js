@@ -110,14 +110,12 @@ if (statsvejData) {
     document.getElementById("statsvejInfoBox").style.display = "block";
 
 } else {
-    // Der er ingen statsvejsdata – ryd <p> og skjul boksen
     statsvejInfoEl.innerHTML = "";
     document.getElementById("statsvejInfoBox").style.display = "none";
 }
 
-// Til sidst kan vi vise den almindelige "infoBox"
 document.getElementById("infoBox").style.display = "block";
-    // (A) Hent kommunenavn, hvis data.kommunekode
+
 if (data.kommunekode) {
     try {
         let komUrl = `https://api.dataforsyningen.dk/kommuner/${data.kommunekode}`;
@@ -125,16 +123,23 @@ if (data.kommunekode) {
         if (komResp.ok) {
             let komData = await komResp.json();
             let kommunenavn = komData.navn || "";
-            // Tilføj kommunenavn i extraInfoEl, f.eks. "Kommune: X"
             if (extraInfoEl) {
                 extraInfoEl.textContent += ` | Kommune: ${kommunenavn}`;
+            }
+
+            // (B) Slå kommunenavn op i "kommuneInfo"
+            if (kommunenavn && kommuneInfo[kommunenavn]) {
+                let info = kommuneInfo[kommunenavn]; 
+                let doedeDyr = info["Døde dyr"];
+                let gaderVeje = info["Gader og veje"];
+                extraInfoEl.textContent += ` | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
             }
         }
     } catch (e) {
         console.error("Kunne ikke hente kommuneinfo:", e);
     }
 }
-}
+} // Her slutter updateInfoBox
 
 /***************************************************
  * Søgefelter, lister
