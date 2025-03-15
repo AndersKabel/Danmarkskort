@@ -230,6 +230,7 @@ if (coordRegex.test(txt)) {
 searchInput.addEventListener("keydown", function(e) {
     if (e.key === "Backspace") {
         document.getElementById("infoBox").style.display = "none"; // Skjul info-boksen med det samme
+        document.getElementById("coordinateBox").style.display = "none";
     }
 });
 
