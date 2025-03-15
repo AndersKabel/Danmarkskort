@@ -30,6 +30,14 @@ L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 var currentMarker;
 
+// (A) Kommunedata hentet fra "Kommuner.xlsx"
+// Vi laver et objekt med navnet => { "Døde dyr": "Ja/Nej", "Gader og veje": "Ja/Nej" }
+const kommuneInfo = {
+    "Herning": { "Døde dyr": "Nej", "Gader og veje": "Nej" },
+    "Vejle":   { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
+    "Vejen":   { "Døde dyr": "Ja",  "Gader og veje": "Ja" }
+};
+
 /***************************************************
  * Klik på kort => /adgangsadresser/reverse
  ***************************************************/
