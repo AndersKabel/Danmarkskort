@@ -280,6 +280,7 @@ clearBtn.addEventListener("click", function() {
     clearBtn.style.display = "none";
     document.getElementById("infoBox").style.display = "none";
     document.getElementById("statsvejInfoBox").style.display = "none";
+    document.getElementById("coordinateBox").style.display = "none";
 });
 
 // Funktion til at nulstille info-boksen
