@@ -17,12 +17,12 @@ var map = L.map('map', {
     zoom: 7,
     zoomControl: false
 });
-var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/ows?", {
-// (A) RedningsNummer-lag via WMS
 
-  layers: "Redningsnummer",        // Lag-navnet i WMS
+var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/ows", {
+  layers: "Redningsnummer",      // ifølge <Name> i GetCapabilities
   format: "image/png",
   transparent: true,
+  version: "1.3.0",              // serveren rapporterer version="1.3.0"
   attribution: "Data: redningsnummer.dk"
 });
 
