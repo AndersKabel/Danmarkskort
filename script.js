@@ -21,6 +21,7 @@ var map = L.map('map', {
 // (A) RedningsNummer-lag
 var redningsnrLayer = L.esri.featureLayer({
    url: 'https://kort.redningsnummer.dk/arcgis/rest/services/Hosted/redningsnr/FeatureServer/0',
+    
    // Hvis du vil style ikoner, brug fx pointToLayer
    pointToLayer: function (geojson, latlng) {
        return L.marker(latlng, {
@@ -35,6 +36,8 @@ var osmLayer = L.tileLayer(
         maxZoom: 19,
         attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur"
     }
+).addTo(map);
+
 // Opret base-lag (baggrundskort)
 const baseMaps = {
   "OpenStreetMap": osmLayer
