@@ -35,9 +35,19 @@ var osmLayer = L.tileLayer(
         maxZoom: 19,
         attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur"
     }
-).addTo(map);
+// Opret base-lag (baggrundskort)
+const baseMaps = {
+  "OpenStreetMap": osmLayer
+};
 
-L.control.layers({ "OpenStreetMap": osmLayer, "Strandposter": redningsnrLayer }, null, { position: 'topright' }).addTo(map);
+// Opret overlay-lag (punkter)
+const overlayMaps = {
+  "Strandposter": redningsnrLayer
+};
+
+// Tilføj lagvælgeren (OSM som base, Strandposter som overlay)
+L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 var currentMarker;
