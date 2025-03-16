@@ -18,16 +18,12 @@ var map = L.map('map', {
     zoomControl: false
 });
 
-// (A) RedningsNummer-lag
-var redningsnrLayer = L.esri.featureLayer({
-   url: 'https://kort.redningsnummer.dk/arcgis/rest/services/Hosted/redningsnr/FeatureServer/0',
-    
-   // Hvis du vil style ikoner, brug fx pointToLayer
-   pointToLayer: function (geojson, latlng) {
-       return L.marker(latlng, {
-           // Ikon, styling etc.
-       });
-   }
+// (A) RedningsNummer-lag via WMS
+var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/wms", {
+  layers: "nobc:redningsnr",        // Lag-navnet i WMS
+  format: "image/png",
+  transparent: true,
+  attribution: "Data: redningsnummer.dk"
 });
 
 var osmLayer = L.tileLayer(
