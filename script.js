@@ -17,6 +17,18 @@ var map = L.map('map', {
     zoom: 7,
     zoomControl: false
 });
+
+// (A) RedningsNummer-lag
+var redningsnrLayer = L.esri.featureLayer({
+   url: 'https://kort.redningsnummer.dk/arcgis/rest/services/Hosted/redningsnr/FeatureServer/0',
+   // Hvis du vil style ikoner, brug fx pointToLayer
+   pointToLayer: function (geojson, latlng) {
+       return L.marker(latlng, {
+           // Ikon, styling etc.
+       });
+   }
+});
+
 var osmLayer = L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
@@ -25,7 +37,7 @@ var osmLayer = L.tileLayer(
     }
 ).addTo(map);
 
-L.control.layers({ "OpenStreetMap": osmLayer }, null, { position: 'topright' }).addTo(map);
+L.control.layers({ "OpenStreetMap": osmLayer, "Strandposter": redningsnrLayer }, null, { position: 'topright' }).addTo(map);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 var currentMarker;
