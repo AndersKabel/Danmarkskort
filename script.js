@@ -148,7 +148,7 @@ async function updateInfoBox(data, lat, lon) {
                     let info = kommuneInfo[kommunenavn]; 
                     let doedeDyr = info["Døde dyr"];
                     let gaderVeje = info["Gader og veje"];
-                    extraInfoEl.textContent += ` | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
+                    extraInfoEl.innerHTML += `<br>Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
                 }
             }
         } catch (e) {
