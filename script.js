@@ -140,7 +140,7 @@ async function updateInfoBox(data, lat, lon) {
                 let komData = await komResp.json();
                 let kommunenavn = komData.navn || "";
                 if (extraInfoEl) {
-                    extraInfoEl.textContent += ` | Kommune: ${kommunenavn}`;
+                   // extraInfoEl.textContent += ` | Kommune: ${kommunenavn}`;
                 }
 
                 // Slå kommunenavn op i "kommuneInfo"
@@ -148,7 +148,7 @@ async function updateInfoBox(data, lat, lon) {
                     let info = kommuneInfo[kommunenavn]; 
                     let doedeDyr = info["Døde dyr"];
                     let gaderVeje = info["Gader og veje"];
-                    extraInfoEl.innerHTML += `<br>Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
+                    extraInfoEl.innerHTML += `<br>Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
                 }
             }
         } catch (e) {
