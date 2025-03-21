@@ -667,25 +667,22 @@ infoCloseBtn.addEventListener("click", function() {
 async function hentDatafordelerVej(vejnavn) {
     console.log("hentDatafordelerVej kaldt med vejnavn:", vejnavn);
 
-    // Her et eksempel-lag (fiktivt!). Justér til rigtigt typeName, attribut etc.
-    // NB: username/password i Basic Auth -> du skal enten bruge en token
-    // eller Basic i "Authorization" header. Her vises Basic Auth som eksempel:
-    let typeName = "DK_NAVNGIVENVEJ";  // Tilpas
-    let cql = `vejnavn='${vejnavn}'`;  // Tilpas attributnavn
+    
+    let typeName = "DAR:Vejnavnelinje";  // Tilpas
+    let cql = `navngivenvej_navn='${vejnavn}'`;  // Tilpas attributnavn
     let wfsUrl = `
-      https://services.datafordeler.dk/VEJ/S4/1.0.0/WFS?
+      https://services.datafordeler.dk/DAR/DARWFS/1.0.0/WFS?
         service=WFS&
         version=1.1.0&
         request=GetFeature&
         typeName=${typeName}&
         outputFormat=application/json&
+        srsName=EPSG:4326&
         cql_filter=${encodeURIComponent(cql)}
     `.replace(/\s+/g, ""); // Fjerner linjeskift
 
     console.log("Datafordeler WFS URL:", wfsUrl);
 
-    // Eksempel med Basic Auth (tilpas brugernavn + password)
-    // Hvis du har en token i stedet, brug:  headers: { "Authorization": "Bearer <din_token>" }
     let resp = await fetch(wfsUrl, {
         headers: {
             "Authorization": "Basic " + btoa("NUKALQTAFO:Fw62huch!")
