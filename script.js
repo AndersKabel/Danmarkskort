@@ -662,38 +662,72 @@ infoCloseBtn.addEventListener("click", function() {
  * NY DEL: Intersection-funktion for to vejnavne
  ***************************************************/
 
-// 1) Hent line-geometri fra Datafordeleren S4-lag (fx "DK_VEJMIDTE" eller "DK_NAVNGIVENVEJ")
-//    Du skal justere typeName, cql_filter, attributnavn for "vejnavn" osv.:
 async function hentDatafordelerVej(vejnavn) {
     console.log("hentDatafordelerVej kaldt med vejnavn:", vejnavn);
 
-    
-    let typeName = "DAR:Vejnavnelinje";  // Tilpas
-    let cql = `navngivenvej_navn='${vejnavn}'`;  // Tilpas attributnavn
-    let wfsUrl = `
-      https://services.datafordeler.dk/DAR/DARWFS/1.0.0/WFS?
-        service=WFS&
-        version=1.1.0&
-        request=GetFeature&
-        typeName=${typeName}&
-        outputFormat=application/json&
-        srsName=EPSG:4326&
-        cql_filter=${encodeURIComponent(cql)}
-    `.replace(/\s+/g, ""); // Fjerner linjeskift
+// -------------------------------------------------------------
+// HJÆLPEFUNKTION til WKT => GeoJSON (du skal selv implementere
+//   en korrekt parser eller bruge et library).
+// -------------------------------------------------------------
+function wktTilGeoJSON(wktString) {
+    // Pseudo-eksempel! Du har brug for en reel parsing af
+    // MULTILINESTRING(...) til
+    //   { type:"Feature", geometry:{ type:"MultiLineString", ... } }
+    // Find f.eks. "wellknown" på npm eller “@mapbox/wellknown”.
+    // Her returnerer vi KUN en dummy:
+    return {
+        "type": "Feature",
+        "geometry": {
+            "type": "MultiLineString",
+            "coordinates": [
+                // ... parse wktString ...
+            ]
+        },
+        "properties": {}
+    };
+}
 
-    console.log("Datafordeler WFS URL:", wfsUrl);
+// -------------------------------------------------------------
+// NY KODE: Kald REST-endpoint for navngivenvej med "navn=..."
+// -------------------------------------------------------------
+// 1) Byg URL med brugernavn/adgangskode i querystring + vejnavn
+let restUrl = `
+  https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?
+    format=json&
+    navn=${encodeURIComponent(vejnavn)}&
+    username=NUKALQTAFO&
+    password=Fw62huch!
+`.replace(/\s+/g, ""); // Fjerner linjeskift
 
-    let resp = await fetch(wfsUrl, {
-        headers: {
-            "Authorization": "Basic " + btoa("NUKALQTAFO:Fw62huch!")
-        }
-    });
-    if (!resp.ok) {
-        throw new Error("Datafordeler WFS-fejl: " + resp.status);
-    }
-    let geojson = await resp.json();
-    console.log("Modtaget geojson for vejnavn:", vejnavn, geojson);
-    return geojson;
+console.log("Datafordeler REST-URL:", restUrl);
+
+// 2) Kald REST
+let resp = await fetch(restUrl);
+if (!resp.ok) {
+    throw new Error("Datafordeler REST-fejl: " + resp.status);
+}
+
+let jsonData = await resp.json();
+console.log("Modtaget navngivenvej-data:", jsonData);
+
+// 3) Tjek at vi fik mindst 1 navngivenvej
+if (!jsonData.length) {
+    throw new Error("Ingen navngivenvej fundet for '" + vejnavn + "'");
+}
+
+// 4) Tag den første forekomst
+let wktString = jsonData[0].vejnavnebeliggenhed_vejnavnelinje;
+if (!wktString) {
+    throw new Error("Mangler geometri i 'vejnavnebeliggenhed_vejnavnelinje'");
+}
+
+// 5) Konverter WKT => GeoJSON
+let geoJsonFeature = wktTilGeoJSON(wktString);
+
+// 6) Returner geoJsonFeature
+return geoJsonFeature;
+// -------------------------------------------------------------
+
 }
 
 // 2) findIntersection => henter geometri for Vej1 og Vej2 og bruger turf.lineIntersect
