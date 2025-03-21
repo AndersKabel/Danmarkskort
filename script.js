@@ -724,6 +724,75 @@ if (!wktString) {
 // 5) Konverter WKT => GeoJSON
 let geoJsonFeature = wktTilGeoJSON(wktString);
 
+    //////////////////////////////////////////////////////////////////////
+//  HJÆLPEFUNKTION: wktTilGeoJSON
+//  ------------------------------------------------------------
+//  Denne funktion parser en MULTILINESTRING-lignende WKT-tekst
+//  (f.eks. "MULTILINESTRING((12.0 55.0, 12.1 55.1),(12.2 55.2, 12.3 55.3))")
+//  og returnerer et GeoJSON Feature af typen "MultiLineString".
+//  Bemærk, at denne er ret naiv: den forventer netop MULTILINESTRING.
+//  Du kan udbygge/forbedre den, hvis der er flere WKT-varianter.
+//////////////////////////////////////////////////////////////////////
+function wktTilGeoJSON(wktString) {
+    wktString = wktString.trim();
+    
+    // 1) Tjek om den starter med MULTILINESTRING
+    let prefix = "MULTILINESTRING";
+    let upperWKT = wktString.toUpperCase();
+    if (!upperWKT.startsWith(prefix)) {
+        throw new Error("wktTilGeoJSON-fejl: Forventede MULTILINESTRING(...) men fik: " + wktString);
+    }
+
+    // 2) Fjern selve MULTILINESTRING-delen
+    //    => tilbage står fx "((12.0 55.0, 12.1 55.1),(12.2 55.2, 12.3 55.3))"
+    let inner = wktString.substring(prefix.length).trim(); // fjerner "MULTILINESTRING"
+    
+    // typisk står der nu en start- og slut-parentes
+    // fx "( (12.0 55.0,12.1 55.1),(...))"
+    if (inner.startsWith("(")) inner = inner.substring(1);
+    if (inner.endsWith(")"))   inner = inner.substring(0, inner.length - 1);
+
+    // Nu er der fx "(12.0 55.0, 12.1 55.1),(12.2 55.2, 12.3 55.3)"
+    inner = inner.trim();
+    // Fjern evt. yderligere '(' og ')' på første/ sidste
+    // => "(12.0 55.0, 12.1 55.1),(12.2 55.2, 12.3 55.3)"
+    // men reelt vil split i næste trin håndtere det
+
+    // 3) Del multiline-string op i linestrings
+    //    Her splitter vi på "),(" (med evt. mellemrum)
+    //    så vi får én streng per linestring
+    let lineStrings = inner.split(/\)\s*,\s*\(/);
+
+    // 4) For hver linestring => parse punkterne
+    //    "12.0 55.0,12.1 55.1" => [[12.0,55.0],[12.1,55.1],...]
+    let allCoords = lineStrings.map(ls => {
+        // Fjern løse parenteser
+        ls = ls.replace(/^(\(|\s)+/, "").replace(/(\)|\s)+$/, "");
+        // split på komma mellem punkter
+        let pointStrs = ls.split(/\s*,\s*/);
+
+        // parse hvert punkt
+        let coords = pointStrs.map(pt => {
+            // fx "12.0 55.0" => ["12.0","55.0"]
+            let [xStr, yStr] = pt.trim().split(/\s+/);
+            let x = parseFloat(xStr);
+            let y = parseFloat(yStr);
+            return [x, y];
+        });
+        return coords;  // en "linestring" => array af [lon, lat]
+    });
+
+    // 5) Returnér et GeoJSON Feature med "MultiLineString"
+    return {
+        type: "Feature",
+        geometry: {
+            type: "MultiLineString",
+            coordinates: allCoords
+        },
+        properties: {}
+    };
+}
+
 // 6) Returner geoJsonFeature
 return geoJsonFeature;
 // -------------------------------------------------------------
