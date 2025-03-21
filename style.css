@@ -202,6 +202,7 @@
     font-size: 14px;
     color: #555;
     margin-top: 5px;
+    line-height: 1.6em; /* Eller 1.8, 2.0 osv. */
 }
 
 #streetviewLink {
