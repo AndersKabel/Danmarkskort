@@ -672,8 +672,6 @@ let restUrl = `
   https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/Navngivenvej?
     format=json&
     Navn=${encodeURIComponent(vejnavn)}&
-    username=NUKALQTAFO&
-    password=Fw62huch!
 `.replace(/\s+/g, ""); // Fjerner linjeskift
 
 console.log("Datafordeler REST-URL:", restUrl);
