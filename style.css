@@ -214,7 +214,8 @@
 }
 
 #skraafotoLink {
-    color: #007bff;
+    color: orange;      /* Ændrer linkfarven */
+    margin-left: 8px;   /* Giver en lille afstand fra det andet link */
     text-decoration: none;
 }
 
