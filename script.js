@@ -669,7 +669,7 @@ async function hentDatafordelerVej(vejnavn) {
 // -------------------------------------------------------------
 // 1) Byg URL med brugernavn/adgangskode i querystring + vejnavn
 let restUrl = `
-  https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/Navngivenvej?
+  https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?
     format=json&
     Navn=${encodeURIComponent(vejnavn)}&
 `.replace(/\s+/g, ""); // Fjerner linjeskift
