@@ -657,35 +657,12 @@ infoCloseBtn.addEventListener("click", function() {
     }
 });
 
-
 /***************************************************
  * NY DEL: Intersection-funktion for to vejnavne
  ***************************************************/
 
 async function hentDatafordelerVej(vejnavn) {
     console.log("hentDatafordelerVej kaldt med vejnavn:", vejnavn);
-
-// -------------------------------------------------------------
-// HJÆLPEFUNKTION til WKT => GeoJSON (du skal selv implementere
-//   en korrekt parser eller bruge et library).
-// -------------------------------------------------------------
-function wktTilGeoJSON(wktString) {
-    // Pseudo-eksempel! Du har brug for en reel parsing af
-    // MULTILINESTRING(...) til
-    //   { type:"Feature", geometry:{ type:"MultiLineString", ... } }
-    // Find f.eks. "wellknown" på npm eller “@mapbox/wellknown”.
-    // Her returnerer vi KUN en dummy:
-    return {
-        "type": "Feature",
-        "geometry": {
-            "type": "MultiLineString",
-            "coordinates": [
-                // ... parse wktString ...
-            ]
-        },
-        "properties": {}
-    };
-}
 
 // -------------------------------------------------------------
 // NY KODE: Kald REST-endpoint for navngivenvej med "navn=..."
