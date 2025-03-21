@@ -476,6 +476,17 @@ function doSearch(query, listElement) {
                           resultsList.innerHTML = "";
                           vej1List.innerHTML = "";
                           vej2List.innerHTML = "";
+
+                          // (NY) Gem kommunekode og vejkode på input-feltets dataset,
+                          // så "Find X" kan bruge dem senere:
+                          if (listElement === vej1List) {
+                              vej1Input.dataset.kommunekode = addressData.kommunekode;
+                              vej1Input.dataset.vejkode = addressData.vejkode;
+                          } 
+                          else if (listElement === vej2List) {
+                              vej2Input.dataset.kommunekode = addressData.kommunekode;
+                              vej2Input.dataset.vejkode = addressData.vejkode;
+                          }
                       })
                       .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
                 }
@@ -518,10 +529,10 @@ function doSearchRoad(query, listElement, inputField) {
             data.sort((a, b) => a.tekst.localeCompare(b.tekst));
 
             data.forEach(item => {
-                let vejnavn = item.adgangsadresse?.vejnavn || "Ukendt vej";
-                let kommune = item.adgangsadresse?.postnrnavn || "Ukendt kommune";
-                let postnr = item.adgangsadresse?.postnr || "?";
-
+                let vejnavn   = item.adgangsadresse?.vejnavn || "Ukendt vej";
+                let kommune   = item.adgangsadresse?.postnrnavn || "Ukendt kommune";
+                let postnr    = item.adgangsadresse?.postnr || "?";
+                
                 let li = document.createElement("li");
                 li.textContent = `${vejnavn}, ${kommune} (${postnr})`;
 
@@ -529,6 +540,8 @@ function doSearchRoad(query, listElement, inputField) {
                     inputField.value = vejnavn;
                     listElement.innerHTML = "";
                     listElement.style.display = "none";
+                    // (Bemærk at den egentlige kommunekode/vejkode hentes
+                    // først i /adgangsadresser/{id} (se doSearch -> obj.type=adresse).
                 });
 
                 listElement.appendChild(li);
@@ -661,111 +674,85 @@ infoCloseBtn.addEventListener("click", function() {
  * NY DEL: Intersection-funktion for to vejnavne
  ***************************************************/
 
-async function hentDatafordelerVej(vejnavn) {
-    console.log("hentDatafordelerVej kaldt med vejnavn:", vejnavn);
+// (NY) Rettet til at bruge kommunekode+vejkode i stedet for "Navn"
+async function hentDatafordelerVej(kommunekode, vejkode) {
+    console.log("hentDatafordelerVej kaldt med kommunekode:", kommunekode, "vejkode:", vejkode);
 
-// -------------------------------------------------------------
-// NY KODE: Kald REST-endpoint for navngivenvej med "navn=..."
-// -------------------------------------------------------------
-// 1) Byg URL med brugernavn/adgangskode i querystring + vejnavn
-let restUrl = `
-  https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?
-    format=json&
-    Navn=${encodeURIComponent(vejnavn)}&
-`.replace(/\s+/g, ""); // Fjerner linjeskift
+    // Byg URL til DAR "navngivenvej", med ?kommunekode=... &vejkode=...
+    // Fri adgang ifølge documentation => intet brugernavn/password
+    let restUrl = `
+      https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?
+        format=json&
+        kommunekode=${kommunekode}&
+        vejkode=${vejkode}
+    `.replace(/\s+/g, "");
 
-console.log("Datafordeler REST-URL:", restUrl);
+    console.log("Datafordeler navngivenvej-URL:", restUrl);
 
-// 2) Kald REST
-let resp = await fetch(restUrl);
-if (!resp.ok) {
-    throw new Error("Datafordeler REST-fejl: " + resp.status);
-}
-
-let jsonData = await resp.json();
-console.log("Modtaget navngivenvej-data:", jsonData);
-
-// 3) Tjek at vi fik mindst 1 navngivenvej
-if (!jsonData.length) {
-    throw new Error("Ingen navngivenvej fundet for '" + vejnavn + "'");
-}
-
-// 4) Tag den første forekomst
-let wktString = jsonData[0].vejnavnebeliggenhed_vejnavnelinje;
-if (!wktString) {
-    throw new Error("Mangler geometri i 'vejnavnebeliggenhed_vejnavnelinje'");
-}
-
-// 5) Konverter WKT => GeoJSON
-let geoJsonFeature = wktTilGeoJSON(wktString);
-
-function wktTilGeoJSON(wktString) {
-    wktString = wktString.trim();
-    
-    // 1) Tjek om den starter med MULTILINESTRING
-    let prefix = "MULTILINESTRING";
-    let upperWKT = wktString.toUpperCase();
-    if (!upperWKT.startsWith(prefix)) {
-        throw new Error("wktTilGeoJSON-fejl: Forventede MULTILINESTRING(...) men fik: " + wktString);
+    let resp = await fetch(restUrl);
+    if (!resp.ok) {
+        throw new Error("Datafordeler REST-fejl: " + resp.status);
     }
 
-    // 2) Fjern selve MULTILINESTRING-delen
-    //    => tilbage står fx "((12.0 55.0, 12.1 55.1),(12.2 55.2, 12.3 55.3))"
-    let inner = wktString.substring(prefix.length).trim(); // fjerner "MULTILINESTRING"
-    
-    // typisk står der nu en start- og slut-parentes
-    // fx "( (12.0 55.0,12.1 55.1),(...))"
-    if (inner.startsWith("(")) inner = inner.substring(1);
-    if (inner.endsWith(")"))   inner = inner.substring(0, inner.length - 1);
+    let jsonData = await resp.json();
+    console.log("Modtaget navngivenvej-data:", jsonData);
 
-    // Nu er der fx "(12.0 55.0, 12.1 55.1),(12.2 55.2, 12.3 55.3)"
-    inner = inner.trim();
-    // Fjern evt. yderligere '(' og ')' på første/ sidste
-    // => "(12.0 55.0, 12.1 55.1),(12.2 55.2, 12.3 55.3)"
-    // men reelt vil split i næste trin håndtere det
+    if (!jsonData.length) {
+        throw new Error("Ingen navngivenvej fundet for kommunekode/vejkode: " + kommunekode + "/" + vejkode);
+    }
 
-    // 3) Del multiline-string op i linestrings
-    //    Her splitter vi på "),(" (med evt. mellemrum)
-    //    så vi får én streng per linestring
-    let lineStrings = inner.split(/\)\s*,\s*\(/);
+    // Tag den første
+    let wktString = jsonData[0].vejnavnebeliggenhed_vejnavnelinje;
+    if (!wktString) {
+        throw new Error("Mangler geometri (vejnavnebeliggenhed_vejnavnelinje).");
+    }
 
-    // 4) For hver linestring => parse punkterne
-    //    "12.0 55.0,12.1 55.1" => [[12.0,55.0],[12.1,55.1],...]
-    let allCoords = lineStrings.map(ls => {
-        // Fjern løse parenteser
-        ls = ls.replace(/^(\(|\s)+/, "").replace(/(\)|\s)+$/, "");
-        // split på komma mellem punkter
-        let pointStrs = ls.split(/\s*,\s*/);
+    // Parse WKT => GeoJSON
+    let geoJsonFeature = wktTilGeoJSON(wktString);
+    return geoJsonFeature;
 
-        // parse hvert punkt
-        let coords = pointStrs.map(pt => {
-            // fx "12.0 55.0" => ["12.0","55.0"]
-            let [xStr, yStr] = pt.trim().split(/\s+/);
-            let x = parseFloat(xStr);
-            let y = parseFloat(yStr);
-            return [x, y];
+    // Samme wktTilGeoJSON som før
+    function wktTilGeoJSON(wktString) {
+        wktString = wktString.trim();
+
+        let prefix = "MULTILINESTRING";
+        let upperWKT = wktString.toUpperCase();
+        if (!upperWKT.startsWith(prefix)) {
+            throw new Error("wktTilGeoJSON-fejl: Forventede MULTILINESTRING(...) men fik: " + wktString);
+        }
+
+        let inner = wktString.substring(prefix.length).trim();
+        if (inner.startsWith("(")) inner = inner.substring(1);
+        if (inner.endsWith(")"))   inner = inner.substring(0, inner.length - 1);
+
+        inner = inner.trim();
+        let lineStrings = inner.split(/\)\s*,\s*\(/);
+
+        let allCoords = lineStrings.map(ls => {
+            ls = ls.replace(/^(\(|\s)+/, "").replace(/(\)|\s)+$/, "");
+            let pointStrs = ls.split(/\s*,\s*/);
+
+            let coords = pointStrs.map(pt => {
+                let [xStr, yStr] = pt.trim().split(/\s+/);
+                let x = parseFloat(xStr);
+                let y = parseFloat(yStr);
+                return [x, y];
+            });
+            return coords;
         });
-        return coords;  // en "linestring" => array af [lon, lat]
-    });
 
-    // 5) Returnér et GeoJSON Feature med "MultiLineString"
-    return {
-        type: "Feature",
-        geometry: {
-            type: "MultiLineString",
-            coordinates: allCoords
-        },
-        properties: {}
-    };
+        return {
+            type: "Feature",
+            geometry: {
+                type: "MultiLineString",
+                coordinates: allCoords
+            },
+            properties: {}
+        };
+    }
 }
 
-// 6) Returner geoJsonFeature
-return geoJsonFeature;
-// -------------------------------------------------------------
-
-}
-
-// 2) findIntersection => henter geometri for Vej1 og Vej2 og bruger turf.lineIntersect
+// Intersection => henter geometri for de to valgte veje
 async function findIntersection() {
     try {
         let vej1 = vej1Input.value.trim();
@@ -776,17 +763,30 @@ async function findIntersection() {
             return;
         }
 
+        // (NY) Læs kommunekode/vejkode fra dataset
+        let kommunekode1 = vej1Input.dataset.kommunekode;
+        let vejkode1     = vej1Input.dataset.vejkode;
+        let kommunekode2 = vej2Input.dataset.kommunekode;
+        let vejkode2     = vej2Input.dataset.vejkode;
+
+        if (!kommunekode1 || !vejkode1 || !kommunekode2 || !vejkode2) {
+            alert("Mangler kommunekode/vejkode på én af de to veje. Vælg en vej fra autocomplete-listen først.");
+            return;
+        }
+
+        console.log("findIntersection: henter geometri for ", kommunekode1, vejkode1, "og", kommunekode2, vejkode2);
+
         // Hent geometri for vej1
-        let geojson1 = await hentDatafordelerVej(vej1);
+        let geojson1 = await hentDatafordelerVej(kommunekode1, vejkode1);
         // Hent geometri for vej2
-        let geojson2 = await hentDatafordelerVej(vej2);
+        let geojson2 = await hentDatafordelerVej(kommunekode2, vejkode2);
 
         if (!geojson1 || !geojson2) {
-   alert("Kunne ikke finde geometri for en af vejene.");
-   return;
-}
-let line1 = geojson1; // Feature
-let line2 = geojson2; // Feature
+            alert("Kunne ikke finde geometri for en af vejene (ingen data).");
+            return;
+        }
+        let line1 = geojson1; // Feature
+        let line2 = geojson2; // Feature
 
         // Intersection via turf
         let intersection = turf.lineIntersect(line1, line2);
@@ -798,7 +798,7 @@ let line2 = geojson2; // Feature
             return;
         }
 
-        // Hvis der er flere krydspunkter, tag bare det første
+        // Hvis der er flere krydspunkter, tag den første
         let point = intersection.features[0];
         let [lon, lat] = point.geometry.coordinates;
 
@@ -811,5 +811,5 @@ let line2 = geojson2; // Feature
     }
 }
 
-// 3) Tilføj eventlistener til knappen "Find X"
+// Tilføj eventlistener til "Find X"
 document.getElementById("findKrydsBtn").addEventListener("click", findIntersection);
