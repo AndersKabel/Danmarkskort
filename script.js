@@ -399,7 +399,9 @@ function doSearch(query, listElement) {
     // Adgangsadresser
     let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
 
-    // Stednavne
+    // Stednavne (Datafordeleren):
+    // Bemærk at du har username/password i URL:
+    // "NUKALQTAFO" + "Fw62huch!"
     let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`;
 
     // Nu includerer vi strandposter:
@@ -485,11 +487,9 @@ function doSearch(query, listElement) {
                     // brug lat, lon
                     placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
                     // du kan fx vise "props" i infoboks
-                    // obj.feature.properties
                     let props = obj.feature.properties;
                     let e = document.getElementById("extra-info");
                     e.textContent = `Flere data: Parkeringsplads: ${props.ppl} ...?`; 
-                    // Tilpas hvad du vil vise
                 }
             });
 
@@ -656,3 +656,96 @@ infoCloseBtn.addEventListener("click", function() {
         currentMarker = null;
     }
 });
+
+
+/***************************************************
+ * NY DEL: Intersection-funktion for to vejnavne
+ ***************************************************/
+
+// 1) Hent line-geometri fra Datafordeleren S4-lag (fx "DK_VEJMIDTE" eller "DK_NAVNGIVENVEJ")
+//    Du skal justere typeName, cql_filter, attributnavn for "vejnavn" osv.:
+async function hentDatafordelerVej(vejnavn) {
+    console.log("hentDatafordelerVej kaldt med vejnavn:", vejnavn);
+
+    // Her et eksempel-lag (fiktivt!). Justér til rigtigt typeName, attribut etc.
+    // NB: username/password i Basic Auth -> du skal enten bruge en token
+    // eller Basic i "Authorization" header. Her vises Basic Auth som eksempel:
+    let typeName = "DK_NAVNGIVENVEJ";  // Tilpas
+    let cql = `vejnavn='${vejnavn}'`;  // Tilpas attributnavn
+    let wfsUrl = `
+      https://services.datafordeler.dk/VEJ/S4/1.0.0/WFS?
+        service=WFS&
+        version=1.1.0&
+        request=GetFeature&
+        typeName=${typeName}&
+        outputFormat=application/json&
+        cql_filter=${encodeURIComponent(cql)}
+    `.replace(/\s+/g, ""); // Fjerner linjeskift
+
+    console.log("Datafordeler WFS URL:", wfsUrl);
+
+    // Eksempel med Basic Auth (tilpas brugernavn + password)
+    // Hvis du har en token i stedet, brug:  headers: { "Authorization": "Bearer <din_token>" }
+    let resp = await fetch(wfsUrl, {
+        headers: {
+            "Authorization": "Basic " + btoa("NUKALQTAFO:Fw62huch!")
+        }
+    });
+    if (!resp.ok) {
+        throw new Error("Datafordeler WFS-fejl: " + resp.status);
+    }
+    let geojson = await resp.json();
+    console.log("Modtaget geojson for vejnavn:", vejnavn, geojson);
+    return geojson;
+}
+
+// 2) findIntersection => henter geometri for Vej1 og Vej2 og bruger turf.lineIntersect
+async function findIntersection() {
+    try {
+        let vej1 = vej1Input.value.trim();
+        let vej2 = vej2Input.value.trim();
+
+        if (!vej1 || !vej2) {
+            alert("Udfyld begge vejfelter!");
+            return;
+        }
+
+        // Hent geometri for vej1
+        let geojson1 = await hentDatafordelerVej(vej1);
+        // Hent geometri for vej2
+        let geojson2 = await hentDatafordelerVej(vej2);
+
+        if (!geojson1.features.length || !geojson2.features.length) {
+            alert("Kunne ikke finde geometri for en af vejene.");
+            return;
+        }
+
+        // Tag fx den første feature fra hver
+        let line1 = geojson1.features[0];
+        let line2 = geojson2.features[0];
+
+        // Intersection via turf
+        let intersection = turf.lineIntersect(line1, line2);
+
+        console.log("Intersection-resultat:", intersection);
+
+        if (!intersection.features.length) {
+            alert("Ingen kryds fundet!");
+            return;
+        }
+
+        // Hvis der er flere krydspunkter, tag bare det første
+        let point = intersection.features[0];
+        let [lon, lat] = point.geometry.coordinates;
+
+        // Sæt marker og zoom
+        placeMarkerAndZoom([lat, lon], `Kryds: ${vej1} + ${vej2}`);
+
+    } catch (err) {
+        console.error("Fejl i findIntersection:", err);
+        alert("Fejl ved beregning af kryds. Se console.log for detaljer.");
+    }
+}
+
+// 3) Tilføj eventlistener til knappen "Find X"
+document.getElementById("findKrydsBtn").addEventListener("click", findIntersection);
