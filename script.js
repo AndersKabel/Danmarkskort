@@ -746,14 +746,12 @@ async function findIntersection() {
         // Hent geometri for vej2
         let geojson2 = await hentDatafordelerVej(vej2);
 
-        if (!geojson1.features.length || !geojson2.features.length) {
-            alert("Kunne ikke finde geometri for en af vejene.");
-            return;
-        }
-
-        // Tag fx den første feature fra hver
-        let line1 = geojson1.features[0];
-        let line2 = geojson2.features[0];
+        if (!geojson1 || !geojson2) {
+   alert("Kunne ikke finde geometri for en af vejene.");
+   return;
+}
+let line1 = geojson1; // Feature
+let line2 = geojson2; // Feature
 
         // Intersection via turf
         let intersection = turf.lineIntersect(line1, line2);
