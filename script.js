@@ -701,15 +701,6 @@ if (!wktString) {
 // 5) Konverter WKT => GeoJSON
 let geoJsonFeature = wktTilGeoJSON(wktString);
 
-    //////////////////////////////////////////////////////////////////////
-//  HJÆLPEFUNKTION: wktTilGeoJSON
-//  ------------------------------------------------------------
-//  Denne funktion parser en MULTILINESTRING-lignende WKT-tekst
-//  (f.eks. "MULTILINESTRING((12.0 55.0, 12.1 55.1),(12.2 55.2, 12.3 55.3))")
-//  og returnerer et GeoJSON Feature af typen "MultiLineString".
-//  Bemærk, at denne er ret naiv: den forventer netop MULTILINESTRING.
-//  Du kan udbygge/forbedre den, hvis der er flere WKT-varianter.
-//////////////////////////////////////////////////////////////////////
 function wktTilGeoJSON(wktString) {
     wktString = wktString.trim();
     
