@@ -180,9 +180,10 @@
 }
 
 .info-upper-box {
-    display: inline-block;
-    margin-right: 10px;
-    margin-bottom: 8px;
+    display: flex;          /* Gør containeren til flex, så børnene (links) står på samme linje */
+    align-items: center;    /* Vertikal centrering (valgfrit) */
+    gap: 10px;              /* Lidt luft mellem linkene */
+    margin-bottom: 8px;     /* Behold margin-bottom hvis du vil have afstand nedenunder */
 }
 
 .info-lower-box {
