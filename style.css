@@ -191,6 +191,8 @@
 #address {
     margin: 0;
     padding: 0;
+    font-weight: bold;      /* Gør alt i #extra-info fed */
+    line-height: 1.6em;     /* Giver mere højde mellem linjerne */
 }
 
 #extra-info {
