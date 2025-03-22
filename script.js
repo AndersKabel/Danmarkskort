@@ -319,6 +319,12 @@ vej2Input.parentElement.querySelector(".clear-button").addEventListener("click",
 });
 
 /***************************************************
+ * Globale variabler til at gemme valgte veje
+ ***************************************************/
+var selectedRoad1 = null;
+var selectedRoad2 = null;
+
+/***************************************************
  * vej1 => doSearch
  ***************************************************/
 vej1Input.addEventListener("input", function() {
@@ -503,8 +509,8 @@ function doSearch(query, listElement) {
 }
 
 /***************************************************
- * doSearchRoad
- * => viser kun én linje pr. unikke (vejnavn, kommune)
+ * vej1 og vej2 => autocomplete (vejnavn + kommune)
+ *    Ændret så vi kun får én linje per unikt (vejnavn, kommune)
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
     let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
@@ -516,45 +522,61 @@ function doSearchRoad(query, listElement, inputField) {
             items = [];
             currentIndex = -1;
 
-            // Sortér som før
             data.sort((a, b) => a.tekst.localeCompare(b.tekst));
 
-            // Opret et Set til at huske unikke kombinationer (vejnavn+kommune)
-            let seen = new Set();
-            let uniqueResults = [];
+            // Opret et sæt til unikke kombinationer af (vejnavn, postnrnavn, postnr)
+            let uniqueCombinations = new Set();
 
             data.forEach(item => {
                 let vejnavn = item.adgangsadresse?.vejnavn || "Ukendt vej";
-                // Her bruger vi 'postnrnavn' som 'kommune', da din kode hidtil gjorde det.
-                let kommune = item.adgangsadresse?.postnrnavn || "Ukendt kommune";
-                let postnr = item.adgangsadresse?.postnr || "?";
+                let kommune = item.adgangsadresse?.postnrnavn || "Ukendt kommune"; // Egentlig bynavn
+                let postnr  = item.adgangsadresse?.postnr || "?";
+                let vejkode = item.adgangsadresse?.vejkode || "";
+                let komkode = item.adgangsadresse?.kommunekode || "";
 
-                // Unik nøgle for (vejnavn, kommune)
-                let key = vejnavn + "|" + kommune;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    uniqueResults.push({ vejnavn, kommune, postnr });
+                // Unik nøgle for denne vej + 'kommune' + postnr
+                let comboKey = `${vejnavn}||${kommune}||${postnr}`;
+
+                // Kun hvis vi ikke har set den før, tilføjer vi den til listen
+                if (!uniqueCombinations.has(comboKey)) {
+                    uniqueCombinations.add(comboKey);
+
+                    let li = document.createElement("li");
+                    li.textContent = `${vejnavn}, ${kommune} (${postnr})`;
+
+                    // Klik => gem data i selectedRoad1 eller selectedRoad2
+                    li.addEventListener("click", function() {
+                        // Hvis det er vej1-listen
+                        if (listElement.id === "results-vej1") {
+                            selectedRoad1 = {
+                                vejnavn: vejnavn,
+                                kommune: kommune,
+                                postnr:  postnr,
+                                vejkode: vejkode,
+                                kommunekode: komkode
+                            };
+                        } else {
+                            // Ellers vej2-listen
+                            selectedRoad2 = {
+                                vejnavn: vejnavn,
+                                kommune: kommune,
+                                postnr:  postnr,
+                                vejkode: vejkode,
+                                kommunekode: komkode
+                            };
+                        }
+
+                        inputField.value = vejnavn;
+                        listElement.innerHTML = "";
+                        listElement.style.display = "none";
+                    });
+
+                    listElement.appendChild(li);
+                    items.push(li);
                 }
             });
 
-            // Sortér unikke resultater (valgfrit, men vi gør det for konsistens)
-            uniqueResults.sort((a, b) => a.vejnavn.localeCompare(b.vejnavn));
-
-            uniqueResults.forEach(obj => {
-                let li = document.createElement("li");
-                li.textContent = `${obj.vejnavn}, ${obj.kommune} (${obj.postnr})`;
-
-                li.addEventListener("click", function() {
-                    inputField.value = obj.vejnavn;
-                    listElement.innerHTML = "";
-                    listElement.style.display = "none";
-                });
-
-                listElement.appendChild(li);
-                items.push(li);
-            });
-
-            listElement.style.display = uniqueResults.length > 0 ? "block" : "none";
+            listElement.style.display = uniqueCombinations.size > 0 ? "block" : "none";
         })
         .catch(err => console.error("Fejl i doSearchRoad:", err));
 }
@@ -673,5 +695,76 @@ infoCloseBtn.addEventListener("click", function() {
     if (currentMarker) {
         map.removeLayer(currentMarker);
         currentMarker = null;
+    }
+});
+
+/***************************************************
+ * Hent vejgeometri fra Dataforsyningen (navngivne veje)
+ ***************************************************/
+async function getRoadGeometry(kommunekode, vejkode) {
+    // Endpoint for navngivne veje:
+    // /navngivneveje?kommunekode={}&vejkode={}&struktur=flad&geometri=fuld
+    let url = `https://api.dataforsyningen.dk/navngivneveje?kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
+    console.log("Henter vejgeometri:", url);
+
+    try {
+        let r = await fetch(url);
+        let data = await r.json();
+        console.log("getRoadGeometry data:", data);
+
+        if (data && data.length > 0 && data[0].geometri) {
+            // Her antager vi, at data[0].geometri er en MultiLineString i WGS84 (lon, lat).
+            return data[0].geometri; 
+        }
+    } catch (err) {
+        console.error("Fejl i getRoadGeometry:", err);
+    }
+    return null;
+}
+
+/***************************************************
+ * "Find kryds"-knap => find intersection med Turf.js
+ ***************************************************/
+document.getElementById("findKrydsBtn").addEventListener("click", async function() {
+    // Tjek om begge veje er valgt
+    if (!selectedRoad1 || !selectedRoad2) {
+        alert("Vælg venligst to veje først.");
+        return;
+    }
+
+    // Hent geometri for vej1
+    let geom1 = await getRoadGeometry(selectedRoad1.kommunekode, selectedRoad1.vejkode);
+    // Hent geometri for vej2
+    let geom2 = await getRoadGeometry(selectedRoad2.kommunekode, selectedRoad2.vejkode);
+
+    if (!geom1 || !geom2) {
+        alert("Kunne ikke hente geometri for en eller begge veje.");
+        return;
+    }
+
+    // Omdan til Turf-geometrier
+    // Her antager vi, at geom1 og geom2 er MultiLineStrings i format { "type": "MultiLineString", "coordinates": [...] }
+    let line1 = turf.multiLineString(geom1.coordinates);
+    let line2 = turf.multiLineString(geom2.coordinates);
+
+    // Find eventuelle kryds
+    let intersection = turf.lineIntersect(line1, line2);
+    console.log("Intersection result:", intersection);
+
+    if (intersection.features.length === 0) {
+        alert("De valgte veje krydser ikke hinanden.");
+    } else {
+        alert(`Fundet ${intersection.features.length} kryds!`);
+        // Sæt markør(er) for hvert kryds
+        intersection.features.forEach((feat, idx) => {
+            // Koordinater i [lon, lat]
+            let coords = feat.geometry.coordinates;
+            let latlng = [coords[1], coords[0]];
+            let marker = L.marker(latlng).addTo(map);
+            marker.bindPopup(`Kryds #${idx + 1}`).openPopup();
+        });
+        // Zoom evt. kortet så man kan se krydset
+        // map.fitBounds(...) - men det kræver, at man laver et bounding box
+        // for alle krydspunkter, hvis man vil auto-zoome
     }
 });
