@@ -406,7 +406,7 @@ function doSearch(query, listElement) {
     let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
 
     // Stednavne
-    let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`;
+    let stedUrl = `https://api.dataforsyningen.dk/stednavne?q=${encodeURIComponent(query)}&fuzzy=true&per_side=50`;
 
     // Nu includerer vi strandposter:
     let strandPromise = doSearchStrandposter(query);
