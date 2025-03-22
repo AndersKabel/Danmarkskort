@@ -704,7 +704,7 @@ infoCloseBtn.addEventListener("click", function() {
 async function getRoadGeometry(kommunekode, vejkode) {
     // Endpoint for navngivne veje:
     // /navngivneveje?kommunekode={}&vejkode={}&struktur=flad&geometri=fuld
-    let url = `https://api.dataforsyningen.dk/navngivneveje?kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
+    let url = `https://api.dataforsyningen.dk/navngivneveje?kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=begge`;
     console.log("Henter vejgeometri:", url);
 
     try {
