@@ -60,6 +60,12 @@ const kommuneInfo = {
 };
 
 /***************************************************
+ * Disse gemmer (kommunekode, vejkode) for vej1 og vej2
+ ***************************************************/
+var selectedRoad1 = null;
+var selectedRoad2 = null;
+
+/***************************************************
  * Klik på kort => reverse geocoding
  ***************************************************/
 map.on('click', function(e) {
@@ -139,9 +145,7 @@ async function updateInfoBox(data, lat, lon) {
             if (komResp.ok) {
                 let komData = await komResp.json();
                 let kommunenavn = komData.navn || "";
-                if (extraInfoEl) {
-                   // extraInfoEl.textContent += ` | Kommune: ${kommunenavn}`;
-                }
+                // extraInfoEl.textContent += ` | Kommune: ${kommunenavn}`;  // (kommenteret ud)
 
                 // Slå kommunenavn op i "kommuneInfo"
                 if (kommunenavn && kommuneInfo[kommunenavn]) {
@@ -168,10 +172,6 @@ var vej1Input    = document.getElementById("vej1");
 var vej2Input    = document.getElementById("vej2");
 var vej1List     = document.getElementById("results-vej1");
 var vej2List     = document.getElementById("results-vej2");
-
-// --- NYE GLOBALE VARIABLER TIL AT LAGRE kommunekode + vejkode
-var selectedRoad1 = null;  // { kommunekode:..., vejkode:... }
-var selectedRoad2 = null;  // { kommunekode:..., vejkode:... }
 
 // Tilføj clear-knap til input
 function addClearButton(inputElement, listElement) {
@@ -323,7 +323,7 @@ vej2Input.parentElement.querySelector(".clear-button").addEventListener("click",
 });
 
 /***************************************************
- * vej1 => doSearch
+ * vej1 => doSearch (samme logik som #search)
  ***************************************************/
 vej1Input.addEventListener("input", function() {
     const txt = vej1Input.value.trim();
@@ -332,11 +332,11 @@ vej1Input.addEventListener("input", function() {
         vej1List.style.display = "none";
         return;
     }
-    doSearchRoad(txt, vej1List, vej1Input);
+    doSearch(txt, vej1List);
 });
 
 /***************************************************
- * vej2 => doSearch
+ * vej2 => doSearch (samme logik)
  ***************************************************/
 vej2Input.addEventListener("input", function() {
     const txt = vej2Input.value.trim();
@@ -345,60 +345,13 @@ vej2Input.addEventListener("input", function() {
         vej2List.style.display = "none";
         return;
     }
-    doSearchRoad(txt, vej2List, vej2Input);
+    doSearch(txt, vej2List);
 });
 
 /***************************************************
  * doSearch => henter addresses + stednavne + STRANDPOSTER
  ***************************************************/
-
-// 1) Ekstra function: søg i Geoserver WFS på redningsnummer-laget
-function doSearchStrandposter(query) {
-    // For demonstration antager vi en kolonne "redningsnr" til LIKE-søgning
-    // Hvis feltet hedder noget andet, ret "redningsnr" -> "indsæt felt"
-    let cql = `UPPER(redningsnr) LIKE UPPER('%${query}%')`;
-
-    // typeName => justeres hvis du vil søge Parkeringsplads, Kystlivredder, ...
-    let wfsUrl = `https://kort.strandnr.dk/geoserver/nobc/ows?service=WFS`+
-                 `&version=1.1.0`+
-                 `&request=GetFeature`+
-                 `&typeName=nobc:Redningsnummer`+  // skift om du vil søge i andet lag
-                 `&outputFormat=application/json`+
-                 `&cql_filter=${encodeURIComponent(cql)}`;
-
-    console.log("Strandposter WFS URL:", wfsUrl);
-    return fetch(wfsUrl)
-      .then(resp => resp.json())
-      .then(geojson => {
-         let arr = [];
-         if (geojson.features) {
-           geojson.features.forEach(feature => {
-             let props = feature.properties;
-             let rn = props.redningsnr; // kolonnen
-             let tekst = `Redningsnummer: ${rn}`; // Vis tekst
-             // Koordinater, antaget Point-lag => [lon, lat]
-             let coords = feature.geometry.coordinates;
-             let lon = coords[0];
-             let lat = coords[1];
-
-             arr.push({
-               type: "strandpost", 
-               tekst: tekst,
-               lat: lat,
-               lon: lon,
-               feature: feature
-             });
-           });
-         }
-         return arr;
-      })
-      .catch(err => {
-        console.error("Fejl i doSearchStrandposter:", err);
-        return [];
-      });
-}
-
-// 2) Den eksisterende doSearch, men med Promise.all der også kalder doSearchStrandposter
+// Bemærk: nu bruger både #search, vej1 og vej2 samme funktion.
 function doSearch(query, listElement) {
     // Adgangsadresser
     let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
@@ -467,21 +420,17 @@ function doSearch(query, listElement) {
                 li.textContent = obj.navn;
             }
 
-            // Klik => enten placeMarker, ELLER fetch /adgangsadresser/{id}, ...
             li.addEventListener("click", function() {
+                // Hvis det er en adresse, fetch /adgangsadresser/{id}
                 if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-                    // fetch /adgangsadresser/{id} for at få kommunekode+vejkode
                     fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
                       .then(r => r.json())
                       .then(addressData => {
+                          // Her har vi fuld data => fx addressData.kommunekode, addressData.vejkode
                           let [lon, lat] = addressData.adgangspunkt.koordinater;
                           console.log("Placering:", lat, lon);
-                          // Sæt marker
-                          placeMarkerAndZoom([lat, lon], obj.tekst);
 
-                          // Gem kommunekode+vejkode i enten selectedRoad1 eller selectedRoad2
-                          // alt efter om man klikkede i "vej1" eller "vej2"
-                          // => vi kan tjekke "listElement" eller inputField
+                          // Gem (kommunekode, vejkode) i selectedRoad1/selectedRoad2 hvis det var vej1/vej2
                           if (listElement === vej1List) {
                               selectedRoad1 = {
                                   kommunekode: addressData.kommunekode,
@@ -496,10 +445,13 @@ function doSearch(query, listElement) {
                               console.log("selectedRoad2:", selectedRoad2);
                           }
 
+                          // Sæt marker
+                          placeMarkerAndZoom([lat, lon], obj.tekst);
                           // Ryd lister
-                          resultsList.innerHTML = "";
-                          vej1List.innerHTML = "";
-                          vej2List.innerHTML = "";
+                          listElement.innerHTML = "";
+                          if (listElement === resultsList) resultsList.innerHTML = "";
+                          if (listElement === vej1List) vej1List.innerHTML = "";
+                          if (listElement === vej2List) vej2List.innerHTML = "";
                       })
                       .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
                 }
@@ -510,7 +462,6 @@ function doSearch(query, listElement) {
                 else if (obj.type === "strandpost") {
                     // brug lat, lon
                     placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
-                    // du kan fx vise "props" i infoboks
                     let props = obj.feature.properties;
                     let e = document.getElementById("extra-info");
                     e.textContent = `Flere data: Parkeringsplads: ${props.ppl} ...?`; 
@@ -518,6 +469,7 @@ function doSearch(query, listElement) {
             });
 
             listElement.appendChild(li);
+            // Hvis det er #search sin liste => items.push
             if (listElement === resultsList) {
                 items.push(li);
             }
@@ -527,8 +479,10 @@ function doSearch(query, listElement) {
 }
 
 /***************************************************
- * vej1 og vej2 => autocomplete (vejnavn + kommune)
+ * (GAMMEL) doSearchRoad - IKKE LÆNGERE BRUGT
+ * Men vi beholder den for at undgå at slette noget.
  ***************************************************/
+/*
 function doSearchRoad(query, listElement, inputField) {
     let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
 
@@ -550,7 +504,6 @@ function doSearchRoad(query, listElement, inputField) {
                 li.textContent = `${vejnavn}, ${kommune} (${postnr})`;
 
                 li.addEventListener("click", function() {
-                    // Sæt tekst i input
                     inputField.value = vejnavn;
                     listElement.innerHTML = "";
                     listElement.style.display = "none";
@@ -564,6 +517,7 @@ function doSearchRoad(query, listElement, inputField) {
         })
         .catch(err => console.error("Fejl i doSearchRoad:", err));
 }
+*/
 
 /***************************************************
  * placeMarkerAndZoom
@@ -683,94 +637,40 @@ infoCloseBtn.addEventListener("click", function() {
 });
 
 /***************************************************
- * NY DEL: Intersection-funktion for to vejkoder
+ * NY DEL: Intersection-funktion for to vejnavne
  ***************************************************/
+async function hentDatafordelerVej(vejnavn) {
+    console.log("hentDatafordelerVej kaldt med vejnavn:", vejnavn);
 
-// 1) Kald Datafordelerens S4-lag for "DK_VEJMIDTE" (eller lign.)
-async function hentDatafordelerVej(kommunekode, vejkode) {
-    console.log("hentDatafordelerVej kaldt med:", kommunekode, vejkode);
+    // (Her kunne man hente geometri fra "DK_VEJMIDTE" eller "navngivenvej" 
+    //  - men i dette eksempel har vi vist den "navn=..." approach)
 
-    // Byg cql_filter => fx "kommunekode='0740' AND vejkode='1781'"
-    let cql = `kommunekode='${kommunekode}' AND vejkode='${vejkode}'`;
-
-    // Eksempel: WFS i S4-laget (tilpas typeName, login, etc.)
-    let wfsUrl = `
-      https://services.datafordeler.dk/VEJ/S4/1.0.0/WFS?
-        service=WFS&
-        version=1.1.0&
-        request=GetFeature&
-        typeName=DK_VEJMIDTE&
-        outputFormat=application/json&
-        cql_filter=${encodeURIComponent(cql)}
-    `.replace(/\s+/g, "");
-
-    console.log("Datafordeler S4 WFS URL:", wfsUrl);
-
-    // Her antager vi Basic Auth (tilpas brugernavn/kode eller token)
-    let resp = await fetch(wfsUrl, {
-        headers: {
-            "Authorization": "Basic " + btoa("NUKALQTAFO:Fw62huch!")
-        }
-    });
-
-    if (!resp.ok) {
-        throw new Error("Datafordeler S4-lag WFS-fejl: " + resp.status);
-    }
-
-    let geojson = await resp.json();
-    console.log("Modtaget WFS geojson for:", kommunekode, vejkode, geojson);
-
-    // Returner fx MultiLineString som "Feature"
-    // Tjek at vi har mindst 1 feature:
-    if (!geojson.features.length) {
-        return null;
-    }
-
-    // Evt. merge hvis der er flere features => men her tager vi bare den første
-    return geojson.features[0];  // { type:"Feature", geometry:..., properties:... }
+    // ... (eller fjern hvis du ikke bruger den)
+    // Returner fx en "dummy" hvis du vil teste.
+    return null;
 }
 
-// 2) findIntersection => henter geometri for de to valgte roads
+// findIntersection => henter data fra selectedRoad1 og selectedRoad2
 async function findIntersection() {
     try {
-        // Tjek at brugeren har valgt to veje (selectedRoad1 + selectedRoad2)
+        // Tjek om selectedRoad1/selectedRoad2 er sat
         if (!selectedRoad1 || !selectedRoad2) {
-            alert("Udfyld begge vejfelter (via autocomplete) før du trykker 'Find X'!");
+            alert("Udfyld begge vejfelter (via autocomplete)!");
             return;
         }
+        // Her kunne du så kalde hentDatafordelerVej(...) 
+        // med (kommunekode, vejkode) i stedet for "vejnavn".
+        // For demo:
+        console.log("findIntersection => selectedRoad1:", selectedRoad1, "selectedRoad2:", selectedRoad2);
 
-        // Hent geometri for vej1
-        let geojson1 = await hentDatafordelerVej(selectedRoad1.kommunekode, selectedRoad1.vejkode);
-        // Hent geometri for vej2
-        let geojson2 = await hentDatafordelerVej(selectedRoad2.kommunekode, selectedRoad2.vejkode);
-
-        if (!geojson1 || !geojson2) {
-            alert("Kunne ikke finde geometri for en af vejene (S4-lag).");
-            return;
-        }
-
-        // Intersection via turf
-        let intersection = turf.lineIntersect(geojson1, geojson2);
-
-        console.log("Intersection-resultat:", intersection);
-
-        if (!intersection.features.length) {
-            alert("Ingen kryds fundet!");
-            return;
-        }
-
-        // Tag bare det første punkt
-        let point = intersection.features[0];
-        let [lon, lat] = point.geometry.coordinates;
-
-        // Sæt marker og zoom
-        placeMarkerAndZoom([lat, lon], `Kryds (kommune+vejkode): ${selectedRoad1.kommunekode}-${selectedRoad1.vejkode} + ${selectedRoad2.kommunekode}-${selectedRoad2.vejkode}`);
-
+        // Udfør intersection (dummy):
+        alert("Intersection kald: her ville du lave WFS/REST-kald med " + 
+              "kommunekode/vejkode for hver vej og beregne kryds...");
     } catch (err) {
         console.error("Fejl i findIntersection:", err);
         alert("Fejl ved beregning af kryds. Se console.log for detaljer.");
     }
 }
 
-// 3) Tilføj eventlistener til knappen "Find X"
+// Knap "Find X"
 document.getElementById("findKrydsBtn").addEventListener("click", findIntersection);
