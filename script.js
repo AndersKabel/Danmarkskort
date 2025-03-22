@@ -538,6 +538,8 @@ function doSearch(query, listElement) {
 /***************************************************
  * vej1 og vej2 => autocomplete (vejnavn + kommune)
  *    Ændret så vi kun får én linje per unikt (vejnavn, kommune)
+ *    Nu laver vi OGSÅ fetch /adgangsadresser/{id} for at få "nye" kommunekoder,
+ *    ligesom i doSearch().
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
     let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
@@ -555,11 +557,12 @@ function doSearchRoad(query, listElement, inputField) {
             let uniqueCombinations = new Set();
 
             data.forEach(item => {
-                let vejnavn = item.adgangsadresse?.vejnavn || "Ukendt vej";
-                let kommune = item.adgangsadresse?.postnrnavn || "Ukendt kommune"; // Egentlig bynavn
-                let postnr  = item.adgangsadresse?.postnr || "?";
-                let vejkode = item.adgangsadresse?.vejkode || "";
-                let komkode = item.adgangsadresse?.kommunekode || "";
+                let vejnavn  = item.adgangsadresse?.vejnavn    || "Ukendt vej";
+                let kommune  = item.adgangsadresse?.postnrnavn || "Ukendt kommune"; 
+                let postnr   = item.adgangsadresse?.postnr     || "?";
+                let vejkode  = item.adgangsadresse?.vejkode    || "";
+                let komkode  = item.adgangsadresse?.kommunekode|| "";
+                let addressId= item.adgangsadresse?.id         || null;
 
                 let comboKey = `${vejnavn}||${kommune}||${postnr}`;
 
@@ -569,16 +572,51 @@ function doSearchRoad(query, listElement, inputField) {
                     let li = document.createElement("li");
                     li.textContent = `${vejnavn}, ${kommune} (${postnr})`;
 
-                    // Bemærk: Her laver vi IKKE fetch /adgangsadresser/{id} endnu.
-                    //  - For "vej1" og "vej2" (autocomplete) har vi blot brug for
-                    //    at vise unikke vejnavne. Den "rigtige" kommunekode hentes
-                    //    først, når vi i "doSearch" (ovenfor) klikker på en
-                    //    adresse. Det er dér, vi gemmer i selectedRoad1/2.
-
                     li.addEventListener("click", function() {
-                        inputField.value = vejnavn;
-                        listElement.innerHTML = "";
-                        listElement.style.display = "none";
+                        console.log("Klik på vej-autocomplete:", vejnavn, " addressId=", addressId);
+                        if (!addressId) {
+                            console.warn("Ingen addressId fundet – kan ikke hente ny kommunekode");
+                            return;
+                        }
+                        // fetch /adgangsadresser/{id} => for at få "nye" kommunekoder
+                        let fullAddrUrl = `https://api.dataforsyningen.dk/adgangsadresser/${addressId}`;
+                        fetch(fullAddrUrl)
+                          .then(r => r.json())
+                          .then(addressData => {
+                              let realKommunekode = addressData.kommune?.kode || komkode;
+                              let realVejkode     = addressData.vejkode       || vejkode;
+                              let realVejnavn     = addressData.vejnavn       || vejnavn;
+                              let realPostnr      = addressData.postnr        || postnr;
+                              let realPostnrnavn  = addressData.postnrnavn    || kommune;
+
+                              console.log("Fuld adresse => ny kommunekode:", realKommunekode, 
+                                          "vejkode:", realVejkode);
+
+                              // Gem data i selectedRoad1 eller selectedRoad2
+                              if (listElement.id === "results-vej1") {
+                                  selectedRoad1 = {
+                                      vejnavn: realVejnavn,
+                                      kommune: realPostnrnavn,
+                                      postnr:  realPostnr,
+                                      vejkode: realVejkode,
+                                      kommunekode: realKommunekode
+                                  };
+                              } else {
+                                  selectedRoad2 = {
+                                      vejnavn: realVejnavn,
+                                      kommune: realPostnrnavn,
+                                      postnr:  realPostnr,
+                                      vejkode: realVejkode,
+                                      kommunekode: realKommunekode
+                                  };
+                              }
+
+                              // Luk listen, og sæt inputfeltets værdi
+                              inputField.value = realVejnavn;
+                              listElement.innerHTML = "";
+                              listElement.style.display = "none";
+                          })
+                          .catch(err => console.error("Fejl i /adgangsadresser/{id} (fuld info):", err));
                     });
 
                     listElement.appendChild(li);
