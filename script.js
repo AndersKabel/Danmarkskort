@@ -760,9 +760,16 @@ async function getRoadGeometry(kommunekode, vejkode) {
         let data = await r.json();
         console.log("getRoadGeometry data:", data);
 
-        if (data && data.length > 0 && data[0].geometri) {
-            // Her antager vi, at data[0].geometri er en MultiLineString eller MultiPolygon i WGS84
-            return data[0].geometri; 
+        if (Array.isArray(data) && data.length > 0) {
+            // Gennemløb alle elementer
+            for (let i = 0; i < data.length; i++) {
+                let g = data[i].geometri;
+                if (g && g.type === "MultiLineString") {
+                    // Hvis vi finder en MultiLineString, returnér den
+                    console.log("Bruger element nr.", i, "der har MultiLineString");
+                    return g;
+                }
+            }
         }
     } catch (err) {
         console.error("Fejl i getRoadGeometry:", err);
