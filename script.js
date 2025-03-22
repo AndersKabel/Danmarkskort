@@ -503,7 +503,8 @@ function doSearch(query, listElement) {
 }
 
 /***************************************************
- * vej1 og vej2 => autocomplete (vejnavn + kommune)
+ * doSearchRoad
+ * => viser kun én linje pr. unikke (vejnavn, kommune)
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
     let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
@@ -515,18 +516,36 @@ function doSearchRoad(query, listElement, inputField) {
             items = [];
             currentIndex = -1;
 
+            // Sortér som før
             data.sort((a, b) => a.tekst.localeCompare(b.tekst));
+
+            // Opret et Set til at huske unikke kombinationer (vejnavn+kommune)
+            let seen = new Set();
+            let uniqueResults = [];
 
             data.forEach(item => {
                 let vejnavn = item.adgangsadresse?.vejnavn || "Ukendt vej";
+                // Her bruger vi 'postnrnavn' som 'kommune', da din kode hidtil gjorde det.
                 let kommune = item.adgangsadresse?.postnrnavn || "Ukendt kommune";
                 let postnr = item.adgangsadresse?.postnr || "?";
 
+                // Unik nøgle for (vejnavn, kommune)
+                let key = vejnavn + "|" + kommune;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueResults.push({ vejnavn, kommune, postnr });
+                }
+            });
+
+            // Sortér unikke resultater (valgfrit, men vi gør det for konsistens)
+            uniqueResults.sort((a, b) => a.vejnavn.localeCompare(b.vejnavn));
+
+            uniqueResults.forEach(obj => {
                 let li = document.createElement("li");
-                li.textContent = `${vejnavn}, ${kommune} (${postnr})`;
+                li.textContent = `${obj.vejnavn}, ${obj.kommune} (${obj.postnr})`;
 
                 li.addEventListener("click", function() {
-                    inputField.value = vejnavn;
+                    inputField.value = obj.vejnavn;
                     listElement.innerHTML = "";
                     listElement.style.display = "none";
                 });
@@ -535,7 +554,7 @@ function doSearchRoad(query, listElement, inputField) {
                 items.push(li);
             });
 
-            listElement.style.display = data.length > 0 ? "block" : "none";
+            listElement.style.display = uniqueResults.length > 0 ? "block" : "none";
         })
         .catch(err => console.error("Fejl i doSearchRoad:", err));
 }
@@ -656,4 +675,3 @@ infoCloseBtn.addEventListener("click", function() {
         currentMarker = null;
     }
 });
-
