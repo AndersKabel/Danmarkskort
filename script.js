@@ -468,28 +468,53 @@ function doSearch(query, listElement) {
 
             li.addEventListener("click", function() {
                 if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-                    // fetch /adgangsadresser/{id}
-                    fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+                    // fetch /adgangsadresser/{id} => for at få "nye" kommunekoder
+                    let fullAddrUrl = `https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`;
+                    fetch(fullAddrUrl)
                       .then(r => r.json())
                       .then(addressData => {
+                          // Her får du den nye kommunekode i addressData.kommune?.kode
+                          let realKommunekode = addressData.kommune?.kode || obj.adgangsadresse.kommunekode;
+                          let realVejkode     = addressData.vejkode || obj.adgangsadresse.vejkode;
+                          let realVejnavn     = addressData.vejnavn || obj.adgangsadresse.vejnavn;
+                          let realPostnr      = addressData.postnr  || obj.adgangsadresse.postnr;
+                          let realPostnrnavn  = addressData.postnrnavn || obj.adgangsadresse.postnrnavn;
+
+                          console.log("Fuld adresse => ny kommunekode:", realKommunekode, "vejkode:", realVejkode);
+
+                          // Placér markør
                           let [lon, lat] = addressData.adgangspunkt.koordinater;
-                          console.log("Placering:", lat, lon);
                           placeMarkerAndZoom([lat, lon], obj.tekst);
+
                           // Ryd lister
                           resultsList.innerHTML = "";
                           vej1List.innerHTML = "";
                           vej2List.innerHTML = "";
+
+                          // Gem data i selectedRoad1 eller selectedRoad2
+                          if (listElement.id === "results-vej1") {
+                              selectedRoad1 = {
+                                  vejnavn: realVejnavn,
+                                  kommune: realPostnrnavn,
+                                  postnr:  realPostnr,
+                                  vejkode: realVejkode,
+                                  kommunekode: realKommunekode
+                              };
+                          } else {
+                              selectedRoad2 = {
+                                  vejnavn: realVejnavn,
+                                  kommune: realPostnrnavn,
+                                  postnr:  realPostnr,
+                                  vejkode: realVejkode,
+                                  kommunekode: realKommunekode
+                              };
+                          }
                       })
-                      .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+                      .catch(err => console.error("Fejl i /adgangsadresser/{id} (fuld info):", err));
                 }
                 else if (obj.type === "stednavn") {
                     // Vi har kun "navn" og "geom" i Dataforsyningen
-                    // Ofte er "geom" en multipolygon, men hvis du blot vil zoome til noget,
-                    // kan du her selv bestemme, hvad du gør. 
-                    // Som minimum kan du bare skrive i "extra-info".
                     document.getElementById("extra-info").textContent = `Stednavn: ${obj.navn}`;
-                    // Du kunne evt. udtrække center for "geom_json", men det kræver lidt logik.
-
                 }
                 else if (obj.type === "strandpost") {
                     // brug lat, lon
@@ -536,38 +561,21 @@ function doSearchRoad(query, listElement, inputField) {
                 let vejkode = item.adgangsadresse?.vejkode || "";
                 let komkode = item.adgangsadresse?.kommunekode || "";
 
-                // Unik nøgle for denne vej + 'kommune' + postnr
                 let comboKey = `${vejnavn}||${kommune}||${postnr}`;
 
-                // Kun hvis vi ikke har set den før, tilføjer vi den til listen
                 if (!uniqueCombinations.has(comboKey)) {
                     uniqueCombinations.add(comboKey);
 
                     let li = document.createElement("li");
                     li.textContent = `${vejnavn}, ${kommune} (${postnr})`;
 
-                    // Klik => gem data i selectedRoad1 eller selectedRoad2
-                    li.addEventListener("click", function() {
-                        // Hvis det er vej1-listen
-                        if (listElement.id === "results-vej1") {
-                            selectedRoad1 = {
-                                vejnavn: vejnavn,
-                                kommune: kommune,
-                                postnr:  postnr,
-                                vejkode: vejkode,
-                                kommunekode: komkode
-                            };
-                        } else {
-                            // Ellers vej2-listen
-                            selectedRoad2 = {
-                                vejnavn: vejnavn,
-                                kommune: kommune,
-                                postnr:  postnr,
-                                vejkode: vejkode,
-                                kommunekode: komkode
-                            };
-                        }
+                    // Bemærk: Her laver vi IKKE fetch /adgangsadresser/{id} endnu.
+                    //  - For "vej1" og "vej2" (autocomplete) har vi blot brug for
+                    //    at vise unikke vejnavne. Den "rigtige" kommunekode hentes
+                    //    først, når vi i "doSearch" (ovenfor) klikker på en
+                    //    adresse. Det er dér, vi gemmer i selectedRoad1/2.
 
+                    li.addEventListener("click", function() {
                         inputField.value = vejnavn;
                         listElement.innerHTML = "";
                         listElement.style.display = "none";
