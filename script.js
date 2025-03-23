@@ -692,7 +692,7 @@ infoCloseBtn.addEventListener("click", function() {
  ***************************************************/
 async function getRoadGeometry(kommunekode, vejkode) {
   // Bemærk: URL'et er opdateret til at bruge "navngivenvej" med små bogstaver
-  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
+  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?username=NUKALQTAFO&password=Fw62huch!&Format=JSON&kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
   console.log("Henter vejgeometri (Datafordeler):", url);
 
   try {
