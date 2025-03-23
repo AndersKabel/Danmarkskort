@@ -533,7 +533,7 @@ function doSearchRoad(query, listElement, inputField) {
           listElement.style.display = "none";
 
           // Ekstra fetch til Navngivenvej for at hente kommunekode og vejkode
-          let navUrl = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?username=NUKALQTAFO&password=Fw62huch!&Format=JSON&status=3&struktur=flad&fritekst=${encodeURIComponent(vejnavn)}`;
+          let navUrl = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?Format=JSON&status=3&struktur=flad&fritekst=${encodeURIComponent(vejnavn)}`;
           console.log("Fetching navngivenvej detaljer for road:", navUrl);
           fetch(navUrl)
             .then(response => response.json())
@@ -692,7 +692,7 @@ infoCloseBtn.addEventListener("click", function() {
  ***************************************************/
 async function getRoadGeometry(kommunekode, vejkode) {
   // Bemærk: URL med parametre for status=3, geometri=fuld og Format=JSON
-  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?username=NUKALQTAFO&password=Fw62huch!&Format=JSON&status=3&kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
+  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?Format=JSON&status=3&kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
   console.log("Henter vejgeometri (Datafordeler):", url);
 
   try {
