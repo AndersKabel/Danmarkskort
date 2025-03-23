@@ -533,7 +533,7 @@ function doSearchRoad(query, listElement, inputField) {
           listElement.style.display = "none";
 
           // Ekstra fetch til Navngivenvej for at hente kommunekode og vejkode
-          let navUrl = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?Format=JSON&status=3&struktur=flad&fritekst=${encodeURIComponent(vejnavn)}`;
+          let navUrl = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?Format=JSON&status=3&struktur=flad&vejnavn=${encodeURIComponent(vejnavn)}`;
           console.log("Fetching navngivenvej detaljer for road:", navUrl);
           fetch(navUrl)
             .then(response => response.json())
