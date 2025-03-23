@@ -499,7 +499,7 @@ function doSearch(query, listElement) {
 }
 
 /***************************************************
- * doSearchRoad (OPDATERET):
+ * doSearchRoad (NY / OPDATERET):
  *  - Laver autocomplete på vejnavn via /adgangsadresser/autocomplete
  *  - Viser kun én linje per (vejnavn, postnr)
  *  - Når brugeren klikker => fetch /adgangsadresser/{id} => hent vejkode, kommunekode
@@ -520,12 +520,14 @@ function doSearchRoad(query, listElement, inputField) {
       // Sortér for pænere rækkefølge
       data.sort((a, b) => a.tekst.localeCompare(b.tekst));
 
+      // For at undgå dubletter (én linje pr. (vejnavn, postnr))
       const unique = new Set();
+
       data.forEach(item => {
-        let vejnavn   = item.adgangsadresse?.vejnavn     || "Ukendt vej";
-        let kommune   = item.adgangsadresse?.postnrnavn  || "Ukendt kommune";
-        let postnr    = item.adgangsadresse?.postnr      || "?";
-        let adgangsId = item.adgangsadresse?.id          || null;
+        let vejnavn   = item.adgangsadresse?.vejnavn    || "Ukendt vej";
+        let kommune   = item.adgangsadresse?.postnrnavn || "Ukendt kommune";
+        let postnr    = item.adgangsadresse?.postnr     || "?";
+        let adgangsId = item.adgangsadresse?.id         || null;
 
         // Vi viser kun én linje pr. (vejnavn, postnr)
         let key = `${vejnavn}-${postnr}`;
@@ -544,7 +546,7 @@ function doSearchRoad(query, listElement, inputField) {
           console.log("Valgt vejnavn:", vejnavn, " => henter detaljer for adgangsadresse:", adgangsId);
 
           if (!adgangsId) {
-            console.error("Ingen adgangsadresse.id tilgængelig => kan ikke slå vejkode op");
+            console.error("Ingen adgangsadresse.id => kan ikke slå vejkode op");
             return;
           }
 
@@ -573,6 +575,7 @@ function doSearchRoad(query, listElement, inputField) {
               console.error("Fejl i fetch af /adgangsadresser/{id}:", err);
             });
         });
+
         listElement.appendChild(li);
         items.push(li);
       });
@@ -706,8 +709,10 @@ infoCloseBtn.addEventListener("click", function() {
  * (Til Find X, hvis du vil bruge)
  ***************************************************/
 async function getRoadGeometry(kommunekode, vejkode) {
+  // Pad kommunekode/vejkode op til 4 cifre
   kommunekode = kommunekode.toString().padStart(4, '0');
   vejkode     = vejkode.toString().padStart(4, '0');
+
   // Bemærk: URL med parametre for status=3, geometri=fuld og Format=JSON
   let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?Format=JSON&status=3&kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
   console.log("Henter vejgeometri (Datafordeler):", url);
