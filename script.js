@@ -79,7 +79,7 @@ map.on('click', function(e) {
   document.getElementById("coordinateBox").style.display = "block";
 
   // Reverse geocoding mod Dataforsyningen
-  let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+  let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=mini`; // NY: struktur=mini
   console.log("Kalder reverse geocoding:", revUrl);
   fetch(revUrl)
     .then(r => r.json())
@@ -225,7 +225,7 @@ searchInput.addEventListener("input", function() {
     const latNum = parseFloat(match[1]);
     const lonNum = parseFloat(match[2]);
     // Reverse geocoding
-    let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lonNum}&y=${latNum}&struktur=flad`;
+    let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lonNum}&y=${latNum}&struktur=mini`; // NY: struktur=mini
     fetch(revUrl)
       .then(r => r.json())
       .then(data => {
@@ -400,10 +400,10 @@ function doSearchStrandposter(query) {
 // 2) Den eksisterende doSearch, men med Promise.all der også kalder doSearchStrandposter
 function doSearch(query, listElement) {
   // Adgangsadresser
-  let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
+  let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`; // NY: per_side=10
 
-  // Stednavne (Datafordeler)
-  let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`;
+  // Stednavne (Datafordeler) - NY: nyt endpoint
+  let stedUrl = `https://services.datafordeler.dk/Geonavn/Geonavn/1.0.0/rest/HentGeonavn?username=NUKALQTAFO&password=Fw62huch!&geonavn=${encodeURIComponent(query + '*')}`; // NY
 
   // Strandposter
   let strandPromise = doSearchStrandposter(query);
@@ -435,11 +435,11 @@ function doSearch(query, listElement) {
       let stedResults = [];
       if (stedData && stedData.features) {
         stedData.features.forEach(feature => {
-          if (feature.properties && feature.properties.stednavneliste) {
-            feature.properties.stednavneliste.forEach(sted => {
+          if (feature.properties && feature.properties.geonavnliste) { // NY: geonavnliste
+            feature.properties.geonavnliste.forEach(geonavn => {
               stedResults.push({
                 type: "stednavn",
-                navn: sted.navn,
+                navn: geonavn.navn,
                 bbox: feature.bbox || null
               });
             });
@@ -463,7 +463,7 @@ function doSearch(query, listElement) {
         li.addEventListener("click", function() {
           if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
             // fetch /adgangsadresser/{id}
-            let detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`;
+            let detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}?struktur=mini`; // NY: struktur=mini
             fetch(detailUrl)
               .then(r => r.json())
               .then(addressData => {
@@ -499,13 +499,13 @@ function doSearch(query, listElement) {
 }
 
 /***************************************************
- * doSearchRoad (NY / OPDATERET):
+ * doSearchRoad (OPDATERET):
  *  - Laver autocomplete på vejnavn via /adgangsadresser/autocomplete
  *  - Viser kun én linje per (vejnavn, postnr)
- *  - Når brugeren klikker => fetch /adgangsadresser/{id} => hent vejkode, kommunekode
+ *  - Når brugeren klikker => fetch /adgangsadresser/{id} => hent vejkode og kommunekode
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
-  let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
+  let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`; // NY: per_side=10
   console.log("doSearchRoad kaldt med query:", query, " => ", addrUrl);
 
   fetch(addrUrl)
@@ -520,14 +520,12 @@ function doSearchRoad(query, listElement, inputField) {
       // Sortér for pænere rækkefølge
       data.sort((a, b) => a.tekst.localeCompare(b.tekst));
 
-      // For at undgå dubletter (én linje pr. (vejnavn, postnr))
       const unique = new Set();
-
       data.forEach(item => {
-        let vejnavn   = item.adgangsadresse?.vejnavn    || "Ukendt vej";
-        let kommune   = item.adgangsadresse?.postnrnavn || "Ukendt kommune";
-        let postnr    = item.adgangsadresse?.postnr     || "?";
-        let adgangsId = item.adgangsadresse?.id         || null;
+        let vejnavn   = item.adgangsadresse?.vejnavn     || "Ukendt vej";
+        let kommune   = item.adgangsadresse?.postnrnavn  || "Ukendt kommune";
+        let postnr    = item.adgangsadresse?.postnr      || "?";
+        let adgangsId = item.adgangsadresse?.id          || null;
 
         // Vi viser kun én linje pr. (vejnavn, postnr)
         let key = `${vejnavn}-${postnr}`;
@@ -546,12 +544,12 @@ function doSearchRoad(query, listElement, inputField) {
           console.log("Valgt vejnavn:", vejnavn, " => henter detaljer for adgangsadresse:", adgangsId);
 
           if (!adgangsId) {
-            console.error("Ingen adgangsadresse.id => kan ikke slå vejkode op");
+            console.error("Ingen adgangsadresse.id tilgængelig => kan ikke slå vejkode op");
             return;
           }
 
           // Hent detaljer fra /adgangsadresser/{id} for at få vejkode og kommunekode
-          let detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${adgangsId}?struktur=flad`;
+          let detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${adgangsId}?struktur=mini`; // NY: struktur=mini
           console.log("detailUrl:", detailUrl);
 
           fetch(detailUrl)
@@ -575,7 +573,6 @@ function doSearchRoad(query, listElement, inputField) {
               console.error("Fejl i fetch af /adgangsadresser/{id}:", err);
             });
         });
-
         listElement.appendChild(li);
         items.push(li);
       });
@@ -709,12 +706,11 @@ infoCloseBtn.addEventListener("click", function() {
  * (Til Find X, hvis du vil bruge)
  ***************************************************/
 async function getRoadGeometry(kommunekode, vejkode) {
-  // Pad kommunekode/vejkode op til 4 cifre
+  // Sørg for, at koderne har 4 cifre
   kommunekode = kommunekode.toString().padStart(4, '0');
   vejkode     = vejkode.toString().padStart(4, '0');
-
-  // Bemærk: URL med parametre for status=3, geometri=fuld og Format=JSON
-  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?Format=JSON&status=3&kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
+  // NY: Opdateret til DAR version 1.0.0
+  let url = `https://services.dataforsyningen.dk/DAR/DAR/1.0.0/rest/navngivenvej?Format=JSON&status=3&kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
   console.log("Henter vejgeometri (Datafordeler):", url);
 
   try {
