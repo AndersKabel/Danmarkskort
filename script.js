@@ -533,7 +533,7 @@ function doSearchRoad(query, listElement, inputField) {
           listElement.style.display = "none";
 
           // Ekstra fetch til Navngivenvej for at hente kommunekode og vejkode
-          let navUrl = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/Navngivenvej?username=NUKALQTAFO&password=Fw62huch!&Format=JSON&fritekst=${encodeURIComponent(vejnavn)}&status=3&struktur=flad`;
+          let navUrl = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?username=NUKALQTAFO&password=Fw62huch!&Format=JSON&status=3&struktur=flad&fritekst=${encodeURIComponent(vejnavn)}`;
           console.log("Fetching navngivenvej detaljer for road:", navUrl);
           fetch(navUrl)
             .then(response => response.json())
@@ -691,8 +691,8 @@ infoCloseBtn.addEventListener("click", function() {
  * (Til Find X, hvis du vil bruge)
  ***************************************************/
 async function getRoadGeometry(kommunekode, vejkode) {
-  // Bemærk: URL'et er opdateret til at bruge "navngivenvej" med små bogstaver
-  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?username=NUKALQTAFO&password=Fw62huch!&Format=JSON&kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
+  // Bemærk: URL med parametre for status=3, geometri=fuld og Format=JSON
+  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?username=NUKALQTAFO&password=Fw62huch!&Format=JSON&status=3&kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
   console.log("Henter vejgeometri (Datafordeler):", url);
 
   try {
@@ -730,7 +730,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
     return;
   }
 
-  // Omdan til Turf-geometrier (antager at geometri er en MultiLineString)
+  // Omdan til Turf-geometrier (antager MultiLineString)
   let line1 = turf.multiLineString(geom1.coordinates);
   let line2 = turf.multiLineString(geom2.coordinates);
 
