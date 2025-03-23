@@ -706,6 +706,8 @@ infoCloseBtn.addEventListener("click", function() {
  * (Til Find X, hvis du vil bruge)
  ***************************************************/
 async function getRoadGeometry(kommunekode, vejkode) {
+  kommunekode = kommunekode.toString().padStart(4, '0');
+  vejkode     = vejkode.toString().padStart(4, '0');
   // Bemærk: URL med parametre for status=3, geometri=fuld og Format=JSON
   let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?Format=JSON&status=3&kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
   console.log("Henter vejgeometri (Datafordeler):", url);
