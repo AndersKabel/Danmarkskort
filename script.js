@@ -509,7 +509,7 @@ function doSearchRoad(query, listElement, inputField) {
                         listElement.style.display = "none";
 
                         // Datafordeler => Navngivenvej?vejnavnStart=...
-                        let navngivenUrl = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/Navngivenvej?vejnavnStart=${encodeURIComponent(vejnavn)}&maxantal=50&format=json`;
+                        let navngivenUrl = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/Navngivenvej?username=NUKALQTAFO&password=Fw62huch!&Format=JSON&vejnavnStart=${encodeURIComponent(vejnavn)}&maxantal=50&format=json`;
                         console.log("Henter nye koder fra Datafordeler:", navngivenUrl);
                         try {
                             let resp = await fetch(navngivenUrl);
