@@ -393,7 +393,7 @@ function doSearchRoad(query, listElement, inputField) {
 
                         // Ekstra fetch til Datafordeler => Navngivenvej?fritekst=vejnavn
                         // for at få nye (vejkode, kommunekode).
-                        let navngivenUrl = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/Navngivenvej?fritekst=${encodeURIComponent(vejnavn)}&struktur=flad&maxantal=50`;
+                       let navngivenUrl = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/Navngivenvej?vejnavn=${encodeURIComponent(vejnavn)}&struktur=flad&maxantal=50`;
                         console.log("Henter nye koder fra Datafordeler:", navngivenUrl);
                         try {
                             let resp = await fetch(navngivenUrl);
