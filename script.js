@@ -328,7 +328,7 @@ var selectedRoad1 = null;
 var selectedRoad2 = null;
 
 /***************************************************
- * vej1 => doSearch (autocomplete for vejnavn)
+ * vej1 => doSearchRoad (autocomplete for vejnavn)
  ***************************************************/
 vej1Input.addEventListener("input", function() {
   const txt = vej1Input.value.trim();
@@ -341,7 +341,7 @@ vej1Input.addEventListener("input", function() {
 });
 
 /***************************************************
- * vej2 => doSearch (autocomplete for vejnavn)
+ * vej2 => doSearchRoad (autocomplete for vejnavn)
  ***************************************************/
 vej2Input.addEventListener("input", function() {
   const txt = vej2Input.value.trim();
@@ -499,27 +499,35 @@ function doSearch(query, listElement) {
 }
 
 /***************************************************
- * vej1 og vej2 => autocomplete (vejnavn + kommune)
- * Vi filtrerer, så kun ét resultat pr. (vejnavn, postnr) vises.
- * Og når en vej vælges, hentes detaljer (kommunekode og vejkode)
+ * doSearchRoad (OPDATERET):
+ *  - Laver autocomplete på vejnavn via /adgangsadresser/autocomplete
+ *  - Viser kun én linje per (vejnavn, postnr)
+ *  - Når brugeren klikker => fetch /adgangsadresser/{id} => hent vejkode, kommunekode
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
+  console.log("doSearchRoad kaldt med query:", query, " => ", addrUrl);
 
   fetch(addrUrl)
     .then(response => response.json())
     .then(data => {
+      console.log("Modtaget data fra /adgangsadresser/autocomplete:", data);
+
       listElement.innerHTML = "";
       items = [];
       currentIndex = -1;
 
+      // Sortér for pænere rækkefølge
       data.sort((a, b) => a.tekst.localeCompare(b.tekst));
 
       const unique = new Set();
       data.forEach(item => {
-        let vejnavn = item.adgangsadresse?.vejnavn || "Ukendt vej";
-        let kommune = item.adgangsadresse?.postnrnavn || "Ukendt kommune";
-        let postnr  = item.adgangsadresse?.postnr || "?";
+        let vejnavn   = item.adgangsadresse?.vejnavn     || "Ukendt vej";
+        let kommune   = item.adgangsadresse?.postnrnavn  || "Ukendt kommune";
+        let postnr    = item.adgangsadresse?.postnr      || "?";
+        let adgangsId = item.adgangsadresse?.id          || null;
+
+        // Vi viser kun én linje pr. (vejnavn, postnr)
         let key = `${vejnavn}-${postnr}`;
         if (unique.has(key)) return;
         unique.add(key);
@@ -528,36 +536,43 @@ function doSearchRoad(query, listElement, inputField) {
         li.textContent = `${vejnavn}, ${kommune} (${postnr})`;
 
         li.addEventListener("click", function() {
+          // Indsæt vejnavn i input-feltet
           inputField.value = vejnavn;
           listElement.innerHTML = "";
           listElement.style.display = "none";
 
-          // Ekstra fetch til Navngivenvej for at hente kommunekode og vejkode
-          let navUrl = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?Format=JSON&status=3&struktur=flad&vejnavn=${encodeURIComponent(vejnavn)}`;
-          console.log("Fetching navngivenvej detaljer for road:", navUrl);
-          fetch(navUrl)
-            .then(response => response.json())
-            .then(data => {
-              if (Array.isArray(data) && data.length > 0) {
-                let roadDetails = data[0]; // antag første resultat
-                let roadSelection = {
-                  vejnavn: vejnavn,
-                  kommunekode: roadDetails.kommunekode,
-                  vejkode: roadDetails.vejkode
-                };
-                if (inputField.id === "vej1") {
-                  selectedRoad1 = roadSelection;
-                } else if (inputField.id === "vej2") {
-                  selectedRoad2 = roadSelection;
-                }
-                console.log("Selected road:", roadSelection);
-              } else {
-                console.error("Ingen navngivne vej detaljer fundet for", vejnavn);
-              }
-            })
-            .catch(err => console.error("Fejl i fetch af navngivenvej detaljer:", err));
-        });
+          console.log("Valgt vejnavn:", vejnavn, " => henter detaljer for adgangsadresse:", adgangsId);
 
+          if (!adgangsId) {
+            console.error("Ingen adgangsadresse.id tilgængelig => kan ikke slå vejkode op");
+            return;
+          }
+
+          // Hent detaljer fra /adgangsadresser/{id} for at få vejkode og kommunekode
+          let detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${adgangsId}?struktur=flad`;
+          console.log("detailUrl:", detailUrl);
+
+          fetch(detailUrl)
+            .then(r => r.json())
+            .then(detailData => {
+              console.log("Detaljeret adressedata:", detailData);
+              // Heri ligger detailData.vejkode og detailData.kommunekode
+              let roadSelection = {
+                vejnavn: vejnavn,
+                kommunekode: detailData.kommunekode,
+                vejkode: detailData.vejkode
+              };
+              if (inputField.id === "vej1") {
+                selectedRoad1 = roadSelection;
+              } else if (inputField.id === "vej2") {
+                selectedRoad2 = roadSelection;
+              }
+              console.log("Selected road:", roadSelection);
+            })
+            .catch(err => {
+              console.error("Fejl i fetch af /adgangsadresser/{id}:", err);
+            });
+        });
         listElement.appendChild(li);
         items.push(li);
       });
