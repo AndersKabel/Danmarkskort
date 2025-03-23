@@ -670,7 +670,7 @@ infoCloseBtn.addEventListener("click", function() {
 async function getRoadGeometry(kommunekode, vejkode) {
     // Bemærk: "struktur=flad" var unrecognized => vi fjerner den
     // geometri=fuld var også unrecognized => se om "medgeometry=true" er i doc
-    let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/Navngivenvej?vejkode=${vejkode}&kommunekode=${kommunekode}&format=json`;
+    let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/Navngivenvej?username=NUKALQTAFO&password=Fw62huch!&Format=JSON&vejkode=${vejkode}&kommunekode=${kommunekode}&format=json`;
 
     console.log("Henter vejgeometri (Datafordeler):", url);
 
