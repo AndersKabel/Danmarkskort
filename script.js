@@ -740,8 +740,11 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
 
   // Hent geometri for vej1
   let geom1 = await getRoadGeometry(selectedRoad1.kommunekode, selectedRoad1.vejkode);
+  console.log("Geometri for vej1:", geom1); // Tilføjet logging her
+
   // Hent geometri for vej2
   let geom2 = await getRoadGeometry(selectedRoad2.kommunekode, selectedRoad2.vejkode);
+  console.log("Geometri for vej2:", geom2); // Tilføjet logging her
 
   if (!geom1 || !geom2) {
     alert("Kunne ikke hente geometri for en eller begge veje.");
