@@ -138,7 +138,7 @@ async function updateInfoBox(data, lat, lon) {
 
   document.getElementById("infoBox").style.display = "block";
 
-  // Hent kommuneinfo hvis data.kommunekode
+  // Hent kommuneinfo
   if (data.kommunekode) {
     try {
       let komUrl = `https://api.dataforsyningen.dk/kommuner/${data.kommunekode}`;
@@ -218,7 +218,7 @@ searchInput.addEventListener("input", function() {
   clearBtn.style.display = "inline";
   doSearch(txt, resultsList);
 
-  // Tjek om brugeren har indtastet koordinater
+  // Tjek om brugeren har tastet koordinater
   const coordRegex = /^(-?\d+(?:\.\d+))\s*,\s*(-?\d+(?:\.\d+))$/;
   if (coordRegex.test(txt)) {
     const match = txt.match(coordRegex);
@@ -232,7 +232,7 @@ searchInput.addEventListener("input", function() {
         placeMarkerAndZoom([latNum, lonNum], `Koordinater: ${latNum.toFixed(5)}, ${lonNum.toFixed(5)}`);
         updateInfoBox(data, latNum, lonNum);
       })
-      .catch(err => console.error("Reverse geocoding fejl (koord-søgning):", err));
+      .catch(err => console.error("Reverse geocoding fejl:", err));
     return;
   }
 });
@@ -464,21 +464,19 @@ function doSearch(query, listElement) {
                 vej1List.innerHTML = "";
                 vej2List.innerHTML = "";
 
+                // Gem data i roadSelection
                 let roadSelection = {
                   vejnavn: obj.adgangsadresse.vejnavn,
                   kommunekode: detailData.kommunekode,
                   vejkode: detailData.vejkode,
-                  husnummerId: detailData.id // NB: "id" i DAWA er husnummer-id i DAR
+                  husnummerId: detailData.id
                 };
 
-                // Hent navngivenvej-id via husnummer
-                let nvId = await getDarNavngivenvejId(detailData.id);
-                if (nvId) {
-                  roadSelection.navngivenvejId = nvId;
-                  let geometry = await getNavngivenvejGeometry(nvId);
-                  roadSelection.geometry = geometry;
-                }
+                // Kald navngivenvejkommunedel?husnummer= for at få geometry
+                let geometry = await getNavngivenvejKommunedelGeometry(detailData.id);
+                roadSelection.geometry = geometry;
 
+                // Tjek hvilket input-felt
                 if (vej1Input === this.parentElement.parentElement.querySelector("input")) {
                   selectedRoad1 = roadSelection;
                 } else {
@@ -567,12 +565,9 @@ function doSearchRoad(query, listElement, inputField) {
                 vejkode: detailData.vejkode,
                 husnummerId: detailData.id
               };
-              let nvId = await getDarNavngivenvejId(detailData.id);
-              if (nvId) {
-                roadSelection.navngivenvejId = nvId;
-                let geometry = await getNavngivenvejGeometry(nvId);
-                roadSelection.geometry = geometry;
-              }
+
+              let geometry = await getNavngivenvejKommunedelGeometry(detailData.id);
+              roadSelection.geometry = geometry;
 
               if (inputField.id === "vej1") {
                 selectedRoad1 = roadSelection;
@@ -595,51 +590,33 @@ function doSearchRoad(query, listElement, inputField) {
 }
 
 /***************************************************
- * Ny funktion: Hent navngivenvej-id via husnummer
+ * Hent geometri via navngivenvejkommunedel
+ * - husnummer=... => navngivenvej => geometri
  ***************************************************/
-async function getDarNavngivenvejId(husnummerId) {
-  // Bemærk: i DAR = "husnummer", ikke "adresse"
-  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/husnummer?id=${husnummerId}&MedDybde=true&format=json`;
-  console.log("Henter DAR husnummer-data:", url);
+async function getNavngivenvejKommunedelGeometry(husnummerId) {
+  // Husk: husnummerId = DAWA's "adgangsadresse.id" = DAR husnummer
+  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
+  console.log("Henter navngivenvejkommunedel-data:", url);
   try {
     let r = await fetch(url);
     let data = await r.json();
-    // Forventet: data.husnummerListe[0].husnummer.navngivenvej.id_lokalId
-    if (data && data.husnummerListe && data.husnummerListe.length > 0) {
-      let nvId = data.husnummerListe[0].husnummer.navngivenvej.id_lokalId;
-      console.log("Fundet navngivenvej-id:", nvId);
-      return nvId;
-    } else {
-      console.warn("Ingen husnummerListe fundet for:", husnummerId);
-    }
-  } catch (err) {
-    console.error("Fejl i getDarNavngivenvejId:", err);
-  }
-  return null;
-}
+    console.log("Svar fra navngivenvejkommunedel:", data);
 
-/***************************************************
- * Hent geometri for navngivenvej
- ***************************************************/
-async function getNavngivenvejGeometry(navngivenvejId) {
-  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?id=${navngivenvejId}&format=json&MedDybde=true`;
-  console.log("Henter navngivenvej geometri:", url);
-  try {
-    let r = await fetch(url);
-    let data = await r.json();
-    if (data && data.navngivenvejListe && data.navngivenvejListe.length > 0) {
-      let geometry = data.navngivenvejListe[0].navngivenvej.geometri;
+    // Forventet: data.navngivenvejkommunedelListe[0].navngivenvejkommunedel.navngivenvej.geometri
+    if (data && data.navngivenvejkommunedelListe && data.navngivenvejkommunedelListe.length > 0) {
+      let first = data.navngivenvejkommunedelListe[0];
+      let geometry = first.navngivenvejkommunedel.navngivenvej.geometri;
       if (geometry && geometry.coordinates) {
-        console.log("Fundet geometri:", geometry);
+        console.log("Fundet geometri via navngivenvejkommunedel:", geometry);
         return geometry;
       } else {
-        console.warn("Ingen geometri fundet for navngivenvej-id:", navngivenvejId);
+        console.warn("Ingen geometri i navngivenvej for husnummer:", husnummerId);
       }
     } else {
-      console.warn("Ingen navngivenvejListe for:", navngivenvejId);
+      console.warn("Ingen navngivenvejkommunedelListe for husnummer:", husnummerId);
     }
   } catch (err) {
-    console.error("Fejl i getNavngivenvejGeometry:", err);
+    console.error("Fejl i getNavngivenvejKommunedelGeometry:", err);
   }
   return null;
 }
