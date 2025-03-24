@@ -721,6 +721,8 @@ async function getRoadGeometry(kommunekode, vejkode) {
     if (Array.isArray(data) && data.length > 0 && data[0].geometri) {
       // Forvent at data[0].geometri er en MultiLineString
       return data[0].geometri;
+    } else {
+      console.warn("Ingen geometri fundet for:", kommunekode, vejkode);
     }
   } catch (err) {
     console.error("Fejl i getRoadGeometry:", err);
