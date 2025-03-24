@@ -716,7 +716,7 @@ async function getRoadGeometry(kommunekode, vejkode) {
   try {
     let r = await fetch(url);
     let data = await r.json();
-    console.log("getRoadGeometry data:", data);
+    console.log("getRoadGeometry data:", data); // Tilføjet logging her
 
     if (Array.isArray(data) && data.length > 0 && data[0].geometri) {
       // Forvent at data[0].geometri er en MultiLineString
