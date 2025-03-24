@@ -702,16 +702,16 @@ infoCloseBtn.addEventListener("click", function() {
 });
 
 /***************************************************
- * Hent vejgeometri fra Datafordeler (Navngivenvej)
+ * Hent vejgeometri fra Dataforsyningen (Navngivenvej)
  * (Til Find X, hvis du vil bruge)
  ***************************************************/
 async function getRoadGeometry(kommunekode, vejkode) {
   // Sørg for, at koderne har 4 cifre
   kommunekode = kommunekode.toString().padStart(4, '0');
   vejkode     = vejkode.toString().padStart(4, '0');
-  // NY: Opdateret til DAR version 1.0.0
-  let url = `https://services.dataforsyningen.dk/DAR/DAR/1.0.0/rest/navngivenvej?Format=JSON&status=3&kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
-  console.log("Henter vejgeometri (Datafordeler):", url);
+  // Opdateret til korrekt endpoint
+  let url = `https://api.dataforsyningen.dk/dar_navngivenvej?kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
+  console.log("Henter vejgeometri (Dataforsyningen):", url);
 
   try {
     let r = await fetch(url);
@@ -729,6 +729,7 @@ async function getRoadGeometry(kommunekode, vejkode) {
   }
   return null;
 }
+
 
 /***************************************************
  * "Find X"-knap => find intersection med Turf.js
