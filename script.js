@@ -675,7 +675,6 @@ function parseTextResponse(text) {
  ***************************************************/
 const statsvejInfoBox   = document.getElementById("statsvejInfoBox");
 const statsvejCloseBtn  = document.getElementById("statsvejCloseBtn");
-
 // Klik på kryds => luk statsvejInfoBox
 statsvejCloseBtn.addEventListener("click", function() {
   statsvejInfoBox.style.display = "none";
@@ -702,34 +701,38 @@ infoCloseBtn.addEventListener("click", function() {
 });
 
 /***************************************************
- * Hent vejgeometri fra Dataforsyningen (Navngivenvej)
+ * Hent vejgeometri fra Datafordeleren (Navngivenvej)
  * (Til Find X, hvis du vil bruge)
  ***************************************************/
+// OPDATERET getRoadGeometry - nu kaldes Datafordelerens DAR-navngivenvej endpoint
 async function getRoadGeometry(kommunekode, vejkode) {
   // Sørg for, at koderne har 4 cifre
   kommunekode = kommunekode.toString().padStart(4, '0');
   vejkode     = vejkode.toString().padStart(4, '0');
-  // Opdateret til korrekt endpoint
-  let url = `https://api.dataforsyningen.dk/dar_navngivenvej?kommunekode=${kommunekode}&vejkode=${vejkode}&struktur=flad&geometri=fuld`;
-  console.log("Henter vejgeometri (Dataforsyningen):", url);
+  // Nyt endpoint fra Datafordeleren
+  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvej?kommunekode=${kommunekode}&vejkode=${vejkode}&format=json&MedDybde=true`;
+  console.log("Henter vejgeometri (Datafordeleren):", url);
 
   try {
     let r = await fetch(url);
     let data = await r.json();
     console.log("getRoadGeometry data:", data); // Tilføjet logging her
 
-    if (Array.isArray(data) && data.length > 0 && data[0].geometri) {
-      // Forvent at data[0].geometri er en MultiLineString
-      return data[0].geometri;
+    if (data && data.navngivenvejListe && data.navngivenvejListe.length > 0) {
+      let nv = data.navngivenvejListe[0].navngivenvej;
+      if (nv.geometri && nv.geometri.coordinates) {
+        return nv.geometri;
+      } else {
+        console.warn("Ingen geometri fundet i navngivenvej for:", kommunekode, vejkode);
+      }
     } else {
-      console.warn("Ingen geometri fundet for:", kommunekode, vejkode);
+      console.warn("Ingen navngivenvej fundet for:", kommunekode, vejkode);
     }
   } catch (err) {
     console.error("Fejl i getRoadGeometry:", err);
   }
   return null;
 }
-
 
 /***************************************************
  * "Find X"-knap => find intersection med Turf.js
@@ -741,11 +744,11 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
     return;
   }
 
-  // Hent geometri for vej1
+  // Hent geometri for vej1 via Datafordelerens endpoint
   let geom1 = await getRoadGeometry(selectedRoad1.kommunekode, selectedRoad1.vejkode);
   console.log("Geometri for vej1:", geom1); // Tilføjet logging her
 
-  // Hent geometri for vej2
+  // Hent geometri for vej2 via Datafordelerens endpoint
   let geom2 = await getRoadGeometry(selectedRoad2.kommunekode, selectedRoad2.vejkode);
   console.log("Geometri for vej2:", geom2); // Tilføjet logging her
 
