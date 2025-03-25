@@ -459,6 +459,7 @@ function doSearch(query, listElement) {
                 let [lon, lat] = detailData.adgangspunkt.koordinater;
                 console.log("Placering:", lat, lon);
                 placeMarkerAndZoom([lat, lon], obj.tekst);
+
                 // Ryd lister
                 resultsList.innerHTML = "";
                 vej1List.innerHTML = "";
@@ -499,10 +500,16 @@ function doSearch(query, listElement) {
         });
 
         listElement.appendChild(li);
+        // Til pile-navigation i #search
         if (listElement === resultsList) {
           items.push(li);
         }
       });
+
+      // *** HER ER FIXET ***:
+      // Sørg for at listen bliver vist, når vi har fundet resultater:
+      listElement.style.display = combined.length > 0 ? "block" : "none";
+
     })
     .catch(err => console.error("Fejl i doSearch:", err));
 }
@@ -774,7 +781,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
 
     intersection.features.forEach((feat, idx) => {
       let coords = feat.geometry.coordinates; // [x, y] i EPSG:25832
-      
+
       // Konvertér intersection til WGS84 => Leaflet
       let [convLat, convLon] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
 
@@ -796,4 +803,3 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
     }
   }
 });
-    
