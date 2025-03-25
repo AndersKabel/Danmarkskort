@@ -1,4 +1,4 @@
-/***************************************************
+å/***************************************************
  * EPSG:25832 => WGS84
  ***************************************************/
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m +no_defs");
@@ -205,7 +205,7 @@ var items = [];
 var currentIndex = -1;
 
 /***************************************************
- * #search => doSearch
+ * #search => doSearch (hoved-søgning)
  ***************************************************/
 searchInput.addEventListener("input", function() {
   const txt = searchInput.value.trim();
@@ -353,7 +353,7 @@ vej2Input.addEventListener("input", function() {
 });
 
 /***************************************************
- * doSearch => henter addresses + stednavne + STRANDPOSTER
+ * doSearchStrandposter (søger i WFS-lag for redningsnr)
  ***************************************************/
 function doSearchStrandposter(query) {
   let cql = `UPPER(redningsnr) LIKE UPPER('%${query}%')`;
@@ -395,6 +395,9 @@ function doSearchStrandposter(query) {
     });
 }
 
+/***************************************************
+ * doSearch (hoved-søgning)
+ ***************************************************/
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`;
   let stedUrl = `https://services.datafordeler.dk/Geonavn/Geonavn/1.0.0/rest/HentGeonavn?username=NUKALQTAFO&password=Fw62huch!&geonavn=${encodeURIComponent(query + '*')}`;
@@ -414,6 +417,7 @@ function doSearch(query, listElement) {
       items = [];
       currentIndex = -1;
 
+      // 1) Adresser
       let addrResults = (addrData || []).map(item => {
         return {
           type: "adresse",
@@ -422,6 +426,7 @@ function doSearch(query, listElement) {
         };
       });
 
+      // 2) Stednavne
       let stedResults = [];
       if (stedData && stedData.features) {
         stedData.features.forEach(feature => {
@@ -437,6 +442,7 @@ function doSearch(query, listElement) {
         });
       }
 
+      // 3) Strandposter
       let combined = [...addrResults, ...stedResults, ...strandData];
 
       combined.forEach(obj => {
@@ -450,40 +456,23 @@ function doSearch(query, listElement) {
         }
 
         li.addEventListener("click", function() {
+          //  => Gamle adfærd for hoved-søgning: bare placér markør og zoom
           if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-            // fetch /adgangsadresser/{id}
             let detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}?struktur=mini`;
             fetch(detailUrl)
               .then(r => r.json())
-              .then(async detailData => {
-                let [lon, lat] = detailData.adgangspunkt.koordinater;
-                console.log("Placering:", lat, lon);
+              .then(detailData => {
+                // Koordinater i EPSG:25832 => [øst, nord]
+                let [east, north] = detailData.adgangspunkt.koordinater;
+                let [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [east, north]);
+
+                console.log("Placering (hoved-søgning):", lat, lon);
                 placeMarkerAndZoom([lat, lon], obj.tekst);
 
                 // Ryd lister
                 resultsList.innerHTML = "";
                 vej1List.innerHTML = "";
                 vej2List.innerHTML = "";
-
-                // Gem data i roadSelection
-                let roadSelection = {
-                  vejnavn: obj.adgangsadresse.vejnavn,
-                  kommunekode: detailData.kommunekode,
-                  vejkode: detailData.vejkode,
-                  husnummerId: detailData.id
-                };
-
-                // Kald navngivenvejkommunedel?husnummer= for at få geometry
-                let geometry = await getNavngivenvejKommunedelGeometry(detailData.id);
-                roadSelection.geometry = geometry;
-
-                // Tjek hvilket input-felt
-                if (vej1Input === this.parentElement.parentElement.querySelector("input")) {
-                  selectedRoad1 = roadSelection;
-                } else {
-                  selectedRoad2 = roadSelection;
-                }
-                console.log("Selected road:", roadSelection);
               })
               .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
           }
@@ -500,22 +489,20 @@ function doSearch(query, listElement) {
         });
 
         listElement.appendChild(li);
-        // Til pile-navigation i #search
+        // Piletaster kun i hoved-søgefelt
         if (listElement === resultsList) {
           items.push(li);
         }
       });
 
-      // *** HER ER FIXET ***:
-      // Sørg for at listen bliver vist, når vi har fundet resultater:
+      // Vis listen, hvis vi har fundet noget
       listElement.style.display = combined.length > 0 ? "block" : "none";
-
     })
     .catch(err => console.error("Fejl i doSearch:", err));
 }
 
 /***************************************************
- * doSearchRoad
+ * doSearchRoad (vej1/vej2)
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`;
@@ -551,7 +538,7 @@ function doSearchRoad(query, listElement, inputField) {
           listElement.innerHTML = "";
           listElement.style.display = "none";
 
-          console.log("Valgt vejnavn:", vejnavn, " => henter detaljer for adgangsadresse:", adgangsId);
+          console.log("Valgt vejnavn (vej1/vej2):", vejnavn, " => henter detaljer for adgangsadresse:", adgangsId);
 
           if (!adgangsId) {
             console.error("Ingen adgangsadresse.id => kan ikke slå vejkode op");
@@ -566,6 +553,7 @@ function doSearchRoad(query, listElement, inputField) {
             .then(async detailData => {
               console.log("Detaljeret adressedata:", detailData);
 
+              // Her henter vi geometry + sætter selectedRoad1/2
               let roadSelection = {
                 vejnavn: vejnavn,
                 kommunekode: detailData.kommunekode,
@@ -578,10 +566,11 @@ function doSearchRoad(query, listElement, inputField) {
 
               if (inputField.id === "vej1") {
                 selectedRoad1 = roadSelection;
+                console.log("Selected road1:", selectedRoad1);
               } else if (inputField.id === "vej2") {
                 selectedRoad2 = roadSelection;
+                console.log("Selected road2:", selectedRoad2);
               }
-              console.log("Selected road:", roadSelection);
             })
             .catch(err => {
               console.error("Fejl i fetch /adgangsadresser/{id}:", err);
@@ -599,7 +588,6 @@ function doSearchRoad(query, listElement, inputField) {
 /***************************************************
  * Hent geometri via navngivenvejkommunedel (WKT => parse med wellknown)
  ***************************************************/
-
 async function getNavngivenvejKommunedelGeometry(husnummerId) {
   let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
   console.log("Henter navngivenvejkommunedel-data:", url);
@@ -608,11 +596,9 @@ async function getNavngivenvejKommunedelGeometry(husnummerId) {
     let data = await r.json();
     console.log("Svar fra navngivenvejkommunedel:", data);
 
-    // data er et array af objekter ifølge din F12
+    // data er et array af objekter ifølge F12
     if (Array.isArray(data) && data.length > 0) {
-      // Tag første element
       let first = data[0];
-      // Tjek om den indeholder navngivenVej og WKT
       if (first.navngivenVej && first.navngivenVej.vejnavnebeliggenhed_vejnavnelinje) {
         let wktString = first.navngivenVej.vejnavnebeliggenhed_vejnavnelinje;
         console.log("Fandt WKT streng:", wktString);
@@ -781,24 +767,18 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
 
     intersection.features.forEach((feat, idx) => {
       let coords = feat.geometry.coordinates; // [x, y] i EPSG:25832
-
-      // Konvertér intersection til WGS84 => Leaflet
       let [convLat, convLon] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
 
-      // Læg marker på kortet
       let marker = L.marker([convLon, convLat]).addTo(map);
       marker.bindPopup(`Kryds #${idx + 1}`).openPopup();
 
-      // Gem koordinaterne i et array til senere bounding
       latLngs.push([convLon, convLat]);
     });
 
-    // Zoom til alle intersection-punkter
+    // Zoom til intersection-punkter
     if (latLngs.length === 1) {
-      // Hvis der kun er ét kryds, kan vi sætte et fast zoomniveau
       map.setView(latLngs[0], 16);
     } else {
-      // Hvis flere kryds => fitBounds
       map.fitBounds(latLngs);
     }
   }
