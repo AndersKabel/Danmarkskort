@@ -601,8 +601,8 @@ async function getNavngivenvejKommunedelGeometry(husnummerId) {
     console.log("Svar fra navngivenvejkommunedel:", data);
 
     if (data && data.navngivenvejkommunedelListe && data.navngivenvejkommunedelListe.length > 0) {
-      let first = data.navngivenvejkommunedelListe[0];
-      let navngivenVej = first.navngivenvejkommunedel.navngivenvej;
+      let first = data.navngivenVejKommunedelListe[0];
+      let navngivenVej = first.navngivenVejKommunedel.navngivenVej;
 
       // Her ligger WKT i feltet 'vejnavnebeliggenhed_vejnavnelinje'
       if (navngivenVej.vejnavnebeliggenhed_vejnavnelinje) {
