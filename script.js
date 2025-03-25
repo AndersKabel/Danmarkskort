@@ -603,6 +603,9 @@ async function getNavngivenvejKommunedelGeometry(husnummerId) {
     if (data && data.navngivenvejkommunedelListe && data.navngivenvejkommunedelListe.length > 0) {
       let first = data.navngivenvejkommunedelListe[0];
       let navngivenVej = first.navngivenvejkommunedel.navngivenvej;
+      } else {
+  console.warn("Ingen navngivenvejkommunedelListe for husnummer:", husnummerId);
+}
 
       // Her ligger WKT i feltet 'vejnavnebeliggenhed_vejnavnelinje'
       if (navngivenVej.vejnavnebeliggenhed_vejnavnelinje) {
