@@ -592,6 +592,7 @@ function doSearchRoad(query, listElement, inputField) {
 /***************************************************
  * Hent geometri via navngivenvejkommunedel (WKT => parse med wellknown)
  ***************************************************/
+
 async function getNavngivenvejKommunedelGeometry(husnummerId) {
   let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
   console.log("Henter navngivenvejkommunedel-data:", url);
@@ -600,16 +601,15 @@ async function getNavngivenvejKommunedelGeometry(husnummerId) {
     let data = await r.json();
     console.log("Svar fra navngivenvejkommunedel:", data);
 
-    if (data && data.navngivenvejkommunedelListe && data.navngivenvejkommunedelListe.length > 0) {
-      let first = data.navngivenVejKommunedelListe[0];
-      let navngivenVej = first.navngivenVejKommunedel.navngivenVej;
-
-      // Her ligger WKT i feltet 'vejnavnebeliggenhed_vejnavnelinje'
-      if (navngivenVej.vejnavnebeliggenhed_vejnavnelinje) {
-        let wktString = navngivenVej.vejnavnebeliggenhed_vejnavnelinje;
+    // data er et array af objekter ifølge din F12
+    if (Array.isArray(data) && data.length > 0) {
+      // Tag første element
+      let first = data[0];
+      // Tjek om den indeholder navngivenVej og WKT
+      if (first.navngivenVej && first.navngivenVej.vejnavnebeliggenhed_vejnavnelinje) {
+        let wktString = first.navngivenVej.vejnavnebeliggenhed_vejnavnelinje;
         console.log("Fandt WKT streng:", wktString);
 
-        // Brug wellknown.parse() => retur er f.eks. {type:"MultiLineString", coordinates: [...]}
         let geojson = wellknown.parse(wktString);
         console.log("Parsed WKT => GeoJSON:", geojson);
 
@@ -618,7 +618,7 @@ async function getNavngivenvejKommunedelGeometry(husnummerId) {
         console.warn("Ingen WKT streng i 'vejnavnebeliggenhed_vejnavnelinje' for husnummer:", husnummerId);
       }
     } else {
-      console.warn("Ingen navngivenvejkommunedelListe for husnummer:", husnummerId);
+      console.warn("Ingen elementer i arrayet for husnummer:", husnummerId);
     }
   } catch (err) {
     console.error("Fejl i getNavngivenvejKommunedelGeometry:", err);
