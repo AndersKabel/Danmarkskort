@@ -590,11 +590,9 @@ function doSearchRoad(query, listElement, inputField) {
 }
 
 /***************************************************
- * Hent geometri via navngivenvejkommunedel
- * - husnummer=... => navngivenvej => geometri
+ * Hent geometri via navngivenvejkommunedel (WKT => parse med wellknown)
  ***************************************************/
 async function getNavngivenvejKommunedelGeometry(husnummerId) {
-  // Husk: husnummerId = DAWA's "adgangsadresse.id" = DAR husnummer
   let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
   console.log("Henter navngivenvejkommunedel-data:", url);
   try {
@@ -602,15 +600,22 @@ async function getNavngivenvejKommunedelGeometry(husnummerId) {
     let data = await r.json();
     console.log("Svar fra navngivenvejkommunedel:", data);
 
-    // Forventet: data.navngivenvejkommunedelListe[0].navngivenvejkommunedel.navngivenvej.geometri
     if (data && data.navngivenvejkommunedelListe && data.navngivenvejkommunedelListe.length > 0) {
       let first = data.navngivenvejkommunedelListe[0];
-      let geometry = first.navngivenvejkommunedel.navngivenvej.geometri;
-      if (geometry && geometry.coordinates) {
-        console.log("Fundet geometri via navngivenvejkommunedel:", geometry);
-        return geometry;
+      let navngivenVej = first.navngivenvejkommunedel.navngivenvej;
+
+      // Her ligger WKT i feltet 'vejnavnebeliggenhed_vejnavnelinje'
+      if (navngivenVej.vejnavnebeliggenhed_vejnavnelinje) {
+        let wktString = navngivenVej.vejnavnebeliggenhed_vejnavnelinje;
+        console.log("Fandt WKT streng:", wktString);
+
+        // Brug wellknown.parse() => retur er f.eks. {type:"MultiLineString", coordinates: [...]}
+        let geojson = wellknown.parse(wktString);
+        console.log("Parsed WKT => GeoJSON:", geojson);
+
+        return geojson;
       } else {
-        console.warn("Ingen geometri i navngivenvej for husnummer:", husnummerId);
+        console.warn("Ingen WKT streng i 'vejnavnebeliggenhed_vejnavnelinje' for husnummer:", husnummerId);
       }
     } else {
       console.warn("Ingen navngivenvejkommunedelListe for husnummer:", husnummerId);
@@ -750,6 +755,10 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
     return;
   }
 
+  // Koordinater i EPSG:25832. Turf.js tror som standard, at coords er [lon, lat] i grader,
+  // men til ren "lineIntersect" i plane geometry fungerer det som en cartesian operation.
+  // Intersection-resultater skal dog transformeres, hvis du vil sætte Leaflet-markers.
+
   let line1 = turf.multiLineString(selectedRoad1.geometry.coordinates);
   let line2 = turf.multiLineString(selectedRoad2.geometry.coordinates);
 
@@ -761,9 +770,11 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
   } else {
     alert(`Fundet ${intersection.features.length} kryds!`);
     intersection.features.forEach((feat, idx) => {
-      let coords = feat.geometry.coordinates; // [lon, lat]
-      let latlng = [coords[1], coords[0]];
-      let marker = L.marker(latlng).addTo(map);
+      let coords = feat.geometry.coordinates; // [x, y] i EPSG:25832
+      // Konvertér intersection til WGS84 => Leaflet
+      let [convLat, convLon] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
+
+      let marker = L.marker([convLon, convLat]).addTo(map);
       marker.bindPopup(`Kryds #${idx + 1}`).openPopup();
     });
   }
