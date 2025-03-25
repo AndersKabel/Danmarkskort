@@ -769,13 +769,31 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
     alert("De valgte veje krydser ikke hinanden.");
   } else {
     alert(`Fundet ${intersection.features.length} kryds!`);
+
+    let latLngs = [];
+
     intersection.features.forEach((feat, idx) => {
       let coords = feat.geometry.coordinates; // [x, y] i EPSG:25832
+      
       // Konvertér intersection til WGS84 => Leaflet
       let [convLat, convLon] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
 
+      // Læg marker på kortet
       let marker = L.marker([convLon, convLat]).addTo(map);
       marker.bindPopup(`Kryds #${idx + 1}`).openPopup();
+
+      // Gem koordinaterne i et array til senere bounding
+      latLngs.push([convLon, convLat]);
     });
+
+    // Zoom til alle intersection-punkter
+    if (latLngs.length === 1) {
+      // Hvis der kun er ét kryds, kan vi sætte et fast zoomniveau
+      map.setView(latLngs[0], 16);
+    } else {
+      // Hvis flere kryds => fitBounds
+      map.fitBounds(latLngs);
+    }
   }
 });
+    
