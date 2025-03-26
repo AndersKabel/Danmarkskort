@@ -134,10 +134,11 @@ async function updateInfoBox(data, lat, lon) {
     let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
     let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
 
+    // [ÆNDRET] Tilføjet this.style.color='red'
     extraInfoEl.innerHTML += `
       <br>
-      <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
-      <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
+      <a href="#" onclick="copyToClipboard('${evaFormat}'); this.style.color='red'; return false;">Eva.Net</a> |
+      <a href="#" onclick="copyToClipboard('${notesFormat}'); this.style.color='red'; return false;">Notes</a>
     `;
   }
   // *** Slut tilføjelse ***
@@ -757,7 +758,7 @@ infoCloseBtn.addEventListener("click", function() {
     currentMarker = null;
   }
 
-  // [ÆNDRET] Ryd også vej1/vej2, når man lukker pop-up vinduet
+  // Ryd også vej1/vej2, når man lukker pop-up vinduet
   vej1Input.value = "";
   vej2Input.value = "";
   vej1List.innerHTML = "";
@@ -813,10 +814,11 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
       let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}\\n${revData.postnr || ""} ${revData.postnrnavn || ""}`;
 
+      // [ÆNDRET] Tilføjet this.style.color='red'
       popupText += `
         <br>
-        <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
-        <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
+        <a href="#" onclick="copyToClipboard('${evaFormat}'); this.style.color='red'; return false;">Eva.Net</a> |
+        <a href="#" onclick="copyToClipboard('${notesFormat}'); this.style.color='red'; return false;">Notes</a>
       `;
 
       // 4) Sæt marker => [lat, lon] = [wgsLat, wgsLon]
