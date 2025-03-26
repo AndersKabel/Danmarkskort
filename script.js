@@ -13,7 +13,7 @@ function convertToWGS84(x, y) {
  * Hjælpefunktion til at kopiere tekst til clipboard
  ***************************************************/
 function copyToClipboard(str) {
-  // [ÆNDRET] Erstat bogstavelige \n med rigtige linjeskift
+  // Erstat bogstavelige \n med rigtige linjeskift
   let finalStr = str.replace(/\\n/g, "\n");
 
   navigator.clipboard.writeText(finalStr)
@@ -131,7 +131,6 @@ async function updateInfoBox(data, lat, lon) {
 
   // *** Tilføj links til at kopiere adressen i to formater (NYT) ***
   if (extraInfoEl) {
-    // [ÆNDRET] Bemærk dobbelt-backslash i notesFormat
     let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
     let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
 
@@ -757,6 +756,12 @@ infoCloseBtn.addEventListener("click", function() {
     map.removeLayer(currentMarker);
     currentMarker = null;
   }
+
+  // [ÆNDRET] Ryd også vej1/vej2, når man lukker pop-up vinduet
+  vej1Input.value = "";
+  vej2Input.value = "";
+  vej1List.innerHTML = "";
+  vej2List.innerHTML = "";
 });
 
 /***************************************************
