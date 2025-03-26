@@ -780,7 +780,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
                        ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
 
       // Sæt marker
-      let marker = L.marker([convLon, convLat]).addTo(map);
+      let marker = L.marker([convLat, convLon]).addTo(map);
       marker.bindPopup(popupText.trim()).openPopup();
 
       // Gem koordinater for evt. bounding
