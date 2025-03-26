@@ -743,10 +743,6 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
     return;
   }
 
-  // Koordinater i EPSG:25832. Turf.js tror som standard, at coords er [lon, lat] i grader,
-  // men til ren "lineIntersect" i plane geometry fungerer det som en cartesian operation.
-  // Intersection-resultater skal dog transformeres, hvis du vil sætte Leaflet-markers.
-
   let line1 = turf.multiLineString(selectedRoad1.geometry.coordinates);
   let line2 = turf.multiLineString(selectedRoad2.geometry.coordinates);
 
@@ -757,34 +753,36 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
   if (intersection.features.length === 0) {
     alert("De valgte veje krydser ikke hinanden.");
   } else {
-    // *** Vi fjerner "Fundet X kryds!"-besked, og i stedet laver vi markers
-    //     med nærmeste adresse i pop-up.
+    // Her har vi byttet om på x og y i reverse-geocoding KUN i intersection-delen.
     let latLngs = [];
 
-    // For at kunne bruge await i each => for-of-løkke:
+    // Asynk-løkke, så vi kan await fetch
     for (let i = 0; i < intersection.features.length; i++) {
       let feat = intersection.features[i];
       let coords = feat.geometry.coordinates; // [x, y] i EPSG:25832
 
-      // Konvertér intersection til WGS84 => Leaflet
+      // Koordinater til WGS84 => [lat, lon]
       let [convLat, convLon] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
 
-      // Hent nærmeste adresse via Dataforsyningen:
+      // Reverse geocoding => Dataforsyningen vil have x=lon, y=lat
       let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${convLon}&y=${convLat}&struktur=flad`;
       console.log("Reverse geocoding for intersection:", revUrl);
-      let revResp = await fetch(revUrl);
-      let revData = await revResp.json();
 
-      // Konstruér popup-tekst (vejnavn husnr, postnr by):
-      let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, 
-                       ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
+      try {
+        let revResp = await fetch(revUrl);
+        let revData = await revResp.json();
 
-      // Sæt marker
-      let marker = L.marker([convLon, convLat]).addTo(map);
-      marker.bindPopup(popupText.trim()).openPopup();
+        // Popup-tekst = "Vejnavn husnr, postnr by" eller "Ukendt"
+        let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`.trim();
 
-      // Gem koordinater for evt. bounding
-      latLngs.push([convLon, convLat]);
+        // Leaflet-marker => L.marker([lat, lon])
+        let marker = L.marker([convLat, convLon]).addTo(map);
+        marker.bindPopup(popupText).openPopup();
+
+        latLngs.push([convLat, convLon]);
+      } catch (err) {
+        console.error("Fejl i reverse geocoding for intersection:", err);
+      }
     }
 
     // Zoom til alle intersection-punkter
