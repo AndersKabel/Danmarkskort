@@ -130,7 +130,8 @@ async function updateInfoBox(data, lat, lon) {
   // *** Tilføj links til at kopiere adressen i to formater (NYT) ***
   if (extraInfoEl) {
     let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-    let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\n${data.postnr || ""} ${data.postnrnavn || ""}`;
+    let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\n` + 
+      `${data.postnr || ""} ${data.postnrnavn || ""}`;
     extraInfoEl.innerHTML += `
       <br>
       <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
