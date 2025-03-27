@@ -134,7 +134,6 @@ async function updateInfoBox(data, lat, lon) {
     let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
     let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
 
-    // [ÆNDRET] Tilføjet this.style.color='red'
     extraInfoEl.innerHTML += `
       <br>
       <a href="#" onclick="copyToClipboard('${evaFormat}'); this.style.color='red'; return false;">Eva.Net</a> |
@@ -745,6 +744,12 @@ statsvejCloseBtn.addEventListener("click", function() {
     map.removeLayer(currentMarker);
     currentMarker = null;
   }
+
+  // Ryd også vej1/vej2, når man lukker statsvej-pop-up
+  vej1Input.value = "";
+  vej2Input.value = "";
+  vej1List.innerHTML = "";
+  vej2List.innerHTML = "";
 });
 
 const infoCloseBtn = document.getElementById("infoCloseBtn");
@@ -758,7 +763,7 @@ infoCloseBtn.addEventListener("click", function() {
     currentMarker = null;
   }
 
-  // Ryd også vej1/vej2, når man lukker pop-up vinduet
+  // Ryd også vej1/vej2, når man lukker info-pop-up
   vej1Input.value = "";
   vej2Input.value = "";
   vej1List.innerHTML = "";
@@ -814,7 +819,6 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
       let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}\\n${revData.postnr || ""} ${revData.postnrnavn || ""}`;
 
-      // [ÆNDRET] Tilføjet this.style.color='red'
       popupText += `
         <br>
         <a href="#" onclick="copyToClipboard('${evaFormat}'); this.style.color='red'; return false;">Eva.Net</a> |
