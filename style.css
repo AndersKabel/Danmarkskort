@@ -1,4 +1,4 @@
-/* map fylder stadig hele skærmen */
+/* map fylder hele skærmen */
 #map {
     position: absolute;
     top: 0;
@@ -7,7 +7,7 @@
     height: 100%;
 }
 
-/* Søgeboksen øverst (beholdes som absolute) */
+/* Søgeboks øverst til venstre, 400px bred som før */
 #search-container {
     position: absolute;
     top: 10px;
@@ -18,14 +18,16 @@
     padding: 10px;
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    z-index: 1000; /* Forbliver ovenpå kortet */
+    z-index: 1000;
 }
 
+/* Indeni søgeboksen, to inputfelter ved siden af hinanden */
 .flex-row {
     display: flex;
     gap: 10px;
 }
 
+/* Search-wrapper + input */
 .search-wrapper {
     position: relative;
     margin-bottom: 10px;
@@ -150,35 +152,34 @@
 }
 
 /* 
-   #infoContainer er IKKE længere absolute.
-   Vi lader den være i normal flow, 
-   men med en høj z-index, så den stadig vises oven på kortet.
+   Container til info-bokse: Ligger lige under #search-container
+   => top: 120px, left: 10px, 400px bred
 */
 #infoContainer {
-    position: relative;  /* eller 'static', men 'relative' giver mulighed for z-index */
-    margin-top: 180px;   /* <--- justér denne efter hvor høj #search-container typisk er */
-    left: 10px;          /* for at matche samme venstrekant som #search-container */
+    position: absolute;
+    top: 120px;
+    left: 10px;
     width: 400px;
-    z-index: 1000;       /* så den stadig ligger oven på kortet */
+    z-index: 1000;
 
+    /* Gør den til en flex-kolonne,
+       så #infoBox og #statsvejInfoBox stables pænt. */
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-/* 
-   #infoBox og #statsvejInfoBox 
-   => IKKE absolute, men blot 'display: block/none' (eller flex).
-*/
+/* #infoBox og #statsvejInfoBox er ikke absolute;
+   de er blot "indhold" i #infoContainer */
 #infoBox {
-  display: none; /* styres via JS, når du viser infoBox */
+  display: none;
   width: 100%;
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  position: relative; /* IKKE absolute */
+  position: relative;
 }
 
 #statsvejInfoBox {
@@ -189,7 +190,7 @@
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  position: relative; /* IKKE absolute */
+  position: relative;
 }
 
 .hidden {
@@ -212,7 +213,12 @@
     z-index: 1000;
 }
 
-/* Luk-knapper inde i boksene */
+.leaflet-grab, .leaflet-container {
+    cursor: default !important;
+}
+
+/* Luk-knapper for #infoBox og #statsvejInfoBox, 
+   placeres øverst til højre inde i hver boks. */
 #statsvejCloseBtn,
 #infoCloseBtn {
   position: absolute;
@@ -222,7 +228,6 @@
   color: #666;
   cursor: pointer;
 }
-
 #statsvejCloseBtn:hover,
 #infoCloseBtn:hover {
   color: #333;
