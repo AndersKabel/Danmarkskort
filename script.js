@@ -118,8 +118,18 @@ async function updateInfoBox(data, lat, lon) {
   const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
 
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
-  addressEl.textContent = adresseStr;
 
+  // Sæt link + selve adressen i addressEl:
+  let evaFormat   = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
+  let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
+
+  addressEl.innerHTML = `
+    ${adresseStr}<br>
+    <a href="#" onclick="copyToClipboard('${evaFormat}'); this.style.color='red'; return false;">Eva.Net</a> |
+    <a href="#" onclick="copyToClipboard('${notesFormat}'); this.style.color='red'; return false;">Notes</a>
+  `;
+
+  // Hvis du vil beholde ekstra info i extraInfoEl:
   if (extraInfoEl) {
     extraInfoEl.textContent = ekstraInfoStr;
   }
@@ -128,19 +138,6 @@ async function updateInfoBox(data, lat, lon) {
   let eastNorth = convertToWGS84(lat, lon);
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "block";
-
-  // *** Tilføj links til at kopiere adressen i to formater (NYT) ***
-  if (extraInfoEl) {
-    let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-    let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
-
-    extraInfoEl.innerHTML += `
-      <br>
-      <a href="#" onclick="copyToClipboard('${evaFormat}'); this.style.color='red'; return false;">Eva.Net</a> |
-      <a href="#" onclick="copyToClipboard('${notesFormat}'); this.style.color='red'; return false;">Notes</a>
-    `;
-  }
-  // *** Slut tilføjelse ***
 
   // Ryd tidligere søgeresultater
   if (resultsList) resultsList.innerHTML = "";
@@ -744,12 +741,6 @@ statsvejCloseBtn.addEventListener("click", function() {
     map.removeLayer(currentMarker);
     currentMarker = null;
   }
-
-  // Ryd også vej1/vej2, når man lukker statsvej-pop-up
-  vej1Input.value = "";
-  vej2Input.value = "";
-  vej1List.innerHTML = "";
-  vej2List.innerHTML = "";
 });
 
 const infoCloseBtn = document.getElementById("infoCloseBtn");
@@ -763,7 +754,7 @@ infoCloseBtn.addEventListener("click", function() {
     currentMarker = null;
   }
 
-  // Ryd også vej1/vej2, når man lukker info-pop-up
+  // Ryd også vej1/vej2, når man lukker pop-up vinduet
   vej1Input.value = "";
   vej2Input.value = "";
   vej1List.innerHTML = "";
