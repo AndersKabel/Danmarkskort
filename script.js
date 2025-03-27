@@ -121,7 +121,7 @@ async function updateInfoBox(data, lat, lon) {
 
   // Sæt link + selve adressen i addressEl:
   let evaFormat   = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-  let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
+  let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}, ${data.postnr || ""} ${data.postnrnavn || ""}`;
 
   addressEl.innerHTML = `
     ${adresseStr}<br>
