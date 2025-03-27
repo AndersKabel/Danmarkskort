@@ -1,3 +1,4 @@
+/* map fylder stadig hele skærmen */
 #map {
     position: absolute;
     top: 0;
@@ -6,6 +7,7 @@
     height: 100%;
 }
 
+/* Søgeboksen øverst */
 #search-container {
     position: absolute;
     top: 10px;
@@ -113,7 +115,7 @@
     cursor: pointer;
 }
 
-/* Autocomplete-lister for vej1/vej2 */
+/* Autocomplete-lister til vej1/vej2 */
 #results-vej1,
 #results-vej2 {
     position: absolute;
@@ -147,8 +149,10 @@
     background: #eaeaea;
 }
 
-/* Container til info-bokse */
-/* Ændret her: Gør #infoContainer til en flex-container med column-retning */
+/* 
+   #infoContainer bliver nu en flex-kolonne.
+   Dvs. #infoBox og #statsvejInfoBox kan stables lodret.
+*/
 #infoContainer {
     position: absolute;
     top: 120px;
@@ -156,45 +160,42 @@
     width: 400px;
     z-index: 1000;
 
-    display: flex;             /* vi stabler bokse lodret */
-    flex-direction: column;    /* lodret retning */
-    gap: 10px;                 /* lidt luft imellem boksene */
+    display: flex;             /* vi bruger flex */
+    flex-direction: column;    /* lodret stabling */
+    gap: 10px;                 /* lidt afstand mellem boksene */
 }
 
-/* Ændret her: Fjern position:absolute fra #infoBox og #statsvejInfoBox.
-   Gør dem i stedet "relative" eller "static", så de følger flex-flow. */
+/* 
+   #infoBox og #statsvejInfoBox er ikke længere position: absolute.
+   De er blot "indhold" i #infoContainer og vil stable sig pænt.
+*/
 #infoBox {
-  display: none; /* du kan stadig styre vis/skjul i JS */
-  position: relative;  /* var absolute før */
+  display: none;
   width: 100%;
-  max-width: 400px;
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
+  position: relative; /* ikke absolute */
 }
 
 #statsvejInfoBox {
-    display: none; /* du kan stadig styre vis/skjul i JS */
-    position: relative; /* var absolute før */
-    width: 100%;
-    max-width: 400px;
-    box-sizing: border-box;
-    background: rgba(255, 255, 255, 0.95);
-    padding: 10px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  position: relative; /* ikke absolute */
 }
-
-/* Fjernede top: 277px; left: 0px; og lign. fra boksene ovenfor */
 
 .hidden {
     display: none;
 }
 
+/* Koordinatboks i bunden */
 #coordinateBox {
     position: absolute;
     bottom: 10px;
@@ -214,8 +215,9 @@
     cursor: default !important;
 }
 
+/* Luk-knapper */
 #statsvejCloseBtn {
-  position: absolute;
+  position: absolute; /* forbliver inde i boksen, men i øverste hjørne */
   top: 8px;
   right: 10px;
   font-size: 18px;
@@ -228,7 +230,7 @@
 }
 
 #infoCloseBtn {
-  position: absolute;
+  position: absolute; /* forbliver inde i boksen, men i øverste hjørne */
   top: 8px;
   right: 10px;
   font-size: 18px;
