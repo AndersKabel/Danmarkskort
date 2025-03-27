@@ -1,3 +1,4 @@
+/* KORTET */
 #map {
     position: absolute;
     top: 0;
@@ -6,6 +7,7 @@
     height: 100%;
 }
 
+/* SØGEBOKS (uændret) */
 #search-container {
     position: absolute;
     top: 10px;
@@ -19,6 +21,7 @@
     z-index: 1000;
 }
 
+/* FLEX ROW TIL VEJ1/VEJ2-FELTER (uændret) */
 .flex-row {
     display: flex;
     gap: 10px;
@@ -34,7 +37,7 @@
     width: 100%;
 }
 
-/* Sørg for, at autocomplete-listen placeres korrekt */
+/* AUTOCOMPLETE-LISTER (uændret) */
 .autocomplete-list {
     position: absolute;
     top: 100%;
@@ -48,27 +51,23 @@
     display: none; /* Skjules som standard */
     box-sizing: border-box; /* Sørger for at padding og border ikke ændrer bredden */
 }
-
-/* Sikrer at hvert resultat er synligt og ikke skjules */
 .autocomplete-list li {
     padding: 8px;
     background: #f9f9f9;
     border-bottom: 1px solid #ddd;
     cursor: pointer;
-    white-space: nowrap; /* Sikrer at teksten ikke brydes */
+    white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis; /* Klipper lange tekster */
+    text-overflow: ellipsis;
 }
-
-/* Gør, at hover-effekten er tydelig */
 .autocomplete-list li:hover {
     background: #eaeaea;
 }
 
 .flex-row .search-wrapper {
-    flex-grow: 1; /* Gør, at de to inputfelter fylder lige meget */
+    flex-grow: 1;
     position: relative;
-    width: 100%; /* Sikrer fuld bredde til autocomplete */
+    width: 100%;
 }
 
 #search,
@@ -84,10 +83,10 @@
     border-radius: 4px;
 }
 
+/* CLEAR-BUTTONS (uændret) */
 .search-wrapper {
     position: relative;
 }
-
 .search-wrapper .clear-button {
     position: absolute;
     right: 10px;
@@ -98,11 +97,9 @@
     cursor: pointer;
     display: none;
 }
-
 .search-wrapper .clear-button:hover {
     color: #333;
 }
-
 .clear-button {
     position: absolute;
     top: 50%;
@@ -113,13 +110,12 @@
     cursor: pointer;
     display: none;
 }
-
 .clear-button:hover {
     color: #333;
     cursor: pointer;
 }
 
-/* Sørg for, at autocomplete-listen placeres korrekt og er bred nok */
+/* AUTOCOMPLETE-LISTER FOR VEJ1/VEJ2 (uændret) */
 #results-vej1,
 #results-vej2 {
     position: absolute;
@@ -134,8 +130,6 @@
     display: none;
     box-sizing: border-box;
 }
-
-/* Sikrer at hvert resultat er synligt og ikke skjules */
 #results li,
 #results-vej1 li,
 #results-vej2 li {
@@ -143,34 +137,38 @@
     background: #f9f9f9;
     border-bottom: 1px solid #ddd;
     cursor: pointer;
-    white-space: nowrap; /* Sikrer at teksten ikke brydes */
+    white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis; /* Klipper lange tekster */
+    text-overflow: ellipsis;
 }
-
-/* Gør, at hover-effekten er tydelig */
 #results li:hover,
 #results-vej1 li:hover,
 #results-vej2 li:hover {
     background: #eaeaea;
 }
 
-/* Infoboks justeret til at placere sig korrekt under søgefeltet */
+/* INFOKASSER — FJERN ABSOLUTE, LAV FLEX-CONTAINER */
 #infoContainer {
-    position: absolute;
+    position: absolute;  /* Beholder din placering */
     top: 120px;
     left: 10px;
     width: 400px;
     z-index: 1000;
+
+    /* NYT: Lav en kolonne med flex */
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Lidt luft mellem #infoBox og #statsvejInfoBox */
 }
 
+/* #infoBox — fjern position absolute og top/left, brug i stedet "relative"/"static" */
 #infoBox {
   display: none;
-  position: absolute;
-  top: 15px; /* Justér denne værdi, hvis boksen stadig ikke er lavt nok */
-  left: -10px;
-  width: 100%;  /* Ændret fra 400px til 100% */
-  max-width: 400px; /* Sikrer, at den ikke bliver for bred */
+  /* position: absolute;
+     top: 15px; left: -10px; */
+  position: relative;  /* Tillader fx close-knappen at være absolute inde i boksen */
+  width: 100%;         /* Fylder hele #infoContainer */
+  max-width: 400px;    /* Sikrer at den ikke bliver for bred */
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
@@ -179,73 +177,14 @@
   z-index: 1000;
 }
 
-/* Flex container for StreetView + Skråfoto links */
-.info-upper-box {
-    display: flex;          
-    align-items: center;    
-    gap: 10px;              
-    margin-bottom: 8px;     
-}
-
-.info-lower-box {
-    font-size: 14px;
-    color: #333;
-}
-
-#address {
-    margin: 0;
-    padding: 0;
-    font-weight: bold;      
-    line-height: 1.6em;     
-}
-
-#extra-info {
-    font-size: 14px;
-    color: #555;
-    margin-top: 5px;
-    line-height: 1.4em; 
-}
-
-#streetviewLink {
-    color: #007bff;
-    text-decoration: none;
-}
-
-#streetviewLink:hover {
-    text-decoration: underline;
-}
-
-#skraafotoLink {
-    color: orange;      
-    margin-left: 8px;   
-    text-decoration: none;
-}
-
-#skraafotoLink:hover {
-    text-decoration: underline;
-}
-
-#kildeangivelse {
-    position: absolute;
-    bottom: 10px;
-    left: 10px;
-    background: white;
-    padding: 5px;
-    font-size: 12px;
-    border-radius: 4px;
-    opacity: 0.8;
-}
-
-.highlight {
-    background-color: #d0e6f7;
-}
-
+/* Statsvej-boks — samme ide */
 #statsvejInfoBox {
     display: none;
-    position: absolute;
-    top: 277px;
-    left: 0px;
-    width: 380px;
+    /* position: absolute;
+       top: 277px; left: 0px; */
+    position: relative;
+    width: 100%;
+    max-width: 400px;
     background: rgba(255, 255, 255, 0.95);
     padding: 10px;
     border-radius: 8px;
@@ -257,6 +196,7 @@
     display: none;
 }
 
+/* Koordinatboks nede i bunden (uændret) */
 #coordinateBox {
     position: absolute;
     bottom: 10px;
@@ -276,6 +216,7 @@
     cursor: default !important;
 }
 
+/* Luk-knapper (uændret) */
 #statsvejCloseBtn {
   position: absolute;
   top: 8px;
@@ -284,7 +225,6 @@
   cursor: pointer;
   color: #666;
 }
-
 #statsvejCloseBtn:hover {
   color: #333;
 }
@@ -297,7 +237,11 @@
   color: #666;
   cursor: pointer;
 }
-
 #infoCloseBtn:hover {
   color: #333;
+}
+
+/* HIGHLIGHT TIL MARKERET ITEM (uændret) */
+.highlight {
+    background-color: #d0e6f7;
 }
