@@ -152,12 +152,12 @@
 }
 
 /* 
-   Container til info-bokse: Ligger lige under #search-container
-   => top: 120px, left: 10px, 400px bred
+   Container til info-boksene: 
+   Ligger nede i #search-container, men rykket lidt ned fra søgefelterne 
 */
 #infoContainer {
     position: absolute;
-    top: 130px;
+    top: 130px;  /* justér efter behov for at komme under søgefelterne */
     left: 0px;
     width: 400px;
     z-index: 1000;
@@ -169,8 +169,8 @@
     gap: 10px;
 }
 
-/* #infoBox og #statsvejInfoBox er ikke absolute;
-   de er blot "indhold" i #infoContainer */
+/* #infoBox og #statsvejInfoBox er "normale" bokse, 
+   men vi viser/skjuler dem via display=block/none i JS */
 #infoBox {
   display: none;
   width: 100%;
@@ -217,8 +217,7 @@
     cursor: default !important;
 }
 
-/* Luk-knapper for #infoBox og #statsvejInfoBox, 
-   placeres øverst til højre inde i hver boks. */
+/* Luk-knapper for #infoBox og #statsvejInfoBox */
 #statsvejCloseBtn,
 #infoCloseBtn {
   position: absolute;
