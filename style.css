@@ -7,7 +7,7 @@
     height: 100%;
 }
 
-/* Søgeboks øverst til venstre, 400px bred som før */
+/* Søgeboks (400px bred) øverst til venstre */
 #search-container {
     position: absolute;
     top: 10px;
@@ -21,13 +21,12 @@
     z-index: 1000;
 }
 
-/* Indeni søgeboksen, to inputfelter ved siden af hinanden */
+/* Indeni søgeboksen => to inputfelter ved siden af hinanden */
 .flex-row {
     display: flex;
     gap: 10px;
 }
 
-/* Search-wrapper + input */
 .search-wrapper {
     position: relative;
     margin-bottom: 10px;
@@ -38,7 +37,7 @@
     width: 100%;
 }
 
-/* Autocomplete-lister */
+/* Autocomplete-lister (til søgning) */
 .autocomplete-list {
     position: absolute;
     top: 100%;
@@ -52,7 +51,6 @@
     display: none;
     box-sizing: border-box;
 }
-
 .autocomplete-list li {
     padding: 8px;
     background: #f9f9f9;
@@ -62,17 +60,18 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
 .autocomplete-list li:hover {
     background: #eaeaea;
 }
 
+/* Felterne i .flex-row */
 .flex-row .search-wrapper {
     flex-grow: 1;
     position: relative;
     width: 100%;
 }
 
+/* Søg-felter + vej1/vej2 */
 #search,
 #vej1,
 #vej2 {
@@ -86,6 +85,7 @@
     border-radius: 4px;
 }
 
+/* "X"-knap til at rydde input */
 .search-wrapper .clear-button {
     position: absolute;
     right: 10px;
@@ -96,11 +96,9 @@
     cursor: pointer;
     display: none;
 }
-
 .search-wrapper .clear-button:hover {
     color: #333;
 }
-
 .clear-button {
     position: absolute;
     top: 50%;
@@ -111,93 +109,56 @@
     cursor: pointer;
     display: none;
 }
-
 .clear-button:hover {
     color: #333;
     cursor: pointer;
 }
 
-/* Autocomplete-lister til vej1/vej2 */
-#results-vej1,
-#results-vej2 {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 390px;
-    background: white;
-    border: 1px solid #ccc;
-    z-index: 2000;
-    max-height: 200px;
-    overflow-y: auto;
-    display: none;
-    box-sizing: border-box;
-}
-
-#results li,
-#results-vej1 li,
-#results-vej2 li {
-    padding: 8px;
-    background: #f9f9f9;
-    border-bottom: 1px solid #ddd;
-    cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-#results li:hover,
-#results-vej1 li:hover,
-#results-vej2 li:hover {
-    background: #eaeaea;
-}
-
 /* 
-   Container til info-boksene: 
-   Ligger nede i #search-container, men rykket lidt ned fra søgefelterne 
+   Container til infobokse, placeret under #search-container.
+   Giv f.eks. top:130px; left:10px; 
 */
 #infoContainer {
     position: absolute;
-    top: 130px;  /* justér efter behov for at komme under søgefelterne */
-    left: 0px;
+    top: 130px;    /* Lidt under search-boksen */
+    left: 10px;    /* Samme venstre justering som søgefeltet */
     width: 400px;
     z-index: 1000;
 
-    /* Gør den til en flex-kolonne,
-       så #infoBox og #statsvejInfoBox stables pænt. */
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 10px;     /* afstand mellem #infoBox og #statsvejInfoBox */
 }
 
-/* #infoBox og #statsvejInfoBox er "normale" bokse, 
-   men vi viser/skjuler dem via display=block/none i JS */
+/* Info-boks og statsvej-boks er blot "blokke" inde i #infoContainer */
 #infoBox {
-  display: none;
+  display: none;  /* start skjult */
   width: 100%;
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  position: relative;
+  position: relative;  /* ikke absolute */
 }
 
 #statsvejInfoBox {
-  display: none;
+  display: none;  /* start skjult */
   width: 100%;
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  position: relative;
+  position: relative;  /* ikke absolute */
 }
 
+/* Skjules evt. via JS */
 .hidden {
     display: none;
 }
 
-/* Koordinatboks i bunden */
+/* Koordinat-boks i bunden */
 #coordinateBox {
     position: absolute;
     bottom: 10px;
@@ -217,7 +178,7 @@
     cursor: default !important;
 }
 
-/* Luk-knapper for #infoBox og #statsvejInfoBox */
+/* Luk-knapper i øverste hjørne af hver boks */
 #statsvejCloseBtn,
 #infoCloseBtn {
   position: absolute;
