@@ -23,13 +23,13 @@
 </head>
 <body>
 
-  <!-- KORTET FYLDER HELE VINDUET -->
+  <!-- 1) Leaflet-kortet fylder hele skærmen -->
   <div id="map"></div>
 
-  <!-- Koordinatboks i bunden af skærmen -->
+  <!-- 2) Koordinat-boks nederst (viser klikkoordinater) -->
   <div id="coordinateBox">Klik på kortet for at se koordinater</div>
     
-  <!-- Søgefeltet (som før) -->
+  <!-- 3) Søgeboksen (400px bred, øverst til venstre) -->
   <div id="search-container">
     <div class="search-wrapper">
       <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
@@ -52,27 +52,27 @@
       </button>
     </div>
 
-    <!-- 
-         Container til infobokse: 
-         Placeret NEDENUNDER søgefelterne ved at bruge 'position: absolute' i CSS,
-         men *inde i* #search-container, så 'left' = 0 vil betyde "samme venstre kant"
-    -->
-    <div id="infoContainer">
-      <!-- Infoboks for adresse / "alm." info -->
-      <div id="infoBox">
-        <div class="info-upper-box">
-          <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
-          <a id="skraafotoLink" href="#" target="_blank" style="display:none;">Åbn i skråfoto</a>
-        </div>
-        <div class="info-lower-box">
-          <p id="address"></p>
-          <p id="extra-info"></p>
-        </div>
-        <span id="infoCloseBtn" class="close-button">&times;</span>
+    <!-- Her lå tidligere #infoBox og #statsvejInfoBox, men de er nu flyttet -->
+    
+    <div id="kildeangivelse"></div>
+  </div>
+
+  <!-- 4) Info-container (absolut positioneret under søgeboksen) -->
+  <div id="infoContainer">
+    <!-- Infoboks (adresse, kopier-links, mm.) -->
+    <div id="infoBox">
+      <div class="info-upper-box">
+        <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
+        <a id="skraafotoLink" href="#" target="_blank" style="display:none;">Åbn i skråfoto</a>
       </div>
+      <div class="info-lower-box">
+        <p id="address"></p>
+        <p id="extra-info"></p>
+      </div>
+      <span id="infoCloseBtn" class="close-button">&times;</span>
     </div>
 
-    <!-- Statsvej-info-boks (ligger i DOM efter infoContainer, men i CSS stables i #infoContainer via flex) -->
+    <!-- Statsvej-boks (ligger i samme container => stables under infoboksen) -->
     <div id="statsvejInfoBox" class="hidden">
       <div class="info-upper-box"></div>
       <div class="info-lower-box">
@@ -80,9 +80,6 @@
       </div>
       <span id="statsvejCloseBtn" class="close-button">&times;</span> 
     </div>
-
-    <!-- Evt. kildeangivelse -->
-    <div id="kildeangivelse"></div>
   </div>
 
   <!-- Proj4js til koordinat-transformation -->
