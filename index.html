@@ -23,10 +23,13 @@
 </head>
 <body>
 
+  <!-- KORTET FYLDER HELE VINDUET -->
   <div id="map"></div>
 
+  <!-- Koordinatboks i bunden af skærmen -->
   <div id="coordinateBox">Klik på kortet for at se koordinater</div>
     
+  <!-- Søgefeltet (som før) -->
   <div id="search-container">
     <div class="search-wrapper">
       <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
@@ -48,8 +51,14 @@
         Find X
       </button>
     </div>
-    
+
+    <!-- 
+         Container til infobokse: 
+         Placeret NEDENUNDER søgefelterne ved at bruge 'position: absolute' i CSS,
+         men *inde i* #search-container, så 'left' = 0 vil betyde "samme venstre kant"
+    -->
     <div id="infoContainer">
+      <!-- Infoboks for adresse / "alm." info -->
       <div id="infoBox">
         <div class="info-upper-box">
           <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
@@ -63,6 +72,7 @@
       </div>
     </div>
 
+    <!-- Statsvej-info-boks (ligger i DOM efter infoContainer, men i CSS stables i #infoContainer via flex) -->
     <div id="statsvejInfoBox" class="hidden">
       <div class="info-upper-box"></div>
       <div class="info-lower-box">
@@ -70,7 +80,8 @@
       </div>
       <span id="statsvejCloseBtn" class="close-button">&times;</span> 
     </div>
-      
+
+    <!-- Evt. kildeangivelse -->
     <div id="kildeangivelse"></div>
   </div>
 
