@@ -39,4 +39,161 @@
 
 /* Autocomplete-lister (til søgning) */
 .autocomplete-list {
-    position:
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: white;
+    border: 1px solid #ccc;
+    z-index: 2000;
+    /* For at begrænse højden og give rul, hvis der er mange resultater: */
+    max-height: 200px; /* eller 300px */
+    overflow-y: auto;
+    display: none;
+    box-sizing: border-box;
+}
+.autocomplete-list li {
+    padding: 8px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.autocomplete-list li:hover {
+    background: #eaeaea;
+}
+
+/* Felterne i .flex-row */
+.flex-row .search-wrapper {
+    flex-grow: 1;
+    position: relative;
+    width: 100%;
+}
+
+/* Søg-felter + vej1/vej2 */
+#search,
+#vej1,
+#vej2 {
+    width: 100%;
+    height: 40px;
+    font-size: 16px;
+    padding: 8px;
+    padding-right: 40px;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* "X"-knap til at rydde input */
+.search-wrapper .clear-button {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: #666;
+    cursor: pointer;
+    display: none;
+}
+.search-wrapper .clear-button:hover {
+    color: #333;
+}
+.clear-button {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: #666;
+    cursor: pointer;
+    display: none;
+}
+.clear-button:hover {
+    color: #333;
+    cursor: pointer;
+}
+
+/*
+   Container til infobokse, placeret under #search-container.
+   Giv f.eks. top:130px; left:10px;
+*/
+#infoContainer {
+    position: absolute;
+    top: 130px; /* Lidt under search-boksen */
+    left: 10px; /* Samme venstrejustering som søgefeltet */
+    width: 400px;
+    z-index: 1000;
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* afstand mellem #infoBox og #statsvejInfoBox */
+}
+
+/* Info-boks og statsvej-boks er blot "blokke" inde i #infoContainer */
+#infoBox {
+  display: none; /* start skjult */
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  position: relative; /* ikke absolute */
+}
+
+#statsvejInfoBox {
+  display: none; /* start skjult */
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  position: relative; /* ikke absolute */
+}
+
+/* Skjules evt. via JS */
+.hidden {
+    display: none;
+}
+
+/* Koordinat-boks i bunden */
+#coordinateBox {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+    display: none;
+    z-index: 1000;
+}
+
+.leaflet-grab, .leaflet-container {
+    cursor: default !important;
+}
+
+/* Luk-knapper i øverste hjørne af hver boks */
+#statsvejCloseBtn,
+#infoCloseBtn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+}
+#statsvejCloseBtn:hover,
+#infoCloseBtn:hover {
+  color: #333;
+}
+
+.highlight {
+    background-color: #d0e6f7;
+}
