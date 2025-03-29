@@ -47,10 +47,13 @@
     border: 1px solid #ccc;
     z-index: 2000;
     /* For at begrænse højden og give rul, hvis der er mange resultater: */
-    max-height: 200px; /* eller 300px */
+    max-height: 250px; /* fx 250px */
     overflow-y: auto;
     display: none;
     box-sizing: border-box;
+    list-style: none;  /* Fjerner bullets */
+    margin: 0;         /* Fjerner ekstra margin */
+    padding: 0;        /* Fjerner default padding */
 }
 .autocomplete-list li {
     padding: 8px;
@@ -117,11 +120,11 @@
 
 /*
    Container til infobokse, placeret under #search-container.
-   Giv f.eks. top:130px; left:10px;
+   Giv f.eks. top:160px for at ligge lidt længere nede end før.
 */
 #infoContainer {
     position: absolute;
-    top: 130px; /* Lidt under search-boksen */
+    top: 160px; /* Lidt længere nede end 130px */
     left: 10px; /* Samme venstrejustering som søgefeltet */
     width: 400px;
     z-index: 1000;
