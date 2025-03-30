@@ -128,9 +128,9 @@ async function updateInfoBox(data, lat, lon) {
     kommunekodeBox.innerHTML = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
   }
 
-  // Ryd / init #extra-info (vi viser IKKE kommunekode her)
+  // Ryd / init #extra-info
   if (extraInfoEl) {
-    extraInfoEl.textContent = ""; // Rydder, så vi kan tilføje Eva.Net/Notes + kommune
+    extraInfoEl.textContent = ""; 
   }
 
   // Eva.Net / Notes links
@@ -476,21 +476,24 @@ function doSearch(query, listElement) {
 
       li.addEventListener("click", function() {
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-          // fetch detail => /adgangsadresser/{id}
-          fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+          // *** VIGTIGT: brug struktur=flad for at få kommunekode mm. ***
+          fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}?struktur=flad`)
             .then(r => r.json())
             .then(addressData => {
               let [lon, lat] = addressData.adgangspunkt.koordinater;
               console.log("Placering:", lat, lon);
 
-              // Zoom + marker
-              placeMarkerAndZoom([lat, lon], obj.tekst);
+              // Sammensæt den _fulde_ adresse
+              let fullAddr = `${addressData.vejnavn || ""} ${addressData.husnr || ""}, ` +
+                             `${addressData.postnr || ""} ${addressData.postnrnavn || ""}`;
 
-              // Sæt SØGEFELTET til den fulde adresse
-              let fullAddr = `${addressData.vejnavn || ""} ${addressData.husnr || ""}, ${addressData.postnr || ""} ${addressData.postnrnavn || ""}`;
+              // Zoom + marker
+              placeMarkerAndZoom([lat, lon], fullAddr);
+
+              // Sæt SØGEFELTET til den fulde adresse (ikke obj.tekst)
               searchInput.value = fullAddr;
 
-              // Kald updateInfoBox => viser i infoboks
+              // Kald updateInfoBox => viser i infoboks (inkl. kommune)
               updateInfoBox(addressData, lat, lon);
 
               // Ryd lister
@@ -499,11 +502,11 @@ function doSearch(query, listElement) {
               vej2List.innerHTML = "";
             })
             .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+
         }
         else if (obj.type === "stednavn" && obj.bbox) {
           let [x, y] = [obj.bbox[0], obj.bbox[1]];
           placeMarkerAndZoom([y, x], obj.navn);
-          // Sæt search feltet
           searchInput.value = obj.navn;
         }
         else if (obj.type === "strandpost") {
