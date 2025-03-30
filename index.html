@@ -1,25 +1,25 @@
 <!DOCTYPE html>
 <html lang="da">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danmarkskort</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Danmarkskort</title>
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-    <!-- Din egen style -->
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:,">
+  <!-- Din egen style -->
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:,">
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Turf.js til intersection -->
-    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <!-- Turf.js til intersection -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
-    <!-- Wellknown (WKT parser) -->
-    <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
+  <!-- Wellknown (WKT parser) -->
+  <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
 </head>
 <body>
 
@@ -71,20 +71,23 @@
       <span id="infoCloseBtn" class="close-button">&times;</span>
     </div>
 
-    <!-- Statsvej-boks (ligger i samme container => stables under infoboksen) -->
+    <!-- Statsvej-boks (stables under infoboksen) -->
     <div id="statsvejInfoBox" class="hidden">
       <div class="info-upper-box"></div>
       <div class="info-lower-box">
         <p id="statsvejInfo"></p>
       </div>
-      <span id="statsvejCloseBtn" class="close-button">&times;</span> 
+      <span id="statsvejCloseBtn" class="close-button">&times;</span>
     </div>
   </div>
+
+  <!-- 5) Ny boks nederst til kommunekode og vejkode -->
+  <div id="kommunekodeBox"></div>
 
   <!-- Proj4js til koordinat-transformation -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
 
-  <!-- Din egen script-fil, som nu kan bruge "wellknown.parse()" -->
+  <!-- Din egen script-fil -->
   <script src="script.js"></script>
 </body>
 </html>
