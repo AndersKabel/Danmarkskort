@@ -107,7 +107,7 @@
    så den ikke overlapper search-container */
 #infoContainer {
     position: absolute;
-    top: 140px; /* Justér for at få boksen længere ned */
+    top: 145px; /* Justér for at få boksen længere ned */
     left: 10px;
     width: 400px;
     z-index: 1000;
