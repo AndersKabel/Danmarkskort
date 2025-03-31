@@ -51,6 +51,15 @@ var osmLayer = L.tileLayer(
   }
 ).addTo(map);
 
+// ** NYT: Matrikelkort-lag fra Dataforsyningen **
+var matrikelkortLayer = L.tileLayer.wms("https://api.dataforsyningen.dk/matrikelkort/wms", {
+  layers: "Matrikelkort",
+  format: "image/png",
+  transparent: true,
+  version: "1.3.0",
+  attribution: "Data: Dataforsyningen"
+});
+
 // Opret base-lag (baggrundskort)
 const baseMaps = {
   "OpenStreetMap": osmLayer
@@ -58,7 +67,8 @@ const baseMaps = {
 
 // Opret overlay-lag (punkter)
 const overlayMaps = {
-  "Strandposter": redningsnrLayer
+  "Strandposter": redningsnrLayer,
+  "Matrikelkort": matrikelkortLayer
 };
 
 // Tilføj lagvælgeren
@@ -82,18 +92,13 @@ const kommuneInfo = {
 map.on('click', function(e) {
   var lat = e.latlng.lat;
   var lon = e.latlng.lng;
-
   if (currentMarker) {
     map.removeLayer(currentMarker);
   }
   currentMarker = L.marker([lat, lon]).addTo(map);
-
-  // Opdater koordinatboksen
   document.getElementById("coordinateBox").textContent =
     `Koordinater: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
   document.getElementById("coordinateBox").style.display = "block";
-
-  // Reverse geocoding mod Dataforsyningen
   let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
   console.log("Kalder reverse geocoding:", revUrl);
   fetch(revUrl)
@@ -122,20 +127,21 @@ async function updateInfoBox(data, lat, lon) {
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = fullAddress;
 
-  // Skråfoto-link – her sætter vi også en onclick, der kopierer adressen til udklipsholderen og viser en alert
+  // Skråfoto-link: Når brugeren klikker, kopieres adressen og en alert vises
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(fullAddress)}`;
   skråfotoLink.style.display = "block";
   skråfotoLink.onclick = function() {
     copyToClipboard(fullAddress);
     alert("Adressen er nu kopieret. Tryk Ctrl+V i skråfoto-søgefeltet");
+    return false;
   };
 
-  // Sæt kommunekode + vejkode i den nye boks i bunden
+  // Sæt kommunekode + vejkode i bunden (ny boks)
   if (kommunekodeBox) {
     kommunekodeBox.innerHTML = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
   }
 
-  // Ryd/initialiser extra-info (her vises ikke kommunekoder, de er nu flyttet)
+  // Ryd / init extra-info (kommunekode vises nu ikke her)
   if (extraInfoEl) {
     extraInfoEl.textContent = "";
   }
@@ -229,13 +235,11 @@ function addClearButton(inputElement, listElement) {
 addClearButton(vej1Input, vej1List);
 addClearButton(vej2Input, vej2List);
 
-// Piletaster i #search
+/***************************************************
+ * Piletaster i #search
+ ***************************************************/
 var items = [];
 var currentIndex = -1;
-
-/***************************************************
- * #search => doSearch
- ***************************************************/
 searchInput.addEventListener("input", function() {
   const txt = searchInput.value.trim();
   if (txt.length < 2) {
@@ -246,8 +250,6 @@ searchInput.addEventListener("input", function() {
   }
   clearBtn.style.display = "inline";
   doSearch(txt, resultsList);
-
-  // Tjek om brugeren har tastet koordinater
   const coordRegex = /^(-?\d+(?:\.\d+))\s*,\s*(-?\d+(?:\.\d+))$/;
   if (coordRegex.test(txt)) {
     const match = txt.match(coordRegex);
@@ -283,7 +285,6 @@ vej2Input.addEventListener("keydown", function() {
   document.getElementById("infoBox").style.display = "none";
 });
 
-// Piletaster i #search => items
 searchInput.addEventListener("keydown", function(e) {
   if (items.length === 0) return;
   if (e.key === "ArrowDown") {
@@ -354,9 +355,6 @@ vej2Input.parentElement.querySelector(".clear-button").addEventListener("click",
 var selectedRoad1 = null;
 var selectedRoad2 = null;
 
-/***************************************************
- * vej1 => doSearchRoad
- ***************************************************/
 vej1Input.addEventListener("input", function() {
   const txt = vej1Input.value.trim();
   if (txt.length < 2) {
@@ -367,9 +365,6 @@ vej1Input.addEventListener("input", function() {
   doSearchRoad(txt, vej1List, vej1Input);
 });
 
-/***************************************************
- * vej2 => doSearchRoad
- ***************************************************/
 vej2Input.addEventListener("input", function() {
   const txt = vej2Input.value.trim();
   if (txt.length < 2) {
@@ -482,7 +477,6 @@ function doSearch(query, listElement) {
               let [lon, lat] = addressData.adgangspunkt.koordinater;
               console.log("Placering:", lat, lon);
               placeMarkerAndZoom([lat, lon], obj.tekst);
-              // Sæt søgefeltet til den fulde adresse
               let fullAddr = `${addressData.vejnavn || ""} ${addressData.husnr || ""}, ${addressData.postnr || ""} ${addressData.postnrnavn || ""}`;
               searchInput.value = fullAddr;
               updateInfoBox(addressData, lat, lon);
