@@ -52,14 +52,25 @@ var osmLayer = L.tileLayer(
   }
 ).addTo(map);
 
-// Opret base-lag (baggrundskort)
+// *** NYT: Matrikelkort-layer fra Dataforsyningen ***
+var matrikelLayer = L.tileLayer.wms("https://api.dataforsyningen.dk/matrikelkort", {
+  layers: "Matrikelkort",
+  format: "image/png",
+  transparent: true,
+  version: "1.1.0",
+  attribution: "Data: Dataforsyningen"
+});
+
+/***************************************************
+ * Opret base- og overlay-lag
+ ***************************************************/
 const baseMaps = {
   "OpenStreetMap": osmLayer
 };
 
-// Opret overlay-lag (punkter)
 const overlayMaps = {
-  "Strandposter": redningsnrLayer
+  "Strandposter": redningsnrLayer,
+  "Matrikelkort": matrikelLayer
 };
 
 // Tilføj lagvælgeren
@@ -118,7 +129,16 @@ async function updateInfoBox(data, lat, lon) {
   const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
 
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
-  addressEl.textContent = adresseStr;
+
+  // Sæt link + selve adressen i addressEl:
+  let evaFormat   = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
+  let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}, ${data.postnr || ""} ${data.postnrnavn || ""}`;
+
+  addressEl.innerHTML = `
+    ${adresseStr}<br>
+    <a href="#" onclick="copyToClipboard('${evaFormat}'); this.style.color='red'; return false;">Eva.Net</a> |
+    <a href="#" onclick="copyToClipboard('${notesFormat}'); this.style.color='red'; return false;">Notes</a>
+  `;
 
   if (extraInfoEl) {
     extraInfoEl.textContent = ekstraInfoStr;
@@ -128,20 +148,6 @@ async function updateInfoBox(data, lat, lon) {
   let eastNorth = convertToWGS84(lat, lon);
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "block";
-
-  // *** Tilføj links til at kopiere adressen i to formater (NYT) ***
-  if (extraInfoEl) {
-    // [ÆNDRET] Bemærk dobbelt-backslash i notesFormat
-    let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-    let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
-
-    extraInfoEl.innerHTML += `
-      <br>
-      <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
-      <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
-    `;
-  }
-  // *** Slut tilføjelse ***
 
   // Ryd tidligere søgeresultater
   if (resultsList) resultsList.innerHTML = "";
@@ -201,7 +207,6 @@ var vej2Input    = document.getElementById("vej2");
 var vej1List     = document.getElementById("results-vej1");
 var vej2List     = document.getElementById("results-vej2");
 
-// Tilføj clear-knap til input
 function addClearButton(inputElement, listElement) {
   let clearBtn = document.createElement("span");
   clearBtn.innerHTML = "&times;";
@@ -495,7 +500,14 @@ function doSearch(query, listElement) {
             .then(addressData => {
               let [lon, lat] = addressData.adgangspunkt.koordinater;
               console.log("Placering:", lat, lon);
-              placeMarkerAndZoom([lat, lon], obj.tekst);
+              // Konstruer den fulde adresse
+              let fullAddr = `${addressData.vejnavn || ""} ${addressData.husnr || ""}, ${addressData.postnr || ""} ${addressData.postnrnavn || ""}`;
+              // Zoom + marker med fuld adresse
+              placeMarkerAndZoom([lat, lon], fullAddr);
+              // Sæt søgefeltet til den fulde adresse
+              searchInput.value = fullAddr;
+              // Opdater infoboks
+              updateInfoBox(addressData, lat, lon);
               // Ryd lister
               resultsList.innerHTML = "";
               vej1List.innerHTML = "";
@@ -506,6 +518,7 @@ function doSearch(query, listElement) {
         else if (obj.type === "stednavn" && obj.bbox) {
           let [x, y] = [obj.bbox[0], obj.bbox[1]];
           placeMarkerAndZoom([y, x], obj.navn);
+          searchInput.value = obj.navn;
         }
         else if (obj.type === "strandpost") {
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
@@ -521,7 +534,6 @@ function doSearch(query, listElement) {
       }
     });
 
-    // Sørg for at listen bliver vist, når vi har fundet resultater:
     listElement.style.display = combined.length > 0 ? "block" : "none";
 
   })
@@ -529,7 +541,7 @@ function doSearch(query, listElement) {
 }
 
 /***************************************************
- * doSearchRoad
+ * doSearchRoad => brugt af vej1/vej2
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
   // Her kan du sætte per_side=100 (eller 50) for at få flere resultater:
@@ -572,7 +584,6 @@ function doSearchRoad(query, listElement, inputField) {
             console.error("Ingen adgangsadresse.id => kan ikke slå vejkode op");
             return;
           }
-
           let detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${adgangsId}?struktur=mini`;
           console.log("detailUrl:", detailUrl);
 
@@ -757,6 +768,12 @@ infoCloseBtn.addEventListener("click", function() {
     map.removeLayer(currentMarker);
     currentMarker = null;
   }
+
+  // Ryd også vej1/vej2, når man lukker pop-up vinduet
+  vej1Input.value = "";
+  vej2Input.value = "";
+  vej1List.innerHTML = "";
+  vej2List.innerHTML = "";
 });
 
 /***************************************************
@@ -801,8 +818,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let revData = await revResp.json();
 
       // 3) Popup-tekst
-      let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ` +
-                      `${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
+      let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
 
       // Tilføj to links til at kopiere i to formater
       let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
