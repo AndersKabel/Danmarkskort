@@ -19,17 +19,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
     <!-- Wellknown (WKT parser) -->
-    <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
+   <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
 </head>
 <body>
 
-  <!-- 1) Leaflet-kortet fylder hele skærmen -->
   <div id="map"></div>
 
-  <!-- 2) Koordinat-boks nederst (viser klikkoordinater) -->
   <div id="coordinateBox">Klik på kortet for at se koordinater</div>
     
-  <!-- 3) Søgeboksen (400px bred, øverst til venstre) -->
   <div id="search-container">
     <div class="search-wrapper">
       <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
@@ -51,27 +48,21 @@
         Find X
       </button>
     </div>
-
-    <div id="kildeangivelse"></div>
-  </div>
-
-  <!-- 4) Info-container (absolut positioneret under søgeboksen) -->
-  <div id="infoContainer">
-    <!-- Infoboks (adresse, kopier-links, mm.) -->
-    <div id="infoBox">
-      <div class="info-upper-box">
-        <!-- Samme linje til Street View og skråfoto -->
-        <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
-        <a id="skraafotoLink" href="#" target="_blank">Åbn i skråfoto</a>
+    
+    <div id="infoContainer">
+      <div id="infoBox">
+        <div class="info-upper-box">
+          <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
+          <a id="skraafotoLink" href="#" target="_blank" style="display:none;">Åbn i skråfoto</a>
+        </div>
+        <div class="info-lower-box">
+          <p id="address"></p>
+          <p id="extra-info"></p>
+        </div>
+        <span id="infoCloseBtn" class="close-button">&times;</span>
       </div>
-      <div class="info-lower-box">
-        <p id="address"></p>
-        <p id="extra-info"></p>
-      </div>
-      <span id="infoCloseBtn" class="close-button">&times;</span>
     </div>
 
-    <!-- Statsvej-boks (ligger i samme container => stables under infoboksen) -->
     <div id="statsvejInfoBox" class="hidden">
       <div class="info-upper-box"></div>
       <div class="info-lower-box">
@@ -79,6 +70,8 @@
       </div>
       <span id="statsvejCloseBtn" class="close-button">&times;</span> 
     </div>
+      
+    <div id="kildeangivelse"></div>
   </div>
 
   <!-- Proj4js til koordinat-transformation -->
