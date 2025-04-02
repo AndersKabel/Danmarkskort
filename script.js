@@ -321,6 +321,9 @@ clearBtn.addEventListener("click", function() {
   document.getElementById("infoBox").style.display = "none";
   document.getElementById("statsvejInfoBox").style.display = "none";
   document.getElementById("coordinateBox").style.display = "none";
+
+  // Sæt fokus på søgefeltet
+  searchInput.focus();
 });
 
 function resetInfoBox() {
