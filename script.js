@@ -61,7 +61,7 @@ const baseMaps = {
 var fordLayer = L.layerGroup();  // NY: Layer for Ford værksteder
 const overlayMaps = {
   "Strandposter": redningsnrLayer,
-  "Ford": fordLayer         // Tilføjet nyt lag til layer-vælgeren
+  "Ford værksteder": fordLayer         // Tilføjet nyt lag til layer-vælgeren
 };
 
 // Tilføj lagvælgeren
