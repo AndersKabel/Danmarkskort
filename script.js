@@ -52,14 +52,20 @@ var osmLayer = L.tileLayer(
   }
 ).addTo(map);
 
-// Opret base-lag (baggrundskort)
+/***************************************************
+ * Opret base- og overlay-lag
+ ***************************************************/
 const baseMaps = {
   "OpenStreetMap": osmLayer
 };
 
-// Opret overlay-lag (punkter)
+// Først oprettes det nye lag for Ford værksteder
+var fordWorkshopsLayer = L.layerGroup();
+
+// Nu opdateres overlayMaps til at indeholde både "Strandposter" og "Ford værksteder"
 const overlayMaps = {
-  "Strandposter": redningsnrLayer
+  "Strandposter": redningsnrLayer,
+  "Ford værksteder": fordWorkshopsLayer
 };
 
 // Tilføj lagvælgeren
@@ -131,7 +137,6 @@ async function updateInfoBox(data, lat, lon) {
 
   // *** Tilføj links til at kopiere adressen i to formater (NYT) ***
   if (extraInfoEl) {
-    // [ÆNDRET] Bemærk dobbelt-backslash i notesFormat
     let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
     let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
 
@@ -435,7 +440,7 @@ function doSearch(query, listElement) {
   // Stednavne
   let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`;
 
-  // Nu includerer vi strandposter:
+  // Nu includeres strandposter:
   let strandPromise = doSearchStrandposter(query);
 
   Promise.all([
@@ -531,7 +536,6 @@ function doSearch(query, listElement) {
       }
     });
 
-    // Sørg for at listen bliver vist, når vi har fundet resultater:
     listElement.style.display = combined.length > 0 ? "block" : "none";
 
   })
@@ -542,7 +546,6 @@ function doSearch(query, listElement) {
  * doSearchRoad => brugt af vej1/vej2
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
-  // Her kan du sætte per_side=100 (eller 50) for at få flere resultater:
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`;
   console.log("doSearchRoad kaldt med query:", query, " => ", addrUrl);
 
@@ -788,31 +791,24 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
   let intersection = turf.lineIntersect(line1, line2);
   console.log("Intersection result:", intersection);
 
-  // Hvis ingen features => vis alert
   if (intersection.features.length === 0) {
     alert("De valgte veje krydser ikke hinanden.");
   } else {
-    // Fjerner "Fundet X kryds!"-besked. Vi viser i stedet markers med nærmeste adresse.
     let latLngs = [];
 
-    // for-of-løkke, så vi kan await fetch:
     for (let i = 0; i < intersection.features.length; i++) {
       let feat = intersection.features[i];
       let coords = feat.geometry.coordinates; // [x, y] i EPSG:25832
 
-      // 1) proj4 returnerer [lon, lat]
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
 
-      // 2) Reverse geocoding => x=lon, y=lat
       let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
       console.log("Reverse geocoding for intersection:", revUrl);
       let revResp = await fetch(revUrl);
       let revData = await revResp.json();
 
-      // 3) Popup-tekst
       let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
 
-      // Tilføj to links til at kopiere i to formater
       let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
       let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}\\n${revData.postnr || ""} ${revData.postnrnavn || ""}`;
 
@@ -822,15 +818,12 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
         <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
       `;
 
-      // 4) Sæt marker => [lat, lon] = [wgsLat, wgsLon]
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
       marker.bindPopup(popupText.trim()).openPopup();
 
-      // 5) Til fitBounds
       latLngs.push([wgsLat, wgsLon]);
     }
 
-    // Zoom til alle intersection-punkter
     if (latLngs.length === 1) {
       map.setView(latLngs[0], 16);
     } else {
@@ -839,7 +832,63 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
   }
 });
 
-// Når DOM'en er færdigindlæst, sæt fokus i søgefeltet:
+/***************************************************
+ * Ford værksteder layer – nyt overlay
+ ***************************************************/
+// Opret et nyt layerGroup til Ford værksteder
+// (Dette skal laves, inden L.control.layers() kaldes, men vi kan nu tilføje det til overlayMaps)
+// Vi har allerede tilføjet det ovenfor i overlayMaps.
+async function fetchFordWorkshops() {
+  let url = "https://www.ford.dk/api/elastic-locations/contextual?category=workshop&culture=da-DK";
+  try {
+    let response = await fetch(url);
+    let data = await response.json();
+    console.log("Ford workshops data:", data);
+
+    // Ryd laggruppen
+    fordWorkshopsLayer.clearLayers();
+
+    if (data.aggregations && data.aggregations.locations) {
+      data.aggregations.locations.forEach(workshop => {
+        let lat = workshop.address.lat;
+        let lng = workshop.address.lng;
+        let name = workshop.name;
+        let addressStr = workshop.address.street + ", " + workshop.address.zipcode + " " + workshop.address.city;
+
+        // Formatér åbningstider
+        let openingHours = "";
+        if (workshop.opening_hours && workshop.opening_hours.length > 0) {
+          openingHours = workshop.opening_hours.map(day => {
+            if (day.open_time.toLowerCase() === "lukket") {
+              return day.open_day_label + ": Lukket";
+            } else {
+              return day.open_day_label + ": " + day.open_time + " - " + day.close_time;
+            }
+          }).join("<br>");
+        }
+
+        // Kopieringsformater
+        let evaFormat = name + " - " + addressStr;
+        let notesFormat = name + "\n" + addressStr;
+
+        let popupContent = `<strong>${name}</strong><br>${addressStr}<br><br>
+          <em>Åbningstider:</em><br>${openingHours}<br>
+          <a href="#" onclick="copyToClipboard('${evaFormat}'); return false;">Eva.Net</a> |
+          <a href="#" onclick="copyToClipboard('${notesFormat}'); return false;">Notes</a>`;
+
+        let marker = L.marker([lat, lng]).bindPopup(popupContent);
+        marker.addTo(fordWorkshopsLayer);
+      });
+    }
+  } catch (err) {
+    console.error("Fejl ved hentning af Ford workshops:", err);
+  }
+}
+
+// Hent Ford workshops, når scriptet kører
+fetchFordWorkshops();
+
+// Når DOM'en er færdigindlæst, sæt fokus på søgefeltet:
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
