@@ -495,7 +495,12 @@ function doSearch(query, listElement) {
             .then(addressData => {
               let [lon, lat] = addressData.adgangspunkt.koordinater;
               console.log("Placering:", lat, lon);
-              placeMarkerAndZoom([lat, lon], obj.tekst);
+              // Konstruer fuld adresse:
+              let fullAddr = `${addressData.vejnavn || ""} ${addressData.husnr || ""}, ${addressData.postnr || ""} ${addressData.postnrnavn || ""}`;
+              // Sæt searchfeltet til den fulde adresse
+              searchInput.value = fullAddr;
+              // Marker kortet med fuld adresse
+              placeMarkerAndZoom([lat, lon], fullAddr);
               // Ryd lister
               resultsList.innerHTML = "";
               vej1List.innerHTML = "";
@@ -506,12 +511,14 @@ function doSearch(query, listElement) {
         else if (obj.type === "stednavn" && obj.bbox) {
           let [x, y] = [obj.bbox[0], obj.bbox[1]];
           placeMarkerAndZoom([y, x], obj.navn);
+          searchInput.value = obj.navn;
         }
         else if (obj.type === "strandpost") {
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
           let props = obj.feature.properties;
           let e = document.getElementById("extra-info");
           e.textContent = `Flere data: Parkeringsplads: ${props.ppl} ...?`;
+          searchInput.value = obj.tekst;
         }
       });
 
@@ -529,7 +536,7 @@ function doSearch(query, listElement) {
 }
 
 /***************************************************
- * doSearchRoad
+ * doSearchRoad => brugt af vej1/vej2
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
   // Her kan du sætte per_side=100 (eller 50) for at få flere resultater:
@@ -572,7 +579,6 @@ function doSearchRoad(query, listElement, inputField) {
             console.error("Ingen adgangsadresse.id => kan ikke slå vejkode op");
             return;
           }
-
           let detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${adgangsId}?struktur=mini`;
           console.log("detailUrl:", detailUrl);
 
@@ -801,8 +807,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let revData = await revResp.json();
 
       // 3) Popup-tekst
-      let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ` +
-                      `${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
+      let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
 
       // Tilføj to links til at kopiere i to formater
       let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
