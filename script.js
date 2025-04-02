@@ -680,6 +680,8 @@ function placeMarkerAndZoom([lat, lon], displayText) {
 
 /***************************************************
  * checkForStatsvej => henter statsvej (Geocloud)
+ * 
+ * Denne funktion er nu opdateret til at tjekke for gzip-komprimering.
  ***************************************************/
 async function checkForStatsvej(lat, lon) {
   console.log("Koordinater sendt til Geocloud:", lat, lon);
@@ -705,7 +707,15 @@ Y=50`;
   console.log("API-kald til Geocloud:", url);
   try {
     let response = await fetch(url);
-    let textData = await response.text();
+    let contentEncoding = response.headers.get("content-encoding");
+    let textData;
+    if (contentEncoding && contentEncoding.indexOf("gzip") !== -1) {
+      console.log("Svar er gzip-komprimeret. Dekomprimerer...");
+      let buffer = await response.arrayBuffer();
+      textData = pako.ungzip(new Uint8Array(buffer), { to: 'string' });
+    } else {
+      textData = await response.text();
+    }
     console.log("Rå server response:", textData);
 
     if (textData.startsWith("Results")) {
