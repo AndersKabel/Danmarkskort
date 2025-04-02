@@ -1,41 +1,32 @@
 <!DOCTYPE html>
 <html lang="da">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Danmarkskort</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danmarkskort</title>
 
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-  <!-- Din egen style -->
-  <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="data:,">
+    <!-- Din egen style -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:,">
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Turf.js til intersection -->
-  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <!-- Turf.js til intersection -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
-  <!-- Wellknown (WKT parser) -->
-  <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
-
-  <!-- Proj4js til koordinat-transformation -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
-
-  <!-- Pako til gzip-dekomprimering -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.4/pako.min.js"></script>
+    <!-- Wellknown (WKT parser) -->
+   <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
 </head>
 <body>
 
-  <!-- 1) Leaflet-kortet fylder hele skærmen -->
   <div id="map"></div>
 
-  <!-- 2) Koordinat-boks nederst (viser klikkoordinater) -->
   <div id="coordinateBox">Klik på kortet for at se koordinater</div>
     
-  <!-- 3) Søgeboksen (400px bred, øverst til venstre) -->
   <div id="search-container">
     <div class="search-wrapper">
       <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
@@ -83,7 +74,10 @@
     <div id="kildeangivelse"></div>
   </div>
 
+  <!-- Proj4js til koordinat-transformation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
+
   <!-- Din egen script-fil, som nu kan bruge "wellknown.parse()" -->
   <script src="script.js"></script>
 </body>
-</html>
+</html> 
