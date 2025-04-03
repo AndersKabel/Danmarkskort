@@ -131,8 +131,9 @@ async function updateInfoBox(data, lat, lon) {
 
   // *** Tilføj links til at kopiere adressen i to formater (NYT) ***
   if (extraInfoEl) {
+    // Vi retter Notes-formatet til at være "Vejnavn husnr, postnr postnrnavn"
     let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-    let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
+    let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}, ${data.postnr || ""} ${data.postnrnavn || ""}`;
 
     extraInfoEl.innerHTML += `
       <br>
@@ -451,7 +452,7 @@ function doSearch(query, listElement) {
     items = [];
     currentIndex = -1;
 
-    // Parse adresser
+    // Parse adresser => { type: "adresse", tekst, adgangsadresse}
     let addrResults = (addrData || []).map(item => {
       return {
         type: "adresse",
@@ -460,7 +461,7 @@ function doSearch(query, listElement) {
       };
     });
 
-    // Parse stednavne
+    // parse stednavne => { type:"stednavn", navn, bbox}
     let stedResults = [];
     if (stedData && stedData.features) {
       stedData.features.forEach(feature => {
@@ -490,8 +491,8 @@ function doSearch(query, listElement) {
       }
 
       li.addEventListener("click", function() {
+        // (A) - Adresse
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-          // Hent detaljeret adresse
           fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
             .then(r => r.json())
             .then(addressData => {
@@ -506,25 +507,44 @@ function doSearch(query, listElement) {
             })
             .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
         }
+        // (B) - Stednavn
         else if (obj.type === "stednavn" && obj.bbox) {
           let [x, y] = [obj.bbox[0], obj.bbox[1]];
           placeMarkerAndZoom([y, x], obj.navn);
           searchInput.value = obj.navn;
         }
+        // (C) - Redningsnummer => reverse geocode
         else if (obj.type === "strandpost") {
-          // Opdaterer til at vise en popup med ekstra data og kopieringslinks
+          // 1) Sæt marker + zoom
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
-          let props = obj.feature.properties;
-          let popupContent = `<strong>${obj.tekst}</strong><br>`;
-          if(props.ppl) {
-            popupContent += `<strong>Parkeringsplads:</strong> ${props.ppl}<br>`;
-          }
-          // Tilføj evt. andre relevante attributter, fx hvis der findes andre felter i props
-          // Kopieringslinks – for redningsnummer kan vi kopiere nummeret direkte
-          let redningsnummer = props.redningsnr || "";
-          popupContent += `<br><a href="#" onclick="copyToClipboard('${redningsnummer}');return false;">Eva.Net</a> | `;
-          popupContent += `<a href="#" onclick="copyToClipboard('${redningsnummer}');return false;">Notes</a>`;
-          currentMarker.bindPopup(popupContent).openPopup();
+
+          // 2) Reverse geocoding for at få adresse
+          let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${obj.lon}&y=${obj.lat}&struktur=flad`;
+          console.log("Reverse geocoding for redningsnr:", revUrl);
+
+          fetch(revUrl)
+            .then(resp => resp.json())
+            .then(adresseData => {
+              // 3) Byg popup
+              let vej = adresseData.vejnavn || "Ukendt vej";
+              let husnr = adresseData.husnr || "";
+              let postnr = adresseData.postnr || "";
+              let postnrnavn = adresseData.postnrnavn || "";
+
+              // Eva.Net => "Vejnavn,husnr,postnr"
+              let evaFormat   = `${vej},${husnr},${postnr}`;
+              // Notes => "Vejnavn husnr, postnr postnrnavn"
+              let notesFormat = `${vej} ${husnr}, ${postnr} ${postnrnavn}`;
+
+              let popupContent = `<strong>${obj.tekst}</strong><br>`;
+              popupContent += `Adresse: ${vej} ${husnr}, ${postnr} ${postnrnavn}<br><br>`;
+              popupContent += `<a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> | `;
+              popupContent += `<a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>`;
+
+              currentMarker.bindPopup(popupContent).openPopup();
+            })
+            .catch(err => console.error("Fejl i reverse geocoding for redningsnummer:", err));
+
           searchInput.value = obj.tekst;
         }
       });
@@ -803,8 +823,9 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let revData = await revResp.json();
 
       let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
+      // Retter Notes-formatet så det matcher
       let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
-      let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}\\n${revData.postnr || ""} ${revData.postnrnavn || ""}`;
+      let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}, ${revData.postnr || ""} ${revData.postnrnavn || ""}`;
 
       popupText += `
         <br>
