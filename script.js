@@ -131,6 +131,7 @@ async function updateInfoBox(data, lat, lon) {
 
   // *** Tilføj links til at kopiere adressen i to formater (NYT) ***
   if (extraInfoEl) {
+    // [ÆNDRET] Bemærk dobbelt-backslash i notesFormat
     let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
     let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
 
@@ -434,7 +435,7 @@ function doSearch(query, listElement) {
   // Stednavne
   let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`;
 
-  // Nu includeres vi strandposter:
+  // Nu includerer vi strandposter:
   let strandPromise = doSearchStrandposter(query);
 
   Promise.all([
@@ -516,31 +517,10 @@ function doSearch(query, listElement) {
           searchInput.value = obj.navn;
         }
         else if (obj.type === "strandpost") {
-          // Her oprettes en marker med ekstra info fra strandposter-API'et
-          let marker = L.marker([obj.lat, obj.lon]).addTo(map);
-          map.setView([obj.lat, obj.lon], 16);
+          placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
           let props = obj.feature.properties;
-          let popupText = `${obj.tekst}`;
-          if (props.ppl) {
-            popupText += `<br>Parkeringspladser: ${props.ppl}`;
-          }
-          if (props.adgangsstier) {
-            popupText += `<br>Adgangsstier: ${props.adgangsstier}`;
-          }
-          // Tilføj eventuelt yderligere info, hvis der findes
-          if (props.andetinfo) {
-            popupText += `<br>${props.andetinfo}`;
-          }
-          // Tilføj kopieringslinks – her bruges evt. redningsnr hvis tilgængeligt
-          let evaFormat = `${props.redningsnr || obj.tekst}`;
-          let notesFormat = `${props.redningsnr || obj.tekst}`;
-          popupText += `
-            <br>
-            <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
-            <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
-          `;
-          marker.bindPopup(popupText);
-          marker.openPopup();
+          let e = document.getElementById("extra-info");
+          e.textContent = `Flere data: Parkeringsplads: ${props.ppl} ...?`;
           searchInput.value = obj.tekst;
         }
       });
@@ -551,6 +531,7 @@ function doSearch(query, listElement) {
       }
     });
 
+    // Sørg for at listen bliver vist, når vi har fundet resultater:
     listElement.style.display = combined.length > 0 ? "block" : "none";
 
   })
@@ -561,6 +542,7 @@ function doSearch(query, listElement) {
  * doSearchRoad => brugt af vej1/vej2
  ***************************************************/
 function doSearchRoad(query, listElement, inputField) {
+  // Her kan du sætte per_side=100 (eller 50) for at få flere resultater:
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`;
   console.log("doSearchRoad kaldt med query:", query, " => ", addrUrl);
 
@@ -761,8 +743,8 @@ function parseTextResponse(text) {
 /***************************************************
  * Statsvej / info-bokse
  ***************************************************/
-const statsvejInfoBox = document.getElementById("statsvejInfoBox");
-const statsvejCloseBtn = document.getElementById("statsvejCloseBtn");
+const statsvejInfoBox   = document.getElementById("statsvejInfoBox");
+const statsvejCloseBtn  = document.getElementById("statsvejCloseBtn");
 statsvejCloseBtn.addEventListener("click", function() {
   statsvejInfoBox.style.display = "none";
   document.getElementById("infoBox").style.display = "none";
@@ -806,24 +788,31 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
   let intersection = turf.lineIntersect(line1, line2);
   console.log("Intersection result:", intersection);
 
+  // Hvis ingen features => vis alert
   if (intersection.features.length === 0) {
     alert("De valgte veje krydser ikke hinanden.");
   } else {
+    // Fjerner "Fundet X kryds!"-besked. Vi viser i stedet markers med nærmeste adresse.
     let latLngs = [];
 
+    // for-of-løkke, så vi kan await fetch:
     for (let i = 0; i < intersection.features.length; i++) {
       let feat = intersection.features[i];
       let coords = feat.geometry.coordinates; // [x, y] i EPSG:25832
 
+      // 1) proj4 returnerer [lon, lat]
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
 
+      // 2) Reverse geocoding => x=lon, y=lat
       let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
       console.log("Reverse geocoding for intersection:", revUrl);
       let revResp = await fetch(revUrl);
       let revData = await revResp.json();
 
+      // 3) Popup-tekst
       let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
 
+      // Tilføj to links til at kopiere i to formater
       let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
       let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}\\n${revData.postnr || ""} ${revData.postnrnavn || ""}`;
 
@@ -833,12 +822,15 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
         <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
       `;
 
+      // 4) Sæt marker => [lat, lon] = [wgsLat, wgsLon]
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
       marker.bindPopup(popupText.trim()).openPopup();
 
+      // 5) Til fitBounds
       latLngs.push([wgsLat, wgsLon]);
     }
 
+    // Zoom til alle intersection-punkter
     if (latLngs.length === 1) {
       map.setView(latLngs[0], 16);
     } else {
