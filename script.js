@@ -66,7 +66,6 @@ var allStrandposter = [];
 
 /***************************************************
  * Funktion til at hente alle redningsnumre (strandposter)
- * Når brugeren aktiverer Strandposter-laget.
  ***************************************************/
 async function fetchAllStrandposter() {
   let url = "https://kort.strandnr.dk/geoserver/nobc/ows?" +
@@ -85,8 +84,7 @@ async function fetchAllStrandposter() {
 }
 
 /***************************************************
- * Sæt overlayadd-hændelse op – når Strandposter-laget tændes,
- * hentes alle strandposter.
+ * Sæt overlayadd-hændelse op – når Strandposter-laget tændes
  ***************************************************/
 map.on('overlayadd', function(e) {
   if (e.layer === redningsnrLayer) {
@@ -161,17 +159,13 @@ async function updateInfoBox(data, lat, lon) {
   skråfotoLink.style.display = "block";
 
   // Tilføj links til at kopiere adressen i to formater:
-  // Eva.Net: "vejnavn,husnr,postnr" (komma-separeret, uden mellemrum)
-  // Notes: "vejnavn husnr, postnr" (med mellemrum og komma)
-  if (extraInfoEl) {
-    let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-    let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}, ${data.postnr || ""}`;
-    extraInfoEl.innerHTML += `
-      <br>
-      <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
-      <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
-    `;
-  }
+  let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
+  let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}, ${data.postnr || ""}`;
+  extraInfoEl.innerHTML += `
+    <br>
+    <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
+    <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
+  `;
 
   // Ryd tidligere søgeresultater
   if (resultsList) resultsList.innerHTML = "";
@@ -261,25 +255,20 @@ addClearButton(vej1Input, vej1List);
 addClearButton(vej2Input, vej2List);
 
 /***************************************************
- * Vi har brug for SEPARATE lister + piletaster
- * for #search, #vej1, #vej2
+ * Global arrays og indeks til piletaster
  ***************************************************/
-
-// (1) #search
 var searchItems = [];
-var searchIndex = -1;
+var searchCurrentIndex = -1;
 
-// (2) #vej1
 var vej1Items = [];
-var vej1Index = -1;
+var vej1CurrentIndex = -1;
 
-// (3) #vej2
 var vej2Items = [];
-var vej2Index = -1;
-
+var vej2CurrentIndex = -1;
 
 /***************************************************
  * #search => doSearch (kombinerer adresser, stednavne og strandposter)
+ * Resultater tilføjes til searchItems, så piletaster virker.
  ***************************************************/
 searchInput.addEventListener("input", function() {
   const txt = searchInput.value.trim();
@@ -287,6 +276,7 @@ searchInput.addEventListener("input", function() {
     clearBtn.style.display = "none";
     resultsList.innerHTML = "";
     document.getElementById("infoBox").style.display = "none";
+    searchItems = [];
     return;
   }
   clearBtn.style.display = "inline";
@@ -314,100 +304,29 @@ searchInput.addEventListener("input", function() {
 // Piletaster for #search
 searchInput.addEventListener("keydown", function(e) {
   if (searchItems.length === 0) return;
-
   if (e.key === "ArrowDown") {
     e.preventDefault();
-    searchIndex = (searchIndex + 1) % searchItems.length;
-    highlightItem(searchItems, searchIndex);
+    searchCurrentIndex = (searchCurrentIndex + 1) % searchItems.length;
+    highlightSearchItem();
   } else if (e.key === "ArrowUp") {
     e.preventDefault();
-    searchIndex = (searchIndex + searchItems.length - 1) % searchItems.length;
-    highlightItem(searchItems, searchIndex);
+    searchCurrentIndex = (searchCurrentIndex + searchItems.length - 1) % searchItems.length;
+    highlightSearchItem();
   } else if (e.key === "Enter") {
     e.preventDefault();
-    if (searchIndex >= 0) {
-      searchItems[searchIndex].click();
+    if (searchCurrentIndex >= 0) {
+      searchItems[searchCurrentIndex].click();
     }
   }
 });
 
-function highlightItem(itemArray, currentIdx) {
-  itemArray.forEach(li => li.classList.remove("highlight"));
-  if (currentIdx >= 0 && currentIdx < itemArray.length) {
-    itemArray[currentIdx].classList.add("highlight");
+function highlightSearchItem() {
+  searchItems.forEach(li => li.classList.remove("highlight"));
+  if (searchCurrentIndex >= 0 && searchCurrentIndex < searchItems.length) {
+    searchItems[searchCurrentIndex].classList.add("highlight");
   }
 }
 
-/***************************************************
- * #vej1 => doSearchRoad + piletaster
- ***************************************************/
-vej1Input.addEventListener("input", function() {
-  const txt = vej1Input.value.trim();
-  if (txt.length < 2) {
-    vej1List.innerHTML = "";
-    vej1List.style.display = "none";
-    return;
-  }
-  doSearchRoad(txt, vej1List, vej1Input, "vej1");
-});
-
-// Piletaster for #vej1
-vej1Input.addEventListener("keydown", function(e) {
-  if (vej1Items.length === 0) return;
-
-  if (e.key === "ArrowDown") {
-    e.preventDefault();
-    vej1Index = (vej1Index + 1) % vej1Items.length;
-    highlightItem(vej1Items, vej1Index);
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault();
-    vej1Index = (vej1Index + vej1Items.length - 1) % vej1Items.length;
-    highlightItem(vej1Items, vej1Index);
-  } else if (e.key === "Enter") {
-    e.preventDefault();
-    if (vej1Index >= 0) {
-      vej1Items[vej1Index].click();
-    }
-  }
-});
-
-/***************************************************
- * #vej2 => doSearchRoad + piletaster
- ***************************************************/
-vej2Input.addEventListener("input", function() {
-  const txt = vej2Input.value.trim();
-  if (txt.length < 2) {
-    vej2List.innerHTML = "";
-    vej2List.style.display = "none";
-    return;
-  }
-  doSearchRoad(txt, vej2List, vej2Input, "vej2");
-});
-
-// Piletaster for #vej2
-vej2Input.addEventListener("keydown", function(e) {
-  if (vej2Items.length === 0) return;
-
-  if (e.key === "ArrowDown") {
-    e.preventDefault();
-    vej2Index = (vej2Index + 1) % vej2Items.length;
-    highlightItem(vej2Items, vej2Index);
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault();
-    vej2Index = (vej2Index + vej2Items.length - 1) % vej2Items.length;
-    highlightItem(vej2Items, vej2Index);
-  } else if (e.key === "Enter") {
-    e.preventDefault();
-    if (vej2Index >= 0) {
-      vej2Items[vej2Index].click();
-    }
-  }
-});
-
-
-/***************************************************
- * Ryd infoBox, coordinateBox osv. hvis man trykker Backspace
- ***************************************************/
 searchInput.addEventListener("keydown", function(e) {
   if (e.key === "Backspace") {
     document.getElementById("infoBox").style.display = "none";
@@ -415,16 +334,87 @@ searchInput.addEventListener("keydown", function(e) {
   }
 });
 
+/***************************************************
+ * Vej1 => doSearchRoad + piletaster
+ ***************************************************/
+vej1Input.addEventListener("input", function() {
+  const txt = vej1Input.value.trim();
+  if (txt.length < 2) {
+    vej1List.innerHTML = "";
+    vej1List.style.display = "none";
+    vej1Items = [];
+    return;
+  }
+  doSearchRoad(txt, vej1List, vej1Input, "vej1");
+});
+
 vej1Input.addEventListener("keydown", function(e) {
   if (e.key === "Backspace") {
     document.getElementById("infoBox").style.display = "none";
   }
+  if (vej1Items.length === 0) return;
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    vej1CurrentIndex = (vej1CurrentIndex + 1) % vej1Items.length;
+    highlightVej1Item();
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    vej1CurrentIndex = (vej1CurrentIndex + vej1Items.length - 1) % vej1Items.length;
+    highlightVej1Item();
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    if (vej1CurrentIndex >= 0) {
+      vej1Items[vej1CurrentIndex].click();
+    }
+  }
 });
 
-vej2Input.addEventListener("keydown", function() {
+function highlightVej1Item() {
+  vej1Items.forEach(li => li.classList.remove("highlight"));
+  if (vej1CurrentIndex >= 0 && vej1CurrentIndex < vej1Items.length) {
+    vej1Items[vej1CurrentIndex].classList.add("highlight");
+  }
+}
+
+/***************************************************
+ * Vej2 => doSearchRoad + piletaster
+ ***************************************************/
+vej2Input.addEventListener("input", function() {
+  const txt = vej2Input.value.trim();
+  if (txt.length < 2) {
+    vej2List.innerHTML = "";
+    vej2List.style.display = "none";
+    vej2Items = [];
+    return;
+  }
+  doSearchRoad(txt, vej2List, vej2Input, "vej2");
+});
+
+vej2Input.addEventListener("keydown", function(e) {
   document.getElementById("infoBox").style.display = "none";
+  if (vej2Items.length === 0) return;
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    vej2CurrentIndex = (vej2CurrentIndex + 1) % vej2Items.length;
+    highlightVej2Item();
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    vej2CurrentIndex = (vej2CurrentIndex + vej2Items.length - 1) % vej2Items.length;
+    highlightVej2Item();
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    if (vej2CurrentIndex >= 0) {
+      vej2Items[vej2CurrentIndex].click();
+    }
+  }
 });
 
+function highlightVej2Item() {
+  vej2Items.forEach(li => li.classList.remove("highlight"));
+  if (vej2CurrentIndex >= 0 && vej2CurrentIndex < vej2Items.length) {
+    vej2Items[vej2CurrentIndex].classList.add("highlight");
+  }
+}
 
 /***************************************************
  * Klik på clear-knap => ryd
@@ -444,12 +434,6 @@ function resetInfoBox() {
   document.getElementById("skraafotoLink").style.display = "none";
 }
 
-searchInput.addEventListener("keydown", function(e) {
-  if (e.key === "Backspace" && searchInput.value.length === 0) {
-    resetInfoBox();
-  }
-});
-
 clearBtn.addEventListener("click", function() {
   resetInfoBox();
 });
@@ -466,16 +450,42 @@ vej2Input.parentElement.querySelector(".clear-button").addEventListener("click",
   document.getElementById("infoBox").style.display = "none";
 });
 
-
 /***************************************************
  * Globale variabler til at gemme valgte veje
  ***************************************************/
 var selectedRoad1 = null;
 var selectedRoad2 = null;
 
+/***************************************************
+ * doSearchStrandposter => filtrerer lokalt de hentede strandposter
+ ***************************************************/
+function doSearchStrandposter(query) {
+  if (allStrandposter.length === 0) {
+    return Promise.resolve([]);
+  }
+  let upperQuery = query.toUpperCase();
+  let arr = [];
+  allStrandposter.forEach(feature => {
+    let rn = feature.properties.redningsnr || "";
+    if (rn.toUpperCase().includes(upperQuery)) {
+      let coords = feature.geometry.coordinates; // [lon, lat]
+      let lon = coords[0];
+      let lat = coords[1];
+      arr.push({
+        type: "strandpost",
+        tekst: `Redningsnummer: ${rn}`,
+        lat: lat,
+        lon: lon,
+        feature: feature
+      });
+    }
+  });
+  return Promise.resolve(arr);
+}
 
 /***************************************************
  * doSearch => henter adresser, stednavne og strandposter
+ * Resultaterne gemmes i searchItems for piletaster
  ***************************************************/
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
@@ -493,9 +503,9 @@ function doSearch(query, listElement) {
     console.log("strandData:", strandData);
 
     listElement.innerHTML = "";
-    // NULSTIL array + index for #search
+    // Nulstil searchItems og indeks
     searchItems = [];
-    searchIndex = -1;
+    searchCurrentIndex = -1;
 
     let addrResults = (addrData || []).map(item => {
       return {
@@ -542,7 +552,7 @@ function doSearch(query, listElement) {
               let fullAddr = `${addressData.vejnavn || ""} ${addressData.husnr || ""}, ${addressData.postnr || ""} ${addressData.postnrnavn || ""}`;
               searchInput.value = fullAddr;
               placeMarkerAndZoom([lat, lon], fullAddr);
-              resultsList.innerHTML = "";
+              listElement.innerHTML = "";
               vej1List.innerHTML = "";
               vej2List.innerHTML = "";
             })
@@ -573,7 +583,7 @@ function doSearch(query, listElement) {
       });
 
       listElement.appendChild(li);
-      // Tilføj til searchItems
+      // Tilføj til searchItems for piletaster
       searchItems.push(li);
     });
 
@@ -583,38 +593,9 @@ function doSearch(query, listElement) {
   .catch(err => console.error("Fejl i doSearch:", err));
 }
 
-
-/***************************************************
- * doSearchStrandposter => filtrerer lokalt de hentede strandposter
- ***************************************************/
-function doSearchStrandposter(query) {
-  if (allStrandposter.length === 0) {
-    return Promise.resolve([]);
-  }
-  let upperQuery = query.toUpperCase();
-  let arr = [];
-  allStrandposter.forEach(feature => {
-    let rn = feature.properties.redningsnr || "";
-    if (rn.toUpperCase().includes(upperQuery)) {
-      let coords = feature.geometry.coordinates; // [lon, lat]
-      let lon = coords[0];
-      let lat = coords[1];
-      arr.push({
-        type: "strandpost",
-        tekst: `Redningsnummer: ${rn}`,
-        lat: lat,
-        lon: lon,
-        feature: feature
-      });
-    }
-  });
-  return Promise.resolve(arr);
-}
-
-
 /***************************************************
  * doSearchRoad => bruges af vej1/vej2
- * Ekstra parameter "which" for at vide om det er vej1 eller vej2
+ * Resultaterne gemmes i henholdsvis vej1Items eller vej2Items
  ***************************************************/
 function doSearchRoad(query, listElement, inputField, which) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`;
@@ -626,13 +607,12 @@ function doSearchRoad(query, listElement, inputField, which) {
       console.log("Modtaget data fra /adgangsadresser/autocomplete:", data);
       listElement.innerHTML = "";
 
-      // Nulstil enten vej1Items eller vej2Items
       if (which === "vej1") {
         vej1Items = [];
-        vej1Index = -1;
+        vej1CurrentIndex = -1;
       } else {
         vej2Items = [];
-        vej2Index = -1;
+        vej2CurrentIndex = -1;
       }
 
       data.sort((a, b) => a.tekst.localeCompare(b.tekst));
@@ -684,17 +664,13 @@ function doSearchRoad(query, listElement, inputField, which) {
               console.error("Fejl i fetch /adgangsadresser/{id}:", err);
             });
         });
-
         listElement.appendChild(li);
-
-        // Tilføj til vej1Items/vej2Items
         if (which === "vej1") {
           vej1Items.push(li);
         } else {
           vej2Items.push(li);
         }
       });
-
       listElement.style.display = data.length > 0 ? "block" : "none";
     })
     .catch(err => console.error("Fejl i doSearchRoad:", err));
@@ -743,7 +719,7 @@ function placeMarkerAndZoom([lat, lon], displayText) {
   document.getElementById("address").textContent = displayText;
   const streetviewLink = document.getElementById("streetviewLink");
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
-  console.log("HTML-elementer:", document.getElementById("address"), document.getElementById("streetviewLink"), document.getElementById("infoBox"));
+  console.log("HTML-elementer:", document.getElementById("address"), streetviewLink, document.getElementById("infoBox"));
   document.getElementById("infoBox").style.display = "block";
 }
 
@@ -810,8 +786,8 @@ function parseTextResponse(text) {
 /***************************************************
  * Statsvej / info-bokse
  ***************************************************/
-const statsvejInfoBox   = document.getElementById("statsvejInfoBox");
-const statsvejCloseBtn  = document.getElementById("statsvejCloseBtn");
+const statsvejInfoBox = document.getElementById("statsvejInfoBox");
+const statsvejCloseBtn = document.getElementById("statsvejCloseBtn");
 statsvejCloseBtn.addEventListener("click", function() {
   statsvejInfoBox.style.display = "none";
   document.getElementById("infoBox").style.display = "none";
