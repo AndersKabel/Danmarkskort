@@ -27,7 +27,6 @@ function copyToClipboard(str) {
 /***************************************************
  * Opret kort og lag
  ***************************************************/
-
 // Opret kortet først
 var map = L.map('map', {
   center: [56, 10],
@@ -231,6 +230,16 @@ var vej2Input    = document.getElementById("vej2");
 var vej1List     = document.getElementById("results-vej1");
 var vej2List     = document.getElementById("results-vej2");
 
+// Globale arrays til resultater for søgning og vej-autocomplete
+var items = [];           // til searchInput
+var currentIndex = -1;
+
+var itemsVej1 = [];       // til vej1Input
+var currentIndexVej1 = -1;
+
+var itemsVej2 = [];       // til vej2Input
+var currentIndexVej2 = -1;
+
 // Tilføj clear-knap til inputfelter
 function addClearButton(inputElement, listElement) {
   let clearBtn = document.createElement("span");
@@ -260,61 +269,9 @@ function addClearButton(inputElement, listElement) {
 addClearButton(vej1Input, vej1List);
 addClearButton(vej2Input, vej2List);
 
-// Piletaster i #search
-var items = [];
-var currentIndex = -1;
-
 /***************************************************
- * #search => doSearch (kombinerer adresser, stednavne og strandposter)
+ * Piletaster for searchInput
  ***************************************************/
-searchInput.addEventListener("input", function() {
-  const txt = searchInput.value.trim();
-  if (txt.length < 2) {
-    clearBtn.style.display = "none";
-    resultsList.innerHTML = "";
-    document.getElementById("infoBox").style.display = "none";
-    return;
-  }
-  clearBtn.style.display = "inline";
-  doSearch(txt, resultsList);
-
-  // Tjek om brugeren har tastet koordinater direkte
-  const coordRegex = /^(-?\d+(?:\.\d+))\s*,\s*(-?\d+(?:\.\d+))$/;
-  if (coordRegex.test(txt)) {
-    const match = txt.match(coordRegex);
-    const latNum = parseFloat(match[1]);
-    const lonNum = parseFloat(match[2]);
-    let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lonNum}&y=${latNum}&struktur=flad`;
-    fetch(revUrl)
-      .then(r => r.json())
-      .then(data => {
-        resultsList.innerHTML = "";
-        placeMarkerAndZoom([latNum, lonNum], `Koordinater: ${latNum.toFixed(5)}, ${lonNum.toFixed(5)}`);
-        updateInfoBox(data, latNum, lonNum);
-      })
-      .catch(err => console.error("Reverse geocoding fejl:", err));
-    return;
-  }
-});
-
-searchInput.addEventListener("keydown", function(e) {
-  if (e.key === "Backspace") {
-    document.getElementById("infoBox").style.display = "none";
-    document.getElementById("coordinateBox").style.display = "none";
-  }
-});
-
-vej1Input.addEventListener("keydown", function(e) {
-  if (e.key === "Backspace") {
-    document.getElementById("infoBox").style.display = "none";
-  }
-});
-
-vej2Input.addEventListener("keydown", function() {
-  document.getElementById("infoBox").style.display = "none";
-});
-
-// Piletaster for #search resultater
 searchInput.addEventListener("keydown", function(e) {
   if (items.length === 0) return;
   if (e.key === "ArrowDown") {
@@ -337,6 +294,62 @@ function highlightItem() {
   items.forEach(li => li.classList.remove("highlight"));
   if (currentIndex >= 0 && currentIndex < items.length) {
     items[currentIndex].classList.add("highlight");
+  }
+}
+
+/***************************************************
+ * Piletaster for vej1Input
+ ***************************************************/
+vej1Input.addEventListener("keydown", function(e) {
+  if (itemsVej1.length === 0) return;
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    currentIndexVej1 = (currentIndexVej1 + 1) % itemsVej1.length;
+    highlightItemVej1();
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    currentIndexVej1 = (currentIndexVej1 + itemsVej1.length - 1) % itemsVej1.length;
+    highlightItemVej1();
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    if (currentIndexVej1 >= 0) {
+      itemsVej1[currentIndexVej1].click();
+    }
+  }
+});
+
+function highlightItemVej1() {
+  itemsVej1.forEach(li => li.classList.remove("highlight"));
+  if (currentIndexVej1 >= 0 && currentIndexVej1 < itemsVej1.length) {
+    itemsVej1[currentIndexVej1].classList.add("highlight");
+  }
+}
+
+/***************************************************
+ * Piletaster for vej2Input
+ ***************************************************/
+vej2Input.addEventListener("keydown", function(e) {
+  if (itemsVej2.length === 0) return;
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    currentIndexVej2 = (currentIndexVej2 + 1) % itemsVej2.length;
+    highlightItemVej2();
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    currentIndexVej2 = (currentIndexVej2 + itemsVej2.length - 1) % itemsVej2.length;
+    highlightItemVej2();
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    if (currentIndexVej2 >= 0) {
+      itemsVej2[currentIndexVej2].click();
+    }
+  }
+});
+
+function highlightItemVej2() {
+  itemsVej2.forEach(li => li.classList.remove("highlight"));
+  if (currentIndexVej2 >= 0 && currentIndexVej2 < itemsVej2.length) {
+    itemsVej2[currentIndexVej2].classList.add("highlight");
   }
 }
 
@@ -458,6 +471,7 @@ function doSearch(query, listElement) {
     console.log("strandData:", strandData);
 
     listElement.innerHTML = "";
+    // Til searchInput bruger vi de globale 'items' og 'currentIndex'
     items = [];
     currentIndex = -1;
 
@@ -537,6 +551,7 @@ function doSearch(query, listElement) {
       });
 
       listElement.appendChild(li);
+      // Hvis dette er resultaterne til searchInput, gem i globale items
       if (listElement === resultsList) {
         items.push(li);
       }
@@ -560,10 +575,15 @@ function doSearchRoad(query, listElement, inputField) {
     .then(data => {
       console.log("Modtaget data fra /adgangsadresser/autocomplete:", data);
       listElement.innerHTML = "";
-      items = [];
-      currentIndex = -1;
+      // Ryd de respektive items- og index-variabler for vej1 eller vej2
+      if (inputField.id === "vej1") {
+        itemsVej1 = [];
+        currentIndexVej1 = -1;
+      } else if (inputField.id === "vej2") {
+        itemsVej2 = [];
+        currentIndexVej2 = -1;
+      }
       data.sort((a, b) => a.tekst.localeCompare(b.tekst));
-
       const unique = new Set();
       data.forEach(item => {
         let vejnavn   = item.adgangsadresse?.vejnavn || "Ukendt vej";
@@ -610,7 +630,11 @@ function doSearchRoad(query, listElement, inputField) {
             });
         });
         listElement.appendChild(li);
-        items.push(li);
+        if (inputField.id === "vej1") {
+          itemsVej1.push(li);
+        } else if (inputField.id === "vej2") {
+          itemsVej2.push(li);
+        }
       });
       listElement.style.display = data.length > 0 ? "block" : "none";
     })
