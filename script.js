@@ -27,6 +27,7 @@ function copyToClipboard(str) {
 /***************************************************
  * Opret kort og lag
  ***************************************************/
+
 // Opret kortet først
 var map = L.map('map', {
   center: [56, 10],
@@ -254,7 +255,7 @@ addClearButton(vej1Input, vej1List);
 addClearButton(vej2Input, vej2List);
 
 /***************************************************
- * Globale arrays og indeks til piletaster
+ * Global arrays og indeks til piletaster
  ***************************************************/
 var searchItems = [];
 var searchCurrentIndex = -1;
@@ -267,7 +268,7 @@ var vej2CurrentIndex = -1;
 
 /***************************************************
  * #search => doSearch (kombinerer adresser, stednavne og strandposter)
- * Resultaterne gemmes i searchItems for piletaster
+ * Resultater tilføjes til searchItems, så piletaster virker.
  ***************************************************/
 searchInput.addEventListener("input", function() {
   const txt = searchInput.value.trim();
@@ -860,84 +861,3 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
-
-/***************************************************
- * Piletaster til autocomplete i #search, vej1 og vej2
- ***************************************************/
-// For #search
-searchInput.addEventListener("keydown", function(e) {
-  if (searchItems.length === 0) return;
-  if (e.key === "ArrowDown") {
-    e.preventDefault();
-    searchCurrentIndex = (searchCurrentIndex + 1) % searchItems.length;
-    highlightSearchItem();
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault();
-    searchCurrentIndex = (searchCurrentIndex + searchItems.length - 1) % searchItems.length;
-    highlightSearchItem();
-  } else if (e.key === "Enter") {
-    e.preventDefault();
-    if (searchCurrentIndex >= 0) {
-      searchItems[searchCurrentIndex].click();
-    }
-  }
-});
-
-function highlightSearchItem() {
-  searchItems.forEach(li => li.classList.remove("highlight"));
-  if (searchCurrentIndex >= 0 && searchCurrentIndex < searchItems.length) {
-    searchItems[searchCurrentIndex].classList.add("highlight");
-  }
-}
-
-// For vej1 (already sat op i doSearchRoad)
-vej1Input.addEventListener("keydown", function(e) {
-  if (vej1Items.length === 0) return;
-  if (e.key === "ArrowDown") {
-    e.preventDefault();
-    vej1CurrentIndex = (vej1CurrentIndex + 1) % vej1Items.length;
-    highlightVej1Item();
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault();
-    vej1CurrentIndex = (vej1CurrentIndex + vej1Items.length - 1) % vej1Items.length;
-    highlightVej1Item();
-  } else if (e.key === "Enter") {
-    e.preventDefault();
-    if (vej1CurrentIndex >= 0) {
-      vej1Items[vej1CurrentIndex].click();
-    }
-  }
-});
-
-function highlightVej1Item() {
-  vej1Items.forEach(li => li.classList.remove("highlight"));
-  if (vej1CurrentIndex >= 0 && vej1CurrentIndex < vej1Items.length) {
-    vej1Items[vej1CurrentIndex].classList.add("highlight");
-  }
-}
-
-// For vej2
-vej2Input.addEventListener("keydown", function(e) {
-  if (vej2Items.length === 0) return;
-  if (e.key === "ArrowDown") {
-    e.preventDefault();
-    vej2CurrentIndex = (vej2CurrentIndex + 1) % vej2Items.length;
-    highlightVej2Item();
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault();
-    vej2CurrentIndex = (vej2CurrentIndex + vej2Items.length - 1) % vej2Items.length;
-    highlightVej2Item();
-  } else if (e.key === "Enter") {
-    e.preventDefault();
-    if (vej2CurrentIndex >= 0) {
-      vej2Items[vej2CurrentIndex].click();
-    }
-  }
-});
-
-function highlightVej2Item() {
-  vej2Items.forEach(li => li.classList.remove("highlight"));
-  if (vej2CurrentIndex >= 0 && vej2CurrentIndex < vej2Items.length) {
-    vej2Items[vej2CurrentIndex].classList.add("highlight");
-  }
-}
