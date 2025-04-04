@@ -857,7 +857,4 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
   }
 });
 
-// Når DOM'en er færdigindlæst, sæt fokus på søgefeltet:
-document.addEventListener("DOMContentLoaded", function() {
-  document.getElementById("search").focus();
-});
+
