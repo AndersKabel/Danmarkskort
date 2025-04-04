@@ -426,7 +426,6 @@ clearBtn.addEventListener("click", function() {
   document.getElementById("infoBox").style.display = "none";
   document.getElementById("statsvejInfoBox").style.display = "none";
   document.getElementById("coordinateBox").style.display = "none";
-  searchInput.focus();
 });
 
 function resetInfoBox() {
