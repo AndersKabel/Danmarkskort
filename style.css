@@ -199,8 +199,8 @@
 
 /* Highlight – denne klasse bruges af piletasterne */
 .highlight {
-  background-color: #3F51B5 !important; /* Mørk blå nuance */
-  color: #fff !important;              /* Hvid tekst */
+  background-color: #eaeaea !important; /* Grå baggrund */
+  color: #000 !important;              /* Sort tekst */
 }
 
 /* Statsvej-info */
