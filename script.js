@@ -10,6 +10,22 @@ function convertToWGS84(x, y) {
 }
 
 /***************************************************
+ * Hjælpefunktion til at kopiere tekst til clipboard
+ ***************************************************/
+function copyToClipboard(str) {
+  // [ÆNDRET] Erstat bogstavelige \n med rigtige linjeskift
+  let finalStr = str.replace(/\\n/g, "\n");
+
+  navigator.clipboard.writeText(finalStr)
+    .then(() => {
+      console.log("Copied to clipboard:", finalStr);
+    })
+    .catch(err => {
+      console.error("Could not copy text:", err);
+    });
+}
+
+/***************************************************
  * Leaflet-kort
  ***************************************************/
 var map = L.map('map', {
@@ -112,6 +128,20 @@ async function updateInfoBox(data, lat, lon) {
   let eastNorth = convertToWGS84(lat, lon);
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "block";
+
+  // *** Tilføj links til at kopiere adressen i to formater (NYT) ***
+  if (extraInfoEl) {
+    // [ÆNDRET] Bemærk dobbelt-backslash i notesFormat
+    let evaFormat = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
+    let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
+
+    extraInfoEl.innerHTML += `
+      <br>
+      <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
+      <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
+    `;
+  }
+  // *** Slut tilføjelse ***
 
   // Ryd tidligere søgeresultater
   if (resultsList) resultsList.innerHTML = "";
@@ -774,7 +804,17 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ` +
                       `${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
 
-      // 4) Sæt marker => [lat, lon]
+      // Tilføj to links til at kopiere i to formater
+      let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
+      let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}\\n${revData.postnr || ""} ${revData.postnrnavn || ""}`;
+
+      popupText += `
+        <br>
+        <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
+        <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
+      `;
+
+      // 4) Sæt marker => [lat, lon] = [wgsLat, wgsLon]
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
       marker.bindPopup(popupText.trim()).openPopup();
 
