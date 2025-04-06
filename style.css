@@ -52,7 +52,8 @@
 /* Sikrer at hvert resultat er synligt og ikke skjules */
 .autocomplete-list li {
     padding: 8px;
-    background: #f9f9f9;
+    background: #e8f0fe !important; /* Eksempel på en blid blå nuance */
+    color: #000 !important; /* Sørg for, at teksten forbliver læsbar */
     border-bottom: 1px solid #ddd;
     cursor: pointer;
     white-space: nowrap; /* Sikrer at teksten ikke brydes */
@@ -237,7 +238,7 @@
 }
 
 .highlight {
-    background-color: yellow !important;
+    background-color: #d0e6f7;
 }
 
 #statsvejInfoBox {
