@@ -53,7 +53,7 @@
 .autocomplete-list li {
     padding: 8px;
     background: #e8f0fe !important; /* Eksempel på en blid blå nuance */
-    color: #000 !important; /* Sørg for, at teksten forbliver læsbar */
+    color: #fff !important; /* Sørg for, at teksten forbliver læsbar */
     border-bottom: 1px solid #ddd;
     cursor: pointer;
     white-space: nowrap; /* Sikrer at teksten ikke brydes */
