@@ -68,7 +68,7 @@ var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/o
 // Tilføj lagkontrol
 const baseMaps = { 
   "OpenStreetMap": osmLayer,
-  "Ortofoto": ortofotoLayer
+  "Satellit": ortofotoLayer
 };
 const overlayMaps = { 
   "Strandposter": redningsnrLayer
