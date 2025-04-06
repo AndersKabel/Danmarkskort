@@ -46,7 +46,7 @@ var osmLayer = L.tileLayer(
  * TILFØJET: Ortofoto-lag fra Kortforsyningen (satellit)
  ***************************************************/
 var ortofotoLayer = L.tileLayer.wms(
-  "https://services.kortforsyningen.dk/orto_foraar?token=a63a88838c24fc85d47f32cde0ec0144",
+  "https://api.dataforsyningen.dk/orto_foraar_DAF?service=WMS&request=GetCapabilities&token=a63a88838c24fc85d47f32cde0ec0144",
   {
     layers: "orto_foraar",
     format: "image/jpeg",
