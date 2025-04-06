@@ -1,177 +1,143 @@
+/* Kort */
 #map {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
+/* Søgecontainer */
 #search-container {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    width: 400px;
-    box-sizing: border-box;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 10px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 400px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
 }
 
+/* Flexbox til de to vejfelter */
 .flex-row {
-    display: flex;
-    gap: 10px;
+  display: flex;
+  gap: 10px;
 }
 
+/* Search-wrapper og inputfelter */
 .search-wrapper {
-    position: relative;
-    margin-bottom: 10px;
-    width: 100%; /* Sørger for, at inputfelt + liste bliver bredere */
+  position: relative;
+  margin-bottom: 10px;
+  width: 100%; /* Inputfelt og liste bliver bredere */
 }
-
 .search-wrapper input {
-    width: 100%;
+  width: 100%;
 }
 
-/* Sørg for, at autocomplete-listen placeres korrekt */
-.autocomplete-list {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
-    background: white;
-    border: 1px solid #ccc;
-    z-index: 2000;
-    max-height: 200px;
-    overflow-y: auto;
-    display: none; /* Skjules som standard */
-    box-sizing: border-box; /* Sørger for at padding og border ikke ændrer bredden */
-}
-
-/* Sikrer at hvert resultat er synligt og ikke skjules - style for resultlist for vej1 og vej2 felterne*/
+/* Fælles styling for alle listeelementer – både til #results og autocomplete-lister */
+#results li,
+#results-vej1 li,
+#results-vej2 li,
 .autocomplete-list li {
-    padding: 8px;
-    background: #f9f9f9; !important; 
-    color: #fff !important; /* Sørg for, at teksten forbliver læsbar */
-    border-bottom: 1px solid #ddd;
-    cursor: pointer;
-    white-space: nowrap; /* Sikrer at teksten ikke brydes */
-    overflow: hidden;
-    text-overflow: ellipsis; /* Klipper lange tekster */
+  padding: 8px;
+  background: #f9f9f9;
+  border-bottom: 1px solid #ddd;
+  cursor: pointer;
+  white-space: nowrap; /* Undgå linjeskift */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Klip lange tekster */
 }
 
-/* Gør, at hover-effekten er tydelig */
+/* Hover-effekt for alle listeelementer */
+#results li:hover,
+#results-vej1 li:hover,
+#results-vej2 li:hover,
 .autocomplete-list li:hover {
-    background: #eaeaea;
+  background: #eaeaea;
 }
 
+/* Sørg for, at autocomplete-listerne vises korrekt */
+.autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  background: white;
+  border: 1px solid #ccc;
+  z-index: 2000;
+  max-height: 200px;
+  overflow-y: auto;
+  display: none; /* Skjult som standard */
+  box-sizing: border-box;
+}
+
+/* Ens styling for de to vejfelter */
 .flex-row .search-wrapper {
-    flex-grow: 1; /* Gør, at de to inputfelter fylder lige meget */
-    position: relative;
-    width: 100%; /* Sikrer fuld bredde til autocomplete */
+  flex-grow: 1;
+  position: relative;
+  width: 100%;
 }
 
+/* Inputfelter */
 #search,
 #vej1,
 #vej2 {
-    width: 100%;
-    height: 40px;
-    font-size: 16px;
-    padding: 8px;
-    padding-right: 40px;
-    box-sizing: border-box;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+  width: 100%;
+  height: 40px;
+  font-size: 16px;
+  padding: 8px;
+  padding-right: 40px;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
 
-.search-wrapper {
-    position: relative;
-}
-
+/* Clear-knapper */
 .search-wrapper .clear-button {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 18px;
-    color: #666;
-    cursor: pointer;
-    display: none;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+  display: none;
 }
-
 .search-wrapper .clear-button:hover {
-    color: #333;
+  color: #333;
 }
-
 .clear-button {
-    position: absolute;
-    top: 50%;
-    right: 8px;
-    transform: translateY(-50%);
-    font-size: 18px;
-    color: #666;
-    cursor: pointer;
-    display: none;
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+  display: none;
 }
-
 .clear-button:hover {
-    color: #333;
-    cursor: pointer;
+  color: #333;
 }
 
-/* Sørg for, at autocomplete-listen placeres korrekt og er bred nok */
-#results-vej1,
-#results-vej2 {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 390px;
-    background: white;
-    border: 1px solid #ccc;
-    z-index: 2000;
-    max-height: 200px;
-    overflow-y: auto;
-    display: none;
-    box-sizing: border-box;
-}
-
-/* Sikrer at hvert resultat er synligt og ikke skjules - styles for resultlist for searchfeltet*/
-#results li,
-#results-vej1 li,
-#results-vej2 li {
-    padding: 8px;
-    background: #f9f9f9;
-    border-bottom: 1px solid #ddd;
-    cursor: pointer;
-    white-space: nowrap; /* Sikrer at teksten ikke brydes */
-    overflow: hidden;
-    text-overflow: ellipsis; /* Klipper lange tekster */
-}
-
-/* Gør, at hover-effekten er tydelig */
-#results li:hover,
-#results-vej1 li:hover,
-#results-vej2 li:hover {
-    background: #eaeaea;
-}
-
-/* Infoboks justeret til at placere sig korrekt under søgefeltet */
+/* Infobox */
 #infoContainer {
-    position: absolute;
-    top: 120px;
-    left: 10px;
-    width: 400px;
-    z-index: 1000;
+  position: absolute;
+  top: 120px;
+  left: 10px;
+  width: 400px;
+  z-index: 1000;
 }
-
 #infoBox {
   display: none;
   position: absolute;
-  top: 15px; /* Justér denne værdi, hvis boksen stadig ikke er lavt nok */
+  top: 15px; /* Justér om nødvendigt */
   left: -10px;
   width: 100%;  /* Ændret fra 400px til 100% */
-  max-width: 400px; /* Sikrer, at den ikke bliver for bred */
+  max-width: 400px; /* Maksimal bredde */
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
@@ -180,103 +146,102 @@
   z-index: 1000;
 }
 
-/* Flex container for StreetView + Skråfoto links */
+/* Flex container til links i infoboksen */
 .info-upper-box {
-    display: flex;          
-    align-items: center;    
-    gap: 10px;              
-    margin-bottom: 8px;     
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
 }
-
 .info-lower-box {
-    font-size: 14px;
-    color: #333;
+  font-size: 14px;
+  color: #333;
 }
-
 #address {
-    margin: 0;
-    padding: 0;
-    font-weight: bold;      
-    line-height: 1.6em;     
+  margin: 0;
+  padding: 0;
+  font-weight: bold;
+  line-height: 1.6em;
 }
-
 #extra-info {
-    font-size: 14px;
-    color: #555;
-    margin-top: 5px;
-    line-height: 1.4em; 
+  font-size: 14px;
+  color: #555;
+  margin-top: 5px;
+  line-height: 1.4em;
 }
-
 #streetviewLink {
-    color: #007bff;
-    text-decoration: none;
+  color: #007bff;
+  text-decoration: none;
 }
-
 #streetviewLink:hover {
-    text-decoration: underline;
+  text-decoration: underline;
 }
-
 #skraafotoLink {
-    color: orange;      
-    margin-left: 8px;   
-    text-decoration: none;
+  color: orange;
+  margin-left: 8px;
+  text-decoration: none;
 }
-
 #skraafotoLink:hover {
-    text-decoration: underline;
+  text-decoration: underline;
 }
 
+/* Kildeangivelse */
 #kildeangivelse {
-    position: absolute;
-    bottom: 10px;
-    left: 10px;
-    background: white;
-    padding: 5px;
-    font-size: 12px;
-    border-radius: 4px;
-    opacity: 0.8;
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: white;
+  padding: 5px;
+  font-size: 12px;
+  border-radius: 4px;
+  opacity: 0.8;
 }
 
+/* Highlight – denne klasse bruges af piletasterne */
 .highlight {
-    background-color: #eaeaea !important;
+  background-color: #3F51B5 !important; /* Mørk blå nuance */
+  color: #fff !important;              /* Hvid tekst */
 }
 
+/* Statsvej-info */
 #statsvejInfoBox {
-    display: none;
-    position: absolute;
-    top: 277px;
-    left: 0px;
-    width: 380px;
-    background: rgba(255, 255, 255, 0.95);
-    padding: 10px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
+  display: none;
+  position: absolute;
+  top: 277px;
+  left: 0px;
+  width: 380px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
 }
-
 .hidden {
-    display: none;
+  display: none;
 }
 
+/* Koordinatboks */
 #coordinateBox {
-    position: absolute;
-    bottom: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 5px;
-    font-size: 14px;
-    font-family: Arial, sans-serif;
-    display: none; /* Starter skjult */
-    z-index: 1000;
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-family: Arial, sans-serif;
+  display: none; /* Starter skjult */
+  z-index: 1000;
 }
 
+/* Cursor */
 .leaflet-grab, .leaflet-container {
-    cursor: default !important;
+  cursor: default !important;
 }
 
+/* Lukkeknapper */
 #statsvejCloseBtn {
   position: absolute;
   top: 8px;
@@ -285,11 +250,9 @@
   cursor: pointer;
   color: #666;
 }
-
 #statsvejCloseBtn:hover {
   color: #333;
 }
-
 #infoCloseBtn {
   position: absolute;
   top: 8px;
@@ -298,7 +261,6 @@
   color: #666;
   cursor: pointer;
 }
-
 #infoCloseBtn:hover {
   color: #333;
 }
