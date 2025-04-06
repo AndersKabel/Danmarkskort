@@ -1,6 +1,6 @@
-/* Danmarkskort CSS */
-
-/* Kortets placering */
+/* ============================
+   KORT & KONTAINER
+============================ */
 #map {
   position: absolute;
   top: 0;
@@ -9,7 +9,6 @@
   height: 100%;
 }
 
-/* Container til søgefelt og lister */
 #search-container {
   position: absolute;
   top: 10px;
@@ -28,67 +27,15 @@
   gap: 10px;
 }
 
-/* Wrapper til inputfelter */
 .search-wrapper {
   position: relative;
   margin-bottom: 10px;
   width: 100%;
 }
 
-.search-wrapper input {
-  width: 100%;
-}
-
-/* Fælles styling for alle resultatlister (search, vej1 og vej2) */
-#results,
-#results-vej1,
-#results-vej2 {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;  /* Fylder hele forælderens bredde (400px) */
-  background: white;
-  border: 1px solid #ccc;
-  z-index: 2000;
-  max-height: 200px;
-  overflow-y: auto;
-  display: none;
-  box-sizing: border-box;
-}
-
-/* Fælles styling for li-elementer i alle resultatlister */
-#results li,
-#results-vej1 li,
-#results-vej2 li {
-  padding: 8px;
-  background: #f9f9f9;
-  border-bottom: 1px solid #ddd;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Hover-effekt for li-elementer */
-#results li:hover,
-#results-vej1 li:hover,
-#results-vej2 li:hover {
-  background: #eaeaea;
-}
-
-/* Highlight – bruges til arrow key navigation, skal matche hover-farven */
-.highlight {
-  background-color: #eaeaea !important;
-}
-
-/* Gør, at de to vejinptfelter fylder lige meget */
-.flex-row .search-wrapper {
-  flex-grow: 1;
-  position: relative;
-  width: 100%;
-}
-
-/* Inputfelter */
+/* ============================
+   INPUTFELTER
+============================ */
 #search,
 #vej1,
 #vej2 {
@@ -96,13 +43,22 @@
   height: 40px;
   font-size: 16px;
   padding: 8px;
-  padding-right: 40px;
+  padding-right: 40px; /* plads til clear-knap */
   box-sizing: border-box;
   border: 1px solid #ccc;
   border-radius: 4px;
 }
 
-/* Clear-knap styling */
+/* Gør, at vej1 + vej2 fylder lige meget i .flex-row */
+.flex-row .search-wrapper {
+  flex-grow: 1;
+  position: relative;
+  width: 100%;
+}
+
+/* ============================
+   CLEAR-KNAP
+============================ */
 .search-wrapper .clear-button {
   position: absolute;
   right: 10px;
@@ -113,11 +69,9 @@
   cursor: pointer;
   display: none;
 }
-
 .search-wrapper .clear-button:hover {
   color: #333;
 }
-
 .clear-button {
   position: absolute;
   top: 50%;
@@ -128,12 +82,58 @@
   cursor: pointer;
   display: none;
 }
-
 .clear-button:hover {
   color: #333;
 }
 
-/* Info container og boks */
+/* ============================
+   RESULTATLISTER
+============================ */
+/* Fælles for #results, #results-vej1, #results-vej2 */
+#results,
+#results-vej1,
+#results-vej2 {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;         /* så listen følger containerens bredde */
+  background: white;
+  border: 1px solid #ccc;
+  z-index: 2000;
+  display: none;       /* starter skjult */
+  box-sizing: border-box;
+}
+
+/* Fælles styling for li-elementer */
+#results li,
+#results-vej1 li,
+#results-vej2 li {
+  padding: 8px;
+  background: #f9f9f9;
+  border-bottom: 1px solid #ddd;
+  cursor: pointer;
+  white-space: nowrap;      /* ingen linjeskift i teksten */
+  overflow: hidden;         /* klip ved for lange tekster */
+  text-overflow: ellipsis;  /* ... ved for lange tekster */
+}
+
+/* Hover-effekt for musen */
+#results li:hover,
+#results-vej1 li:hover,
+#results-vej2 li:hover {
+  background: #eaeaea;
+}
+
+/* Highlight-klasse til piletasterne:
+   Bruges i JavaScript, så man kan se,
+   hvilken linje der er aktiv */
+.highlight {
+  background-color: #eaeaea !important;
+}
+
+/* ============================
+   INFO-BOKSE
+============================ */
 #infoContainer {
   position: absolute;
   top: 120px;
@@ -145,7 +145,7 @@
 #infoBox {
   display: none;
   position: absolute;
-  top: 15px;
+  top: 15px; 
   left: -10px;
   width: 100%;
   max-width: 400px;
@@ -157,7 +157,6 @@
   z-index: 1000;
 }
 
-/* Flex container for links i info-boksen */
 .info-upper-box {
   display: flex;
   align-items: center;
@@ -188,7 +187,6 @@
   color: #007bff;
   text-decoration: none;
 }
-
 #streetviewLink:hover {
   text-decoration: underline;
 }
@@ -198,12 +196,10 @@
   margin-left: 8px;
   text-decoration: none;
 }
-
 #skraafotoLink:hover {
   text-decoration: underline;
 }
 
-/* Kildeangivelse */
 #kildeangivelse {
   position: absolute;
   bottom: 10px;
@@ -228,12 +224,11 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   z-index: 1000;
 }
-
 .hidden {
   display: none;
 }
 
-/* Coordinate box */
+/* Koordinatboks */
 #coordinateBox {
   position: absolute;
   bottom: 10px;
@@ -249,7 +244,9 @@
   z-index: 1000;
 }
 
-.leaflet-grab, .leaflet-container {
+/* Leaflet fix: cursor */
+.leaflet-grab,
+.leaflet-container {
   cursor: default !important;
 }
 
@@ -262,7 +259,6 @@
   cursor: pointer;
   color: #666;
 }
-
 #statsvejCloseBtn:hover {
   color: #333;
 }
@@ -275,7 +271,6 @@
   color: #666;
   cursor: pointer;
 }
-
 #infoCloseBtn:hover {
   color: #333;
 }
