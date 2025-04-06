@@ -96,7 +96,7 @@
   position: absolute;
   top: 100%;
   left: 0;
-  width: 100%;         /* så listen følger containerens bredde */
+  width: 400px;         /* så listen følger den store containerens bredde */
   background: white;
   border: 1px solid #ccc;
   z-index: 2000;
