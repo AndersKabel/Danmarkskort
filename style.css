@@ -136,7 +136,7 @@
     box-sizing: border-box;
 }
 
-/* Sikrer at hvert resultat er synligt og ikke skjules */
+/* Sikrer at hvert resultat er synligt og ikke skjules - styles for resultlist for searchfeltet*/
 #results li,
 #results-vej1 li,
 #results-vej2 li {
