@@ -49,10 +49,10 @@
     box-sizing: border-box; /* Sørger for at padding og border ikke ændrer bredden */
 }
 
-/* Sikrer at hvert resultat er synligt og ikke skjules */
+/* Sikrer at hvert resultat er synligt og ikke skjules - style for resultlist for vej1 og vej2 felterne*/
 .autocomplete-list li {
     padding: 8px;
-    background: #e8f0fe !important; /* Eksempel på en blid blå nuance */
+    background: #f9f9f9; !important; /* Eksempel på en blid blå nuance */
     color: #fff !important; /* Sørg for, at teksten forbliver læsbar */
     border-bottom: 1px solid #ddd;
     cursor: pointer;
