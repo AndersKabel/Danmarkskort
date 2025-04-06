@@ -824,6 +824,50 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
   }
 });
 
+/***************************************************
+ * NYT: Distance Options – Tegn cirkel med radius 50 km eller 100 km
+ ***************************************************/
+
+// Global variabel til cirklen
+var currentCircle = null;
+
+// Funktion til at oprette eller fjerne cirkel baseret på den valgte radius
+function toggleCircle(radius) {
+  if (!currentMarker) {
+    alert("Vælg venligst en adresse eller klik på kortet først.");
+    return;
+  }
+  
+  // Hent positionen fra den nuværende marker
+  let latLng = currentMarker.getLatLng();
+  
+  // Hvis en cirkel allerede findes med samme radius, fjern den (toggle-effekt)
+  if (currentCircle && currentCircle.getRadius() === radius) {
+    map.removeLayer(currentCircle);
+    currentCircle = null;
+  } else {
+    // Fjern eksisterende cirkel hvis der er en anden
+    if (currentCircle) {
+      map.removeLayer(currentCircle);
+    }
+    // Opret en ny cirkel med den angivne radius (Leaflet forventer radius i meter)
+    currentCircle = L.circle(latLng, {
+      radius: radius,
+      color: "blue",
+      fillOpacity: 0.2
+    }).addTo(map);
+  }
+}
+
+// Tilføj event listeners til de nye knapper
+document.getElementById("btn50").addEventListener("click", function() {
+  toggleCircle(50000); // 50 km = 50000 meter
+});
+
+document.getElementById("btn100").addEventListener("click", function() {
+  toggleCircle(100000); // 100 km = 100000 meter
+});
+
 // Når DOM'en er færdigindlæst, sæt fokus på søgefeltet:
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
