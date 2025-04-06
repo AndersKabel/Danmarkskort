@@ -1,4 +1,6 @@
-/* Kort */
+/* Danmarkskort CSS */
+
+/* Kortets placering */
 #map {
   position: absolute;
   top: 0;
@@ -7,7 +9,7 @@
   height: 100%;
 }
 
-/* Søgecontainer */
+/* Container til søgefelt og lister */
 #search-container {
   position: absolute;
   top: 10px;
@@ -21,60 +23,65 @@
   z-index: 1000;
 }
 
-/* Flexbox til de to vejfelter */
 .flex-row {
   display: flex;
   gap: 10px;
 }
 
-/* Search-wrapper og inputfelter */
+/* Wrapper til inputfelter */
 .search-wrapper {
   position: relative;
   margin-bottom: 10px;
-  width: 100%; /* Inputfelt og liste bliver bredere */
+  width: 100%;
 }
+
 .search-wrapper input {
   width: 100%;
 }
 
-/* Fælles styling for alle listeelementer – både til #results og autocomplete-lister */
-#results li,
-#results-vej1 li,
-#results-vej2 li,
-.autocomplete-list li {
-  padding: 8px;
-  background: #f9f9f9;
-  border-bottom: 1px solid #ddd;
-  cursor: pointer;
-  white-space: nowrap; /* Undgå linjeskift */
-  overflow: hidden;
-  text-overflow: ellipsis; /* Klip lange tekster */
-}
-
-/* Hover-effekt for alle listeelementer */
-#results li:hover,
-#results-vej1 li:hover,
-#results-vej2 li:hover,
-.autocomplete-list li:hover {
-  background: #eaeaea;
-}
-
-/* Sørg for, at autocomplete-listerne vises korrekt */
-.autocomplete-list {
+/* Fælles styling for alle resultatlister (search, vej1 og vej2) */
+#results,
+#results-vej1,
+#results-vej2 {
   position: absolute;
   top: 100%;
   left: 0;
-  width: 100%;
+  width: 100%;  /* Fylder hele forælderens bredde (400px) */
   background: white;
   border: 1px solid #ccc;
   z-index: 2000;
   max-height: 200px;
   overflow-y: auto;
-  display: none; /* Skjult som standard */
+  display: none;
   box-sizing: border-box;
 }
 
-/* Ens styling for de to vejfelter */
+/* Fælles styling for li-elementer i alle resultatlister */
+#results li,
+#results-vej1 li,
+#results-vej2 li {
+  padding: 8px;
+  background: #f9f9f9;
+  border-bottom: 1px solid #ddd;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hover-effekt for li-elementer */
+#results li:hover,
+#results-vej1 li:hover,
+#results-vej2 li:hover {
+  background: #eaeaea;
+}
+
+/* Highlight – bruges til arrow key navigation, skal matche hover-farven */
+.highlight {
+  background-color: #eaeaea !important;
+}
+
+/* Gør, at de to vejinptfelter fylder lige meget */
 .flex-row .search-wrapper {
   flex-grow: 1;
   position: relative;
@@ -95,7 +102,7 @@
   border-radius: 4px;
 }
 
-/* Clear-knapper */
+/* Clear-knap styling */
 .search-wrapper .clear-button {
   position: absolute;
   right: 10px;
@@ -106,9 +113,11 @@
   cursor: pointer;
   display: none;
 }
+
 .search-wrapper .clear-button:hover {
   color: #333;
 }
+
 .clear-button {
   position: absolute;
   top: 50%;
@@ -119,11 +128,12 @@
   cursor: pointer;
   display: none;
 }
+
 .clear-button:hover {
   color: #333;
 }
 
-/* Infobox */
+/* Info container og boks */
 #infoContainer {
   position: absolute;
   top: 120px;
@@ -131,13 +141,14 @@
   width: 400px;
   z-index: 1000;
 }
+
 #infoBox {
   display: none;
   position: absolute;
-  top: 15px; /* Justér om nødvendigt */
+  top: 15px;
   left: -10px;
-  width: 100%;  /* Ændret fra 400px til 100% */
-  max-width: 400px; /* Maksimal bredde */
+  width: 100%;
+  max-width: 400px;
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
@@ -146,41 +157,48 @@
   z-index: 1000;
 }
 
-/* Flex container til links i infoboksen */
+/* Flex container for links i info-boksen */
 .info-upper-box {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
 }
+
 .info-lower-box {
   font-size: 14px;
   color: #333;
 }
+
 #address {
   margin: 0;
   padding: 0;
   font-weight: bold;
   line-height: 1.6em;
 }
+
 #extra-info {
   font-size: 14px;
   color: #555;
   margin-top: 5px;
   line-height: 1.4em;
 }
+
 #streetviewLink {
   color: #007bff;
   text-decoration: none;
 }
+
 #streetviewLink:hover {
   text-decoration: underline;
 }
+
 #skraafotoLink {
   color: orange;
   margin-left: 8px;
   text-decoration: none;
 }
+
 #skraafotoLink:hover {
   text-decoration: underline;
 }
@@ -197,13 +215,7 @@
   opacity: 0.8;
 }
 
-/* Highlight – denne klasse bruges af piletasterne */
-.highlight {
-  background-color: #eaeaea !important; /* Grå baggrund */
-  color: #000 !important;              /* Sort tekst */
-}
-
-/* Statsvej-info */
+/* Statsvej info-boks */
 #statsvejInfoBox {
   display: none;
   position: absolute;
@@ -216,11 +228,12 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   z-index: 1000;
 }
+
 .hidden {
   display: none;
 }
 
-/* Koordinatboks */
+/* Coordinate box */
 #coordinateBox {
   position: absolute;
   bottom: 10px;
@@ -232,16 +245,15 @@
   border-radius: 5px;
   font-size: 14px;
   font-family: Arial, sans-serif;
-  display: none; /* Starter skjult */
+  display: none;
   z-index: 1000;
 }
 
-/* Cursor */
 .leaflet-grab, .leaflet-container {
   cursor: default !important;
 }
 
-/* Lukkeknapper */
+/* Close-knapper */
 #statsvejCloseBtn {
   position: absolute;
   top: 8px;
@@ -250,9 +262,11 @@
   cursor: pointer;
   color: #666;
 }
+
 #statsvejCloseBtn:hover {
   color: #333;
 }
+
 #infoCloseBtn {
   position: absolute;
   top: 8px;
@@ -261,6 +275,7 @@
   color: #666;
   cursor: pointer;
 }
+
 #infoCloseBtn:hover {
   color: #333;
 }
