@@ -562,11 +562,13 @@ function doSearchStrandposter(query) {
 /***************************************************
  * doSearch => kombinerer adresser, stednavne og strandposter
  * Resultaterne gemmes i searchItems
+ * Ændring: Strandposter- søgeresultater tilføjes kun hvis laget "Strandposter" er aktivt.
  ***************************************************/
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
   let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`;
-  let strandPromise = doSearchStrandposter(query);
+  // Kald for strandposter – men vi inkluderer kun disse, hvis laget er aktivt.
+  let strandPromise = map.hasLayer(redningsnrLayer) ? doSearchStrandposter(query) : Promise.resolve([]);
   Promise.all([
     fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
     fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; }),
@@ -600,6 +602,7 @@ function doSearch(query, listElement) {
         }
       });
     }
+    // Kun tilføj strandposter hvis laget er aktivt
     let combined = [...addrResults, ...stedResults, ...strandData];
     combined.forEach(obj => {
       let li = document.createElement("li");
@@ -628,11 +631,19 @@ function doSearch(query, listElement) {
           let [x, y] = [obj.bbox[0], obj.bbox[1]];
           placeMarkerAndZoom([y, x], obj.navn);
         }
+        // Ændret: Håndtering af strandposter-resultater
         else if (obj.type === "strandpost") {
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
+          let marker = currentMarker;
           let props = obj.feature.properties;
-          let e = document.getElementById("extra-info");
-          e.textContent = `Flere data: Parkeringsplads: ${props.ppl || "N/A"}`;
+          let ppl = props.ppl || "N/A";
+          let opdateretDato = new Date().toLocaleString();
+          marker.bindPopup(`
+              <strong>${obj.tekst}</strong><br>
+              PPL: ${ppl}<br>
+              Opdateret: ${opdateretDato}<br>
+              <a href="#" onclick="alert('Se PPL funktion'); return false;">Se PPL</a>
+          `).openPopup();
         }
       });
       listElement.appendChild(li);
@@ -825,9 +836,8 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
 });
 
 /***************************************************
- * NYT: Distance Options – Tegn cirkel med radius 50 km eller 100 km
+ * NYT: Distance Options – Tegn cirkel med radius 10, 50 eller 100 km
  ***************************************************/
-
 // Global variabel til cirklen
 var currentCircle = null;
 
@@ -863,11 +873,9 @@ function toggleCircle(radius) {
 document.getElementById("btn10").addEventListener("click", function() {
   toggleCircle(10000); // 10 km = 10000 meter
 });
-
 document.getElementById("btn50").addEventListener("click", function() {
   toggleCircle(50000); // 50 km = 50000 meter
 });
-
 document.getElementById("btn100").addEventListener("click", function() {
   toggleCircle(100000); // 100 km = 100000 meter
 });
