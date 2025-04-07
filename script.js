@@ -118,17 +118,26 @@ function fetchAllStrandposter() {
          });
 }
 
+// Tilføj event listener, så alle strandposter hentes, når laget "Strandposter" aktiveres
+map.on("overlayadd", function(event) {
+  if (event.name === "Strandposter") {
+    console.log("Strandposter laget er tilføjet. Henter alle strandposter...");
+    fetchAllStrandposter();
+  }
+});
+
 // Ændret doSearchStrandposter: Filtrerer på den globale allStrandposter og returnerer et array med objekter
 function doSearchStrandposter(query) {
   query = query.toLowerCase();
   return new Promise((resolve, reject) => {
     function filterAndMap() {
       let results = allStrandposter.filter(feature => {
-        // Opdateret: Brug "StrandNr" i stedet for "rednr"
+        // Ændret: Brug "StrandNr" i stedet for "rednr"
         let rednr = (feature.properties.StrandNr || "").toLowerCase();
+        console.log("Sammenligner:", rednr, "med query:", query);
         return rednr.indexOf(query) !== -1;
       }).map(feature => {
-        // Opdateret: Brug "StrandNr" i stedet for "rednr"
+        // Ændret: Brug "StrandNr" i stedet for "rednr"
         let rednr = feature.properties.StrandNr;
         let tekst = `Redningsnummer: ${rednr}`;
         let coords = feature.geometry.coordinates; // Forventet [lon, lat]
@@ -142,6 +151,7 @@ function doSearchStrandposter(query) {
           feature: feature
         };
       });
+      console.log("Filtrerede strandposter:", results);
       resolve(results);
     }
     if (allStrandposter.length === 0) {
