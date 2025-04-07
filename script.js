@@ -524,11 +524,11 @@ function doSearchRoad(query, listElement, inputField, which) {
 function doSearchStrandposter(query) {
   let cql = `UPPER(redningsnr) LIKE UPPER('%${query}%')`;
   let wfsUrl = `https://kort.strandnr.dk/geoserver/nobc/ows?service=WFS` +
-               `&version=1.1.0` +
-               `&request=GetFeature` +
-               `&typeName=nobc:Redningsnummer` +
-               `&outputFormat=application/json` +
-               `&cql_filter=${encodeURIComponent(cql)}`;
+             `&version=1.1.0` +
+             `&request=GetFeature` +
+             `&typeName=nobc:Strandposter` +
+             `&outputFormat=application/json` +
+             `&cql_filter=${encodeURIComponent(cql)}`;
   console.log("Strandposter WFS URL:", wfsUrl);
   return fetch(wfsUrl)
     .then(resp => resp.json())
