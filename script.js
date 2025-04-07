@@ -522,7 +522,7 @@ function doSearchRoad(query, listElement, inputField, which) {
  * doSearchStrandposter => henter strandposter via WFS
  ***************************************************/
 function doSearchStrandposter(query) {
-  let cql = `UPPER(redningsnr) LIKE UPPER('%${query}%')`;
+  let cql = `UPPER(rednr) LIKE UPPER('%${query}%')`;
   let wfsUrl = `https://kort.strandnr.dk/geoserver/nobc/ows?service=WFS` +
              `&version=1.1.0` +
              `&request=GetFeature` +
