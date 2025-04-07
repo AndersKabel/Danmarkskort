@@ -124,12 +124,14 @@ function doSearchStrandposter(query) {
   return new Promise((resolve, reject) => {
     function filterAndMap() {
       let results = allStrandposter.filter(feature => {
-        let rednr = (feature.properties.rednr || "").toLowerCase();
+        // Opdateret: Brug "StrandNr" i stedet for "rednr"
+        let rednr = (feature.properties.StrandNr || "").toLowerCase();
         return rednr.indexOf(query) !== -1;
       }).map(feature => {
-        let rednr = feature.properties.rednr;
+        // Opdateret: Brug "StrandNr" i stedet for "rednr"
+        let rednr = feature.properties.StrandNr;
         let tekst = `Redningsnummer: ${rednr}`;
-        let coords = feature.geometry.coordinates; // Antages at være [lon, lat]
+        let coords = feature.geometry.coordinates; // Forventet [lon, lat]
         let lon = coords[0];
         let lat = coords[1];
         return {
@@ -591,10 +593,12 @@ function doSearchStrandposter(query) {
   return new Promise((resolve, reject) => {
     function filterAndMap() {
       let results = allStrandposter.filter(feature => {
-        let rednr = (feature.properties.rednr || "").toLowerCase();
+        // Ændret: Brug "StrandNr" i stedet for "rednr"
+        let rednr = (feature.properties.StrandNr || "").toLowerCase();
         return rednr.indexOf(query) !== -1;
       }).map(feature => {
-        let rednr = feature.properties.rednr;
+        // Ændret: Brug "StrandNr" i stedet for "rednr"
+        let rednr = feature.properties.StrandNr;
         let tekst = `Redningsnummer: ${rednr}`;
         let coords = feature.geometry.coordinates; // Forventet [lon, lat]
         let lon = coords[0];
