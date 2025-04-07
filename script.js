@@ -4,9 +4,11 @@
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m +no_defs");
 
 function convertToWGS84(x, y) {
-  let result = proj4("EPSG:25832", "EPSG:4326", [y, x]); // Bytter x og y
-  console.log("convertToWGS84 input:", x, y, "=> output:", result);
-  return [result[1], result[0]]; // Returnerer lat, lon i korrekt rækkefølge
+  // Forvent, at input x,y er UTM-koordinater (x = easting, y = northing)
+  // proj4 konverterer normalt [x, y] til [lon, lat]
+  let result = proj4("EPSG:25832", "EPSG:4326", [x, y]);
+  // Vi returnerer [lat, lon] for Leaflet
+  return [result[1], result[0]];
 }
 
 /***************************************************
@@ -22,6 +24,26 @@ function copyToClipboard(str) {
     .catch(err => {
       console.error("Could not copy text:", err);
     });
+}
+
+/***************************************************
+ * Funktioner til automatisk dataopdatering (24 timer)
+ ***************************************************/
+function getLastUpdated() {
+  return localStorage.getItem("strandposterLastUpdated");
+}
+
+function setLastUpdated() {
+  localStorage.setItem("strandposterLastUpdated", Date.now());
+}
+
+function shouldUpdateData() {
+  const lastUpdated = getLastUpdated();
+  if (!lastUpdated) {
+    return true;
+  }
+  // 24 timer = 86.400.000 millisekunder
+  return Date.now() - parseInt(lastUpdated, 10) > 86400000;
 }
 
 /***************************************************
@@ -91,7 +113,6 @@ const kommuneInfo = {
 /***************************************************
  * Global variabel og funktioner til Strandposter-søgning
  ***************************************************/
-
 // Global variabel til at gemme alle strandposter (redningsnumre)
 var allStrandposter = [];
 
@@ -109,6 +130,7 @@ function fetchAllStrandposter() {
            if (geojson.features) {
              allStrandposter = geojson.features;
              console.log("Alle strandposter hentet:", allStrandposter);
+             setLastUpdated();
            } else {
              console.warn("Ingen strandposter modtaget.");
            }
@@ -118,11 +140,16 @@ function fetchAllStrandposter() {
          });
 }
 
-// Tilføj event listener, så alle strandposter hentes, når laget "Strandposter" aktiveres
+// Event listener, så alle strandposter hentes, når laget "Strandposter" aktiveres
 map.on("overlayadd", function(event) {
   if (event.name === "Strandposter") {
-    console.log("Strandposter laget er tilføjet. Henter alle strandposter...");
-    fetchAllStrandposter();
+    console.log("Strandposter laget er tilføjet.");
+    if (shouldUpdateData()) {
+      console.log("Data er ældre end 24 timer – henter opdaterede strandposter...");
+      fetchAllStrandposter();
+    } else {
+      console.log("Data er opdaterede – ingen hentning nødvendig.");
+    }
   }
 });
 
@@ -132,22 +159,21 @@ function doSearchStrandposter(query) {
   return new Promise((resolve, reject) => {
     function filterAndMap() {
       let results = allStrandposter.filter(feature => {
-        // Ændret: Brug "StrandNr" i stedet for "rednr"
+        // Brug "StrandNr" i stedet for "rednr"
         let rednr = (feature.properties.StrandNr || "").toLowerCase();
         console.log("Sammenligner:", rednr, "med query:", query);
         return rednr.indexOf(query) !== -1;
       }).map(feature => {
-        // Ændret: Brug "StrandNr" i stedet for "rednr"
         let rednr = feature.properties.StrandNr;
         let tekst = `Redningsnummer: ${rednr}`;
-        let coords = feature.geometry.coordinates; // Forventet [lon, lat]
-        let lon = coords[0];
-        let lat = coords[1];
+        let coords = feature.geometry.coordinates; // Forventet [lon, lat] i EPSG:25832
+        // Konverter UTM-koordinater til lat/lon
+        let converted = convertToWGS84(coords[0], coords[1]);
         return {
           type: "strandpost",
           tekst: tekst,
-          lat: lat,
-          lon: lon,
+          lat: converted[0],
+          lon: converted[1],
           feature: feature
         };
       });
@@ -603,24 +629,23 @@ function doSearchStrandposter(query) {
   return new Promise((resolve, reject) => {
     function filterAndMap() {
       let results = allStrandposter.filter(feature => {
-        // Ændret: Brug "StrandNr" i stedet for "rednr"
+        // Brug "StrandNr" i stedet for "rednr"
         let rednr = (feature.properties.StrandNr || "").toLowerCase();
         return rednr.indexOf(query) !== -1;
       }).map(feature => {
-        // Ændret: Brug "StrandNr" i stedet for "rednr"
         let rednr = feature.properties.StrandNr;
         let tekst = `Redningsnummer: ${rednr}`;
-        let coords = feature.geometry.coordinates; // Forventet [lon, lat]
-        let lon = coords[0];
-        let lat = coords[1];
+        let coords = feature.geometry.coordinates; // Forventet [lon, lat] i EPSG:25832
+        let converted = convertToWGS84(coords[0], coords[1]);
         return {
           type: "strandpost",
           tekst: tekst,
-          lat: lat,
-          lon: lon,
+          lat: converted[0],
+          lon: converted[1],
           feature: feature
         };
       });
+      console.log("Filtrerede strandposter:", results);
       resolve(results);
     }
     if (allStrandposter.length === 0) {
@@ -762,8 +787,17 @@ async function getNavngivenvejKommunedelGeometry(husnummerId) {
 /***************************************************
  * placeMarkerAndZoom
  ***************************************************/
-function placeMarkerAndZoom([lat, lon], displayText) {
-  console.log("placeMarkerAndZoom kaldt med:", lat, lon, displayText);
+// Opdateret: Denne funktion konverterer automatisk UTM-koordinater (EPSG:25832) til lat/lon (EPSG:4326)
+// Hvis de modtagne koordinater er UTM (dvs. større end 90), konverteres de.
+function placeMarkerAndZoom(coords, displayText) {
+  console.log("placeMarkerAndZoom kaldt med:", coords, displayText);
+  // Tjek om koordinaterne er i UTM (typisk, hvis en af værdierne er > 90)
+  if (coords[0] > 90 || coords[1] > 90) {
+    let converted = convertToWGS84(coords[0], coords[1]);
+    console.log("Konverteret UTM til lat/lon:", converted);
+    coords = converted;
+  }
+  let lat = coords[0], lon = coords[1];
   if (currentMarker) {
     map.removeLayer(currentMarker);
   }
