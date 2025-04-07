@@ -860,6 +860,10 @@ function toggleCircle(radius) {
 }
 
 // Tilføj event listeners til de nye knapper
+document.getElementById("btn10").addEventListener("click", function() {
+  toggleCircle(10000); // 10 km = 10000 meter
+});
+
 document.getElementById("btn50").addEventListener("click", function() {
   toggleCircle(50000); // 50 km = 50000 meter
 });
