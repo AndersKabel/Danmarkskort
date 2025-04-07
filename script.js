@@ -100,7 +100,7 @@ function fetchAllStrandposter() {
   let wfsUrl = `https://kort.strandnr.dk/geoserver/nobc/ows?service=WFS` +
                `&version=1.1.0` +
                `&request=GetFeature` +
-               `&typeName=nobc:Strandposter` +
+               `&typeName=nobc:Redningsnummer` +
                `&outputFormat=application/json`;
   console.log("Henter alle strandposter fra:", wfsUrl);
   return fetch(wfsUrl)
