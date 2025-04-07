@@ -89,6 +89,71 @@ const kommuneInfo = {
 };
 
 /***************************************************
+ * Global variabel og funktioner til Strandposter-søgning
+ ***************************************************/
+
+// Global variabel til at gemme alle strandposter (redningsnumre)
+var allStrandposter = [];
+
+// Funktion til at hente alle strandposter (uden filter) fra WFS
+function fetchAllStrandposter() {
+  let wfsUrl = `https://kort.strandnr.dk/geoserver/nobc/ows?service=WFS` +
+               `&version=1.1.0` +
+               `&request=GetFeature` +
+               `&typeName=nobc:Strandposter` +
+               `&outputFormat=application/json`;
+  console.log("Henter alle strandposter fra:", wfsUrl);
+  return fetch(wfsUrl)
+         .then(resp => resp.json())
+         .then(geojson => {
+           if (geojson.features) {
+             allStrandposter = geojson.features;
+             console.log("Alle strandposter hentet:", allStrandposter);
+           } else {
+             console.warn("Ingen strandposter modtaget.");
+           }
+         })
+         .catch(err => {
+           console.error("Fejl ved hentning af strandposter:", err);
+         });
+}
+
+// Ændret doSearchStrandposter: Filtrerer på den globale allStrandposter og returnerer et array med objekter
+function doSearchStrandposter(query) {
+  query = query.toLowerCase();
+  return new Promise((resolve, reject) => {
+    function filterAndMap() {
+      let results = allStrandposter.filter(feature => {
+        let rednr = (feature.properties.rednr || "").toLowerCase();
+        return rednr.indexOf(query) !== -1;
+      }).map(feature => {
+        let rednr = feature.properties.rednr;
+        let tekst = `Redningsnummer: ${rednr}`;
+        let coords = feature.geometry.coordinates; // Antages at være [lon, lat]
+        let lon = coords[0];
+        let lat = coords[1];
+        return {
+          type: "strandpost",
+          tekst: tekst,
+          lat: lat,
+          lon: lon,
+          feature: feature
+        };
+      });
+      resolve(results);
+    }
+    if (allStrandposter.length === 0) {
+      fetchAllStrandposter().then(filterAndMap).catch(err => {
+        console.error("Fejl ved hentning af strandposter:", err);
+        resolve([]);
+      });
+    } else {
+      filterAndMap();
+    }
+  });
+}
+
+/***************************************************
  * Klik på kort => reverse geocoding (Dataforsyningen)
  ***************************************************/
 map.on('click', function(e) {
@@ -519,55 +584,51 @@ function doSearchRoad(query, listElement, inputField, which) {
 }
 
 /***************************************************
- * doSearchStrandposter => henter strandposter via WFS
+ * doSearchStrandposter => henter strandposter via klient-side søgning
  ***************************************************/
 function doSearchStrandposter(query) {
-  let cql = `UPPER(rednr) LIKE UPPER('%${query}%')`;
-  let wfsUrl = `https://kort.strandnr.dk/geoserver/nobc/ows?service=WFS` +
-             `&version=1.1.0` +
-             `&request=GetFeature` +
-             `&typeName=nobc:Strandposter` +
-             `&outputFormat=application/json` +
-             `&cql_filter=${encodeURIComponent(cql)}`;
-  console.log("Strandposter WFS URL:", wfsUrl);
-  return fetch(wfsUrl)
-    .then(resp => resp.json())
-    .then(geojson => {
-      let arr = [];
-      if (geojson.features) {
-        geojson.features.forEach(feature => {
-          let props = feature.properties;
-          let rn = props.redningsnr;
-          let tekst = `Redningsnummer: ${rn}`;
-          let coords = feature.geometry.coordinates; // [lon, lat]
-          let lon = coords[0];
-          let lat = coords[1];
-          arr.push({
-            type: "strandpost",
-            tekst: tekst,
-            lat: lat,
-            lon: lon,
-            feature: feature
-          });
-        });
-      }
-      return arr;
-    })
-    .catch(err => {
-      console.error("Fejl i doSearchStrandposter:", err);
-      return [];
-    });
+  query = query.toLowerCase();
+  return new Promise((resolve, reject) => {
+    function filterAndMap() {
+      let results = allStrandposter.filter(feature => {
+        let rednr = (feature.properties.rednr || "").toLowerCase();
+        return rednr.indexOf(query) !== -1;
+      }).map(feature => {
+        let rednr = feature.properties.rednr;
+        let tekst = `Redningsnummer: ${rednr}`;
+        let coords = feature.geometry.coordinates; // Forventet [lon, lat]
+        let lon = coords[0];
+        let lat = coords[1];
+        return {
+          type: "strandpost",
+          tekst: tekst,
+          lat: lat,
+          lon: lon,
+          feature: feature
+        };
+      });
+      resolve(results);
+    }
+    if (allStrandposter.length === 0) {
+      fetchAllStrandposter().then(filterAndMap).catch(err => {
+        console.error("Fejl ved hentning af strandposter:", err);
+        resolve([]);
+      });
+    } else {
+      filterAndMap();
+    }
+  });
 }
 
 /***************************************************
  * doSearch => kombinerer adresser, stednavne og strandposter
  * Resultaterne gemmes i searchItems
- * Ændring: Strandposter- søgeresultater tilføjes kun hvis laget "Strandposter" er aktivt.
+ * Ændring: Strandposter-søgeresultater tilføjes kun hvis laget "Strandposter" er aktivt.
  ***************************************************/
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
   let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`;
-  // Kald for strandposter – men vi inkluderer kun disse, hvis laget er aktivt.
+  // Kald for strandposter – inkluder kun hvis laget er aktivt.
   let strandPromise = map.hasLayer(redningsnrLayer) ? doSearchStrandposter(query) : Promise.resolve([]);
   Promise.all([
     fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
@@ -631,7 +692,7 @@ function doSearch(query, listElement) {
           let [x, y] = [obj.bbox[0], obj.bbox[1]];
           placeMarkerAndZoom([y, x], obj.navn);
         }
-        // Ændret: Håndtering af strandposter-resultater
+        // Håndtering af strandposter-resultater
         else if (obj.type === "strandpost") {
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
           let marker = currentMarker;
