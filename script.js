@@ -792,10 +792,10 @@ function doSearch(query, listElement) {
             })
             .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
         }
-        else if (obj.type === "stednavn" && obj.bbox) {
-          let [x, y] = [obj.bbox[0], obj.bbox[1]];
-          placeMarkerAndZoom([y, x], obj.navn);
-        }
+        else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0]) {
+  let [x, y] = obj.bbox.coordinates[0][0];
+  placeMarkerAndZoom([y, x], obj.navn);
+}
         // Håndtering af strandposter-resultater
         else if (obj.type === "strandpost") {
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
