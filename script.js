@@ -706,7 +706,6 @@ function doSearch(query, listElement) {
         adgangsadresse: item.adgangsadresse
       };
     });
-    let stedResults = [];
    let stedResults = [];
 if (stedData) {
   if (Array.isArray(stedData.results)) {
