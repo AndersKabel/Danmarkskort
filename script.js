@@ -167,13 +167,22 @@ function doSearchStrandposter(query) {
         let rednr = feature.properties.StrandNr;
         let tekst = `Redningsnummer: ${rednr}`;
         let coords = feature.geometry.coordinates; // Forventet [lon, lat] i EPSG:25832
-        // Konverter UTM-koordinater til lat/lon
-        let converted = convertToWGS84(coords[0], coords[1]);
+        // Konverter kun hvis koordinaterne formentlig er UTM (værdi > 90)
+        let lat, lon;
+        if (coords[0] > 90 || coords[1] > 90) {
+          let converted = convertToWGS84(coords[0], coords[1]);
+          lat = converted[0];
+          lon = converted[1];
+        } else {
+          // Her antages koordinaterne allerede at være i EPSG:4326 (som [lon, lat])
+          lon = coords[0];
+          lat = coords[1];
+        }
         return {
           type: "strandpost",
           tekst: tekst,
-          lat: converted[0],
-          lon: converted[1],
+          lat: lat,
+          lon: lon,
           feature: feature
         };
       });
@@ -666,7 +675,8 @@ function doSearchStrandposter(query) {
  ***************************************************/
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
-  let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '*')}`;
+  // Ændret: Brug "%" i stedet for "*" til stednavn (wildcard)
+  let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '%')}`;
   // Kald for strandposter – inkluder kun hvis laget er aktivt.
   let strandPromise = map.hasLayer(redningsnrLayer) ? doSearchStrandposter(query) : Promise.resolve([]);
   Promise.all([
@@ -701,6 +711,10 @@ function doSearch(query, listElement) {
           });
         }
       });
+      // Fjern dubletter baseret på 'navn'
+      stedResults = stedResults.filter((item, index, self) =>
+        index === self.findIndex(i => i.navn === item.navn)
+      );
     }
     // Kun tilføj strandposter hvis laget er aktivt
     let combined = [...addrResults, ...stedResults, ...strandData];
