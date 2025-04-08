@@ -707,21 +707,32 @@ function doSearch(query, listElement) {
       };
     });
     let stedResults = [];
-    // For den nye gsearch API forventes steddata at have en "results" array
-    if (stedData && Array.isArray(stedData.results)) {
-      stedResults = stedData.results.map(result => {
-        return {
-          type: "stednavn",
-          navn: result.navn,   // Forventet at resultatet har feltet "navn"
-          bbox: result.bbox || null, // Hvis tilgængeligt
-          geometry: result.geometry  // Eventuel geometri, hvis nødvendig
-        };
-      });
-      // Fjern dubletter baseret på 'navn'
-      stedResults = stedResults.filter((item, index, self) =>
-        index === self.findIndex(i => i.navn === item.navn)
-      );
-    }
+   let stedResults = [];
+if (stedData) {
+  if (Array.isArray(stedData.results)) {
+    stedResults = stedData.results.map(result => {
+      return {
+        type: "stednavn",
+        navn: result.navn, // Forventet at resultatet har feltet "navn"
+        bbox: result.bbox || null, // Hvis tilgængeligt
+        geometry: result.geometry  // Eventuel geometri, hvis nødvendig
+      };
+    });
+  } else if (Array.isArray(stedData)) {
+    stedResults = stedData.map(result => {
+      return {
+        type: "stednavn",
+        navn: result.skrivemaade_officiel,  // Brug det officielle navn
+        bbox: result.bbox || null,
+        geometry: result.geometri  // Bemærk at feltet hedder "geometri" i svaret
+      };
+    });
+  }
+  // Fjern dubletter baseret på 'navn'
+  stedResults = stedResults.filter((item, index, self) =>
+    index === self.findIndex(i => i.navn === item.navn)
+  );
+}
     // Kun tilføj strandposter hvis laget er aktivt
     let combined = [...addrResults, ...stedResults, ...strandData];
     combined.forEach(obj => {
