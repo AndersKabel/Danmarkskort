@@ -684,7 +684,7 @@ function doSearchStrandposter(query) {
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
   // Ny stednavn-søge-URL med gsearch API – bruger "%" som wildcard
- let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100`;
+ let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&token=a63a88838c24fc85d47f32cde0ec0144`;
   // Kald for strandposter – inkluder kun hvis laget er aktivt.
   let strandPromise = map.hasLayer(redningsnrLayer) ? doSearchStrandposter(query) : Promise.resolve([]);
   Promise.all([
