@@ -727,12 +727,15 @@ function doSearch(query, listElement) {
     combined.forEach(obj => {
       let li = document.createElement("li");
       if (obj.type === "strandpost") {
-        li.textContent = obj.tekst;
-      } else if (obj.type === "adresse") {
-        li.textContent = obj.tekst;
-      } else if (obj.type === "stednavn") {
-        li.textContent = obj.navn;
-      }
+    // Anvend emoji for strandpost
+    li.innerHTML = `🛟 ${obj.tekst}`;
+  } else if (obj.type === "adresse") {
+    // Anvend emoji for adresse
+    li.innerHTML = `🏠 ${obj.tekst}`;
+  } else if (obj.type === "stednavn") {
+    // Anvend emoji for stednavn
+    li.innerHTML = `📍 ${obj.navn}`;
+  }
       li.addEventListener("click", function() {
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
           fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
