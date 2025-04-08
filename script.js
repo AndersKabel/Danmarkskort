@@ -167,14 +167,13 @@ function doSearchStrandposter(query) {
         let rednr = feature.properties.StrandNr;
         let tekst = `Redningsnummer: ${rednr}`;
         let coords = feature.geometry.coordinates; // Forventet [lon, lat] i EPSG:25832
-        // Konverter kun hvis koordinaterne formentlig er UTM (værdi > 90)
         let lat, lon;
+        // Konverter kun hvis koordinaterne formentlig er UTM (værdi > 90)
         if (coords[0] > 90 || coords[1] > 90) {
           let converted = convertToWGS84(coords[0], coords[1]);
           lat = converted[0];
           lon = converted[1];
         } else {
-          // Her antages koordinaterne allerede at være i EPSG:4326 (som [lon, lat])
           lon = coords[0];
           lat = coords[1];
         }
@@ -645,12 +644,20 @@ function doSearchStrandposter(query) {
         let rednr = feature.properties.StrandNr;
         let tekst = `Redningsnummer: ${rednr}`;
         let coords = feature.geometry.coordinates; // Forventet [lon, lat] i EPSG:25832
-        let converted = convertToWGS84(coords[0], coords[1]);
+        let lat, lon;
+        if (coords[0] > 90 || coords[1] > 90) {
+          let converted = convertToWGS84(coords[0], coords[1]);
+          lat = converted[0];
+          lon = converted[1];
+        } else {
+          lon = coords[0];
+          lat = coords[1];
+        }
         return {
           type: "strandpost",
           tekst: tekst,
-          lat: converted[0],
-          lon: converted[1],
+          lat: lat,
+          lon: lon,
           feature: feature
         };
       });
@@ -672,11 +679,12 @@ function doSearchStrandposter(query) {
  * doSearch => kombinerer adresser, stednavne og strandposter
  * Resultaterne gemmes i searchItems
  * Ændring: Strandposter-søgeresultater tilføjes kun hvis laget "Strandposter" er aktivt.
+ * Bruger den nyere gsearch API til stednavne
  ***************************************************/
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
-  // Ændret: Brug "%" i stedet for "*" til stednavn (wildcard)
-  let stedUrl = `https://services.datafordeler.dk/STEDNAVN/Stednavne/1.0.0/rest/HentDKStednavne?username=NUKALQTAFO&password=Fw62huch!&stednavn=${encodeURIComponent(query + '%')}`;
+  // Ny stednavn-søge-URL med gsearch API – bruger "%" som wildcard
+  let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&srid=25832`;
   // Kald for strandposter – inkluder kun hvis laget er aktivt.
   let strandPromise = map.hasLayer(redningsnrLayer) ? doSearchStrandposter(query) : Promise.resolve([]);
   Promise.all([
@@ -699,17 +707,15 @@ function doSearch(query, listElement) {
       };
     });
     let stedResults = [];
-    if (stedData && stedData.features) {
-      stedData.features.forEach(feature => {
-        if (feature.properties && feature.properties.stednavneliste) {
-          feature.properties.stednavneliste.forEach(sted => {
-            stedResults.push({
-              type: "stednavn",
-              navn: sted.navn,
-              bbox: feature.bbox || null
-            });
-          });
-        }
+    // For den nye gsearch API forventes steddata at have en "results" array
+    if (stedData && Array.isArray(stedData.results)) {
+      stedResults = stedData.results.map(result => {
+        return {
+          type: "stednavn",
+          navn: result.navn,   // Forventet at resultatet har feltet "navn"
+          bbox: result.bbox || null, // Hvis tilgængeligt
+          geometry: result.geometry  // Eventuel geometri, hvis nødvendig
+        };
       });
       // Fjern dubletter baseret på 'navn'
       stedResults = stedResults.filter((item, index, self) =>
