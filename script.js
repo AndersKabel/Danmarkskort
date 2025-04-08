@@ -27,6 +27,33 @@ function copyToClipboard(str) {
 }
 
 /***************************************************
+ * Funktion til beregning af sorteringsprioritet
+ * Lavere tal betyder bedre match.
+ ***************************************************/
+function getSortPriority(item, query) {
+  let text = "";
+  if (item.type === "adresse") {
+    text = item.tekst || "";
+  } else if (item.type === "stednavn") {
+    text = item.navn || "";
+  } else if (item.type === "strandpost") {
+    text = item.tekst || "";
+  }
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  
+  if (lowerText === lowerQuery) {
+    return 0; // Perfekt match
+  } else if (lowerText.startsWith(lowerQuery)) {
+    return 1;
+  } else if (lowerText.includes(lowerQuery)) {
+    return 2;
+  } else {
+    return 3;
+  }
+}
+
+/***************************************************
  * Funktioner til automatisk dataopdatering (24 timer)
  ***************************************************/
 function getLastUpdated() {
@@ -684,7 +711,7 @@ function doSearchStrandposter(query) {
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
   // Ny stednavn-søge-URL med gsearch API – bruger "%" som wildcard
- let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&token=a63a88838c24fc85d47f32cde0ec0144`;
+  let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&token=a63a88838c24fc85d47f32cde0ec0144`;
   // Kald for strandposter – inkluder kun hvis laget er aktivt.
   let strandPromise = map.hasLayer(redningsnrLayer) ? doSearchStrandposter(query) : Promise.resolve([]);
   Promise.all([
@@ -706,46 +733,51 @@ function doSearch(query, listElement) {
         adgangsadresse: item.adgangsadresse
       };
     });
-   let stedResults = [];
-if (stedData) {
-  if (Array.isArray(stedData.results)) {
-    stedResults = stedData.results.map(result => {
-      return {
-        type: "stednavn",
-        navn: result.navn, // Forventet at resultatet har feltet "navn"
-        bbox: result.bbox || null, // Hvis tilgængeligt
-        geometry: result.geometry  // Eventuel geometri, hvis nødvendig
-      };
-    });
-  } else if (Array.isArray(stedData)) {
-    stedResults = stedData.map(result => {
-      return {
-        type: "stednavn",
-        navn: result.skrivemaade_officiel,  // Brug det officielle navn
-        bbox: result.bbox || null,
-        geometry: result.geometri  // Bemærk at feltet hedder "geometri" i svaret
-      };
-    });
-  }
-  // Fjern dubletter baseret på 'navn'
-  stedResults = stedResults.filter((item, index, self) =>
-    index === self.findIndex(i => i.navn === item.navn)
-  );
-}
-    // Kun tilføj strandposter hvis laget er aktivt
+    let stedResults = [];
+    if (stedData) {
+      if (Array.isArray(stedData.results)) {
+        stedResults = stedData.results.map(result => {
+          return {
+            type: "stednavn",
+            navn: result.navn, // Forventet at resultatet har feltet "navn"
+            bbox: result.bbox || null, // Hvis tilgængeligt
+            geometry: result.geometry  // Eventuel geometri, hvis nødvendig
+          };
+        });
+      } else if (Array.isArray(stedData)) {
+        stedResults = stedData.map(result => {
+          return {
+            type: "stednavn",
+            navn: result.skrivemaade_officiel,  // Brug det officielle navn
+            bbox: result.bbox || null,
+            geometry: result.geometri  // Bemærk at feltet hedder "geometri" i svaret
+          };
+        });
+      }
+      // Fjern dubletter baseret på 'navn'
+      stedResults = stedResults.filter((item, index, self) =>
+        index === self.findIndex(i => i.navn === item.navn)
+      );
+    }
+    // Kombiner resultaterne
     let combined = [...addrResults, ...stedResults, ...strandData];
+    
+    // SORTERING: Her sorteres samlet efter, hvor tæt hvert resultat matcher søgestrengen
+    combined.sort((a, b) => getSortPriority(a, query) - getSortPriority(b, query));
+    
+    // Lav <li> for hvert resultat
     combined.forEach(obj => {
       let li = document.createElement("li");
       if (obj.type === "strandpost") {
-    // Anvend emoji for strandpost
-    li.innerHTML = `🛟 ${obj.tekst}`;
-  } else if (obj.type === "adresse") {
-    // Anvend emoji for adresse
-    li.innerHTML = `🏠 ${obj.tekst}`;
-  } else if (obj.type === "stednavn") {
-    // Anvend emoji for stednavn
-    li.innerHTML = `📍 ${obj.navn}`;
-  }
+        // Anvend emoji for strandpost
+        li.innerHTML = `🛟 ${obj.tekst}`;
+      } else if (obj.type === "adresse") {
+        // Anvend emoji for adresse
+        li.innerHTML = `🏠 ${obj.tekst}`;
+      } else if (obj.type === "stednavn") {
+        // Anvend emoji for stednavn
+        li.innerHTML = `📍 ${obj.navn}`;
+      }
       li.addEventListener("click", function() {
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
           fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
