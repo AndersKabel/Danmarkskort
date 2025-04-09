@@ -145,7 +145,7 @@
 #infoBox {
   display: none;
   position: absolute;
-  top: 15px; 
+  top: 5px; 
   left: -10px;
   width: 100%;
   max-width: 400px;
@@ -215,7 +215,7 @@
 #statsvejInfoBox {
   display: none;
   position: absolute;
-  top: 277px;
+  top: 295px;
   left: 0px;
   width: 380px;
   background: rgba(255, 255, 255, 0.95);
