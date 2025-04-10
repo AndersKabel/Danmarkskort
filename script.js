@@ -788,7 +788,8 @@ function doSearch(query, listElement) {
         else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
           console.log("Stednavn bbox:", obj.bbox);
           let [x, y] = obj.bbox.coordinates[0][0];
-          placeMarkerAndZoom([y, x], obj.navn);
+          console.log("Bruger x:", x, "og y:", y, "og sender:", [y, x]);
+          placeMarkerAndZoom([x, y], obj.navn);
           // Her kan du evt. konstruere et fiktivt data-objekt og kalde updateInfoBox, hvis det ønskes
         }
         // Strandposter-håndtering
