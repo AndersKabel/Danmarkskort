@@ -786,6 +786,7 @@ function doSearch(query, listElement) {
         }
         // Stednavn-håndtering: Udtræk korrekte koordinater fra bbox og vis info
         else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
+          console.log("Stednavn bbox:", obj.bbox);
           let [x, y] = obj.bbox.coordinates[0][0];
           placeMarkerAndZoom([y, x], obj.navn);
           // Her kan du evt. konstruere et fiktivt data-objekt og kalde updateInfoBox, hvis det ønskes
