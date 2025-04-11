@@ -1,35 +1,56 @@
 /* ============================
    KORT & KONTAINER
 ============================ */
+html, body {
+  margin: 0; padding: 0;
+  height: 100%; width: 100%;
+  font-family: Arial, sans-serif;
+}
 #map {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  right: 0;
+  bottom: 0;
 }
 
+/* Koordinatbox -> bund-center */
+#coordinateBox {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+  display: none;
+  z-index: 1000;
+}
+
+/* Søgning mm. */
 #search-container {
   position: absolute;
   top: 10px;
   left: 10px;
   width: 400px;
-  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.9);
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   z-index: 1000;
+  box-sizing: border-box;
 }
 
 .flex-row {
   display: flex;
   gap: 10px;
+  margin-top: 5px;
 }
 
 .search-wrapper {
   position: relative;
-  margin-bottom: 10px;
   width: 100%;
 }
 
@@ -49,152 +70,70 @@
   border-radius: 4px;
 }
 
-/* Gør, at vej1 + vej2 fylder lige meget i .flex-row */
-.flex-row .search-wrapper {
-  flex-grow: 1;
-  position: relative;
-  width: 100%;
-}
-
-/* ============================
-   CLEAR-KNAP
-============================ */
-.search-wrapper .clear-button,
+/* Clear-knap i input */
 .clear-button {
   position: absolute;
-  right: 10px;
   top: 50%;
+  right: 8px;
   transform: translateY(-50%);
   font-size: 18px;
   color: #666;
   cursor: pointer;
   display: none;
 }
-
-.search-wrapper .clear-button:hover,
 .clear-button:hover {
   color: #333;
 }
 
-/* ============================
-   RESULTATLISTER
-============================ */
+/* Autocomplete-lister */
 #results,
 #results-vej1,
 #results-vej2 {
   position: absolute;
-  top: 100%;
+  top: 102%;
   left: 0;
-  width: 391px;
-  background: white;
+  width: 100%;
+  background: #fff;
   border: 1px solid #ccc;
   z-index: 2000;
   display: none;
   box-sizing: border-box;
+  max-height: 300px;
+  overflow-y: auto;
 }
-
 #results li,
 #results-vej1 li,
 #results-vej2 li {
   padding: 8px;
-  background: #f9f9f9;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid #eee;
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-
 #results li:hover,
 #results-vej1 li:hover,
 #results-vej2 li:hover {
-  background: #eaeaea;
+  background: #f2f2f2;
 }
-
 .highlight {
   background-color: #eaeaea !important;
 }
 
 /* ============================
-   INFO-BOKS
+   INFO-BOKS – ÉN BOKS
 ============================ */
-#infoContainer {
+#infoBox {
+  display: none;
   position: absolute;
   top: 120px;
   left: 10px;
   width: 400px;
-  z-index: 1000;
-}
-
-#infoBox {
-  display: none;
-  position: absolute;
-  top: 5px; 
-  left: -10px;
-  width: 100%;
-  max-width: 400px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  z-index: 1001;
   box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 10px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
-  /* Vi bruger ikke separate upper/lower elementer – alt ligger her */
 }
-
-/* Statsvej info-boks */
-#statsvejInfoBox {
-  display: none;
-  position: absolute;
-  top: 280px;
-  left: 0;
-  width: 380px;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 10px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
-}
-.hidden {
-  display: none;
-}
-
-/* Koordinatboks */
-#coordinateBox {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 5px;
-  font-size: 14px;
-  font-family: Arial, sans-serif;
-  display: none;
-  z-index: 1000;
-}
-
-/* Overlay for kommunekode og vejkode */
-#kommuneOverlay {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  color: #000;
-  font-size: 14px;
-  font-weight: bold;
-  z-index: 1100;
-  /* Ingen baggrund */
-}
-
-/* Leaflet cursor-fix */
-.leaflet-grab,
-.leaflet-container {
-  cursor: default !important;
-}
-
-/* Close-knapper */
-#statsvejCloseBtn, #infoCloseBtn {
+#infoCloseBtn {
   position: absolute;
   top: 8px;
   right: 10px;
@@ -202,12 +141,39 @@
   color: #666;
   cursor: pointer;
 }
-#statsvejCloseBtn:hover, #infoCloseBtn:hover {
+#infoCloseBtn:hover {
   color: #333;
+}
+#infoContent {
+  margin-top: 24px; /* så der er plads til close-knap */
+}
+#address {
+  margin: 0;
+  font-weight: bold;
+  font-size: 16px;
+}
+#extra-info {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #444;
+}
+#streetviewLink,
+#skraafotoLink {
+  display: inline-block;
+  margin-right: 10px;
+  color: #0066cc;
+  text-decoration: none;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+#skraafotoLink { color: orange; }
+#streetviewLink:hover,
+#skraafotoLink:hover {
+  text-decoration: underline;
 }
 
 /* ============================
-   Distance Options knapper
+   DISTANCE-OPTIONS
 ============================ */
 #distanceOptions {
   position: absolute;
@@ -219,7 +185,6 @@
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   z-index: 900;
 }
-
 .distance-btn {
   margin: 2px;
   padding: 6px 10px;
