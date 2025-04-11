@@ -265,7 +265,7 @@ async function updateInfoBox(data, lat, lon) {
   const skråfotoLink   = document.getElementById("skraafotoLink");
 
   const adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
-  const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"} | Koordinater: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+  const ekstraInfoStr = `Kommunekode: ${data.kommunekode || "?"} | Vejkode: ${data.vejkode || "?"}`;
 
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
