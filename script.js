@@ -6,7 +6,7 @@ proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m
 function convertToWGS84(x, y) {
   // Forvent, at input x,y er UTM-koordinater (x = easting, y = northing)
   // proj4 konverterer normalt [x, y] til [lon, lat]
-  let result = proj4("EPSG:25832", "EPSG:4326", [x, y]);
+  let result = proj4("EPSG:25832", "EPSG:4326", [y, x]);
   // Vi returnerer [lat, lon] for Leaflet
   return [result[1], result[0]];
 }
