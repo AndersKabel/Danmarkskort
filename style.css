@@ -161,7 +161,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 0px; /* Fjernet “streg” ved at sætte margin-bottom: 0 */
 }
 
 .info-lower-box {
@@ -242,6 +242,19 @@
   font-family: Arial, sans-serif;
   display: none;
   z-index: 1000;
+}
+
+/* Nyt overlay til kommunekode/vejkode i nederste venstre hjørne */
+#kommuneOverlay {
+  position: absolute;
+  bottom: 50px;
+  left: 10px;
+  background: none;
+  color: #000;
+  font-size: 14px;
+  font-family: Arial, sans-serif;
+  z-index: 1000;
+  display: none;  /* vi viser den kun hvis der er data */
 }
 
 /* Leaflet fix: cursor */
