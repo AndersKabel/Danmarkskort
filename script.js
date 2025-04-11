@@ -741,7 +741,7 @@ function doSearch(query, listElement) {
       } else if (Array.isArray(stedData)) {
         stedResults = stedData.map(result => ({
           type: "stednavn",
-          navn: result.skrivemaade_officiel,
+          + navn: result.visningstekst || result.skrivemaade_officiel,
           bbox: result.bbox || null,
           geometry: result.geometri
         }));
