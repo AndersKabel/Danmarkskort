@@ -750,7 +750,18 @@ function doSearch(query, listElement) {
     let combined = [...addrResults, ...stedResults, ...strandData];
     
     // Sortér efter relevans
-    combined.sort((a, b) => getSortPriority(a, query) - getSortPriority(b, query));
+    combined.sort((a, b) => {
+  // Hvis a er stednavn og b er adresse, så skal a komme før b
+  if (a.type === "stednavn" && b.type === "adresse") {
+      return -1;
+  }
+  // Hvis a er adresse og b er stednavn, så skal b komme før a
+  if (a.type === "adresse" && b.type === "stednavn") {
+      return 1;
+  }
+  // Hvis de har samme type – eller en anden kombination – brug den eksisterende sortering
+  return getSortPriority(a, query) - getSortPriority(b, query);
+});
     
     combined.forEach(obj => {
       let li = document.createElement("li");
