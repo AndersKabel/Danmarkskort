@@ -4,10 +4,11 @@
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m +no_defs");
 
 function convertToWGS84(x, y) {
-  // Forvent, at input x,y er UTM-koordinater (x = easting, y = northing)
-  // proj4 konverterer normalt [x, y] til [lon, lat]
+  // Ved at bytte parameterne [y, x] opnår vi, at northing (y) kommer først,
+  // som derefter bliver konverteret til latitude, og easting (x) til longitude.
   let result = proj4("EPSG:25832", "EPSG:4326", [y, x]);
-  // Vi returnerer [lat, lon] for Leaflet
+  console.log("convertToWGS84 input:", x, y, "=> output:", result);
+  // Returner [latitude, longitude] til Leaflet
   return [result[1], result[0]];
 }
 
