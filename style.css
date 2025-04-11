@@ -247,7 +247,7 @@
 /* Nyt overlay til kommunekode/vejkode i nederste venstre hjørne */
 #kommuneOverlay {
   position: absolute;
-  bottom: 50px;
+  bottom: 10px;
   left: 10px;
   background: none;
   color: #000;
