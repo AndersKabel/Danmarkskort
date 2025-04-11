@@ -7,7 +7,7 @@ function convertToWGS84(x, y) {
   // Ved at bytte parameterne [y, x] opnår vi, at northing (y) kommer først,
   // som derefter bliver konverteret til latitude, og easting (x) til longitude.
   let result = proj4("EPSG:25832", "EPSG:4326", [y, x]);
-  console.log("convertToWGS84 input:", x, y, "=> output:", result);
+  console.log("convertToWGS84 output:", result);
   // Returner [latitude, longitude] til Leaflet
   return [result[1], result[0]];
 }
