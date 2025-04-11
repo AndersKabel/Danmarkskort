@@ -1,34 +1,34 @@
 <!DOCTYPE html>
 <html lang="da">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danmarkskort</title>
-
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
-    <!-- Din egen style -->
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:,">
-
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Turf.js til intersection -->
-    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
-
-    <!-- Wellknown (WKT parser) -->
-    <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Danmarkskort</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Din egen style -->
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:,">
+  
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Turf.js og Wellknown -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
 </head>
 <body>
 
   <div id="map"></div>
 
-  <!-- Koordinater nederst i midten -->
+  <!-- Koordinater nede i midten -->
   <div id="coordinateBox">Klik på kortet for at se koordinater</div>
+  
+  <!-- Overlay til kommunekode & vejkode i nederste venstre hjørne -->
+  <div id="kommuneOverlay"></div>
 
-  <!-- Search-container med søgefelt + resultater -->
   <div id="search-container">
     <div class="search-wrapper">
       <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
@@ -45,18 +45,18 @@
         <input type="text" id="vej2" placeholder="Andet vejnavn...">
         <ul id="results-vej2" class="autocomplete-list"></ul>
       </div>
-      <!-- "Find X"-knap => intersections -->
+      <!-- Knap til at finde kryds (Turf.js) -->
       <button id="findKrydsBtn" style="width:80px; height:40px; font-size:14px; cursor:pointer;">
         Find X
       </button>
     </div>
   </div>
 
-  <!-- Infoboks => Alt i én boks -->
+  <!-- Én samlet infoboks -->
   <div id="infoBox">
     <span id="infoCloseBtn" class="close-button">&times;</span>
     <div id="infoContent">
-      <!-- Herinde viser vi alt: fuld adresse, links, statsvej, mm. -->
+      <!-- Her viser vi alt -->
       <p id="address"></p>
       <div id="extra-info"></div>
       <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
@@ -64,7 +64,7 @@
     </div>
   </div>
 
-  <!-- Knapper til cirkel med 10 km, 50 km, 100 km -->
+  <!-- Knapper til at tegne cirkel: 10 km, 50 km, 100 km -->
   <div id="distanceOptions" class="distance-options">
     <button id="btn10" class="distance-btn">10 km</button>
     <button id="btn50" class="distance-btn">50 km</button>
