@@ -746,10 +746,6 @@ function doSearch(query, listElement) {
           geometry: result.geometri
         }));
       }
-      // Fjern dubletter baseret på 'navn'
-      stedResults = stedResults.filter((item, index, self) =>
-        index === self.findIndex(i => i.navn === item.navn)
-      );
     }
     let combined = [...addrResults, ...stedResults, ...strandData];
     
