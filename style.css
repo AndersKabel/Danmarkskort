@@ -1,4 +1,6 @@
-/* KORT & KONTAINER */
+/* ============================
+   KORT & KONTAINER
+============================ */
 #map {
   position: absolute;
   top: 0;
@@ -7,7 +9,6 @@
   height: 100%;
 }
 
-/* Søgefelt-container */
 #search-container {
   position: absolute;
   top: 10px;
@@ -21,20 +22,20 @@
   z-index: 1000;
 }
 
-/* Flex-row til de to vejinmatningsfelter og Find X */
 .flex-row {
   display: flex;
   gap: 10px;
 }
 
-/* Search-wrapper */
 .search-wrapper {
   position: relative;
   margin-bottom: 10px;
   width: 100%;
 }
 
-/* Inputfelter */
+/* ============================
+   INPUTFELTER
+============================ */
 #search,
 #vej1,
 #vej2 {
@@ -42,13 +43,35 @@
   height: 40px;
   font-size: 16px;
   padding: 8px;
-  padding-right: 40px;
+  padding-right: 40px; /* plads til clear-knap */
   box-sizing: border-box;
   border: 1px solid #ccc;
   border-radius: 4px;
 }
 
-/* Clear-knap */
+/* Gør, at vej1 + vej2 fylder lige meget i .flex-row */
+.flex-row .search-wrapper {
+  flex-grow: 1;
+  position: relative;
+  width: 100%;
+}
+
+/* ============================
+   CLEAR-KNAP
+============================ */
+.search-wrapper .clear-button {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+  display: none;
+}
+.search-wrapper .clear-button:hover {
+  color: #333;
+}
 .clear-button {
   position: absolute;
   top: 50%;
@@ -63,20 +86,25 @@
   color: #333;
 }
 
-/* Resultatlister */
+/* ============================
+   RESULTATLISTER
+============================ */
+/* Fælles for #results, #results-vej1, #results-vej2 */
 #results,
 #results-vej1,
 #results-vej2 {
   position: absolute;
   top: 100%;
   left: 0;
-  width: 391px;
+  width: 391px;         /* så listen følger den store containerens bredde */
   background: white;
   border: 1px solid #ccc;
   z-index: 2000;
-  display: none;
+  display: none;       /* starter skjult */
   box-sizing: border-box;
 }
+
+/* Fælles styling for li-elementer */
 #results li,
 #results-vej1 li,
 #results-vej2 li {
@@ -84,22 +112,28 @@
   background: #f9f9f9;
   border-bottom: 1px solid #ddd;
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap;      /* ingen linjeskift i teksten */
+  overflow: hidden;         /* klip ved for lange tekster */
+  text-overflow: ellipsis;  /* ... ved for lange tekster */
 }
+
+/* Hover-effekt for musen */
 #results li:hover,
 #results-vej1 li:hover,
 #results-vej2 li:hover {
   background: #eaeaea;
 }
 
-/* Highlight-klasse til piletaster */
+/* Highlight-klasse til piletasterne:
+   Bruges i JavaScript, så man kan se,
+   hvilken linje der er aktiv */
 .highlight {
   background-color: #eaeaea !important;
 }
 
-/* InfoBox */
+/* ============================
+   INFO-BOKSE
+============================ */
 #infoContainer {
   position: absolute;
   top: 120px;
@@ -107,41 +141,74 @@
   width: 400px;
   z-index: 1000;
 }
+
 #infoBox {
   display: none;
   position: absolute;
-  top: 5px;
+  top: 5px; 
   left: -10px;
   width: 100%;
   max-width: 400px;
+  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   z-index: 1000;
 }
-#infoBox p {
-  margin: 0;
-  line-height: 1.4em;
+
+.info-upper-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.info-lower-box {
   font-size: 14px;
-}
-.close-button {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  font-size: 18px;
-  color: #666;
-  cursor: pointer;
-}
-.close-button:hover {
   color: #333;
 }
-#streetviewLink, #skraafotoLink {
-  text-decoration: none;
-  margin-right: 10px;
+
+#address {
+  margin: 0;
+  padding: 0;
+  font-weight: bold;
+  line-height: 1.6em;
 }
-#streetviewLink:hover, #skraafotoLink:hover {
+
+#extra-info {
+  font-size: 14px;
+  color: #555;
+  margin-top: 5px;
+  line-height: 1.4em;
+}
+
+#streetviewLink {
+  color: #007bff;
+  text-decoration: none;
+}
+#streetviewLink:hover {
   text-decoration: underline;
+}
+
+#skraafotoLink {
+  color: orange;
+  margin-left: 8px;
+  text-decoration: none;
+}
+#skraafotoLink:hover {
+  text-decoration: underline;
+}
+
+#kildeangivelse {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: white;
+  padding: 5px;
+  font-size: 12px;
+  border-radius: 4px;
+  opacity: 0.8;
 }
 
 /* Statsvej info-boks */
@@ -149,7 +216,7 @@
   display: none;
   position: absolute;
   top: 280px;
-  left: 0;
+  left: 0px;
   width: 380px;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
@@ -161,7 +228,7 @@
   display: none;
 }
 
-/* CoordinateBox */
+/* Koordinatboks */
 #coordinateBox {
   position: absolute;
   bottom: 10px;
@@ -177,40 +244,54 @@
   z-index: 1000;
 }
 
-/* KommuneOverlay */
-#kommuneOverlay {
-  position: absolute;
-  bottom: 40px;
-  left: 10px;
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  padding: 6px;
-  border-radius: 4px;
-  font-size: 14px;
-  display: none;
-  z-index: 999;
+/* Leaflet fix: cursor */
+.leaflet-grab,
+.leaflet-container {
+  cursor: default !important;
 }
 
-/* Distance Options */
+/* Close-knapper */
+#statsvejCloseBtn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 18px;
+  cursor: pointer;
+  color: #666;
+}
+#statsvejCloseBtn:hover {
+  color: #333;
+}
+
+#infoCloseBtn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+}
+#infoCloseBtn:hover {
+  color: #333;
+}
+
+/* ============================
+   NY: Distance Options knapper
+============================ */
 #distanceOptions {
   position: absolute;
-  top: 10px;
+  top: 10px; /* Justér placeringen efter behov */
   right: 60px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255,255,255,0.9);
   padding: 5px;
   border-radius: 4px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   z-index: 900;
 }
+
 .distance-btn {
   margin: 2px;
   padding: 6px 10px;
   font-size: 14px;
   cursor: pointer;
-}
-
-/* Cursor fix for Leaflet */
-.leaflet-grab,
-.leaflet-container {
-  cursor: default !important;
 }
