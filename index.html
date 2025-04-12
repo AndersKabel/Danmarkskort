@@ -22,16 +22,18 @@
   <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
 </head>
 <body>
+
   <div id="map"></div>
+
   <div id="coordinateBox">Klik på kortet for at se koordinater</div>
-  
+    
   <div id="search-container">
     <div class="search-wrapper">
       <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
       <span class="clear-button" id="clearSearch">&times;</span>
     </div>
     <ul id="results"></ul>
-    
+
     <div class="flex-row">
       <div class="search-wrapper">
         <input type="text" id="vej1" placeholder="Første vejnavn...">
@@ -42,28 +44,34 @@
         <ul id="results-vej2" class="autocomplete-list"></ul>
       </div>
       <!-- NY KNAP: "Find X" -->
-      <button id="findKrydsBtn" style="width:80px; height:40px; font-size:14px; cursor:pointer;">Find X</button>
+      <button id="findKrydsBtn" style="width:80px; height:40px; font-size:14px; cursor:pointer;">
+        Find X
+      </button>
     </div>
     
     <div id="infoContainer">
-      <!-- Samlet infoBox – ingen opdeling i upper/lower -->
+      <!-- Én samlet infobox – alle oplysninger kommer her -->
       <div id="infoBox">
-        <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
-        <a id="skraafotoLink" href="#" target="_blank" style="display:none;">Åbn i skråfoto</a>
-        <p id="address"></p>
-        <p id="extra-info"></p>
+        <div class="info-upper-box">
+          <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
+          <a id="skraafotoLink" href="#" target="_blank" style="display:none;">Åbn i skråfoto</a>
+        </div>
+        <div class="info-lower-box">
+          <p id="address"></p>
+          <p id="extra-info"></p>
+        </div>
         <span id="infoCloseBtn" class="close-button">&times;</span>
       </div>
     </div>
-    
+
     <div id="statsvejInfoBox" class="hidden">
       <div class="info-upper-box"></div>
       <div class="info-lower-box">
         <p id="statsvejInfo"></p>
       </div>
-      <span id="statsvejCloseBtn" class="close-button">&times;</span>
+      <span id="statsvejCloseBtn" class="close-button">&times;</span> 
     </div>
-    
+      
     <div id="kildeangivelse"></div>
   </div>
 
@@ -80,7 +88,7 @@
   <!-- Din egen script-fil -->
   <script src="script.js"></script>
   
-  <!-- KommuneOverlay: Vis kommunekode/vejkode nederst i venstre hjørne med transparent baggrund -->
+  <!-- Overlay til kommunekode og vejkode (gennemsigtigt designet i CSS) -->
   <div id="kommuneOverlay"></div>
 </body>
 </html>
