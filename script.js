@@ -121,7 +121,7 @@ var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/o
 var falckAssLayer = L.geoJSON(null, {
   onEachFeature: function(feature, layer) {
     // Vælg en egnet property til visning (her "tekst" eller standardtekst)
-    let tekst = feature.properties.tekst || "Falck Ass";
+    let tekst = feature.properties.tekst || "Falck Assistance";
     layer.bindPopup("<strong>" + tekst + "</strong>");
   },
   style: function(feature) {
