@@ -177,6 +177,7 @@
 
 #skraafotoLink {
   color: orange;
+  margin-left: 8px;
   text-decoration: none;
 }
 #skraafotoLink:hover {
