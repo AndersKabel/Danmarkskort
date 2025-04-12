@@ -3,18 +3,12 @@
     "id": "128",
     "name": "Falck Slagelse",
     "address": "Antvorskov Alle 135, 4200 Slagelse",
-    "coordinates": {
-      "lat": ´55.394168,
-      "lon": 11.353532
-    }
+    "coordinates": { "lat": 55.394168, "lon": 11.353532 }
   },
   {
     "id": "110",
     "name": "Falck RIngsted",
     "address": "Klosterparks Alle 30, 4100 Ringsted",
-    "coordinates": {
-      "lat": 55.453341,
-      "lon": 11.785372
-    }
+    "coordinates": { "lat": 55.453341, "lon": 11.785372 }
   }
 ]
