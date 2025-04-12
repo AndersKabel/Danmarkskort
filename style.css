@@ -172,7 +172,7 @@
   text-decoration: none;
 }
 #streetviewLink:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 #skraafotoLink {
@@ -181,7 +181,7 @@
   text-decoration: none;
 }
 #skraafotoLink:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 /* Flex container for StreetView + Skråfoto links */
