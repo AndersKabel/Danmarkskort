@@ -49,7 +49,6 @@
   border-radius: 4px;
 }
 
-/* Gør, at vej1 + vej2 fylder lige meget i .flex-row */
 .flex-row .search-wrapper {
   flex-grow: 1;
   position: relative;
@@ -89,22 +88,20 @@
 /* ============================
    RESULTATLISTER
 ============================ */
-/* Fælles for #results, #results-vej1, #results-vej2 */
 #results,
 #results-vej1,
 #results-vej2 {
   position: absolute;
   top: 100%;
   left: 0;
-  width: 391px;         /* så listen følger den store containerens bredde */
+  width: 391px;
   background: white;
   border: 1px solid #ccc;
   z-index: 2000;
-  display: none;       /* starter skjult */
+  display: none;
   box-sizing: border-box;
 }
 
-/* Fælles styling for li-elementer */
 #results li,
 #results-vej1 li,
 #results-vej2 li {
@@ -112,21 +109,15 @@
   background: #f9f9f9;
   border-bottom: 1px solid #ddd;
   cursor: pointer;
-  white-space: nowrap;      /* ingen linjeskift i teksten */
-  overflow: hidden;         /* klip ved for lange tekster */
-  text-overflow: ellipsis;  /* ... ved for lange tekster */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-/* Hover-effekt for musen */
 #results li:hover,
 #results-vej1 li:hover,
 #results-vej2 li:hover {
   background: #eaeaea;
 }
-
-/* Highlight-klasse til piletasterne:
-   Bruges i JavaScript, så man kan se,
-   hvilken linje der er aktiv */
 .highlight {
   background-color: #eaeaea !important;
 }
@@ -157,16 +148,9 @@
   z-index: 1000;
 }
 
-.info-upper-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.info-lower-box {
-  font-size: 14px;
-  color: #333;
+/* Vi viser nu samlet info i én boks – ingen opdeling */
+#infoBox a {
+  margin-right: 10px;
 }
 
 #address {
@@ -244,6 +228,20 @@
   z-index: 1000;
 }
 
+/* KommuneOverlay – vises nederst i venstre hjørne med transparent baggrund */
+#kommuneOverlay {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  color: #333;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+  display: none;
+  z-index: 1000;
+}
+
 /* Leaflet fix: cursor */
 .leaflet-grab,
 .leaflet-container {
@@ -262,7 +260,6 @@
 #statsvejCloseBtn:hover {
   color: #333;
 }
-
 #infoCloseBtn {
   position: absolute;
   top: 8px;
@@ -280,7 +277,7 @@
 ============================ */
 #distanceOptions {
   position: absolute;
-  top: 10px; /* Justér placeringen efter behov */
+  top: 10px;
   right: 60px;
   background: rgba(255,255,255,0.9);
   padding: 5px;
@@ -294,17 +291,4 @@
   padding: 6px 10px;
   font-size: 14px;
   cursor: pointer;
-}
-
-#kommuneOverlay {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  background: rgba(255, 255, 255, 0.7); /* hvid, let transparent */
-  color: #333;
-  padding: 8px 12px;
-  border-radius: 5px;
-  font-size: 14px;
-  display: none;            /* Skjules som udgangspunkt */
-  z-index: 1000;
 }
