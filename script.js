@@ -255,40 +255,47 @@ map.on('click', function(e) {
     .catch(err => console.error("Reverse geocoding fejl:", err));
 });
 
+/***************************************************
+ * Opdatering af info boks (samlet i #infoBox)
+ * Flyt kommunekode/vejkode til #kommuneOverlay
+ ***************************************************/
 async function updateInfoBox(data, lat, lon) {
   const streetviewLink = document.getElementById("streetviewLink");
   const addressEl      = document.getElementById("address");
   const extraInfoEl    = document.getElementById("extra-info");
   const skråfotoLink   = document.getElementById("skraafotoLink");
 
-  // Bestem hvilken struktur der er: har vi en komplet adressebetegnelse eller ej?
-  let adresseStr, vejkode, kommunekode, ekstraInfoStr;
+  // Bestem om vi har en komplet adressebetegnelse
+  let adresseStr, vejkode, kommunekode;
   if (data.adressebetegnelse) {
     // Data fra detaljeret søgekald
     adresseStr = data.adressebetegnelse;
     vejkode = (data.vejstykke && data.vejstykke.kode) ? data.vejstykke.kode : "?";
     kommunekode = (data.kommune && data.kommune.kode) ? data.kommune.kode : "?";
-    ekstraInfoStr = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
   } else {
     // Data fra reverse geocoding
     adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
     vejkode = data.vejkode || "?";
     kommunekode = data.kommunekode || "?";
-    ekstraInfoStr = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
   }
 
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
-  extraInfoEl.textContent = ekstraInfoStr;
+
+  // => Flyt kommunekode + vejkode ned i overlay
+  let overlay = document.getElementById("kommuneOverlay");
+  overlay.textContent = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
+  overlay.style.display = "block";
 
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "block";
 
-  // (Rest af din kode, fx rensning af søgeresultater, statsvej-kald osv. forbliver uændret)
+  // Ryd tidligere søgeresultater
   if (resultsList) resultsList.innerHTML = "";
   if (vej1List) vej1List.innerHTML = "";
   if (vej2List) vej2List.innerHTML = "";
 
+  // Evt. statsvej
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
   if (statsvejData) {
@@ -306,6 +313,7 @@ async function updateInfoBox(data, lat, lon) {
   }
   document.getElementById("infoBox").style.display = "block";
 
+  // Kommune, Døde dyr, Gader & veje forbliver i infobox
   if (data.kommune && data.kommune.kode) {
     try {
       let komUrl = `https://api.dataforsyningen.dk/kommuner/${data.kommune.kode}`;
@@ -317,7 +325,7 @@ async function updateInfoBox(data, lat, lon) {
           let info = kommuneInfo[kommunenavn];
           let doedeDyr = info["Døde dyr"];
           let gaderVeje = info["Gader og veje"];
-          extraInfoEl.innerHTML += `<br>Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
+          extraInfoEl.innerHTML = `Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
         }
       }
     } catch (e) {
@@ -716,7 +724,7 @@ function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
   let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&token=a63a88838c24fc85d47f32cde0ec0144`;
   let strandPromise = map.hasLayer(redningsnrLayer) ? doSearchStrandposter(query) : Promise.resolve([]);
-  
+
   Promise.all([
     fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
     fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; }),
@@ -756,17 +764,17 @@ function doSearch(query, listElement) {
     
     // Sortér efter relevans
     combined.sort((a, b) => {
-  // Hvis a er stednavn og b er adresse, så skal a komme før b
-  if (a.type === "stednavn" && b.type === "adresse") {
-      return -1;
-  }
-  // Hvis a er adresse og b er stednavn, så skal b komme før a
-  if (a.type === "adresse" && b.type === "stednavn") {
-      return 1;
-  }
-  // Hvis de har samme type – eller en anden kombination – brug den eksisterende sortering
-  return getSortPriority(a, query) - getSortPriority(b, query);
-});
+      // Hvis a er stednavn og b er adresse, så skal a komme før b
+      if (a.type === "stednavn" && b.type === "adresse") {
+        return -1;
+      }
+      // Hvis a er adresse og b er stednavn, så skal b komme før a
+      if (a.type === "adresse" && b.type === "stednavn") {
+        return 1;
+      }
+      // Hvis de har samme type – eller en anden kombination – brug den eksisterende sortering
+      return getSortPriority(a, query) - getSortPriority(b, query);
+    });
     
     combined.forEach(obj => {
       let li = document.createElement("li");
