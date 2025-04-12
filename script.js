@@ -1024,6 +1024,12 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       `;
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
       marker.bindPopup(popupText.trim()).openPopup();
+
+       // NY LINIJE: fjern marker, når brugeren lukker popup
+      marker.on("popupclose", function() {
+        map.removeLayer(marker);
+      });
+      
       latLngs.push([wgsLat, wgsLon]);
     }
     if (latLngs.length === 1) {
