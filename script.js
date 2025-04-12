@@ -285,8 +285,6 @@ async function updateInfoBox(data, lat, lon) {
   // Sæt textContent i #address og #extra-info
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
-  if (extraInfoEl) {
-    extraInfoEl.textContent = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
   }
 
   // 4) Vis de to koder nede i overlay med transparent baggrund
