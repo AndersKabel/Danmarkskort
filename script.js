@@ -277,9 +277,9 @@ async function updateInfoBox(data, lat, lon) {
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
 
-  if (extraInfoEl) {
-    extraInfoEl.textContent = ekstraInfoStr;
-  }
+ let overlay = document.getElementById("kommuneOverlay");
+  overlay.textContent = ekstraInfoStr;
+  overlay.style.display = "block";
 
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "block";
