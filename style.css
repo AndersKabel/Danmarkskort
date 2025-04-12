@@ -184,6 +184,14 @@
   text-decoration: underline;
 }
 
+/* Flex container for StreetView + Skråfoto links */
+.info-upper-box {
+    display: flex;          
+    align-items: center;    
+    gap: 10px;              
+    margin-bottom: 8px;     
+}
+
 #kildeangivelse {
   position: absolute;
   bottom: 10px;
