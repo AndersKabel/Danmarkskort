@@ -255,41 +255,40 @@ map.on('click', function(e) {
     .catch(err => console.error("Reverse geocoding fejl:", err));
 });
 
-/***************************************************
- * Opdatering af info boks (samlet i #infoBox)
- * Denne version henter den fulde adresse fra "adressebetegnelse"
- * og vej-/kommunekode fra henholdsvis "vejstykke" og "kommune".
- ***************************************************/
 async function updateInfoBox(data, lat, lon) {
   const streetviewLink = document.getElementById("streetviewLink");
   const addressEl      = document.getElementById("address");
   const extraInfoEl    = document.getElementById("extra-info");
   const skråfotoLink   = document.getElementById("skraafotoLink");
 
-  // Brug den fulde adresse direkte fra adressebetegnelse (hvis tilgængelig)
-  const adresseStr = data.adressebetegnelse || `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
-
-  // Hent vejkode fra data.vejstykke og kommunekode fra data.kommune (hvis de findes)
-  const vejkode = (data.vejstykke && data.vejstykke.kode) ? data.vejstykke.kode : "?";
-  const kommunekode = (data.kommune && data.kommune.kode) ? data.kommune.kode : "?";
-  const ekstraInfoStr = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
+  // Bestem hvilken struktur der er: har vi en komplet adressebetegnelse eller ej?
+  let adresseStr, vejkode, kommunekode, ekstraInfoStr;
+  if (data.adressebetegnelse) {
+    // Data fra detaljeret søgekald
+    adresseStr = data.adressebetegnelse;
+    vejkode = (data.vejstykke && data.vejstykke.kode) ? data.vejstykke.kode : "?";
+    kommunekode = (data.kommune && data.kommune.kode) ? data.kommune.kode : "?";
+    ekstraInfoStr = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
+  } else {
+    // Data fra reverse geocoding
+    adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
+    vejkode = data.vejkode || "?";
+    kommunekode = data.kommunekode || "?";
+    ekstraInfoStr = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
+  }
 
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
-
- let overlay = document.getElementById("kommuneOverlay");
-  overlay.textContent = ekstraInfoStr;
-  overlay.style.display = "block";
+  extraInfoEl.textContent = ekstraInfoStr;
 
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "block";
 
-  // Ryd tidligere søgeresultater
+  // (Rest af din kode, fx rensning af søgeresultater, statsvej-kald osv. forbliver uændret)
   if (resultsList) resultsList.innerHTML = "";
   if (vej1List) vej1List.innerHTML = "";
   if (vej2List) vej2List.innerHTML = "";
 
-  // Vent på statsvejsdata (behold evt. denne funktion, hvis den ønskes)
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
   if (statsvejData) {
@@ -305,10 +304,8 @@ async function updateInfoBox(data, lat, lon) {
     statsvejInfoEl.innerHTML = "";
     document.getElementById("statsvejInfoBox").style.display = "none";
   }
-
   document.getElementById("infoBox").style.display = "block";
 
-  // Hent kommuneinfo og tilføj ekstra oplysninger
   if (data.kommune && data.kommune.kode) {
     try {
       let komUrl = `https://api.dataforsyningen.dk/kommuner/${data.kommune.kode}`;
