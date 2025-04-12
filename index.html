@@ -1,39 +1,37 @@
 <!DOCTYPE html>
 <html lang="da">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danmarkskort</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Danmarkskort</title>
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-    <!-- Din egen style -->
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:,">
+  <!-- Din egen style -->
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:,">
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Turf.js til intersection -->
-    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <!-- Turf.js til intersection -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
-    <!-- Wellknown (WKT parser) -->
-    <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
+  <!-- Wellknown (WKT parser) -->
+  <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
 </head>
 <body>
-
   <div id="map"></div>
-
   <div id="coordinateBox">Klik på kortet for at se koordinater</div>
-    
+  
   <div id="search-container">
     <div class="search-wrapper">
       <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
       <span class="clear-button" id="clearSearch">&times;</span>
     </div>
     <ul id="results"></ul>
-
+    
     <div class="flex-row">
       <div class="search-wrapper">
         <input type="text" id="vej1" placeholder="Første vejnavn...">
@@ -44,33 +42,28 @@
         <ul id="results-vej2" class="autocomplete-list"></ul>
       </div>
       <!-- NY KNAP: "Find X" -->
-      <button id="findKrydsBtn" style="width:80px; height:40px; font-size:14px; cursor:pointer;">
-        Find X
-      </button>
+      <button id="findKrydsBtn" style="width:80px; height:40px; font-size:14px; cursor:pointer;">Find X</button>
     </div>
     
     <div id="infoContainer">
+      <!-- Samlet infoBox – ingen opdeling i upper/lower -->
       <div id="infoBox">
-        <div class="info-upper-box">
-          <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
-          <a id="skraafotoLink" href="#" target="_blank" style="display:none;">Åbn i skråfoto</a>
-        </div>
-        <div class="info-lower-box">
-          <p id="address"></p>
-          <p id="extra-info"></p>
-        </div>
+        <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
+        <a id="skraafotoLink" href="#" target="_blank" style="display:none;">Åbn i skråfoto</a>
+        <p id="address"></p>
+        <p id="extra-info"></p>
         <span id="infoCloseBtn" class="close-button">&times;</span>
       </div>
     </div>
-
+    
     <div id="statsvejInfoBox" class="hidden">
       <div class="info-upper-box"></div>
       <div class="info-lower-box">
         <p id="statsvejInfo"></p>
       </div>
-      <span id="statsvejCloseBtn" class="close-button">&times;</span> 
+      <span id="statsvejCloseBtn" class="close-button">&times;</span>
     </div>
-      
+    
     <div id="kildeangivelse"></div>
   </div>
 
@@ -87,11 +80,7 @@
   <!-- Din egen script-fil -->
   <script src="script.js"></script>
   
-  <!--
-    Bemærk: Ingen yderligere HTML-ændringer er nødvendige for den nye km-funktionalitet,
-    da alle ændringer er implementeret i JavaScript (script.js), og de nødvendige biblioteker
-    (Leaflet, Turf, Wellknown, Proj4) allerede er inkluderet.
-  -->
-    <div id="kommuneOverlay"></div>
+  <!-- KommuneOverlay: Vis kommunekode/vejkode nederst i venstre hjørne med transparent baggrund -->
+  <div id="kommuneOverlay"></div>
 </body>
 </html>
