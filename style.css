@@ -9,6 +9,12 @@
   height: 100%;
 }
 
+#infoBox, #infoBox * {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
 #search-container {
   position: absolute;
   top: 10px;
