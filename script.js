@@ -276,6 +276,8 @@ async function updateInfoBox(data, lat, lon) {
   // 2) Udfyld søgefeltet med den fulde adresse (så den vises der, når man har valgt adressen)
   if (searchInput) {
     searchInput.value = adresseStr;
+    if (extraInfoEl) {
+    extraInfoEl.textContent = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
   }
 
   // 3) Vejkode & kommunekode gemmer sig typisk i underfelter (vejstykke / kommune)
