@@ -130,7 +130,7 @@ var falckAssLayer = L.geoJSON(null, {
 });
 
 // Hent data til Falck Ass-laget fra den nye fil
-fetch("falckAss.geojson")
+fetch("FalckStationer_data.json")
   .then(response => response.json())
   .then(data => {
     falckAssLayer.addData(data);
