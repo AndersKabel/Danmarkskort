@@ -257,54 +257,39 @@ map.on('click', function(e) {
 
 /***************************************************
  * Opdatering af info boks (samlet i #infoBox)
+ * Denne version henter den fulde adresse fra "adressebetegnelse"
+ * og vej-/kommunekode fra henholdsvis "vejstykke" og "kommune".
  ***************************************************/
 async function updateInfoBox(data, lat, lon) {
   const streetviewLink = document.getElementById("streetviewLink");
   const addressEl      = document.getElementById("address");
   const extraInfoEl    = document.getElementById("extra-info");
   const skråfotoLink   = document.getElementById("skraafotoLink");
-  
-  // (NYT) Reference til søgefeltet + overlay
-  const searchInput    = document.getElementById("search");
-  const kommuneOverlay = document.getElementById("kommuneOverlay");
 
-  // 1) Fulde adresse fra 'adressebetegnelse' (hvis det findes),
-  //    ellers fald tilbage til vejnavn/husnr/postnr/postnrnavn
-  const adresseStr = data.adressebetegnelse ||
-                     `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
+  // Brug den fulde adresse direkte fra adressebetegnelse (hvis tilgængelig)
+  const adresseStr = data.adressebetegnelse || `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
 
-  // 2) Udfyld søgefeltet med den fulde adresse (så den vises der, når man har valgt adressen)
-  if (searchInput) {
-    searchInput.value = adresseStr;
-    if (extraInfoEl) {
-    extraInfoEl.textContent = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
-  }
+  // Hent vejkode fra data.vejstykke og kommunekode fra data.kommune (hvis de findes)
+  const vejkode = (data.vejstykke && data.vejstykke.kode) ? data.vejstykke.kode : "?";
+  const kommunekode = (data.kommune && data.kommune.kode) ? data.kommune.kode : "?";
+  const ekstraInfoStr = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
 
-  // 3) Vejkode & kommunekode gemmer sig typisk i underfelter (vejstykke / kommune)
-  const vejkode      = (data.vejstykke && data.vejstykke.kode) ? data.vejstykke.kode : "?";
-  const kommunekode  = (data.kommune && data.kommune.kode) ? data.kommune.kode : "?";
-
-  // Sæt textContent i #address og #extra-info
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
+
+  if (extraInfoEl) {
+    extraInfoEl.textContent = ekstraInfoStr;
   }
 
-  // 4) Vis de to koder nede i overlay med transparent baggrund
-  if (kommuneOverlay) {
-    kommuneOverlay.textContent = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
-    kommuneOverlay.style.display = "block"; // Gør overlayet synligt
-  }
-
-  // 5) Skråfoto‐link
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "block";
 
-  // (Behold) Ryd evt. tidligere søgeresultater
+  // Ryd tidligere søgeresultater
   if (resultsList) resultsList.innerHTML = "";
   if (vej1List) vej1List.innerHTML = "";
   if (vej2List) vej2List.innerHTML = "";
 
-  // (Behold) Statsvej
+  // Vent på statsvejsdata (behold evt. denne funktion, hvis den ønskes)
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
   if (statsvejData) {
@@ -323,7 +308,7 @@ async function updateInfoBox(data, lat, lon) {
 
   document.getElementById("infoBox").style.display = "block";
 
-  // (Behold) Kommuneinfo
+  // Hent kommuneinfo og tilføj ekstra oplysninger
   if (data.kommune && data.kommune.kode) {
     try {
       let komUrl = `https://api.dataforsyningen.dk/kommuner/${data.kommune.kode}`;
@@ -333,7 +318,7 @@ async function updateInfoBox(data, lat, lon) {
         let kommunenavn = komData.navn || "";
         if (kommunenavn && kommuneInfo[kommunenavn]) {
           let info = kommuneInfo[kommunenavn];
-          let doedeDyr  = info["Døde dyr"];
+          let doedeDyr = info["Døde dyr"];
           let gaderVeje = info["Gader og veje"];
           extraInfoEl.innerHTML += `<br>Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
         }
