@@ -16,7 +16,6 @@ function convertToWGS84(x, y) {
  * Hjælpefunktion til at kopiere tekst til clipboard
  ***************************************************/
 function copyToClipboard(str) {
-  // Erstat bogstavelige \n med rigtige linjeskift
   let finalStr = str.replace(/\\n/g, "\n");
   navigator.clipboard.writeText(finalStr)
     .then(() => {
@@ -187,7 +186,6 @@ function doSearchStrandposter(query) {
   return new Promise((resolve, reject) => {
     function filterAndMap() {
       let results = allStrandposter.filter(feature => {
-        // Brug "StrandNr" i stedet for "rednr"
         let rednr = (feature.properties.StrandNr || "").toLowerCase();
         console.log("Sammenligner:", rednr, "med query:", query);
         return rednr.indexOf(query) !== -1;
@@ -227,8 +225,8 @@ function doSearchStrandposter(query) {
 }
 
 /***************************************************
- * Klik på kort => reverse geocoding (Dataforsyningen)
- * => Vis info i både #infoBox og #coordinateBox
+ * Klik på kort => reverse geocoding
+ * => Vis info + Koordinater + kommunekode/vejkode i overlay
  ***************************************************/
 map.on('click', function(e) {
   let lat = e.latlng.lat;
@@ -249,53 +247,67 @@ map.on('click', function(e) {
   fetch(revUrl)
     .then(r => r.json())
     .then(data => {
-      // Vis al info i #infoBox
       updateInfoBox(data, lat, lon);
     })
     .catch(err => console.error("Reverse geocoding fejl:", err));
 });
 
 /***************************************************
- * Opdatering af info boks (samlet i #infoBox)
- * Flyt kommunekode/vejkode til #kommuneOverlay
+ * updateInfoBox
+ * Viser fuld adresse, EVANet/Notes-links i infobox
+ * Viser kommunekode/vejkode i overlay
  ***************************************************/
 async function updateInfoBox(data, lat, lon) {
   const streetviewLink = document.getElementById("streetviewLink");
   const addressEl      = document.getElementById("address");
   const extraInfoEl    = document.getElementById("extra-info");
   const skråfotoLink   = document.getElementById("skraafotoLink");
+  const overlay        = document.getElementById("kommuneOverlay");
 
-  // Bestem om vi har en komplet adressebetegnelse
+  // Afgør, om vi har en detaljeret "adressebetegnelse" eller ej
   let adresseStr, vejkode, kommunekode;
   if (data.adressebetegnelse) {
-    // Data fra detaljeret søgekald
-    adresseStr = data.adressebetegnelse;
-    vejkode = (data.vejstykke && data.vejstykke.kode) ? data.vejstykke.kode : "?";
+    // Fra detaljekald (søgeresultater)
+    adresseStr  = data.adressebetegnelse;
+    vejkode     = (data.vejstykke && data.vejstykke.kode) ? data.vejstykke.kode : "?";
     kommunekode = (data.kommune && data.kommune.kode) ? data.kommune.kode : "?";
   } else {
-    // Data fra reverse geocoding
-    adresseStr = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
-    vejkode = data.vejkode || "?";
+    // Fra reverse geocoding (klik på kort)
+    adresseStr  = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
+    vejkode     = data.vejkode     || "?";
     kommunekode = data.kommunekode || "?";
   }
 
+  // Sæt StreetView + address i infobox
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
 
-  // => Flyt kommunekode + vejkode ned i overlay
-  let overlay = document.getElementById("kommuneOverlay");
-  overlay.textContent = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
-  overlay.style.display = "block";
+  // Tilføj Eva.Net/Notes links nederst i infobox
+  let evaFormat   = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
+  let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
+  
+  // Rens #extra-info, og tilføj evt. kommuneinfo herunder
+  extraInfoEl.innerHTML = "";
+  extraInfoEl.insertAdjacentHTML("beforeend", `
+    <br>
+    <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
+    <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
+  `);
 
+  // Sæt skråfoto
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
-  skråfotoLink.style.display = "block";
+  skråfotoLink.style.display = "inline"; // blot for at sikre, den ikke er "none"
 
-  // Ryd tidligere søgeresultater
+  // Flyt kommunekode/vejkode ned i overlay
+  overlay.textContent = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
+  overlay.style.display = "block"; // vis overlay
+
+  // Ryd tidligere søgeresultater (hvis de findes)
   if (resultsList) resultsList.innerHTML = "";
-  if (vej1List) vej1List.innerHTML = "";
-  if (vej2List) vej2List.innerHTML = "";
+  if (vej1List)    vej1List.innerHTML    = "";
+  if (vej2List)    vej2List.innerHTML    = "";
 
-  // Evt. statsvej
+  // Vis statsvej-info
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
   if (statsvejData) {
@@ -313,7 +325,11 @@ async function updateInfoBox(data, lat, lon) {
   }
   document.getElementById("infoBox").style.display = "block";
 
-  // Kommune, Døde dyr, Gader & veje forbliver i infobox
+  // Hvis vi også vil vise kommuneinfo (døde dyr, gader/veje) i infoboxen
+  // => tjek data.kommune + data.kommune.kode
+  // (hvis det er reverse geocoding, hedder de felter data.kommune + data.kommune.kode
+  //  hvis det er søgning, hedder de ofte det samme, men fra detailkald).
+  // Nedenfor håndterer vi, hvis data.kommune eksisterer:
   if (data.kommune && data.kommune.kode) {
     try {
       let komUrl = `https://api.dataforsyningen.dk/kommuner/${data.kommune.kode}`;
@@ -322,10 +338,10 @@ async function updateInfoBox(data, lat, lon) {
         let komData = await komResp.json();
         let kommunenavn = komData.navn || "";
         if (kommunenavn && kommuneInfo[kommunenavn]) {
-          let info = kommuneInfo[kommunenavn];
-          let doedeDyr = info["Døde dyr"];
-          let gaderVeje = info["Gader og veje"];
-          extraInfoEl.innerHTML = `Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
+          let info        = kommuneInfo[kommunenavn];
+          let doedeDyr    = info["Døde dyr"];
+          let gaderVeje   = info["Gader og veje"];
+          extraInfoEl.innerHTML += `<br>Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
         }
       }
     } catch (e) {
@@ -590,7 +606,7 @@ var selectedRoad2 = null;
 
 /***************************************************
  * doSearchRoad => bruges af vej1/vej2
- * Her opdaterer vi så vi bruger de rigtige arrays (vej1Items eller vej2Items)
+ * (ændrer ikke eksisterende flow)
  ***************************************************/
 function doSearchRoad(query, listElement, inputField, which) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`;
@@ -602,7 +618,6 @@ function doSearchRoad(query, listElement, inputField, which) {
       console.log("Modtaget data fra /adgangsadresser/autocomplete:", data);
       listElement.innerHTML = "";
 
-      // Brug den rigtige array og indeks afhængigt af 'which'
       if (which === "vej1") {
         vej1Items = [];
         vej1CurrentIndex = -1;
@@ -677,7 +692,6 @@ function doSearchStrandposter(query) {
   return new Promise((resolve, reject) => {
     function filterAndMap() {
       let results = allStrandposter.filter(feature => {
-        // Brug "StrandNr" i stedet for "rednr"
         let rednr = (feature.properties.StrandNr || "").toLowerCase();
         return rednr.indexOf(query) !== -1;
       }).map(feature => {
@@ -718,7 +732,7 @@ function doSearchStrandposter(query) {
 /***************************************************
  * doSearch => kombinerer adresser, stednavne og strandposter
  * Resultaterne gemmes i searchItems
- * Én info-boks (#infoBox) vises, og #coordinateBox opdateres separat
+ * Én info-boks (#infoBox) + coordinateBox
  ***************************************************/
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
@@ -737,11 +751,13 @@ function doSearch(query, listElement) {
     listElement.innerHTML = "";
     searchItems = [];
     searchCurrentIndex = -1;
+
     let addrResults = (addrData || []).map(item => ({
       type: "adresse",
       tekst: item.tekst,
       adgangsadresse: item.adgangsadresse
     }));
+
     let stedResults = [];
     if (stedData) {
       if (Array.isArray(stedData.results)) {
@@ -760,22 +776,20 @@ function doSearch(query, listElement) {
         }));
       }
     }
+
     let combined = [...addrResults, ...stedResults, ...strandData];
-    
-    // Sortér efter relevans
+
+    // Sorter efter relevans
     combined.sort((a, b) => {
-      // Hvis a er stednavn og b er adresse, så skal a komme før b
       if (a.type === "stednavn" && b.type === "adresse") {
         return -1;
       }
-      // Hvis a er adresse og b er stednavn, så skal b komme før a
       if (a.type === "adresse" && b.type === "stednavn") {
         return 1;
       }
-      // Hvis de har samme type – eller en anden kombination – brug den eksisterende sortering
       return getSortPriority(a, query) - getSortPriority(b, query);
     });
-    
+
     combined.forEach(obj => {
       let li = document.createElement("li");
       if (obj.type === "strandpost") {
@@ -785,35 +799,30 @@ function doSearch(query, listElement) {
       } else if (obj.type === "stednavn") {
         li.innerHTML = `📍 ${obj.navn}`;
       }
+
       li.addEventListener("click", function() {
-        // Adresse-håndtering: Hent detaljeret adresse og opdater både coordinateBox og infoBox
+        // Hvis adresse => hent detail og opdater marker + infobox
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
           fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
             .then(r => r.json())
             .then(addressData => {
               console.log("Detailed address data received:", addressData);
               let [lon, lat] = addressData.adgangspunkt.koordinater;
-              console.log("Placering:", lat, lon);
-              // Opdater coordinateBox
               document.getElementById("coordinateBox").textContent = `Koordinater: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
               document.getElementById("coordinateBox").style.display = "block";
               placeMarkerAndZoom([lat, lon], obj.tekst);
               updateInfoBox(addressData, lat, lon);
+
               resultsList.innerHTML = "";
               vej1List.innerHTML = "";
               vej2List.innerHTML = "";
             })
             .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
         }
-        // Stednavn-håndtering: Udtræk korrekte koordinater fra bbox og vis info
         else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
-          console.log("Stednavn bbox:", obj.bbox);
           let [x, y] = obj.bbox.coordinates[0][0];
-          console.log("Bruger x:", x, "og y:", y, "og sender:", [y, x]);
           placeMarkerAndZoom([x, y], obj.navn);
-          // Her kan du evt. konstruere et fiktivt data-objekt og kalde updateInfoBox, hvis det ønskes
         }
-        // Strandposter-håndtering
         else if (obj.type === "strandpost") {
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
           let marker = currentMarker;
@@ -831,13 +840,14 @@ function doSearch(query, listElement) {
       listElement.appendChild(li);
       searchItems.push(li);
     });
+
     listElement.style.display = combined.length > 0 ? "block" : "none";
   })
   .catch(err => console.error("Fejl i doSearch:", err));
 }
 
 /***************************************************
- * Hent geometri via navngivenvejkommunedel (WKT => parse)
+ * getNavngivenvejKommunedelGeometry
  ***************************************************/
 async function getNavngivenvejKommunedelGeometry(husnummerId) {
   let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
@@ -869,8 +879,6 @@ async function getNavngivenvejKommunedelGeometry(husnummerId) {
 /***************************************************
  * placeMarkerAndZoom
  ***************************************************/
-// Denne funktion konverterer automatisk UTM-koordinater (EPSG:25832) til lat/lon (EPSG:4326)
-// hvis de modtagne koordinater er > 90.
 function placeMarkerAndZoom(coords, displayText) {
   console.log("placeMarkerAndZoom kaldt med:", coords, displayText);
   if (coords[0] > 90 || coords[1] > 90) {
