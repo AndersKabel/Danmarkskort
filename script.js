@@ -114,13 +114,40 @@ var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/o
   attribution: "Data: redningsnummer.dk"
 });
 
-// Tilføj lagkontrol
+/***************************************************
+ * NYT: Opret nyt Falck Ass-lag (GeoJSON)
+ * Henter data fra den nye fil "falckAss.geojson"
+ ***************************************************/
+var falckAssLayer = L.geoJSON(null, {
+  onEachFeature: function(feature, layer) {
+    // Vælg en egnet property til visning (her "tekst" eller standardtekst)
+    let tekst = feature.properties.tekst || "Falck Ass";
+    layer.bindPopup("<strong>" + tekst + "</strong>");
+  },
+  style: function(feature) {
+    return { color: "orange" };
+  }
+});
+
+// Hent data til Falck Ass-laget fra den nye fil
+fetch("falckAss.geojson")
+  .then(response => response.json())
+  .then(data => {
+    falckAssLayer.addData(data);
+    console.log("Falck Ass data loaded", data);
+  })
+  .catch(err => console.error("Fejl ved hentning af Falck Ass data:", err));
+
+/***************************************************
+ * Tilføj lagkontrol
+ ***************************************************/
 const baseMaps = { 
   "OpenStreetMap": osmLayer,
   "Satellit": ortofotoLayer
 };
 const overlayMaps = { 
-  "Strandposter": redningsnrLayer
+  "Strandposter": redningsnrLayer,
+  "Falck Ass": falckAssLayer
 };
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
@@ -145,11 +172,11 @@ var allStrandposter = [];
 
 // Funktion til at hente alle strandposter (uden filter) fra WFS
 function fetchAllStrandposter() {
-  let wfsUrl = `https://kort.strandnr.dk/geoserver/nobc/ows?service=WFS` +
-               `&version=1.1.0` +
-               `&request=GetFeature` +
-               `&typeName=nobc:Redningsnummer` +
-               `&outputFormat=application/json`;
+  let wfsUrl = "https://kort.strandnr.dk/geoserver/nobc/ows?service=WFS" +
+               "&version=1.1.0" +
+               "&request=GetFeature" +
+               "&typeName=nobc:Redningsnummer" +
+               "&outputFormat=application/json";
   console.log("Henter alle strandposter fra:", wfsUrl);
   return fetch(wfsUrl)
          .then(resp => resp.json())
@@ -288,11 +315,11 @@ async function updateInfoBox(data, lat, lon) {
   
   // Rens #extra-info, og tilføj evt. kommuneinfo herunder
   extraInfoEl.innerHTML = "";
-  extraInfoEl.insertAdjacentHTML("beforeend", `
-    <br>
+  extraInfoEl.insertAdjacentHTML("beforeend", 
+    `<br>
     <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
-    <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
-  `);
+    <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>`
+  );
 
   // Sæt skråfoto
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
@@ -311,13 +338,13 @@ async function updateInfoBox(data, lat, lon) {
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
   if (statsvejData) {
-    statsvejInfoEl.innerHTML = `
-      <strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
+    statsvejInfoEl.innerHTML = 
+      `<strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
       <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
       <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
       <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
-      <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}
-    `;
+      <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`
+    ;
     document.getElementById("statsvejInfoBox").style.display = "block";
   } else {
     statsvejInfoEl.innerHTML = "";
@@ -365,7 +392,6 @@ var vej1Input    = document.getElementById("vej1");
 var vej2Input    = document.getElementById("vej2");
 var vej1List     = document.getElementById("results-vej1");
 var vej2List     = document.getElementById("results-vej2");
-
 // Tilføj clear-knap
 function addClearButton(inputElement, listElement) {
   let btn = document.createElement("span");
@@ -833,12 +859,12 @@ function doSearch(query, listElement) {
           let props = obj.feature.properties;
           let ppl = props.ppl || "N/A";
           let opdateretDato = new Date().toLocaleString();
-          marker.bindPopup(`
-              <strong>${obj.tekst}</strong><br>
+          marker.bindPopup(
+              `<strong>${obj.tekst}</strong><br>
               PPL: ${ppl}<br>
               Opdateret: ${opdateretDato}<br>
-              <a href="#" onclick="alert('Se PPL funktion'); return false;">Se PPL</a>
-          `).openPopup();
+              <a href="#" onclick="alert('Se PPL funktion'); return false;">Se PPL</a>`
+          ).openPopup();
         }
       });
       listElement.appendChild(li);
@@ -1017,11 +1043,10 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
       let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
       let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}\\n${revData.postnr || ""} ${revData.postnrnavn || ""}`;
-      popupText += `
-        <br>
+      popupText += 
+        `<br>
         <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
-        <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
-      `;
+        <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>`;
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
       marker.bindPopup(popupText.trim()).openPopup();
 
