@@ -295,3 +295,16 @@
   font-size: 14px;
   cursor: pointer;
 }
+
+#kommuneOverlay {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: rgba(255, 255, 255, 0.7); /* hvid, let transparent */
+  color: #333;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+  display: none;            /* Skjules som udgangspunkt */
+  z-index: 1000;
+}
