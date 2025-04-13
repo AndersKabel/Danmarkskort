@@ -28,6 +28,18 @@
     {
       "type": "Feature",
       "properties": {
+        "id": "105",
+        "name": "Falck Tårnby",
+        "address": "LøjteGårdsvej 161, 2770 Kastrup"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.603185, 55.623104]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
         "id": "107",
         "name": "Falck Glostrup",
         "address": "Naverland 10, 2600 Glostrup"
