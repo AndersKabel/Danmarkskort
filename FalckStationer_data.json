@@ -76,13 +76,13 @@
     {
       "type": "Feature",
       "properties": {
-        "id": "513",
-        "name": "Falck Svendborg",
-        "address": "Odensevej 48, 5700 Svendborg"
+        "id": "423",
+        "name": "Falck Fredericia",
+        "address": "Neptunvej 1, 7000 Fredericia"
       },
       "geometry": {
         "type": "Point",
-        "coordinates": [10.585169, 55.068913]
+        "coordinates": [9.712889, 55.568673]
       }
     },
     {
