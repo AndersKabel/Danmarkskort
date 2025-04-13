@@ -24,7 +24,8 @@
         "type": "Point",
         "coordinates": [11.785372, 55.453341]
       }
-      {
+    },
+    {
       "type": "Feature",
       "properties": {
         "id": "107",
@@ -35,6 +36,8 @@
         "type": "Point",
         "coordinates": [12.382133, 55.679560]
       }
-      },
+    }
   ]
+}
+
 }
