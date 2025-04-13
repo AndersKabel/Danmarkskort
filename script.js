@@ -181,8 +181,7 @@ function setCoordinateBox(lat, lon) {
   let latFixed = lat.toFixed(6);
   let lonFixed = lon.toFixed(6);
 
-  // Her sætter vi boksen med to spans, så man kan klikke på én af dem
-  // men rent faktisk kopiere begge værdier
+  // Sæt boksen med to spans, så klik på enten lat eller lon resulterer i samme handling
   coordinateBox.innerHTML = `
     Koordinater: 
     <span id="latVal">${latFixed}</span>, 
@@ -194,28 +193,23 @@ function setCoordinateBox(lat, lon) {
   const latSpan = document.getElementById("latVal");
   const lonSpan = document.getElementById("lonVal");
 
-  // Fælles håndtering, så klik på enten lat eller lon
+  // Fælles klik-håndtering: Gør begge røde og kopiér begge værdier
   function handleCoordClick() {
-    // Skift begge til rød
     latSpan.style.color = "red";
     lonSpan.style.color = "red";
 
-    // Kopiér begge
-    const coordsToCopy = `${latFixed}, ${lonFixed}`;
+    const coordsToCopy = `${latFixed},${lonFixed}`;
     navigator.clipboard.writeText(coordsToCopy)
       .then(() => {
         console.log("Copied coords:", coordsToCopy);
       })
       .catch(err => console.error("Could not copy coords:", err));
 
-    // Revert farve efter lidt tid
     setTimeout(() => {
       latSpan.style.color = "";
       lonSpan.style.color = "";
     }, 1000);
   }
-
-  // Tilføj klik-event til begge spans
   latSpan.addEventListener("click", handleCoordClick);
   lonSpan.addEventListener("click", handleCoordClick);
 }
@@ -320,7 +314,7 @@ map.on('click', function(e) {
   }
   currentMarker = L.marker([lat, lon]).addTo(map);
   
-  // Brug den nye funktion til at sætte koordinatboks:
+  // Brug den nye funktion til at sætte koordinatboksen:
   setCoordinateBox(lat, lon);
 
   let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
@@ -363,9 +357,9 @@ async function updateInfoBox(data, lat, lon) {
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
 
-  // Tilføj Eva.Net/Notes links nederst i infobox
+  // Rettet: Opdateret formattering til både Eva.Net og Notes
   let evaFormat   = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-  let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}\\n${data.postnr || ""} ${data.postnrnavn || ""}`;
+  let notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}, ${data.postnr || ""}`;
   
   // Rens #extra-info, og tilføj evt. kommuneinfo herunder
   extraInfoEl.innerHTML = "";
@@ -488,7 +482,7 @@ searchInput.addEventListener("input", function() {
       .then(data => {
         resultsList.innerHTML = "";
         placeMarkerAndZoom([latNum, lonNum], `Koordinater: ${latNum.toFixed(5)}, ${lonNum.toFixed(5)}`);
-        // Her erstattes den gamle koordinatbokskode med ny:
+        // Brug den nye setCoordinateBox-funktion
         setCoordinateBox(latNum, lonNum);
         updateInfoBox(data, latNum, lonNum);
       })
@@ -872,10 +866,8 @@ function doSearch(query, listElement) {
             .then(addressData => {
               console.log("Detailed address data received:", addressData);
               let [lon, lat] = addressData.adgangspunkt.koordinater;
-
               // Sæt koordinatboksen her
               setCoordinateBox(lat, lon);
-
               placeMarkerAndZoom([lat, lon], obj.tekst);
               updateInfoBox(addressData, lat, lon);
 
@@ -1084,7 +1076,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
         <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em>
       `).openPopup();
 
-      // 2) Viser coords i coordinateBox (overskrives ved mange kryds, men det er OK)
+      // 2) Viser coords i coordinateBox (den sidste overskriver eventuelt de tidligere)
       setCoordinateBox(wgsLat, wgsLon);
 
       // 3) Luk popup => fjern marker
