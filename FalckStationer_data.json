@@ -4,26 +4,38 @@
     {
       "type": "Feature",
       "properties": {
-        "id": "128",
-        "name": "Falck Slagelse",
-        "address": "Antvorskov Alle 135, 4200 Slagelse"
+        "id": "102",
+        "name": "Falck Næstved",
+        "address": "Holsted Park 1, 4700 Næstved"
       },
       "geometry": {
         "type": "Point",
-        "coordinates": [11.353532, 55.394168]
+        "coordinates": [11.773767, 55.249532]
       }
     },
     {
       "type": "Feature",
       "properties": {
         "id": "110",
-        "name": "Falck RIngsted",
+        "name": "Falck Ringsted",
         "address": "Klosterparks Alle 30, 4100 Ringsted"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [11.785372, 55.453341]
       }
+      {
+      "type": "Feature",
+      "properties": {
+        "id": "107",
+        "name": "Falck Glostrup",
+        "address": "Naverland 10, 2600 Glostrup"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.382133, 55.679560]
+      }
+      },
     }
   ]
 }
