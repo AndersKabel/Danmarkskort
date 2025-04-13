@@ -116,7 +116,7 @@ var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/o
 
 /***************************************************
  * NYT: Opret nyt Falck Ass-lag (GeoJSON)
- * Henter data fra den nye fil "falckAss.geojson"
+ * Henter data fra filen "FalckStationer_data.json"
  ***************************************************/
 var falckAssLayer = L.geoJSON(null, {
   onEachFeature: function(feature, layer) {
@@ -129,7 +129,7 @@ var falckAssLayer = L.geoJSON(null, {
   }
 });
 
-// Hent data til Falck Ass-laget fra den nye fil
+// Hent data til Falck Ass-laget fra filen
 fetch("FalckStationer_data.json")
   .then(response => response.json())
   .then(data => {
@@ -163,6 +163,15 @@ const kommuneInfo = {
   "Vejle":   { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
   "Vejen":   { "Døde dyr": "Ja",  "Gader og veje": "Ja" }
 };
+
+/***************************************************
+ * Ny hjælpefunktion: Nulstil koordinatboksen
+ ***************************************************/
+function resetCoordinateBox() {
+  const coordinateBox = document.getElementById("coordinateBox");
+  coordinateBox.textContent = "";
+  coordinateBox.style.display = "none";
+}
 
 /***************************************************
  * Global variabel og funktioner til Strandposter-søgning
@@ -351,34 +360,6 @@ async function updateInfoBox(data, lat, lon) {
     document.getElementById("statsvejInfoBox").style.display = "none";
   }
   document.getElementById("infoBox").style.display = "block";
-
-  //---------------------------------------------------
-  // (Tilføjet) Hent og vis "Kommune: Vejle | Døde dyr: Ja" etc.
-  //---------------------------------------------------
-  let endeligKommuneKode = kommunekode; // vi har sat den ovenfor
-  console.log("Mulig kommuneKode:", endeligKommuneKode);
-
-  if (endeligKommuneKode !== "?") {
-    try {
-      let komUrl = `https://api.dataforsyningen.dk/kommuner/${endeligKommuneKode}`;
-      console.log("Henter kommuneinfo fra:", komUrl);
-      let komResp = await fetch(komUrl);
-      if (komResp.ok) {
-        let komData = await komResp.json();
-        let kommunenavn = komData.navn || "";
-        // Tjek i vores 'kommuneInfo' opslagsværk
-        if (kommunenavn && kommuneInfo[kommunenavn]) {
-          let info     = kommuneInfo[kommunenavn];
-          let doedeDyr = info["Døde dyr"];
-          let gaderVeje = info["Gader og veje"];
-          // Tilføj under 'extraInfoEl'
-          extraInfoEl.innerHTML += `<br>Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
-        }
-      }
-    } catch (e) {
-      console.error("Kunne ikke hente kommuneinfo:", e);
-    }
-  }
 }
 
 /***************************************************
@@ -392,6 +373,7 @@ var vej1Input    = document.getElementById("vej1");
 var vej2Input    = document.getElementById("vej2");
 var vej1List     = document.getElementById("results-vej1");
 var vej2List     = document.getElementById("results-vej2");
+
 // Tilføj clear-knap
 function addClearButton(inputElement, listElement) {
   let btn = document.createElement("span");
@@ -407,11 +389,13 @@ function addClearButton(inputElement, listElement) {
     inputElement.value = "";
     listElement.innerHTML = "";
     btn.style.display = "none";
+    resetCoordinateBox();  // Nulstil koordinatboksen ved klik på clear-knappen
   });
 
   inputElement.addEventListener("keydown", function (e) {
     if (e.key === "Backspace" && inputElement.value.length === 0) {
       listElement.innerHTML = "";
+      resetCoordinateBox();  // Nulstil koordinatboksen, hvis feltet er tomt
     }
   });
 
@@ -484,6 +468,11 @@ searchInput.addEventListener("keydown", function(e) {
       console.log("Enter pressed – klik på searchItems index:", searchCurrentIndex);
       searchItems[searchCurrentIndex].click();
     }
+  } else if (e.key === "Backspace") {
+    // Hvis feltet bliver tomt ved backspace, nulstil koordinatboksen
+    if (searchInput.value.length === 0) {
+      resetCoordinateBox();
+    }
   }
 });
 
@@ -494,12 +483,6 @@ function highlightSearchItem() {
     searchItems[searchCurrentIndex].classList.add("highlight");
   }
 }
-
-searchInput.addEventListener("keydown", function(e) {
-  if (e.key === "Backspace") {
-    document.getElementById("infoBox").style.display = "none";
-  }
-});
 
 /***************************************************
  * Vej1 => doSearchRoad og piletaster med vej1Items
@@ -518,7 +501,11 @@ vej1Input.addEventListener("input", function() {
 vej1Input.addEventListener("keydown", function(e) {
   console.log("Vej1 input keydown event, key:", e.key);
   if (e.key === "Backspace") {
-    document.getElementById("infoBox").style.display = "none";
+    // Hvis feltet bliver tomt, nulstil både infoBox og coordinateBox
+    if (vej1Input.value.length === 0) {
+      document.getElementById("infoBox").style.display = "none";
+      resetCoordinateBox();
+    }
   }
   if (vej1Items.length === 0) return;
   if (e.key === "ArrowDown") {
@@ -578,6 +565,10 @@ vej2Input.addEventListener("keydown", function(e) {
       console.log("Enter pressed in vej2, index:", vej2CurrentIndex);
       vej2Items[vej2CurrentIndex].click();
     }
+  } else if (e.key === "Backspace") {
+    if (vej2Input.value.length === 0) {
+      resetCoordinateBox();
+    }
   }
 });
 
@@ -598,6 +589,8 @@ clearBtn.addEventListener("click", function() {
   clearBtn.style.display = "none";
   document.getElementById("infoBox").style.display = "none";
   document.getElementById("statsvejInfoBox").style.display = "none";
+  resetCoordinateBox();
+  resetInfoBox();
   searchInput.focus();
 });
 
@@ -606,26 +599,20 @@ function resetInfoBox() {
   document.getElementById("skraafotoLink").style.display = "none";
 }
 
-searchInput.addEventListener("keydown", function(e) {
-  if (e.key === "Backspace" && searchInput.value.length === 0) {
-    resetInfoBox();
-  }
-});
-
-clearBtn.addEventListener("click", function() {
-  resetInfoBox();
-});
-
+// Clear-knap for vej1
 vej1Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
   vej1Input.value = "";
   vej1List.innerHTML = "";
   document.getElementById("infoBox").style.display = "none";
+  resetCoordinateBox();
 });
 
+// Clear-knap for vej2
 vej2Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
   vej2Input.value = "";
   vej2List.innerHTML = "";
   document.getElementById("infoBox").style.display = "none";
+  resetCoordinateBox();
 });
 
 /***************************************************
@@ -996,6 +983,7 @@ const statsvejCloseBtn = document.getElementById("statsvejCloseBtn");
 statsvejCloseBtn.addEventListener("click", function() {
   statsvejInfoBox.style.display = "none";
   document.getElementById("infoBox").style.display = "none";
+  resetCoordinateBox();  // Nulstil koordinatboksen ved lukning af statsvej-info
   if (currentMarker) {
     map.removeLayer(currentMarker);
     currentMarker = null;
@@ -1006,6 +994,7 @@ const infoCloseBtn = document.getElementById("infoCloseBtn");
 infoCloseBtn.addEventListener("click", function() {
   document.getElementById("infoBox").style.display = "none";
   document.getElementById("statsvejInfoBox").style.display = "none";
+  resetCoordinateBox();  // Nulstil koordinatboksen ved lukning af infoBox
   if (currentMarker) {
     map.removeLayer(currentMarker);
     currentMarker = null;
@@ -1050,7 +1039,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
       marker.bindPopup(popupText.trim()).openPopup();
 
-       // NY LINIJE: fjern marker, når brugeren lukker popup
+      // Fjern marker, når brugeren lukker popup
       marker.on("popupclose", function() {
         map.removeLayer(marker);
       });
