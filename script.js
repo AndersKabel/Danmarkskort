@@ -174,6 +174,53 @@ function resetCoordinateBox() {
 }
 
 /***************************************************
+ * Ny hjælpefunktion: Sæt koordinatboksen med kopiering
+ ***************************************************/
+function setCoordinateBox(lat, lon) {
+  const coordinateBox = document.getElementById("coordinateBox");
+  let latFixed = lat.toFixed(6);
+  let lonFixed = lon.toFixed(6);
+
+  // Her sætter vi boksen med to spans, så man kan klikke på én af dem
+  // men rent faktisk kopiere begge værdier
+  coordinateBox.innerHTML = `
+    Koordinater: 
+    <span id="latVal">${latFixed}</span>, 
+    <span id="lonVal">${lonFixed}</span>
+  `;
+  coordinateBox.style.display = "block";
+
+  // Hent de to spans
+  const latSpan = document.getElementById("latVal");
+  const lonSpan = document.getElementById("lonVal");
+
+  // Fælles håndtering, så klik på enten lat eller lon
+  function handleCoordClick() {
+    // Skift begge til rød
+    latSpan.style.color = "red";
+    lonSpan.style.color = "red";
+
+    // Kopiér begge
+    const coordsToCopy = `${latFixed}, ${lonFixed}`;
+    navigator.clipboard.writeText(coordsToCopy)
+      .then(() => {
+        console.log("Copied coords:", coordsToCopy);
+      })
+      .catch(err => console.error("Could not copy coords:", err));
+
+    // Revert farve efter lidt tid
+    setTimeout(() => {
+      latSpan.style.color = "";
+      lonSpan.style.color = "";
+    }, 1000);
+  }
+
+  // Tilføj klik-event til begge spans
+  latSpan.addEventListener("click", handleCoordClick);
+  lonSpan.addEventListener("click", handleCoordClick);
+}
+
+/***************************************************
  * Global variabel og funktioner til Strandposter-søgning
  ***************************************************/
 // Global variabel til at gemme alle strandposter (redningsnumre)
@@ -273,11 +320,9 @@ map.on('click', function(e) {
   }
   currentMarker = L.marker([lat, lon]).addTo(map);
   
-  // Opdater coordinateBox
-  document.getElementById("coordinateBox").textContent =
-    `Koordinater: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-  document.getElementById("coordinateBox").style.display = "block";
-  
+  // Brug den nye funktion til at sætte koordinatboks:
+  setCoordinateBox(lat, lon);
+
   let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
   console.log("Kalder reverse geocoding:", revUrl);
   fetch(revUrl)
@@ -443,6 +488,8 @@ searchInput.addEventListener("input", function() {
       .then(data => {
         resultsList.innerHTML = "";
         placeMarkerAndZoom([latNum, lonNum], `Koordinater: ${latNum.toFixed(5)}, ${lonNum.toFixed(5)}`);
+        // Her erstattes den gamle koordinatbokskode med ny:
+        setCoordinateBox(latNum, lonNum);
         updateInfoBox(data, latNum, lonNum);
       })
       .catch(err => console.error("Reverse geocoding fejl:", err));
@@ -825,8 +872,10 @@ function doSearch(query, listElement) {
             .then(addressData => {
               console.log("Detailed address data received:", addressData);
               let [lon, lat] = addressData.adgangspunkt.koordinater;
-              document.getElementById("coordinateBox").textContent = `Koordinater: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-              document.getElementById("coordinateBox").style.display = "block";
+
+              // Sæt koordinatboksen her
+              setCoordinateBox(lat, lon);
+
               placeMarkerAndZoom([lat, lon], obj.tekst);
               updateInfoBox(addressData, lat, lon);
 
@@ -839,8 +888,10 @@ function doSearch(query, listElement) {
         else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
           let [x, y] = obj.bbox.coordinates[0][0];
           placeMarkerAndZoom([x, y], obj.navn);
+          // Evt. sæt coordinateBox, men stednavne kan mangle præcis geometri
         }
         else if (obj.type === "strandpost") {
+          setCoordinateBox(obj.lat, obj.lon);
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
           let marker = currentMarker;
           let props = obj.feature.properties;
@@ -1025,21 +1076,18 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let feat = intersection.features[i];
       let coords = feat.geometry.coordinates;
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
-      let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
-      console.log("Reverse geocoding for intersection:", revUrl);
-      let revResp = await fetch(revUrl);
-      let revData = await revResp.json();
-      let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
-      let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
-      let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}\\n${revData.postnr || ""} ${revData.postnrnavn || ""}`;
-      popupText += 
-        `<br>
-        <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
-        <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>`;
-      let marker = L.marker([wgsLat, wgsLon]).addTo(map);
-      marker.bindPopup(popupText.trim()).openPopup();
 
-      // Fjern marker, når brugeren lukker popup
+      // 1) Vis og zoom til marker
+      let marker = L.marker([wgsLat, wgsLon]).addTo(map);
+      marker.bindPopup(`
+        <strong>${feat.id || "Vejkryds"}</strong><br>
+        <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em>
+      `).openPopup();
+
+      // 2) Viser coords i coordinateBox (overskrives ved mange kryds, men det er OK)
+      setCoordinateBox(wgsLat, wgsLon);
+
+      // 3) Luk popup => fjern marker
       marker.on("popupclose", function() {
         map.removeLayer(marker);
       });
