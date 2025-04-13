@@ -88,6 +88,18 @@
     {
       "type": "Feature",
       "properties": {
+        "id": "301",
+        "name": "Falck Højbjerg",
+        "address": "Michael Drewsens Vej 5A, 8270 Højbjerg"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [10.157105, 56.106513]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
         "id": "105",
         "name": "Falck Tårnby",
         "address": "LøjteGårdsvej 161, 2770 Kastrup"
