@@ -16,6 +16,18 @@
     {
       "type": "Feature",
       "properties": {
+        "id": "183",
+        "name": "Falck Farum",
+        "address": "Ryttermarken 13, 3520 Farum"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.358807, 55.820554]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
         "id": "110",
         "name": "Falck Ringsted",
         "address": "Klosterparks Alle 30, 4100 Ringsted"
