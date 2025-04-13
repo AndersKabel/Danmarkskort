@@ -64,6 +64,18 @@
     {
       "type": "Feature",
       "properties": {
+        "id": "513",
+        "name": "Falck Svendborg",
+        "address": "Odensevej 48, 5700 Svendborg"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [10.585169, 55.068913]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
         "id": "107",
         "name": "Falck Glostrup",
         "address": "Naverland 10, 2600 Glostrup"
