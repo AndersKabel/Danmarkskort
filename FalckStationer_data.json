@@ -49,6 +49,18 @@
         "coordinates": [12.493694, 55.735573]
       }
     },
+     {
+      "type": "Feature",
+      "properties": {
+        "id": "166",
+        "name": "Falck Rønne",
+        "address": "Ved Lunden 9, 3700 Rønne"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [14.714615, 55.095025]
+      }
+    },
     {
       "type": "Feature",
       "properties": {
