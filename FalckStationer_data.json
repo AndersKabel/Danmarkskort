@@ -124,6 +124,18 @@
     {
       "type": "Feature",
       "properties": {
+        "id": "201",
+        "name": "Falck Ålborg",
+        "address": "Håndværkervej 27, 9000 Aalborg"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [9.926837, 57.031789]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
         "id": "107",
         "name": "Falck Glostrup",
         "address": "Naverland 10, 2600 Glostrup"
