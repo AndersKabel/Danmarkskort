@@ -28,6 +28,18 @@
     {
       "type": "Feature",
       "properties": {
+        "id": "157",
+        "name": "Falck Taastrup",
+        "address": "Øtoftegårdsvej 4, 2630 Taastrup"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.280415, 55.655361]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
         "id": "105",
         "name": "Falck Tårnby",
         "address": "LøjteGårdsvej 161, 2770 Kastrup"
