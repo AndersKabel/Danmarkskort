@@ -28,6 +28,18 @@
     {
       "type": "Feature",
       "properties": {
+        "id": "330",
+        "name": "Falck Herning",
+        "address": "H.P.Hansens Vej 112, 7400 Herning"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [8.942126, 56.144196]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
         "id": "106",
         "name": "Falck Gladsaxe",
         "address": "Vandtårnsvej 59, 2860 Søborg"
