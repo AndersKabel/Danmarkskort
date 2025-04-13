@@ -120,7 +120,6 @@ var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/o
  ***************************************************/
 var falckAssLayer = L.geoJSON(null, {
   onEachFeature: function(feature, layer) {
-    // Vælg en egnet property til visning (her "tekst" eller standardtekst)
     let tekst = feature.properties.tekst || "Falck Ass";
     layer.bindPopup("<strong>" + tekst + "</strong>");
   },
@@ -129,7 +128,6 @@ var falckAssLayer = L.geoJSON(null, {
   }
 });
 
-// Hent data til Falck Ass-laget fra filen
 fetch("FalckStationer_data.json")
   .then(response => response.json())
   .then(data => {
@@ -180,7 +178,6 @@ function setCoordinateBox(lat, lon) {
   const coordinateBox = document.getElementById("coordinateBox");
   let latFixed = lat.toFixed(6);
   let lonFixed = lon.toFixed(6);
-  // Sæt boksen med to spans, så klik på enten lat eller lon resulterer i samme handling
   coordinateBox.innerHTML = `
     Koordinater: 
     <span id="latVal">${latFixed}</span>, 
@@ -255,7 +252,7 @@ function doSearchStrandposter(query) {
       }).map(feature => {
         let rednr = feature.properties.StrandNr;
         let tekst = `Redningsnummer: ${rednr}`;
-        let coords = feature.geometry.coordinates; 
+        let coords = feature.geometry.coordinates;
         let lat, lon;
         if (coords[0] > 90 || coords[1] > 90) {
           let converted = convertToWGS84(coords[0], coords[1]);
@@ -310,6 +307,8 @@ map.on('click', function(e) {
 
 /***************************************************
  * updateInfoBox
+ * Viser fuld adresse, EVANet/Notes-links i infobox
+ * Viser kommunekode/vejkode i overlay
  ***************************************************/
 async function updateInfoBox(data, lat, lon) {
   const streetviewLink = document.getElementById("streetviewLink");
@@ -317,39 +316,78 @@ async function updateInfoBox(data, lat, lon) {
   const extraInfoEl    = document.getElementById("extra-info");
   const skråfotoLink   = document.getElementById("skraafotoLink");
   const overlay        = document.getElementById("kommuneOverlay");
+  
   let adresseStr, vejkode, kommunekode;
   let evaFormat, notesFormat;
-  // Hvis detaljeret data fra søgefeltet med adgangsadresse findes:
+  
+  // Brug data.adgangsadresse hvis tilgængeligt (fra søgning)
   if(data.adgangsadresse){
-    adresseStr = data.adgangsadresse.adressebetegnelse || `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
+    adresseStr = data.adgangsadresse.adressebetegnelse || 
+                 `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
     evaFormat   = `${data.adgangsadresse.vejnavn || ""},${data.adgangsadresse.husnr || ""},${data.adgangsadresse.postnr || ""}`;
-    notesFormat = `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""}`;
-    // Hvis vi har detaljeret adressebetegnelse, kan vi bruge den til visning:
+    notesFormat = `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""} ${data.adgangsadresse.postnr || ""}`;
   } else if(data.adressebetegnelse) {
     adresseStr  = data.adressebetegnelse;
     evaFormat   = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-    notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}, ${data.postnr || ""}`;
+    notesFormat = `${data.vejnavn || ""} ${data.husnr || ""} ${data.postnr || ""}`;
   } else {
     adresseStr  = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
     evaFormat   = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-    notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}, ${data.postnr || ""}`;
+    notesFormat = `${data.vejnavn || ""} ${data.husnr || ""} ${data.postnr || ""}`;
   }
-
+  
+  // Sæt StreetView-linket og adressevisningen
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
+  
+  // Her opdateres Eva.Net og Notes-links
   extraInfoEl.innerHTML = "";
   extraInfoEl.insertAdjacentHTML("beforeend", 
     `<br>
     <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
     <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>`
   );
+  
+  // Sæt skråfotoLink – og tilføj nu en onclick for at kopiere addressen i full format
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "inline";
+  // Tilføj onclick (brug onclick for at overskrive tidligere bindings)
+  skråfotoLink.onclick = function(e) {
+    e.preventDefault();
+    // Konstruer fullAddress i det ønskede format: "Vejnavn Husnr Postnr Postnrnavn"
+    let fullAddress = "";
+    if(data.adgangsadresse){
+      fullAddress = `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""} ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`.trim();
+    } else {
+      fullAddress = `${data.vejnavn || ""} ${data.husnr || ""} ${data.postnr || ""} ${data.postnrnavn || ""}`.trim();
+    }
+    copyToClipboard(fullAddress);
+    // Vis en lille besked om at adressen er kopieret
+    let msg = document.createElement("div");
+    msg.textContent = "Adressen er kopieret til udklipsholder.";
+    msg.style.position = "fixed";
+    msg.style.top = "20px";
+    msg.style.left = "50%";
+    msg.style.transform = "translateX(-50%)";
+    msg.style.background = "rgba(0,0,0,0.7)";
+    msg.style.color = "white";
+    msg.style.padding = "10px 15px";
+    msg.style.borderRadius = "5px";
+    msg.style.zIndex = "1000";
+    document.body.appendChild(msg);
+    setTimeout(function() {
+      document.body.removeChild(msg);
+      window.location = skråfotoLink.href;
+    }, 1000);
+  };
+  
   overlay.textContent = `Kommunekode: ${kommunekode || "?"} | Vejkode: ${vejkode || "?"}`;
   overlay.style.display = "block";
+  
   if (resultsList) resultsList.innerHTML = "";
   if (vej1List)    vej1List.innerHTML    = "";
   if (vej2List)    vej2List.innerHTML    = "";
+  
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
   if (statsvejData) {
@@ -358,8 +396,7 @@ async function updateInfoBox(data, lat, lon) {
       <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
       <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
       <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
-      <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`
-    ;
+      <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
     document.getElementById("statsvejInfoBox").style.display = "block";
   } else {
     statsvejInfoEl.innerHTML = "";
@@ -587,14 +624,12 @@ function resetInfoBox() {
   document.getElementById("extra-info").textContent = "";
   document.getElementById("skraafotoLink").style.display = "none";
 }
-// Clear-knap for vej1
 vej1Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
   vej1Input.value = "";
   vej1List.innerHTML = "";
   document.getElementById("infoBox").style.display = "none";
   resetCoordinateBox();
 });
-// Clear-knap for vej2
 vej2Input.parentElement.querySelector(".clear-button").addEventListener("click", function() {
   vej2Input.value = "";
   vej2List.innerHTML = "";
@@ -999,7 +1034,6 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
         <strong>${feat.id || "Vejkryds"}</strong><br>
         <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em>
       `).openPopup();
-      // Opdater coordinateBox for hvert kryds (den sidste overskriver eventuelt)
       setCoordinateBox(wgsLat, wgsLon);
       marker.on("popupclose", function() {
         map.removeLayer(marker);
