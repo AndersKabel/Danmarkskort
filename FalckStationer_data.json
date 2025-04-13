@@ -28,6 +28,18 @@
     {
       "type": "Feature",
       "properties": {
+        "id": "515",
+        "name": "Falck Dalum",
+        "address": "Sivlandvænget 2, 5260 Odense s"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [10.404940, 55.354363]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
         "id": "110",
         "name": "Falck Ringsted",
         "address": "Klosterparks Alle 30, 4100 Ringsted"
