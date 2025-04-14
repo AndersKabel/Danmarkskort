@@ -283,19 +283,21 @@ async function updateInfoBox(data, lat, lon) {
     adresseStr = data.adgangsadresse.adressebetegnelse || 
                  `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
     evaFormat   = `${data.adgangsadresse.vejnavn || ""},${data.adgangsadresse.husnr || ""},${data.adgangsadresse.postnr || ""}`;
-    notesFormat = `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""} ${data.adgangsadresse.postnr || ""}`;
+    notesFormat = `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
     vejkode     = data.adgangsadresse.vejkode || "?";
     kommunekode = data.adgangsadresse.kommunekode || "?";
   } else if(data.adressebetegnelse) {
     adresseStr  = data.adressebetegnelse;
-    evaFormat   = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-    notesFormat = `${data.vejnavn || ""} ${data.husnr || ""} ${data.postnr || ""}`;
+    // Bemærk: hvis man ønsker Eva/Notes her, skal man evt. parse data manuelt
+    // Men for minimal ændring beholder vi bare "?"
+    evaFormat   = "?, ?, ?";
+    notesFormat = "?, ?, ?";
     vejkode     = data.vejkode     || "?";
     kommunekode = data.kommunekode || "?";
   } else {
     adresseStr  = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
     evaFormat   = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-    notesFormat = `${data.vejnavn || ""} ${data.husnr || ""} ${data.postnr || ""}`;
+    notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}, ${data.postnr || ""} ${data.postnrnavn || ""}`;
     vejkode     = data.vejkode     || "?";
     kommunekode = data.kommunekode || "?";
   }
@@ -306,8 +308,9 @@ async function updateInfoBox(data, lat, lon) {
   extraInfoEl.innerHTML = "";
   extraInfoEl.insertAdjacentHTML("beforeend", 
     `<br>
-    <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
-    <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>`
+    <a href="#" onclick="(function(el){el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){el.style.color='';},1000);})(this); return false;">Eva.Net</a>
+     &nbsp;
+    <a href="#" onclick="(function(el){el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){el.style.color='';},1000);})(this); return false;">Notes</a>`
   );
   
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
@@ -998,8 +1001,6 @@ infoCloseBtn.addEventListener("click", function() {
 
 /***************************************************
  * "Find X"-knap => find intersection med Turf.js
- * Ændring: Ved kryds beregnes reverse geocoding for at
- * vise den nærmeste valide adresse i popup'en.
  ***************************************************/
 document.getElementById("findKrydsBtn").addEventListener("click", async function() {
   if (!selectedRoad1 || !selectedRoad2) {
@@ -1024,23 +1025,38 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
       
-      // Udfør reverse geocoding for at finde nærmeste valide adresse
+      // Udfør reverse geocoding for at få den nærmeste adresse
       let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
       try {
         let response = await fetch(revUrl);
         let data = await response.json();
-        let adresseStr = "";
-        if(data.adgangsadresse) {
+        
+        let adresseStr;
+        let vejnavn   = data.adgangsadresse?.vejnavn   || "";
+        let husnr     = data.adgangsadresse?.husnr     || "";
+        let postnr    = data.adgangsadresse?.postnr    || "";
+        let postnrnavn= data.adgangsadresse?.postnrnavn|| "";
+        
+        if (data.adgangsadresse) {
           adresseStr = data.adgangsadresse.adressebetegnelse || 
-            `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
-        } else if(data.adressebetegnelse) {
+            `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
+        } else if (data.adressebetegnelse) {
           adresseStr = data.adressebetegnelse;
         } else {
           adresseStr = `${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)}`;
         }
+        
+        // Format til Eva.Net og Notes
+        let evaFormat   = `${vejnavn},${husnr},${postnr}`;
+        let notesFormat = `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
+        
+        // Popup med adresse + Eva.Net/Notes-linjer
         marker.bindPopup(`
           <strong>Nærmeste adresse:</strong> ${adresseStr}<br>
-          <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em>
+          <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em><br>
+          <a href="#" onclick="(function(el){el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){el.style.color='';},1000);})(this); return false;">Eva.Net</a>
+          &nbsp;
+          <a href="#" onclick="(function(el){el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){el.style.color='';},1000);})(this); return false;">Notes</a>
         `).openPopup();
       } catch (err) {
         console.error("Reverse geocoding fejl ved vejkryds:", err);
