@@ -359,7 +359,7 @@ async function updateInfoBox(data, lat, lon) {
     document.body.appendChild(msg);
     setTimeout(function() {
       document.body.removeChild(msg);
-      window.location = skråfotoLink.href;
+      window.open(skråfotoLink.href, '_blank');
     }, 1000);
   };
 
