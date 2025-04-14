@@ -381,18 +381,6 @@ async function updateInfoBox(data, lat, lon) {
       console.error("Kunne ikke hente kommuneinfo:", e);
     }
   }
-
-  /****************************************
-   * ↓↓ TILFØJET POPUP-KODE (MINIMAL ÆNDRING) ↓↓
-   ****************************************/
-  if (currentMarker) {
-    let popupContent = `
-      <strong>${adresseStr}</strong><br>
-      <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
-      <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
-    `;
-    currentMarker.bindPopup(popupContent).openPopup();
-  }
 }
 
 /***************************************************
@@ -1010,6 +998,8 @@ infoCloseBtn.addEventListener("click", function() {
 
 /***************************************************
  * "Find X"-knap => find intersection med Turf.js
+ * Ændring: Ved kryds beregnes reverse geocoding for at
+ * vise den nærmeste valide adresse i popup'en.
  ***************************************************/
 document.getElementById("findKrydsBtn").addEventListener("click", async function() {
   if (!selectedRoad1 || !selectedRoad2) {
@@ -1033,15 +1023,39 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let coords = feat.geometry.coordinates;
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
-      marker.bindPopup(`
-        <strong>${feat.id || "Vejkryds"}</strong><br>
-        <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em>
-      `).openPopup();
+      
+      // Udfør reverse geocoding for at finde nærmeste valide adresse
+      let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
+      try {
+        let response = await fetch(revUrl);
+        let data = await response.json();
+        let adresseStr = "";
+        if(data.adgangsadresse) {
+          adresseStr = data.adgangsadresse.adressebetegnelse || 
+            `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
+        } else if(data.adressebetegnelse) {
+          adresseStr = data.adressebetegnelse;
+        } else {
+          adresseStr = `${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)}`;
+        }
+        marker.bindPopup(`
+          <strong>Nærmeste adresse:</strong> ${adresseStr}<br>
+          <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em>
+        `).openPopup();
+      } catch (err) {
+        console.error("Reverse geocoding fejl ved vejkryds:", err);
+        marker.bindPopup(`
+          <strong>${feat.id || "Vejkryds"}</strong><br>
+          <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em><br>
+          Reverse geocoding mislykkedes.
+        `).openPopup();
+      }
+      
+      latLngs.push([wgsLat, wgsLon]);
       setCoordinateBox(wgsLat, wgsLon);
       marker.on("popupclose", function() {
         map.removeLayer(marker);
       });
-      latLngs.push([wgsLat, wgsLon]);
     }
     if (latLngs.length === 1) {
       map.setView(latLngs[0], 16);
