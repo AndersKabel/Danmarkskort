@@ -1038,7 +1038,6 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
         let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}, ${revData.postnr || ""} ${revData.postnrnavn || ""}`;
         marker.bindPopup(`
           ${addressStr}<br>
-          <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em><br>
           <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
           &nbsp;
           <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
