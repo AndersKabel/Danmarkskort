@@ -27,6 +27,29 @@ function copyToClipboard(str) {
 }
 
 /***************************************************
+ * Funktion til visning af kopieret popup
+ ***************************************************/
+function showCopyPopup(message) {
+  let popup = document.createElement('div');
+  popup.textContent = message;
+  popup.style.position = "fixed";
+  popup.style.top = "20px";
+  popup.style.left = "50%";
+  popup.style.transform = "translateX(-50%)";
+  popup.style.background = "rgba(0,0,0,0.7)";
+  popup.style.color = "white";
+  popup.style.padding = "10px 15px";
+  popup.style.borderRadius = "5px";
+  popup.style.zIndex = "1000";
+  document.body.appendChild(popup);
+  setTimeout(function() {
+    if(popup.parentElement) {
+      popup.parentElement.removeChild(popup);
+    }
+  }, 1500);
+}
+
+/***************************************************
  * Funktion til beregning af sorteringsprioritet
  * Lavere tal betyder bedre match.
  ***************************************************/
@@ -265,7 +288,7 @@ map.on('click', function(e) {
 
 /***************************************************
  * updateInfoBox
- * Viser fuld adresse, EVANet/Notes-links i infobox
+ * Viser fuld adresse, Eva.Net/Notes-links i infobox
  * Viser kommunekode/vejkode i overlay
  ***************************************************/
 async function updateInfoBox(data, lat, lon) {
@@ -304,12 +327,11 @@ async function updateInfoBox(data, lat, lon) {
   addressEl.textContent = adresseStr;
 
   extraInfoEl.innerHTML = "";
-  // Eva.Net og Notes-links med blink-effekt (tekst bliver rød i 1 sekund ved klik)
   extraInfoEl.insertAdjacentHTML("beforeend", 
     `<br>
-    <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
+    <a href="#" title="Kopier til Eva.net" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
     &nbsp;
-    <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>`
+    <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>`
   );
   
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
@@ -1038,9 +1060,10 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
         let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}, ${revData.postnr || ""} ${revData.postnrnavn || ""}`;
         marker.bindPopup(`
           ${addressStr}<br>
-          <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
+          <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em><br>
+          <a href="#" title="Kopier til Eva.net" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
           &nbsp;
-          <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
+          <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
         `).openPopup();
       } catch (err) {
         console.error("Reverse geocoding fejl ved vejkryds:", err);
