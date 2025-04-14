@@ -243,7 +243,7 @@ map.on("overlayadd", function(event) {
 });
 
 /***************************************************
- * Klik på kort => reverse geocoding
+ * Klik på kort => reverse geocoding => opdater sidepanelet
  ***************************************************/
 map.on('click', function(e) {
   let lat = e.latlng.lat;
@@ -279,7 +279,7 @@ async function updateInfoBox(data, lat, lon) {
   let evaFormat, notesFormat;
   
   if(data.adgangsadresse){
-    // her kommer data fra /adgangsadresser/{id} hvis vi har detaljerne
+    // data fra /adgangsadresser/{id}
     adresseStr = data.adgangsadresse.adressebetegnelse || 
                  `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
     evaFormat   = `${data.adgangsadresse.vejnavn || ""},${data.adgangsadresse.husnr || ""},${data.adgangsadresse.postnr || ""}`;
@@ -288,8 +288,6 @@ async function updateInfoBox(data, lat, lon) {
     kommunekode = data.adgangsadresse.kommunekode || "?";
   } else if(data.adressebetegnelse) {
     adresseStr  = data.adressebetegnelse;
-    // Bemærk: hvis man ønsker Eva/Notes her, skal man evt. parse data manuelt
-    // Men for minimal ændring beholder vi bare "?"
     evaFormat   = "?, ?, ?";
     notesFormat = "?, ?, ?";
     vejkode     = data.vejkode     || "?";
@@ -434,8 +432,7 @@ var vej2CurrentIndex = -1;
 
 /***************************************************
  * #search => doSearch
- * Vigtigt: Nu laver vi detail-kald hver gang,
- * ligesom i den "ældre" version.
+ * Vigtigt: detail-kald hver gang
  ***************************************************/
 searchInput.addEventListener("input", function() {
   const txt = searchInput.value.trim();
@@ -505,7 +502,7 @@ function highlightSearchItem() {
 }
 
 /***************************************************
- * Vej1 => doSearchRoad og piletaster med vej1Items
+ * Vej1 => doSearchRoad + piletaster
  ***************************************************/
 vej1Input.addEventListener("input", function() {
   const txt = vej1Input.value.trim();
@@ -552,7 +549,7 @@ function highlightVej1Item() {
 }
 
 /***************************************************
- * Vej2 => doSearchRoad og piletaster med vej2Items
+ * Vej2 => doSearchRoad + piletaster
  ***************************************************/
 vej2Input.addEventListener("input", function() {
   const txt = vej2Input.value.trim();
@@ -1001,6 +998,7 @@ infoCloseBtn.addEventListener("click", function() {
 
 /***************************************************
  * "Find X"-knap => find intersection med Turf.js
+ * (MINIMAL ÆNDRING): Reverse geocoding + vis adresse i popup
  ***************************************************/
 document.getElementById("findKrydsBtn").addEventListener("click", async function() {
   if (!selectedRoad1 || !selectedRoad2) {
@@ -1023,56 +1021,46 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let feat = intersection.features[i];
       let coords = feat.geometry.coordinates;
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
-      let marker = L.marker([wgsLat, wgsLon]).addTo(map);
       
-      // Udfør reverse geocoding for at få den nærmeste adresse
+      // Tilføj en marker for hvert kryds
+      let marker = L.marker([wgsLat, wgsLon]).addTo(map);
+      latLngs.push([wgsLat, wgsLon]);
+
+      // Minimal ændring: Lav reverse geocoding + vis adresse i popup
       let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
       try {
-        let response = await fetch(revUrl);
-        let data = await response.json();
-        
-        // Udtræk adressefelterne
-        let vejnavn    = data.adgangsadresse?.vejnavn    || "";
-        let husnr      = data.adgangsadresse?.husnr      || "";
-        let postnr     = data.adgangsadresse?.postnr     || "";
-        let postnrnavn = data.adgangsadresse?.postnrnavn || "";
-        
-        // Konstruer den fulde adresse
-        let adresseStr = "";
-        if (data.adgangsadresse) {
-          adresseStr = data.adgangsadresse.adressebetegnelse || `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
-        } else if (data.adressebetegnelse) {
-          adresseStr = data.adressebetegnelse;
+        let resp = await fetch(revUrl);
+        let revData = await resp.json();
+
+        // Samme logik som 'click på kortet'
+        let addressStr;
+        if(revData.adgangsadresse){
+          addressStr = revData.adgangsadresse.adressebetegnelse || 
+                       `${revData.adgangsadresse.vejnavn || ""} ${revData.adgangsadresse.husnr || ""}, ${revData.adgangsadresse.postnr || ""} ${revData.adgangsadresse.postnrnavn || ""}`;
+        } else if(revData.adressebetegnelse) {
+          addressStr = revData.adressebetegnelse;
         } else {
-          adresseStr = `${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)}`;
+          addressStr = `${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)}`;
         }
-        
-        // Lav de to formaterede strenge til Eva.Net og Notes
-        let evaFormat   = `${vejnavn},${husnr},${postnr}`;
-        let notesFormat = `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
-        
-        // Bind popup (uden "Nærmeste adresse:")
+
+        // Vis adressen i popup
         marker.bindPopup(`
-          ${adresseStr}<br>
-          <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em><br>
-          <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
-          &nbsp;
-          <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
+          ${addressStr}
         `).openPopup();
       } catch (err) {
         console.error("Reverse geocoding fejl ved vejkryds:", err);
-        marker.bindPopup(`
-          <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em><br>
-          Reverse geocoding mislykkedes.
-        `).openPopup();
+        marker.bindPopup(`(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})<br>Reverse geocoding fejlede.`).openPopup();
       }
-      
-      latLngs.push([wgsLat, wgsLon]);
+
+      // Hvis du ønsker at vise koordinater i en boks eller lign.:
       setCoordinateBox(wgsLat, wgsLon);
+
+      // Fjern markøren igen, når popup lukkes (kan evt. fjernes)
       marker.on("popupclose", function() {
         map.removeLayer(marker);
       });
     }
+    // Zoom enten til én markør eller til flere
     if (latLngs.length === 1) {
       map.setView(latLngs[0], 16);
     } else {
