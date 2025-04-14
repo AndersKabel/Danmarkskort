@@ -279,7 +279,7 @@ async function updateInfoBox(data, lat, lon) {
   let evaFormat, notesFormat;
   
   if(data.adgangsadresse){
-    // data fra /adgangsadresser/{id}
+    // data fra /adgangsadresser/{id} (fladt format)
     adresseStr = data.adgangsadresse.adressebetegnelse || 
                  `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
     evaFormat   = `${data.adgangsadresse.vejnavn || ""},${data.adgangsadresse.husnr || ""},${data.adgangsadresse.postnr || ""}`;
@@ -304,11 +304,12 @@ async function updateInfoBox(data, lat, lon) {
   addressEl.textContent = adresseStr;
 
   extraInfoEl.innerHTML = "";
+  // Eva.Net og Notes-links med blink-effekt (tekst bliver rød i 1 sekund ved klik)
   extraInfoEl.insertAdjacentHTML("beforeend", 
     `<br>
-    <a href="#" onclick="(function(el){el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){el.style.color='';},1000);})(this); return false;">Eva.Net</a>
-     &nbsp;
-    <a href="#" onclick="(function(el){el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){el.style.color='';},1000);})(this); return false;">Notes</a>`
+    <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
+    &nbsp;
+    <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>`
   );
   
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
@@ -688,7 +689,7 @@ function doSearchRoad(query, listElement, inputField, which) {
               roadSelection.geometry = geometry;
               if (inputField.id === "vej1") {
                 selectedRoad1 = roadSelection;
-              } else if (inputField.id === "vej2") {
+              } else {
                 selectedRoad2 = roadSelection;
               }
               console.log("Selected road:", roadSelection);
@@ -817,7 +818,7 @@ function doSearch(query, listElement) {
       }
       li.addEventListener("click", function() {
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-          // EKSTRA KALD => hent detail
+          // EKSTRA KALD => hent detalje
           fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
             .then(r => r.json())
             .then(addressData => {
@@ -998,6 +999,8 @@ infoCloseBtn.addEventListener("click", function() {
 
 /***************************************************
  * "Find X"-knap => find intersection med Turf.js
+ * Reverse geocoding bruges her for at hente adressen,
+ * som indsættes i popup-vinduet med Eva.Net/Notes-links.
  ***************************************************/
 document.getElementById("findKrydsBtn").addEventListener("click", async function() {
   if (!selectedRoad1 || !selectedRoad2) {
@@ -1020,21 +1023,34 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let feat = intersection.features[i];
       let coords = feat.geometry.coordinates;
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
+      latLngs.push([wgsLat, wgsLon]);
+      
+      // Foretag reverse geocoding med de fundne koordinater
       let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
       console.log("Reverse geocoding for intersection:", revUrl);
-      let revResp = await fetch(revUrl);
-      let revData = await revResp.json();
-      let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
-      let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
-      let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}\\n${revData.postnr || ""} ${revData.postnrnavn || ""}`;
-      popupText += `
-        <br>
-        <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
-        <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
-      `;
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
-      marker.bindPopup(popupText.trim()).openPopup();
-      latLngs.push([wgsLat, wgsLon]);
+      try {
+        let resp = await fetch(revUrl);
+        let revData = await resp.json();
+        // Vi antager, at API'et returnerer data fladt
+        let addressStr = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
+        let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
+        let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}, ${revData.postnr || ""} ${revData.postnrnavn || ""}`;
+        marker.bindPopup(`
+          ${addressStr}<br>
+          <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em><br>
+          <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
+          &nbsp;
+          <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
+        `).openPopup();
+      } catch (err) {
+        console.error("Reverse geocoding fejl ved vejkryds:", err);
+        marker.bindPopup(`(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})<br>Reverse geocoding fejlede.`).openPopup();
+      }
+      setCoordinateBox(wgsLat, wgsLon);
+      marker.on("popupclose", function() {
+        map.removeLayer(marker);
+      });
     }
     if (latLngs.length === 1) {
       map.setView(latLngs[0], 16);
@@ -1043,7 +1059,6 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
     }
   }
 });
-
 
 /***************************************************
  * NYT: Distance Options – Tegn cirkel med radius 10, 50 eller 100 km
