@@ -1031,37 +1031,37 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
         let response = await fetch(revUrl);
         let data = await response.json();
         
-        let adresseStr;
-        let vejnavn   = data.adgangsadresse?.vejnavn   || "";
-        let husnr     = data.adgangsadresse?.husnr     || "";
-        let postnr    = data.adgangsadresse?.postnr    || "";
-        let postnrnavn= data.adgangsadresse?.postnrnavn|| "";
+        // Udtræk adressefelterne
+        let vejnavn    = data.adgangsadresse?.vejnavn    || "";
+        let husnr      = data.adgangsadresse?.husnr      || "";
+        let postnr     = data.adgangsadresse?.postnr     || "";
+        let postnrnavn = data.adgangsadresse?.postnrnavn || "";
         
+        // Konstruer den fulde adresse
+        let adresseStr = "";
         if (data.adgangsadresse) {
-          adresseStr = data.adgangsadresse.adressebetegnelse || 
-            `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
+          adresseStr = data.adgangsadresse.adressebetegnelse || `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
         } else if (data.adressebetegnelse) {
           adresseStr = data.adressebetegnelse;
         } else {
           adresseStr = `${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)}`;
         }
         
-        // Format til Eva.Net og Notes
+        // Lav de to formaterede strenge til Eva.Net og Notes
         let evaFormat   = `${vejnavn},${husnr},${postnr}`;
         let notesFormat = `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
         
-        // Popup med adresse + Eva.Net/Notes-linjer
+        // Bind popup (uden "Nærmeste adresse:")
         marker.bindPopup(`
-          <strong>Nærmeste adresse:</strong> ${adresseStr}<br>
+          ${adresseStr}<br>
           <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em><br>
-          <a href="#" onclick="(function(el){el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){el.style.color='';},1000);})(this); return false;">Eva.Net</a>
+          <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
           &nbsp;
-          <a href="#" onclick="(function(el){el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){el.style.color='';},1000);})(this); return false;">Notes</a>
+          <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
         `).openPopup();
       } catch (err) {
         console.error("Reverse geocoding fejl ved vejkryds:", err);
         marker.bindPopup(`
-          <strong>${feat.id || "Vejkryds"}</strong><br>
           <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em><br>
           Reverse geocoding mislykkedes.
         `).openPopup();
