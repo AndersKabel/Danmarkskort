@@ -334,17 +334,13 @@ async function updateInfoBox(data, lat, lon) {
     <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>`
   );
   
+  // Ændret: Brug adresseStr her, i stedet for at sammensætte new
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "inline";
   skråfotoLink.onclick = function(e) {
     e.preventDefault();
-    let fullAddress = "";
-    if(data.adgangsadresse){
-      fullAddress = `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""} ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`.trim();
-    } else {
-      fullAddress = `${data.vejnavn || ""} ${data.husnr || ""} ${data.postnr || ""} ${data.postnrnavn || ""}`.trim();
-    }
-    copyToClipboard(fullAddress);
+    // Kopier den samme adresse, der allerede vises (adresseStr)
+    copyToClipboard(adresseStr);
     let msg = document.createElement("div");
     msg.textContent = "Adressen er kopieret til udklipsholder.";
     msg.style.position = "fixed";
