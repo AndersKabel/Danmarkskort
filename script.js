@@ -999,8 +999,6 @@ infoCloseBtn.addEventListener("click", function() {
 
 /***************************************************
  * "Find X"-knap => find intersection med Turf.js
- * Reverse geocoding bruges her for at hente adressen,
- * som indsættes i popup-vinduet med Eva.Net/Notes-links.
  ***************************************************/
 document.getElementById("findKrydsBtn").addEventListener("click", async function() {
   if (!selectedRoad1 || !selectedRoad2) {
@@ -1023,34 +1021,21 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let feat = intersection.features[i];
       let coords = feat.geometry.coordinates;
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
-      latLngs.push([wgsLat, wgsLon]);
-      
-      // Foretag reverse geocoding med de fundne koordinater
       let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
       console.log("Reverse geocoding for intersection:", revUrl);
+      let revResp = await fetch(revUrl);
+      let revData = await revResp.json();
+      let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
+      let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
+      let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}\\n${revData.postnr || ""} ${revData.postnrnavn || ""}`;
+      popupText += `
+        <br>
+        <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
+        <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
+      `;
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
-      try {
-        let resp = await fetch(revUrl);
-        let revData = await resp.json();
-        // Vi antager, at API'et returnerer data fladt
-        let addressStr = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
-        let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
-        let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}, ${revData.postnr || ""} ${revData.postnrnavn || ""}`;
-        marker.bindPopup(`
-          ${addressStr}<br>
-          <em>(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})</em><br>
-          <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
-          &nbsp;
-          <a href="#" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
-        `).openPopup();
-      } catch (err) {
-        console.error("Reverse geocoding fejl ved vejkryds:", err);
-        marker.bindPopup(`(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})<br>Reverse geocoding fejlede.`).openPopup();
-      }
-      setCoordinateBox(wgsLat, wgsLon);
-      marker.on("popupclose", function() {
-        map.removeLayer(marker);
-      });
+      marker.bindPopup(popupText.trim()).openPopup();
+      latLngs.push([wgsLat, wgsLon]);
     }
     if (latLngs.length === 1) {
       map.setView(latLngs[0], 16);
