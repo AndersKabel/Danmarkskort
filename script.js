@@ -998,7 +998,6 @@ infoCloseBtn.addEventListener("click", function() {
 
 /***************************************************
  * "Find X"-knap => find intersection med Turf.js
- * (MINIMAL ÆNDRING): Reverse geocoding + vis adresse i popup
  ***************************************************/
 document.getElementById("findKrydsBtn").addEventListener("click", async function() {
   if (!selectedRoad1 || !selectedRoad2) {
@@ -1021,46 +1020,22 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let feat = intersection.features[i];
       let coords = feat.geometry.coordinates;
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
-      
-      // Tilføj en marker for hvert kryds
-      let marker = L.marker([wgsLat, wgsLon]).addTo(map);
-      latLngs.push([wgsLat, wgsLon]);
-
-      // Minimal ændring: Lav reverse geocoding + vis adresse i popup
       let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
-      try {
-        let resp = await fetch(revUrl);
-        let revData = await resp.json();
-
-        // Samme logik som 'click på kortet'
-        let addressStr;
-        if(revData.adgangsadresse){
-          addressStr = revData.adgangsadresse.adressebetegnelse || 
-                       `${revData.adgangsadresse.vejnavn || ""} ${revData.adgangsadresse.husnr || ""}, ${revData.adgangsadresse.postnr || ""} ${revData.adgangsadresse.postnrnavn || ""}`;
-        } else if(revData.adressebetegnelse) {
-          addressStr = revData.adressebetegnelse;
-        } else {
-          addressStr = `${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)}`;
-        }
-
-        // Vis adressen i popup
-        marker.bindPopup(`
-          ${addressStr}
-        `).openPopup();
-      } catch (err) {
-        console.error("Reverse geocoding fejl ved vejkryds:", err);
-        marker.bindPopup(`(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})<br>Reverse geocoding fejlede.`).openPopup();
-      }
-
-      // Hvis du ønsker at vise koordinater i en boks eller lign.:
-      setCoordinateBox(wgsLat, wgsLon);
-
-      // Fjern markøren igen, når popup lukkes (kan evt. fjernes)
-      marker.on("popupclose", function() {
-        map.removeLayer(marker);
-      });
+      console.log("Reverse geocoding for intersection:", revUrl);
+      let revResp = await fetch(revUrl);
+      let revData = await revResp.json();
+      let popupText = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
+      let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
+      let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}\\n${revData.postnr || ""} ${revData.postnrnavn || ""}`;
+      popupText += `
+        <br>
+        <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
+        <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
+      `;
+      let marker = L.marker([wgsLat, wgsLon]).addTo(map);
+      marker.bindPopup(popupText.trim()).openPopup();
+      latLngs.push([wgsLat, wgsLon]);
     }
-    // Zoom enten til én markør eller til flere
     if (latLngs.length === 1) {
       map.setView(latLngs[0], 16);
     } else {
@@ -1068,6 +1043,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
     }
   }
 });
+
 
 /***************************************************
  * NYT: Distance Options – Tegn cirkel med radius 10, 50 eller 100 km
