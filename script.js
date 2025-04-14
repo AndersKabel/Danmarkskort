@@ -381,6 +381,18 @@ async function updateInfoBox(data, lat, lon) {
       console.error("Kunne ikke hente kommuneinfo:", e);
     }
   }
+
+  /****************************************
+   * ↓↓ TILFØJET POPUP-KODE (MINIMAL ÆNDRING) ↓↓
+   ****************************************/
+  if (currentMarker) {
+    let popupContent = `
+      <strong>${adresseStr}</strong><br>
+      <a href="#" onclick="copyToClipboard('${evaFormat}');return false;">Eva.Net</a> |
+      <a href="#" onclick="copyToClipboard('${notesFormat}');return false;">Notes</a>
+    `;
+    currentMarker.bindPopup(popupContent).openPopup();
+  }
 }
 
 /***************************************************
@@ -635,8 +647,6 @@ var selectedRoad2 = null;
 
 /***************************************************
  * doSearchRoad => bruges af vej1/vej2
- * Ingen ændringer i selve funktionen – men
- * sammen med detail-kald i "click" får vi fulde data.
  ***************************************************/
 function doSearchRoad(query, listElement, inputField, which) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`;
@@ -712,8 +722,7 @@ function doSearchRoad(query, listElement, inputField, which) {
 }
 
 /***************************************************
- * doSearchStrandposter => henter strandposter via klient-side søgning
- * (uændret)
+ * doSearchStrandposter => klient-side søgning
  ***************************************************/
 function doSearchStrandposter(query) {
   query = query.toLowerCase();
@@ -759,7 +768,6 @@ function doSearchStrandposter(query) {
 
 /***************************************************
  * doSearch => kombinerer adresser, stednavne og strandposter
- * (uændret), men vi laver detailkald i "click" (under if adresse..)
  ***************************************************/
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
