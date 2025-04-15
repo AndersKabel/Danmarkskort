@@ -43,7 +43,7 @@ function showCopyPopup(message) {
   popup.style.zIndex = "1000";
   document.body.appendChild(popup);
   setTimeout(function() {
-    if (popup.parentElement) {
+    if(popup.parentElement) {
       popup.parentElement.removeChild(popup);
     }
   }, 1500);
@@ -160,6 +160,27 @@ fetch("FalckStationer_data.json")
   .catch(err => console.error("Fejl ved hentning af Falck Ass data:", err));
 
 /***************************************************
+ * Opret kommunegrænser layer (fra Dataforsyningen)
+ ***************************************************/
+var kommunegrænserLayer = L.geoJSON(null, {
+  style: function(feature) {
+    return {
+      color: "#3388ff",
+      weight: 2,
+      fillOpacity: 0 // Ingen udfyldning
+    };
+  }
+});
+
+fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
+  .then(response => response.json())
+  .then(data => {
+    kommunegrænserLayer.addData(data);
+    console.log("Kommunegrænser hentet:", data);
+  })
+  .catch(err => console.error("Fejl ved hentning af kommunegrænser:", err));
+
+/***************************************************
  * Tilføj lagkontrol
  ***************************************************/
 const baseMaps = { 
@@ -170,6 +191,9 @@ const overlayMaps = {
   "Strandposter": redningsnrLayer,
   "Falck Ass": falckAssLayer
 };
+
+// Tilføj Kommunegrænser til overlayMaps
+overlayMaps["Kommunegrænser"] = kommunegrænserLayer;
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -290,6 +314,7 @@ map.on('click', function(e) {
  * updateInfoBox
  * Viser fuld adresse, Eva.Net/Notes-links i infobox
  * Viser kommunekode/vejkode i overlay
+ * Samtidig hentes også aktive CVR-resultater
  ***************************************************/
 async function updateInfoBox(data, lat, lon) {
   const streetviewLink = document.getElementById("streetviewLink");
@@ -302,7 +327,6 @@ async function updateInfoBox(data, lat, lon) {
   let evaFormat, notesFormat;
   
   if(data.adgangsadresse){
-    // data fra /adgangsadresser/{id} (fladt format)
     adresseStr = data.adgangsadresse.adressebetegnelse || 
                  `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
     evaFormat   = `${data.adgangsadresse.vejnavn || ""},${data.adgangsadresse.husnr || ""},${data.adgangsadresse.postnr || ""}`;
@@ -689,30 +713,27 @@ function doSearchRoad(query, listElement, inputField, which) {
             console.error("Ingen adgangsadresse.id => kan ikke slå vejkode op");
             return;
           }
-          let detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${adgangsId}?struktur=mini`;
-          console.log("detailUrl:", detailUrl);
-          fetch(detailUrl)
+          // Ændring: Hent detalje og herefter kaldes reverse geocoding for at få samme struktur som "klik på kort"
+          fetch(`https://api.dataforsyningen.dk/adgangsadresser/${adgangsId}?struktur=mini`)
             .then(r => r.json())
-            .then(async detailData => {
-              console.log("Detaljeret adressedata:", detailData);
-              let roadSelection = {
-                vejnavn: vejnavn,
-                kommunekode: detailData.kommunekode,
-                vejkode: detailData.vejkode,
-                husnummerId: detailData.id
-              };
-              let geometry = await getNavngivenvejKommunedelGeometry(detailData.id);
-              roadSelection.geometry = geometry;
-              if (inputField.id === "vej1") {
-                selectedRoad1 = roadSelection;
-              } else {
-                selectedRoad2 = roadSelection;
-              }
-              console.log("Selected road:", roadSelection);
+            .then(addressData => {
+              console.log("Detailed address data received:", addressData);
+              let [lon, lat] = addressData.adgangspunkt.koordinater;
+              setCoordinateBox(lat, lon);
+              placeMarkerAndZoom([lat, lon], vejnavn);
+              // Foretag reverse geocoding med (lon, lat) for at hente de samme parametre som fra "klik på kort"
+              let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+              fetch(revUrl)
+                .then(rr => rr.json())
+                .then(fullData => {
+                  updateInfoBox(fullData, lat, lon);
+                })
+                .catch(err => console.error("Fejl ved reverse geocoding i doSearch-adresse:", err));
+              resultsList.innerHTML = "";
+              vej1List.innerHTML = "";
+              vej2List.innerHTML = "";
             })
-            .catch(err => {
-              console.error("Fejl i fetch /adgangsadresser/{id}:", err);
-            });
+            .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
         });
         listElement.appendChild(li);
         if (which === "vej1") {
@@ -834,7 +855,7 @@ function doSearch(query, listElement) {
       }
       li.addEventListener("click", function() {
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-          // EKSTRA KALD => hent detalje
+          // EKSTRA KALD => hent detalje og herefter reverse geocoding for at få samme struktur som "klik på kort"
           fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
             .then(r => r.json())
             .then(addressData => {
@@ -842,9 +863,6 @@ function doSearch(query, listElement) {
               let [lon, lat] = addressData.adgangspunkt.koordinater;
               setCoordinateBox(lat, lon);
               placeMarkerAndZoom([lat, lon], obj.tekst);
-
-              // HER: Foretag reverse geocoding med (lon, lat) for at få
-              // samme parametre til Eva.Net/Notes som ved "klik på kort"
               let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
               fetch(revUrl)
                 .then(rr => rr.json())
@@ -852,7 +870,6 @@ function doSearch(query, listElement) {
                   updateInfoBox(fullData, lat, lon);
                 })
                 .catch(err => console.error("Fejl ved reverse geocoding i doSearch-adresse:", err));
-
               resultsList.innerHTML = "";
               vej1List.innerHTML = "";
               vej2List.innerHTML = "";
@@ -1049,7 +1066,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
       latLngs.push([wgsLat, wgsLon]);
       
-      // Reverse geocoding for intersection
+      // Foretag reverse geocoding med de fundne koordinater
       let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
       console.log("Reverse geocoding for intersection:", revUrl);
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
