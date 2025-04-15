@@ -290,7 +290,6 @@ map.on('click', function(e) {
  * updateInfoBox
  * Viser fuld adresse, Eva.Net/Notes-links i infobox
  * Viser kommunekode/vejkode i overlay
- * Her tilføjes også et CVR-opkald for at hente aktive firmaer baseret på den viste adresse
  ***************************************************/
 async function updateInfoBox(data, lat, lon) {
   const streetviewLink = document.getElementById("streetviewLink");
@@ -335,11 +334,12 @@ async function updateInfoBox(data, lat, lon) {
     <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>`
   );
   
-  // Skråfoto-linket skal bruge den allerede sammensatte adresse (adresseStr)
+  // Ændret: Brug adresseStr her, i stedet for at sammensætte new
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "inline";
   skråfotoLink.onclick = function(e) {
     e.preventDefault();
+    // Kopier den samme adresse, der allerede vises (adresseStr)
     copyToClipboard(adresseStr);
     let msg = document.createElement("div");
     msg.textContent = "Adressen er kopieret til udklipsholder.";
@@ -401,24 +401,6 @@ async function updateInfoBox(data, lat, lon) {
       console.error("Kunne ikke hente kommuneinfo:", e);
     }
   }
-  
-  // NYT: Hent CVR-data for adressen og vis kun aktive firmaer
-  if(adresseStr) {
-    fetch(`https://api.dataforsyningen.dk/cvr/v2/virksomhed?adresse=${encodeURIComponent(adresseStr)}`)
-      .then(r => r.json())
-      .then(data => {
-        // Antag, at data enten er en array, eller at data.virksomheder indeholder arrayen
-        let companies = Array.isArray(data) ? data : data.virksomheder || [];
-        // Filtrer kun aktive (hvor status er "Aktiv")
-        let activeCompanies = companies.filter(c => c.status === "Aktiv");
-        if(activeCompanies.length > 0) {
-          extraInfoEl.insertAdjacentHTML("beforeend", "<br><strong>Aktive firmaer:</strong><br>" + 
-            activeCompanies.map(c => `${c.navn} (${c.cvrNr})`).join("<br>")
-          );
-        }
-      })
-      .catch(err => console.error("Fejl ved hentning af CVR data:", err));
-}
 }
 
 /***************************************************
@@ -900,7 +882,7 @@ function doSearch(query, listElement) {
  * getNavngivenvejKommunedelGeometry
  ***************************************************/
 async function getNavngivenvejKommunedelGeometry(husnummerId) {
-  let url = `https://services.dataforsyningen.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
+  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
   console.log("Henter navngivenvejkommunedel-data:", url);
   try {
     let r = await fetch(url);
