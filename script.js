@@ -43,7 +43,7 @@ function showCopyPopup(message) {
   popup.style.zIndex = "1000";
   document.body.appendChild(popup);
   setTimeout(function() {
-    if(popup.parentElement) {
+    if (popup.parentElement) {
       popup.parentElement.removeChild(popup);
     }
   }, 1500);
@@ -334,12 +334,10 @@ async function updateInfoBox(data, lat, lon) {
     <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>`
   );
   
-  // Ændret: Brug adresseStr her, i stedet for at sammensætte new
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "inline";
   skråfotoLink.onclick = function(e) {
     e.preventDefault();
-    // Kopier den samme adresse, der allerede vises (adresseStr)
     copyToClipboard(adresseStr);
     let msg = document.createElement("div");
     msg.textContent = "Adressen er kopieret til udklipsholder.";
@@ -844,7 +842,17 @@ function doSearch(query, listElement) {
               let [lon, lat] = addressData.adgangspunkt.koordinater;
               setCoordinateBox(lat, lon);
               placeMarkerAndZoom([lat, lon], obj.tekst);
-              updateInfoBox(addressData, lat, lon);
+
+              // HER: Foretag reverse geocoding med (lon, lat) for at få
+              // samme parametre til Eva.Net/Notes som ved "klik på kort"
+              let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+              fetch(revUrl)
+                .then(rr => rr.json())
+                .then(fullData => {
+                  updateInfoBox(fullData, lat, lon);
+                })
+                .catch(err => console.error("Fejl ved reverse geocoding i doSearch-adresse:", err));
+
               resultsList.innerHTML = "";
               vej1List.innerHTML = "";
               vej2List.innerHTML = "";
@@ -1017,8 +1025,6 @@ infoCloseBtn.addEventListener("click", function() {
 
 /***************************************************
  * "Find X"-knap => find intersection med Turf.js
- * Reverse geocoding bruges her for at hente adressen,
- * som indsættes i popup-vinduet med Eva.Net/Notes-links.
  ***************************************************/
 document.getElementById("findKrydsBtn").addEventListener("click", async function() {
   if (!selectedRoad1 || !selectedRoad2) {
@@ -1043,14 +1049,13 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
       latLngs.push([wgsLat, wgsLon]);
       
-      // Foretag reverse geocoding med de fundne koordinater
+      // Reverse geocoding for intersection
       let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
       console.log("Reverse geocoding for intersection:", revUrl);
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
       try {
         let resp = await fetch(revUrl);
         let revData = await resp.json();
-        // Vi antager, at API'et returnerer data fladt
         let addressStr = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
         let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
         let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}, ${revData.postnr || ""} ${revData.postnrnavn || ""}`;
