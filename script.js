@@ -4,6 +4,8 @@
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m +no_defs");
 
 function convertToWGS84(x, y) {
+  // Ved at bytte parameterne [y, x] opnår vi, at northing (y) kommer først,
+  // som derefter bliver konverteret til latitude, og easting (x) til longitude.
   let result = proj4("EPSG:25832", "EPSG:4326", [x, y]);
   console.log("convertToWGS84 output:", result);
   return [result[1], result[0]];
@@ -40,7 +42,7 @@ function showCopyPopup(message) {
   popup.style.zIndex = "1000";
   document.body.appendChild(popup);
   setTimeout(function() {
-    if(popup.parentElement) {
+    if (popup.parentElement) {
       popup.parentElement.removeChild(popup);
     }
   }, 1500);
@@ -191,7 +193,7 @@ var kommunegrænserLayer = L.geoJSON(null, {
   }
 });
 
-// Fjernet token-header her, da det ikke er nødvendigt for kommuneoplysninger
+// Token fjernes her – endpointet virker uden
 fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
   .then(response => response.json())
   .then(data => {
@@ -443,7 +445,7 @@ async function updateInfoBox(data, lat, lon) {
     }
   }
   
-  // Hent CVR-data (firmaer på adressen) – med token
+  // Hent CVR-data – med token
   if (adresseStr) {
     let cvrUrl = `https://api.dataforsyningen.dk/cvr/v2/virksomhed?adresse=${encodeURIComponent(adresseStr)}`;
     fetch(cvrUrl, {
@@ -464,7 +466,6 @@ async function updateInfoBox(data, lat, lon) {
           firmaListe.style.display = "none";
           let html = companies.map(c => `<li>${c.navn} (CVR: ${c.cvrNr || "?"})</li>`).join("");
           firmaListe.innerHTML = `<ul>${html}</ul>`;
-
           foldLink.onclick = function(e) {
             e.preventDefault();
             firmaListe.style.display = (firmaListe.style.display === "none") ? "block" : "none";
@@ -483,7 +484,6 @@ async function updateInfoBox(data, lat, lon) {
 var searchInput  = document.getElementById("search");
 var clearBtn     = document.getElementById("clearSearch");
 var resultsList  = document.getElementById("results");
-
 var vej1Input    = document.getElementById("vej1");
 var vej2Input    = document.getElementById("vej2");
 var vej1List     = document.getElementById("results-vej1");
@@ -612,7 +612,6 @@ vej1Input.addEventListener("input", function() {
   }
   doSearchRoad(txt, vej1List, vej1Input, "vej1");
 });
-
 vej1Input.addEventListener("keydown", function(e) {
   console.log("Vej1 input keydown event, key:", e.key);
   if (e.key === "Backspace") {
@@ -660,7 +659,6 @@ vej2Input.addEventListener("input", function() {
   }
   doSearchRoad(txt, vej2List, vej2Input, "vej2");
 });
-
 vej2Input.addEventListener("keydown", function(e) {
   console.log("Vej2 input keydown event, key:", e.key);
   document.getElementById("infoBox").style.display = "none";
@@ -821,7 +819,7 @@ function doSearchStrandposter(query) {
       }).map(feature => {
         let rednr = feature.properties.StrandNr;
         let tekst = `Redningsnummer: ${rednr}`;
-        let coords = feature.geometry.coordinates;
+        let coords = feature.geometry.coordinates; // Forventet [lon, lat] i EPSG:25832
         let lat, lon;
         if (coords[0] > 90 || coords[1] > 90) {
           let converted = convertToWGS84(coords[0], coords[1]);
@@ -1191,4 +1189,4 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
-  ;
+;
