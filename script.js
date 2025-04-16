@@ -915,13 +915,11 @@ async function getNavngivenvejKommunedelGeometry(husnummerId) {
     let r = await fetch(url);
     let data = await r.json();
     console.log("Svar fra navngivenvejkommunedel:", data);
-    // Ingen references til "wellknown" eller lignende
     if (Array.isArray(data) && data.length > 0) {
       let first = data[0];
       if (first.navngivenVej && first.navngivenVej.vejnavnebeliggenhed_vejnavnelinje) {
         let wktString = first.navngivenVej.vejnavnebeliggenhed_vejnavnelinje;
         console.log("Fandt WKT streng:", wktString);
-        // Lad evt. være som før (forventet at WKT konvertering varetages hvis alt er sat op)
         let geojson = wellknown.parse(wktString);
         console.log("Parsed WKT => GeoJSON:", geojson);
         return geojson;
