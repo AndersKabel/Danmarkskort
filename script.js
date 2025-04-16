@@ -8,7 +8,7 @@ function convertToWGS84(x, y) {
   // som derefter bliver konverteret til latitude, og easting (x) til longitude.
   let result = proj4("EPSG:25832", "EPSG:4326", [x, y]);
   console.log("convertToWGS84 output:", result);
-  // Returner [latitude, longitude] til Leaflet
+  // Returnér [latitude, longitude] til Leaflet
   return [result[1], result[0]];
 }
 
@@ -138,7 +138,7 @@ var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/o
 });
 
 /***************************************************
- * NYT: Falck Ass-lag (GeoJSON)
+ * NYT: Opret nyt Falck Ass-lag (GeoJSON)
  * Henter data fra filen "FalckStationer_data.json"
  ***************************************************/
 var falckAssLayer = L.geoJSON(null, {
@@ -182,7 +182,7 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
 
 /***************************************************
  * Tilføj lagkontrol
- * (Bemærk: Matrikel-laget er fjernet)
+ * (Matrikel-laget og CVR–rester er fjernet)
  ***************************************************/
 const baseMaps = { 
   "OpenStreetMap": osmLayer,
@@ -294,17 +294,11 @@ map.on("overlayadd", function(event) {
 map.on('click', function(e) {
   let lat = e.latlng.lat;
   let lon = e.latlng.lng;
-  
   if (currentMarker) {
     map.removeLayer(currentMarker);
   }
   currentMarker = L.marker([lat, lon]).addTo(map);
-  
-  // Opdater coordinateBox
-  document.getElementById("coordinateBox").textContent =
-    `Koordinater: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-  document.getElementById("coordinateBox").style.display = "block";
-  
+  setCoordinateBox(lat, lon);
   let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
   console.log("Kalder reverse geocoding:", revUrl);
   fetch(revUrl)
@@ -318,7 +312,7 @@ map.on('click', function(e) {
 /***************************************************
  * updateInfoBox
  * Viser fuld adresse, Eva.Net/Notes-links i infobox,
- * Viser kommunekode/vejkode i overlay samt CVR-info (hvis tilgængeligt)
+ * Viser kommunekode/vejkode i overlay
  ***************************************************/
 async function updateInfoBox(data, lat, lon) {
   const streetviewLink = document.getElementById("streetviewLink");
@@ -389,8 +383,8 @@ async function updateInfoBox(data, lat, lon) {
   overlay.style.display = "block";
 
   if (resultsList) resultsList.innerHTML = "";
-  if (vej1List)    vej1List.innerHTML = "";
-  if (vej2List)    vej2List.innerHTML = "";
+  if (vej1List)    vej1List.innerHTML    = "";
+  if (vej2List)    vej2List.innerHTML    = "";
 
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
@@ -412,7 +406,6 @@ async function updateInfoBox(data, lat, lon) {
   if (kommunekode !== "?") {
     try {
       let komUrl = `https://api.dataforsyningen.dk/kommuner/${kommunekode}`;
-      console.log("Henter kommuneinfo fra:", komUrl);
       let komResp = await fetch(komUrl);
       if (komResp.ok) {
         let komData = await komResp.json();
@@ -477,7 +470,8 @@ var vej2Items = [];
 var vej2CurrentIndex = -1;
 
 /***************************************************
- * #search => doSearch (resultater gemmes i searchItems)
+ * #search => doSearch
+ * Vigtigt: detail-kald hver gang
  ***************************************************/
 searchInput.addEventListener("input", function() {
   const txt = searchInput.value.trim();
@@ -491,6 +485,7 @@ searchInput.addEventListener("input", function() {
   clearBtn.style.display = "inline";
   doSearch(txt, resultsList);
   
+  // Tjek om brugeren har indtastet koordinater
   const coordRegex = /^(-?\d+(?:\.\d+))\s*,\s*(-?\d+(?:\.\d+))$/;
   if (coordRegex.test(txt)) {
     const match = txt.match(coordRegex);
@@ -510,7 +505,9 @@ searchInput.addEventListener("input", function() {
   }
 });
 
-// Piletaster + Enter i søgefeltet
+/***************************************************
+ * Piletaster + Enter i søgefeltet
+ ***************************************************/
 searchInput.addEventListener("keydown", function(e) {
   console.log("Search input keydown event, key:", e.key);
   if (searchItems.length === 0) return;
@@ -554,7 +551,7 @@ clearBtn.addEventListener("click", function() {
 });
 
 /***************************************************
- * Vej1 => doSearchRoad + piletaster med vej1Items
+ * Vej1 => doSearchRoad + piletaster
  ***************************************************/
 vej1Input.addEventListener("input", function() {
   const txt = vej1Input.value.trim();
@@ -598,7 +595,7 @@ function highlightVej1Item() {
 }
 
 /***************************************************
- * Vej2 => doSearchRoad + piletaster med vej2Items
+ * Vej2 => doSearchRoad + piletaster
  ***************************************************/
 vej2Input.addEventListener("input", function() {
   const txt = vej2Input.value.trim();
@@ -759,7 +756,7 @@ function doSearchRoad(query, listElement, inputField, which) {
 }
 
 /***************************************************
- * doSearchStrandposter => henter strandposter via klient-side søgning
+ * doSearchStrandposter => klient-side søgning
  ***************************************************/
 function doSearchStrandposter(query) {
   query = query.toLowerCase();
@@ -767,12 +764,11 @@ function doSearchStrandposter(query) {
     function filterAndMap() {
       let results = allStrandposter.filter(feature => {
         let rednr = (feature.properties.StrandNr || "").toLowerCase();
-        console.log("Sammenligner:", rednr, "med query:", query);
         return rednr.indexOf(query) !== -1;
       }).map(feature => {
         let rednr = feature.properties.StrandNr;
         let tekst = `Redningsnummer: ${rednr}`;
-        let coords = feature.geometry.coordinates; // Forventet [lon, lat] i EPSG:25832
+        let coords = feature.geometry.coordinates;
         let lat, lon;
         if (coords[0] > 90 || coords[1] > 90) {
           let converted = convertToWGS84(coords[0], coords[1]);
@@ -806,7 +802,6 @@ function doSearchStrandposter(query) {
 
 /***************************************************
  * doSearch => kombinerer adresser, stednavne og strandposter
- * Resultaterne gemmes i searchItems
  ***************************************************/
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
@@ -874,8 +869,7 @@ function doSearch(query, listElement) {
             .then(addressData => {
               console.log("Detailed address data received:", addressData);
               let [lon, lat] = addressData.adgangspunkt.koordinater;
-              document.getElementById("coordinateBox").textContent = `Koordinater: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-              document.getElementById("coordinateBox").style.display = "block";
+              setCoordinateBox(lat, lon);
               placeMarkerAndZoom([lat, lon], obj.tekst);
               updateInfoBox(addressData, lat, lon);
               resultsList.innerHTML = "";
@@ -889,6 +883,7 @@ function doSearch(query, listElement) {
           placeMarkerAndZoom([x, y], obj.navn);
         }
         else if (obj.type === "strandpost") {
+          setCoordinateBox(obj.lat, obj.lon);
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
           let marker = currentMarker;
           let props = obj.feature.properties;
@@ -920,15 +915,13 @@ async function getNavngivenvejKommunedelGeometry(husnummerId) {
     let r = await fetch(url);
     let data = await r.json();
     console.log("Svar fra navngivenvejkommunedel:", data);
-    if (!window.wellknown) {
-      console.error("Fejl: wellknown-biblioteket mangler. Tilføj f.eks. <script src='https://unpkg.com/wellknown@1.1.0/wellknown.js'></script>.");
-      return null;
-    }
+    // Ingen references til "wellknown" eller lignende
     if (Array.isArray(data) && data.length > 0) {
       let first = data[0];
       if (first.navngivenVej && first.navngivenVej.vejnavnebeliggenhed_vejnavnelinje) {
         let wktString = first.navngivenVej.vejnavnebeliggenhed_vejnavnelinje;
         console.log("Fandt WKT streng:", wktString);
+        // Lad evt. være som før (forventet at WKT konvertering varetages hvis alt er sat op)
         let geojson = wellknown.parse(wktString);
         console.log("Parsed WKT => GeoJSON:", geojson);
         return geojson;
@@ -1089,7 +1082,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
         let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}, ${revData.postnr || ""} ${revData.postnrnavn || ""}`;
         marker.bindPopup(`
           ${addressStr}<br>
-          <a href="#" title="Kopier til Eva.net" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}');showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
+          <a href="#" title="Kopier til Eva.net" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
           &nbsp;
           <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
         `).openPopup();
