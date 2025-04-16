@@ -171,7 +171,7 @@ var matrikelLayer = L.geoJSON(null, {
 // Eksempel: matrikel WFS. Tilføj headers: { token: "AndersKabel" }
 fetch("https://services.dataforsyningen.dk/Matrikelinfo/wfs?service=WFS&version=1.1.0&request=GetFeature&typeName=Matrikelinfo:matrikel_jordstykke&outputFormat=application/json", {
   headers: {
-    token: "AndersKabel"  // Indsæt dit faktiske token
+    token: a63a88838c24fc85d47f32cde0ec0144
   }
 })
   .then(response => response.json())
@@ -196,7 +196,7 @@ var kommunegrænserLayer = L.geoJSON(null, {
 
 fetch("https://api.dataforsyningen.dk/kommuner?format=geojson", {
   headers: {
-    token: "AndersKabel" // Hvis påkrævet for 'kommuner' endpoint
+    token: a63a88838c24fc85d47f32cde0ec0144
   }
 })
   .then(response => response.json())
@@ -322,7 +322,7 @@ map.on('click', function(e) {
   let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
   fetch(revUrl, {
     headers: {
-      token: "AndersKabel" // hvis nødvendigt for reverse-service
+      token: a63a88838c24fc85d47f32cde0ec0144
     }
   })
     .then(r => r.json())
@@ -425,7 +425,7 @@ async function updateInfoBox(data, lat, lon) {
       let komUrl = `https://api.dataforsyningen.dk/kommuner/${kommunekode}`;
       let komResp = await fetch(komUrl, {
         headers: {
-          token: "AndersKabel" // Hvis kræves
+          token: a63a88838c24fc85d47f32cde0ec0144
         }
       });
       if (komResp.ok) {
@@ -448,7 +448,7 @@ async function updateInfoBox(data, lat, lon) {
     let cvrUrl = `https://api.dataforsyningen.dk/cvr/v2/virksomhed?adresse=${encodeURIComponent(adresseStr)}`;
     fetch(cvrUrl, {
       headers: {
-        token: "AndersKabel" // Indsæt token
+        token: a63a88838c24fc85d47f32cde0ec0144
       }
     })
       .then(r => r.json())
@@ -531,7 +531,7 @@ function doSearchCVRAutocomplete(query) {
   let cvrAutoUrl = `https://api.dataforsyningen.dk/cvr/v2/virksomhed/autocomplete?q=${encodeURIComponent(query)}`;
   return fetch(cvrAutoUrl, {
     headers: {
-      token: "AndersKabel" // Indsæt token
+      token: a63a88838c24fc85d47f32cde0ec0144
     }
   })
     .then(r => r.json())
@@ -572,7 +572,7 @@ searchInput.addEventListener("input", function() {
     let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lonNum}&y=${latNum}&struktur=flad`;
     fetch(revUrl, {
       headers: {
-        token: "AndersKabel" 
+        token: a63a88838c24fc85d47f32cde0ec0144
       }
     })
       .then(r => r.json())
@@ -749,7 +749,7 @@ function doSearchRoad(query, listElement, inputField, which) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`;
   fetch(addrUrl, {
     headers: {
-      token: "AndersKabel"
+      token: a63a88838c24fc85d47f32cde0ec0144
     }
   })
     .then(response => response.json())
@@ -785,7 +785,7 @@ function doSearchRoad(query, listElement, inputField, which) {
           let detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${adgangsId}?struktur=mini`;
           fetch(detailUrl, {
             headers: {
-              token: "AndersKabel"
+              token: a63a88838c24fc85d47f32cde0ec0144
             }
           })
             .then(r => r.json())
@@ -876,7 +876,7 @@ function doSearch(query, listElement) {
   Promise.all([
     fetch(addrUrl, {
       headers: {
-        token: "AndersKabel"
+        token: a63a88838c24fc85d47f32cde0ec0144
       }
     }).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
     fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; }),
@@ -939,7 +939,7 @@ function doSearch(query, listElement) {
         }
         else if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
           fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`, {
-            headers: { token: "AndersKabel" }
+            headers: { token: a63a88838c24fc85d47f32cde0ec0144 }
           })
             .then(r => r.json())
             .then(addressData => {
@@ -948,7 +948,7 @@ function doSearch(query, listElement) {
               placeMarkerAndZoom([lat, lon], obj.tekst);
               let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
               fetch(revUrl, {
-                headers: { token: "AndersKabel" }
+                headers: { token: a63a88838c24fc85d47f32cde0ec0144 }
               })
                 .then(rr => rr.json())
                 .then(fullData => {
@@ -997,7 +997,7 @@ async function getNavngivenvejKommunedelGeometry(husnummerId) {
   try {
     let r = await fetch(url, {
       headers: {
-        token: "AndersKabel"
+        token: a63a88838c24fc85d47f32cde0ec0144
       }
     });
     let data = await r.json();
@@ -1142,7 +1142,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       try {
         let resp = await fetch(revUrl, {
           headers: {
-            token: "AndersKabel"
+            token: a63a88838c24fc85d47f32cde0ec0144
           }
         });
         let revData = await resp.json();
