@@ -160,39 +160,14 @@ fetch("FalckStationer_data.json")
   .catch(err => console.error("Fejl ved hentning af Falck Ass data:", err));
 
 /***************************************************
- * Opret matrikelnumre layer (GeoJSON fra Dataforsyningen)
- ***************************************************/
-var matrikelLayer = L.geoJSON(null, {
-  style: function(feature) {
-    return {
-      color: "#ff7800",
-      weight: 2,
-      fillOpacity: 0.1
-    };
-  },
-  onEachFeature: function(feature, layer) {
-    // Vi antager, at ejendommens matrikelnummer er i feature.properties.matrikelnummer
-    layer.bindPopup("Matrikelnummer: " + feature.properties.matrikelnummer);
-  }
-});
-
-fetch("https://api.dataforsyningen.dk/matrikel?format=geojson")
-  .then(response => response.json())
-  .then(data => {
-    matrikelLayer.addData(data);
-    console.log("Matrikelnumre hentet:", data);
-  })
-  .catch(err => console.error("Fejl ved hentning af matrikelnumre:", err));
-
-/***************************************************
- * Opret kommunegrænser layer (GeoJSON fra Dataforsyningen)
+ * Opret kommunegrænser layer (fra Dataforsyningen)
  ***************************************************/
 var kommunegrænserLayer = L.geoJSON(null, {
   style: function(feature) {
     return {
       color: "#3388ff",
       weight: 2,
-      fillOpacity: 0
+      fillOpacity: 0 // Ingen udfyldning
     };
   }
 });
@@ -214,10 +189,11 @@ const baseMaps = {
 };
 const overlayMaps = { 
   "Strandposter": redningsnrLayer,
-  "Falck Ass": falckAssLayer,
-  "Kommunegrænser": kommunegrænserLayer,
-  "Matrikelnumre": matrikelLayer
+  "Falck Ass": falckAssLayer
 };
+
+// Tilføj Kommunegrænser til overlayMaps
+overlayMaps["Kommunegrænser"] = kommunegrænserLayer;
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -336,7 +312,7 @@ map.on('click', function(e) {
 
 /***************************************************
  * updateInfoBox
- * Viser fuld adresse, Eva.Net/Notes-links i infobox,
+ * Viser fuld adresse, Eva.Net/Notes-links i infobox
  * Viser kommunekode/vejkode i overlay
  * Samtidig hentes også aktive CVR-resultater
  ***************************************************/
@@ -931,7 +907,7 @@ function doSearch(query, listElement) {
  * getNavngivenvejKommunedelGeometry
  ***************************************************/
 async function getNavngivenvejKommunedelGeometry(husnummerId) {
-  let url = `https://services.dataforsyningen.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
+  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
   console.log("Henter navngivenvejkommunedel-data:", url);
   try {
     let r = await fetch(url);
