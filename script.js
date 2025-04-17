@@ -862,7 +862,7 @@ function doSearch(query, listElement) {
       } else if (obj.type === "stednavn") {
         li.innerHTML = `📍 ${obj.navn}`;
       }
-      fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+      fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}?struktur=flad`)
   .then(r => r.json())
   .then(addressData => {
     let [lon, lat] = addressData.adgangspunkt.koordinater;
