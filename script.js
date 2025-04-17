@@ -862,18 +862,28 @@ function doSearch(query, listElement) {
       } else if (obj.type === "stednavn") {
         li.innerHTML = `📍 ${obj.navn}`;
       }
-      fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}?struktur=flad`)
-  .then(r => r.json())
-  .then(addressData => {
-    let [lon, lat] = addressData.adgangspunkt.koordinater;
-    setCoordinateBox(lat, lon);
-    placeMarkerAndZoom([lat, lon], obj.tekst);
-    updateInfoBox(addressData, lat, lon); // Opdater infobox med data
-    resultsList.innerHTML = "";
-    vej1List.innerHTML = "";
-    vej2List.innerHTML = "";
-  })
-  .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+            if (obj.type === "adresse") {
+        li.innerHTML = `🏠 ${obj.tekst}`;
+        fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}?struktur=flad`)
+          .then(r => r.json())
+          .then(addressData => {
+            let [lon, lat] = addressData.adgangspunkt.koordinater;
+            setCoordinateBox(lat, lon);
+            placeMarkerAndZoom([lat, lon], obj.tekst);
+            updateInfoBox(addressData, lat, lon);
+            resultsList.innerHTML = "";
+            vej1List.innerHTML = "";
+            vej2List.innerHTML = "";
+          })
+          .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+      } else if (obj.type === "stednavn" &&
+                 obj.bbox && obj.bbox.coordinates &&
+                 obj.bbox.coordinates[0] &&
+                 obj.bbox.coordinates[0].length > 0) {
+        // din existing stednavn‑logik
+      } else if (obj.type === "strandpost") {
+        // din existing strandpost‑logik
+      }
         else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
           let [x, y] = obj.bbox.coordinates[0][0];
           placeMarkerAndZoom([x, y], obj.navn);
