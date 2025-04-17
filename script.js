@@ -864,22 +864,19 @@ function doSearch(query, listElement) {
       }
       li.addEventListener("click", function() {
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-  fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}?struktur=flad`)
+  fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
     .then(r => r.json())
     .then(addressData => {
       let [lon, lat] = addressData.adgangspunkt.koordinater;
       setCoordinateBox(lat, lon);
       placeMarkerAndZoom([lat, lon], obj.tekst);
-
-      // Send data direkte til updateInfoBox
       updateInfoBox(addressData, lat, lon); // Opdater infobox med data
       resultsList.innerHTML = "";
       vej1List.innerHTML = "";
       vej2List.innerHTML = "";
     })
-     .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
-  }
-});
+    .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+}
         else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
           let [x, y] = obj.bbox.coordinates[0][0];
           placeMarkerAndZoom([x, y], obj.navn);
