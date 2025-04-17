@@ -866,7 +866,7 @@ function doSearch(query, listElement) {
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
 console.log("API-kald med id:", obj.adgangsadresse.id); // Debugging
           
-  fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}?struktur=flad`)
+ fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
     .then(r => r.json())
     .then(addressData => {
       let [lon, lat] = addressData.adgangspunkt.koordinater;
