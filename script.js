@@ -869,6 +869,7 @@ console.log("API-kald med id:", obj.adgangsadresse.id); // Debugging
  fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
     .then(r => r.json())
     .then(addressData => {
+      console.log("API-respons:", addressData); // Log hele responsen
       let [lon, lat] = addressData.adgangspunkt.koordinater;
       setCoordinateBox(lat, lon);
       placeMarkerAndZoom([lat, lon], obj.tekst);
