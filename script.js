@@ -864,7 +864,9 @@ function doSearch(query, listElement) {
       }
       li.addEventListener("click", function() {
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-  fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+console.log("API-kald med id:", obj.adgangsadresse.id); // Debugging
+          
+  fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}?struktur=flad`)
     .then(r => r.json())
     .then(addressData => {
       let [lon, lat] = addressData.adgangspunkt.koordinater;
