@@ -868,18 +868,7 @@ function doSearch(query, listElement) {
     let [lon, lat] = addressData.adgangspunkt.koordinater;
     setCoordinateBox(lat, lon);
     placeMarkerAndZoom([lat, lon], obj.tekst);
-
-    // Transformér data til samme struktur som reverse geocoding
-    let data = {
-      vejnavn: addressData.vejnavn || "",
-      husnr: addressData.husnr || "",
-      postnr: addressData.postnr || "",
-      postnrnavn: addressData.postnrnavn || "",
-      kommunekode: addressData.kommunekode || "?",
-      vejkode: addressData.vejkode || "?"
-    };
-    updateInfoBox(data, lat, lon); // Opdater infobox med data
-
+    updateInfoBox(addressData, lat, lon); // Opdater infobox med data
     resultsList.innerHTML = "";
     vej1List.innerHTML = "";
     vej2List.innerHTML = "";
