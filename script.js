@@ -864,29 +864,21 @@ function doSearch(query, listElement) {
       }
       li.addEventListener("click", function() {
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-  fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+  fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}?struktur=flad`)
     .then(r => r.json())
     .then(addressData => {
-      console.log("Detailed address data received:", addressData);
       let [lon, lat] = addressData.adgangspunkt.koordinater;
       setCoordinateBox(lat, lon);
       placeMarkerAndZoom([lat, lon], obj.tekst);
 
-      // Transformér data til samme struktur som reverse geocoding
-      let data = {
-        vejnavn: addressData.vejnavn || "",
-        husnr: addressData.husnr || "",
-        postnr: addressData.postnr || "",
-        postnrnavn: addressData.postnrnavn || "",
-        kommunekode: addressData.kommunekode || "?",
-        vejkode: addressData.vejkode || "?"
-      };
-      updateInfoBox(data, lat, lon); // Opdater infobox med data
-
+      // Send data direkte til updateInfoBox
+      updateInfoBox(addressData, lat, lon); // Opdater infobox med data
       resultsList.innerHTML = "";
       vej1List.innerHTML = "";
       vej2List.innerHTML = "";
     })
+    .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+}
     .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
 }
         else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
