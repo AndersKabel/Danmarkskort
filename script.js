@@ -883,6 +883,7 @@ function doSearch(query, listElement) {
     })
     .catch(err => console.error("Fejl i reverse geocoding:", err));
 }
+}
         else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
           let [x, y] = obj.bbox.coordinates[0][0];
           placeMarkerAndZoom([x, y], obj.navn);
