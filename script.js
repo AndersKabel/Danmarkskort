@@ -864,21 +864,24 @@ function doSearch(query, listElement) {
       }
       li.addEventListener("click", function() {
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-console.log("API-kald med id:", obj.adgangsadresse.id); // Debugging
-          
- fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+  console.log("API-kald med id:", obj.adgangsadresse.id); // Debugging
+
+  // Lav reverse geocoding-kald med id
+  let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${obj.adgangsadresse.x}&y=${obj.adgangsadresse.y}&struktur=flad`;
+  fetch(revUrl)
     .then(r => r.json())
-    .then(addressData => {
-      console.log("API-respons:", addressData); // Log hele responsen
-      let [lon, lat] = addressData.adgangspunkt.koordinater;
+    .then(data => {
+      console.log("Reverse geocoding respons:", data); // Debugging
+
+      let lat = data.y;
+      let lon = data.x;
       setCoordinateBox(lat, lon);
       placeMarkerAndZoom([lat, lon], obj.tekst);
-      updateInfoBox(addressData, lat, lon); // Opdater infobox med data
-      resultsList.innerHTML = "";
-      vej1List.innerHTML = "";
-      vej2List.innerHTML = "";
+
+      // Opdater infobox med data fra reverse geocoding
+      updateInfoBox(data, lat, lon);
     })
-    .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+    .catch(err => console.error("Fejl i reverse geocoding:", err));
 }
         else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
           let [x, y] = obj.bbox.coordinates[0][0];
