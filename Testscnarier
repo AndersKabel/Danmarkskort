@@ -1,0 +1,75 @@
+Søgefelt (adresse):
+* Tast adresse Oksenbjergevej 28, 7323
+  - Tjek at autocomplete virker
+  - Tjek at stednavn kommer øverst i result list (når der er tastet Oksenbjerge)
+  - Tjek at piletasterne virker (highlighter result list)
+  - Tjek at man kan vælge adresse med Enter
+  - Tjek at place marker and zoom virker
+* Tjek at google streetview link virker
+  - Åbner op i ny fane og på valgte adresse
+* Tjek at Skråfoto link virker
+  - Åbner op i ny fane 
+  - Tjek at der lige pauses ca 1 sek. og info (kopierret udklipsholder) vises
+  - Tjek at når man CTRL+V i skråfoto får indsat den valgte adresse fra kortet
+* Tjek at den korrekte adresse vises i info-boksen
+* Tjek ved klik på Eva.Net at der kopieres i formatet: Oksenbjergevej,28,7323 
+* Tjek ved klik på Notes, at der kopieres i formatet: Oksenbjergevej 28, 7323 Give
+* Tjek at der vises kommune navn samt info omkring døde dyr og gader og veje.
+* Tjek at ved valg af radius 10 km at der sættes en ring på en radius af 10 km centreret fra valgte adresse 
+  - Tjek det samme for 50 og 100 km. 
+  - Tjek at cirklen forsvinder igen når man klikker på den igen.
+* Tjek at der sættes koordinater i bunden af skærmen
+* Tjek at der sættes kommunekode og vejkode nederst i venstre side
+* Tjek at info-boksen og marker slettes, når man trykker på kryds i info-boksen
+  - Tjek det samme ved klik på kryds i search feltet
+
+Klik på kort:
+* Tjek at google streetview link virker
+  - Åbner op i ny fane og på valgte adresse
+* Tjek at Skråfoto link virker
+  - Åbner op i ny fane 
+  - Tjek at der lige pauses ca 1 sek. og info (kopierret udklipsholder) vises
+  - Tjek at når man CTRL+V i skråfoto får indsat den valgte adresse fra kortet
+* Tjek at den korrekte adresse vises i info-boksen
+* Tjek ved klik på Eva.Net at der kopieres i formatet: Oksenbjergevej,28,7323 
+* Tjek ved klik på Notes, at der kopieres i formatet: Oksenbjergevej 28, 7323 Give
+* Tjek at der vises kommune navn samt info omkring døde dyr og gader og veje.
+* Tjek at ved valg af radius 10 km at der sættes en ring på en radius af 10 km centreret fra valgte adresse 
+  - Tjek det samme for 50 og 100 km. 
+  - Tjek at cirklen forsvinder igen når man klikker på den igen.
+* Tjek at der sættes koordinater i bunden af skærmen
+* Tjek at der sættes kommunekode og vejkode nederst i venstre side
+* Tjek at info-boksen og marker slettes, når man trykker på kryds i info-boksen
+  - Tjek det samme ved klik på kryds i search feltet
+
+Find statsvej funktionen:
+* Tjek ved klik på kortet (ikke på en vej), tjek at der ikke vises nogen ekstra boks med info (kun infoboksen skal dukke op)
+* Tjek ved klik på kortet (på en vej), tjek at der kommer en ekstra boks op der fortæller:
+ - Administrativt nummer
+ - Forgrening
+ - Vejnavn
+ - Bestyrer
+ - Vejtype
+* Tjek ved klik på en statsvej, at der kommer en ekstra boks op der fortæller:
+ - Administrativt nummer
+ - Forgrening
+ - Vejnavn
+ - Bestyrer
+ - Vejtype
+* Tjek at begge infobokse forsvinder ved klik på kryds i en af boksene.
+
+Find vejkryds funktionen: 
+* Tjek at autocomplete virker i både vej1 og vej2 felterne
+* Tjek at der vises adresse + by + postnummer i parentes i begge felter
+* Tjek at piletasterne virker 
+* Tjek at vælg adresse med Enter virker for begge felter
+* Tjek at TAB tasten virker
+* Tjek at place marker and zoom virker og der kommer en lille popup vindue med nærmeste adresse og Eva.Net og Notes.
+* Tjek kopierfunktion og format for begge (samme fra infoboksen)
+* Tjek at popup boks forsvinder ved klik på kryds
+* Tjek at klik på kryds i vej1 eller vej2 felterne kun sletter vejnavnet for den pågældende boks.
+
+Layer funktionen: 
+* Tjek at hvert lag kaldes og fjernes igen når det vælges fra. 
+* Tjek at når strandposter laget er kaldt, at man så kan søge på strandposter (dette virker ikke endnu).
+
