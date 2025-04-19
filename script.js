@@ -870,6 +870,15 @@ function doSearch(query, listElement) {
       let [lon, lat] = addressData.adgangspunkt.koordinater;
       setCoordinateBox(lat, lon);
       placeMarkerAndZoom([lat, lon], obj.tekst);
+      // Ekstra reverse-geocode-kald for at opdatere infoBox
+let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+fetch(revUrl)
+  .then(r => r.json())
+  .then(reverseData => {
+    updateInfoBox(reverseData, lat, lon);
+  })
+  // Ekstra reverse-geocode-kald for at opdatere infoBox slutter igen her
+  .catch(err => console.error("Reverse geocoding fejl:", err));
       updateInfoBox(addressData, lat, lon); // Opdater infobox med data
       resultsList.innerHTML = "";
       vej1List.innerHTML = "";
