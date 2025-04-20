@@ -254,6 +254,7 @@ function setCoordinateBox(lat, lon) {
  * Global variabel og funktioner til Strandposter-søgning
  ***************************************************/
 var allStrandposter = [];
+var strandposterReady = false;
 function fetchAllStrandposter() {
   let wfsUrl = "https://kort.strandnr.dk/geoserver/nobc/ows?service=WFS" +
                "&version=1.1.0" +
@@ -266,6 +267,7 @@ function fetchAllStrandposter() {
          .then(geojson => {
            if (geojson.features) {
              allStrandposter = geojson.features;
+             strandposterReady = true;
              console.log("Alle strandposter hentet:", allStrandposter);
              setLastUpdated();
            } else {
@@ -276,14 +278,15 @@ function fetchAllStrandposter() {
            console.error("Fejl ved hentning af strandposter:", err);
          });
 }
-map.on("overlayadd", function(event) {
   if (event.name === "Strandposter") {
     console.log("Strandposter laget er tilføjet.");
-    if (shouldUpdateData()) {
-      console.log("Data er ældre end 24 timer – henter opdaterede strandposter...");
+    
+    // Hent altid data ved første aktivering, eller hvis der ikke er nogen gemt endnu
+    if (allStrandposter.length === 0) {
+      console.log("Henter strandposter-data første gang...");
       fetchAllStrandposter();
     } else {
-      console.log("Data er opdaterede – ingen hentning nødvendig.");
+      console.log("Strandposter-data allerede hentet.");
     }
   }
 });
