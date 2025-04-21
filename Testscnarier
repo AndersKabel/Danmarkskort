@@ -1,4 +1,4 @@
-Tjek af kortet loader som det skal
+1. Tjek af kortet loader som det skal
 
 Søgefelt (adresse):
 * Tast adresse Oksenbjergevej 28, 7323
@@ -25,7 +25,7 @@ Søgefelt (adresse):
 * Tjek at info-boksen og marker slettes, når man trykker på kryds i info-boksen
   - Tjek det samme ved klik på kryds i search feltet
 
-Klik på kort:
+2. Klik på kort:
 * Tjek at google streetview link virker
   - Åbner op i ny fane og på valgte adresse
 * Tjek at Skråfoto link virker
@@ -44,7 +44,7 @@ Klik på kort:
 * Tjek at info-boksen og marker slettes, når man trykker på kryds i info-boksen
   - Tjek det samme ved klik på kryds i search feltet
 
-Find statsvej funktionen:
+3. Find statsvej funktionen:
 * Tjek ved klik på kortet (ikke på en vej), tjek at der ikke vises nogen ekstra boks med info (kun infoboksen skal dukke op)
 * Tjek ved klik på kortet (på en vej), tjek at der kommer en ekstra boks op der fortæller:
  - Administrativt nummer
@@ -60,7 +60,7 @@ Find statsvej funktionen:
  - Vejtype
 * Tjek at begge infobokse forsvinder ved klik på kryds i en af boksene.
 
-Find vejkryds funktionen: 
+4. Find vejkryds funktionen: 
 * Tjek at autocomplete virker i både vej1 og vej2 felterne
 * Tjek at der vises adresse + by + postnummer i parentes i begge felter
 * Tjek at piletasterne virker 
@@ -71,7 +71,10 @@ Find vejkryds funktionen:
 * Tjek at popup boks forsvinder ved klik på kryds
 * Tjek at klik på kryds i vej1 eller vej2 felterne kun sletter vejnavnet for den pågældende boks.
 
-Layer funktionen: 
+5. Layer funktionen: 
 * Tjek at hvert lag kaldes og fjernes igen når det vælges fra. 
-* Tjek at når strandposter laget er kaldt, at man så kan søge på strandposter (dette virker ikke endnu).
+
+6. Strandposter
+* Tjek at når strandposter laget er kaldt, at man så kan søge på strandposter (f.eks. C031).
+  - Tjek at når Strandpost vælges, at der så zommes til Strandpost og pop-up vindue samt markers
 
