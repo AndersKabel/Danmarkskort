@@ -645,13 +645,18 @@ function highlightVej2Item() {
  ***************************************************/
 clearBtn.addEventListener("click", function() {
   searchInput.value = "";
-  resultsList.innerHTML = "";
   clearBtn.style.display = "none";
   document.getElementById("infoBox").style.display = "none";
   document.getElementById("statsvejInfoBox").style.display = "none";
   resetCoordinateBox();
   resetInfoBox();
   searchInput.focus();
+  if (currentMarker) {
+    map.removeLayer(currentMarker);
+    currentMarker = null;
+  }
+  resultsList.innerHTML = "";
+  resetCoordinateBox();
 });
 
 function resetInfoBox() {
