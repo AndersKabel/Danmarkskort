@@ -256,27 +256,23 @@ function setCoordinateBox(lat, lon) {
 var allStrandposter = [];
 var strandposterReady = false;
 function fetchAllStrandposter() {
-  let wfsUrl = "https://kort.strandnr.dk/geoserver/nobc/ows?service=WFS" +
-               "&version=1.1.0" +
-               "&request=GetFeature" +
-               "&typeName=nobc:Redningsnummer" +
-               "&outputFormat=application/json";
-  console.log("Henter alle strandposter fra:", wfsUrl);
-  return fetch(wfsUrl)
-         .then(resp => resp.json())
-         .then(geojson => {
-           if (geojson.features) {
-             allStrandposter = geojson.features;
-             strandposterReady = true;
-             console.log("Alle strandposter hentet:", allStrandposter);
-             setLastUpdated();
-           } else {
-             console.warn("Ingen strandposter modtaget.");
-           }
-         })
-         .catch(err => {
-           console.error("Fejl ved hentning af strandposter:", err);
-         });
+ const localUrl = "Strandposter";
+console.log("Henter alle strandposter fra lokal fil:", localUrl);
+return fetch(localUrl)
+  .then(resp => resp.json())
+  .then(geojson => {
+    if (geojson.features) {
+      allStrandposter = geojson.features;
+      strandposterReady = true;
+      console.log("Alle strandposter hentet fra lokal fil:", allStrandposter);
+      setLastUpdated();
+    } else {
+      console.warn("Ingen strandposter modtaget fra lokal fil.");
+    }
+  })
+  .catch(err => {
+    console.error("Fejl ved hentning af lokal strandposter-fil:", err);
+  });
 }
  map.on("overlayadd", function(event) {
   if (event.name === "Strandposter") {
