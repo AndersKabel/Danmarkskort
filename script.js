@@ -278,9 +278,10 @@ function fetchAllStrandposter() {
            console.error("Fejl ved hentning af strandposter:", err);
          });
 }
+ map.on("overlayadd", function(event) {
   if (event.name === "Strandposter") {
     console.log("Strandposter laget er tilføjet.");
-    
+
     // Hent altid data ved første aktivering, eller hvis der ikke er nogen gemt endnu
     if (allStrandposter.length === 0) {
       console.log("Henter strandposter-data første gang...");
