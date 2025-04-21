@@ -1060,11 +1060,12 @@ const infoCloseBtn = document.getElementById("infoCloseBtn");
 infoCloseBtn.addEventListener("click", function() {
   document.getElementById("infoBox").style.display = "none";
   document.getElementById("statsvejInfoBox").style.display = "none";
-  resetCoordinateBox();
   if (currentMarker) {
     map.removeLayer(currentMarker);
     currentMarker = null;
   }
+  resetCoordinateBox();
+  resultsList.innerHTML = "";
 });
 
 /***************************************************
