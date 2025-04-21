@@ -202,11 +202,16 @@ var currentMarker;
 /***************************************************
  * Kommunedata hentet fra "Kommuner.xlsx"
  ***************************************************/
-const kommuneInfo = {
-  "Herning": { "Døde dyr": "Nej", "Gader og veje": "Nej" },
-  "Vejle":   { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
-  "Vejen":   { "Døde dyr": "Ja",  "Gader og veje": "Ja" }
-};
+let kommuneInfo = {};
+
+fetch("kommunedata.json")
+  .then(r => r.json())
+  .then(data => {
+    kommuneInfo = data;
+    console.log("Kommunedata indlæst:", kommuneInfo);
+  })
+  .catch(err => console.error("Fejl ved hentning af kommunedata:", err));
+
 
 /***************************************************
  * Ny hjælpefunktion: Nulstil koordinatboksen
