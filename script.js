@@ -896,13 +896,30 @@ fetch(revUrl)
           setCoordinateBox(obj.lat, obj.lon);
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
           let marker = currentMarker;
-          let props = obj.feature.properties;
-          let ppl = props.ppl || "N/A";
-          let opdateretDato = new Date().toLocaleString();
-          marker.bindPopup(
-    `<strong>${obj.tekst}</strong><br>
-    <a href="#" onclick="alert('Se PPL funktion'); return false;">Se PPL</a>`
-).openPopup();
+          let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${obj.lon}&y=${obj.lat}&struktur=flad`;
+fetch(revUrl)
+  .then(r => r.json())
+  .then(revData => {
+    const vejnavn     = revData?.adgangsadresse?.vejnavn     || revData?.vejnavn || "?";
+    const husnr       = revData?.adgangsadresse?.husnr       || revData?.husnr   || "";
+    const postnr      = revData?.adgangsadresse?.postnr      || revData?.postnr  || "?";
+    const postnrnavn  = revData?.adgangsadresse?.postnrnavn  || revData?.postnrnavn || "";
+    const adresseStr  = `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
+    const evaFormat   = `${vejnavn},${husnr},${postnr}`;
+    const notesFormat = `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
+
+    marker.bindPopup(`
+      <strong>${obj.tekst}</strong><br>
+      ${adresseStr}<br>
+      <a href="#" title="Kopier til Eva.net" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
+      &nbsp;
+      <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
+    `).openPopup();
+  })
+  .catch(err => {
+    console.error("Reverse geocoding for strandpost fejlede:", err);
+    marker.bindPopup(`<strong>${obj.tekst}</strong><br>(Reverse geocoding fejlede)`).openPopup();
+  });
         }
       });
       listElement.appendChild(li);
