@@ -920,6 +920,14 @@ fetch(revUrl)
       &nbsp;
       <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
     `).openPopup();
+    marker.on("popupclose", function () {
+  map.removeLayer(marker);
+  currentMarker = null;
+  document.getElementById("infoBox").style.display = "none";
+  document.getElementById("statsvejInfoBox").style.display = "none";
+  resetCoordinateBox();
+  resultsList.innerHTML = "";
+});
   })
   .catch(err => {
     console.error("Reverse geocoding for strandpost fejlede:", err);
