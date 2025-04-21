@@ -76,6 +76,9 @@ Søgefelt (adresse):
 
 6. Strandposter
 * Tjek at når strandposter laget er kaldt, at man så kan søge på strandposter (f.eks. C031).
+  - Tjek at piletaster virker og man kan vælge Redningsnummer med Enter
   - Tjek at når Strandpost vælges, at der så zommes til Strandpost og pop-up vindue vises samt marker placeres.
   - Tjek at pop-up vinduet forsvinder når der trykkes på kryds i pop-up vindue eller i search feltet.
+  - Tjek kopiformatet på Eva.Net (Oksenbjergevej,28,7323) og Notes (Oksenbjergevej 28, 7323 Give) er korrekte
+  - Tjek at pop-up vinduet og marker forsvinder når man trykker på krydset i vinduet og/eller kryds i search feltet.
 
