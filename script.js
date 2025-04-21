@@ -900,11 +900,9 @@ fetch(revUrl)
           let ppl = props.ppl || "N/A";
           let opdateretDato = new Date().toLocaleString();
           marker.bindPopup(
-              `<strong>${obj.tekst}</strong><br>
-              PPL: ${ppl}<br>
-              Opdateret: ${opdateretDato}<br>
-              <a href="#" onclick="alert('Se PPL funktion'); return false;">Se PPL</a>`
-          ).openPopup();
+    `<strong>${obj.tekst}</strong><br>
+    <a href="#" onclick="alert('Se PPL funktion'); return false;">Se PPL</a>`
+).openPopup();
         }
       });
       listElement.appendChild(li);
