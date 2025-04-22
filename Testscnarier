@@ -22,7 +22,7 @@ Søgefelt (adresse):
   - Tjek at cirklen forsvinder igen når man klikker på den igen.
 * Tjek at der sættes koordinater i bunden af skærmen
 * Tjek at der sættes kommunekode og vejkode nederst i venstre side
-* Tjek at info-boksen og marker slettes, når man trykker på kryds i info-boksen
+* Tjek at info-boksen, marker, kommunekode og vejkode slettes, når man trykker på kryds i info-boksen
   - Tjek det samme ved klik på kryds i search feltet
 
 2. Klik på kort:
