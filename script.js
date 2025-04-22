@@ -662,8 +662,6 @@ clearBtn.addEventListener("click", function() {
   }
   resultsList.innerHTML = "";
   resetCoordinateBox();
-  document.getElementById("kommuneOverlay").textContent = "";
-document.getElementById("kommuneOverlay").style.display = "none";
 });
 
 function resetInfoBox() {
