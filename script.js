@@ -1085,6 +1085,7 @@ infoCloseBtn.addEventListener("click", function() {
   }
   resetCoordinateBox();
   resultsList.innerHTML = "";
+  document.getElementById("kommuneOverlay").style.display = "none";
 });
 
 /***************************************************
