@@ -1083,6 +1083,8 @@ infoCloseBtn.addEventListener("click", function() {
   }
   resetCoordinateBox();
   resultsList.innerHTML = "";
+  document.getElementById("kommuneOverlay").textContent = "";
+document.getElementById("kommuneOverlay").style.display = "none";
 });
 
 /***************************************************
