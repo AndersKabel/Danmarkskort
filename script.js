@@ -383,8 +383,7 @@ async function updateInfoBox(data, lat, lon) {
       window.open(skråfotoLink.href, '_blank');
     }, 1000);
   };
-
-  overlay.textContent = `Kommunekode: ${kommunekode} | Vejkode: ${vejkode}`;
+  
   overlay.style.display = "block";
 
   if (resultsList) resultsList.innerHTML = "";
