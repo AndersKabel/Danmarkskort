@@ -208,14 +208,14 @@ L.polyline(
 
 const baseMaps = {
   "OpenStreetMap": osmLayer,
-  "Satellit": ortofotoLayer,
-  "25 km grænse": grænse25Layer
+  "Satellit": ortofotoLayer
 };
 const overlayMaps = {
   "Strandposter": redningsnrLayer,
   "Falck Ass": falckAssLayer,
   "Kommunegrænser": kommunegrænserLayer,
-  "Dyrenes Beskyttelse": dyrenesBeskyttelseLink
+  "Dyrenes Beskyttelse": dyrenesBeskyttelseLink,
+  "25 km grænse": grænse25Layer
 };
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
