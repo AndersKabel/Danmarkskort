@@ -203,7 +203,7 @@ var lat25North    = latE65 + (25 / 111.32);
 L.polyline(
   [ [lat25North, 10.5], [lat25North, 13.0] ],    // juster long: fra vest til øst
   { color: 'red', weight: 2, dashArray: '5,5' }
-).addTo(grænse25Layer);
+).addTo(border25Layer);
 // --- SLUT: 25 km grænse-lag ---
 
 const baseMaps = {
