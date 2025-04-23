@@ -190,6 +190,7 @@ var dyrenesBeskyttelseLink = L.layerGroup();
 const baseMaps = {
   "OpenStreetMap": osmLayer,
   "Satellit": ortofotoLayer
+  "25 km grænse": graense25Layer
 };
 const overlayMaps = {
   "Strandposter": redningsnrLayer,
