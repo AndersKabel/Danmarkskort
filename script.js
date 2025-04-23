@@ -192,6 +192,14 @@ const overlayMaps = {
   "Strandposter": redningsnrLayer,
   "Falck Ass": falckAssLayer,
   "Kommunegrænser": kommunegrænserLayer
+    "Dyrenes Beskyttelse": {
+    onAdd: function () {
+      window.open("https://kort.dyrenesbeskyttelse.dk/db/dvc.nsf/kort", "_blank");
+      // Returner en tom Leaflet layer group så Leaflet ikke fejler
+      return L.layerGroup();
+    },
+    onRemove: function () {}
+  },
 };
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
