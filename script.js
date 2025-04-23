@@ -193,10 +193,8 @@ var originalBorderCoords = [];
 fetch("dansk-tysk-grænse.geojson")
   .then(r => r.json())
   .then(g => {
-    // 1) hent de rå [lon,lat]-koordinater
     originalBorderCoords = g.features[0].geometry.coordinates;
-
-    // 2) flyt hvert punkt 25 000 m mod syd i UTM (zone 32)
+    // flyt hvert punkt 25 000 m mod syd i UTM (zone 32)
     var offsetCoords = originalBorderCoords.map(function(coord) {
       var lon = coord[0], lat = coord[1];
       // til UTM
@@ -206,38 +204,14 @@ fetch("dansk-tysk-grænse.geojson")
       var [lon2, lat2] = proj4("EPSG:25832", "EPSG:4326", [x, y]);
       return [lat2, lon2];
     });
-
-    // 3) tegn stiplet rød linje på border25Layer
+    // tegn stiplet rød linje
     L.polyline(offsetCoords, {
       color: 'red',
       weight: 2,
       dashArray: '5,5'
     }).addTo(border25Layer);
   });
-// hent og tegn 25 km-offset for den svenske grænse
-fetch("svensk-grænse.geojson")
-  .then(r => r.json())
-  .then(g => {
-    // håndter MultiLineString korrekt – én linje ad gangen
-    g.features[0].geometry.coordinates.forEach(function(line) {
-      // line er et array af [lon,lat]
-      var swOffset = line.map(function(coord) {
-        var lon = coord[0], lat = coord[1];
-        // til UTM
-        var [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-        y -= 25000;  // træk 25 km mod syd
-        // tilbage til lat/lon
-        var [lon2, lat2] = proj4("EPSG:25832", "EPSG:4326", [x, y]);
-        return [lat2, lon2];
-      });
-      L.polyline(swOffset, {
-        color: 'red',
-        weight: 2,
-        dashArray: '5,5'
-      }).addTo(border25Layer);
-    });
-  })
-  .catch(err => console.error("Kunne ikke hente svensk-grænse.geojson:", err));
+
 const baseMaps = {
   "OpenStreetMap": osmLayer,
   "Satellit": ortofotoLayer
