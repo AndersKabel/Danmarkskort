@@ -6,8 +6,7 @@
       "properties": {},
       "geometry": {
         "type": "LineString",
-        "coordinates": [      
-[
+        "coordinates": [
   [8.555260, 54.920834],
   [8.636439, 54.911420],
   [8.637555, 54.911281],
