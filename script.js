@@ -185,19 +185,26 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
  * (Matrikel-laget og CVR–rester er fjernet)
  ***************************************************/
 const baseMaps = { 
+ // ——— INSERT (new “Dyrenes Beskyttelse” pseudo-layer) ———
+var dyrenesBeskyttelseLink = L.layerGroup();
+
+const baseMaps = {
   "OpenStreetMap": osmLayer,
   "Satellit": ortofotoLayer
 };
-const overlayMaps = { 
+
+const overlayMaps = {
   "Strandposter": redningsnrLayer,
   "Falck Ass": falckAssLayer,
-  "Kommunegrænser": kommunegrænserLayer
+  "Kommunegrænser": kommunegrænserLayer,
+  "Dyrenes Beskyttelse Kort": dyrenesBeskyttelseLink
 };
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 var currentMarker;
+
 
 /***************************************************
  * Kommunedata hentet fra "Kommuner.xlsx"
