@@ -208,7 +208,8 @@ L.polyline(
 
 const baseMaps = {
   "OpenStreetMap": osmLayer,
-  "Satellit": ortofotoLayer
+  "Satellit": ortofotoLayer,
+  "25 km grænse": grænse25Layer
 };
 const overlayMaps = {
   "Strandposter": redningsnrLayer,
