@@ -186,17 +186,6 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
  ***************************************************/
 // NYT “lag” som kun åbner et link i ny fane
 var dyrenesBeskyttelseLink = L.layerGroup();
-// --- START: 25 km grænse-lag ---
-// NYT: “25 km grænse” – et tomt layer, vi vil tegne en 25 km forskudt grænse på
-var border25Layer = L.layerGroup();
-
-// hent den originale dansk-tysk-grænse
-var originalBorderCoords = [];
-fetch("dansk-tysk-grænse.geojson")
-  .then(r => r.json())
-  .then(g => {
-    originalBorderCoords = g.features[0].geometry.coordinates;
-  });
 
 // 2) 25 km nord for E65 ruten Malmö–Ystad (brug ca. lat 55.50)
 var latE65        = 55.50;
