@@ -184,17 +184,30 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
  * Tilføj lagkontrol
  * (Matrikel-laget og CVR–rester er fjernet)
  ***************************************************/
-const baseMaps = { 
-"OpenStreetMap": osmLayer,
+// NYT “lag” som kun åbner et link i ny fane
+var dyrenesBeskyttelseLink = L.layerGroup();
+
+const baseMaps = {
+  "OpenStreetMap": osmLayer,
   "Satellit": ortofotoLayer
 };
-const overlayMaps = { 
+const overlayMaps = {
   "Strandposter": redningsnrLayer,
   "Falck Ass": falckAssLayer,
-  "Kommunegrænser": kommunegrænserLayer
+  "Kommunegrænser": kommunegrænserLayer,
+  "Dyrenes Beskyttelse": dyrenesBeskyttelseLink
 };
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+
+// Når brugeren tænder for “Dyrenes Beskyttelse”, åbn link og fjern laget igen
+map.on('overlayadd', function(e) {
+  if (e.layer === dyrenesBeskyttelseLink) {
+    window.open('https://kort.dyrenesbeskyttelse.dk/db/dvc.nsf/kort', '_blank');
+    map.removeLayer(dyrenesBeskyttelseLink);
+  }
+});
+
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 var currentMarker;
