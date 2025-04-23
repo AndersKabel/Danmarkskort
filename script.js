@@ -127,45 +127,6 @@ var ortofotoLayer = L.tileLayer.wms(
     attribution: "Ortofoto © Kortforsyningen"
   }
 );
-// Opret “25 km grænse”-layer
-var graense25Layer = L.layerGroup();
-
-// Funktion til at hente Danmarks Tyskland-grænse fra Dataforsyningen,
-// offsette 25 km sydpå og tegne den på kortet – og samme med E65-strækningen.
-function create25kmGrænse() {
-  // 1) Hent kommune-grænser (GeoJSON)
-  fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
-    .then(r => r.json())
-    .then(geo => {
-      // 2) Filtrer de kommuner, der grænser op til Tyskland (fx Aabenraa, Sønderborg osv.)
-      const grænseKommuner = geo.features.filter(f =>
-        ["Aabenraa","Sønderborg","Tønder","Haderslev"].includes(f.properties.navn)
-      );
-      // 3) Slå dem sammen til ét MultiLineString
-      const linje = turf.multiLineString(
-        grænseKommuner.flatMap(f => turf.lineString(f.geometry.coordinates[0]).geometry.coordinates)
-      );
-      // 4) Offset 25 km mod syd
-      const sydOffset = turf.lineOffset(linje, -25000, { units: "meters" });
-      // 5) Tegn polylinen
-      L.geoJSON(sydOffset, { style: { color: "red", weight: 2 } })
-        .addTo(graense25Layer);
-
-      // 6) E65 (Malmø–Ystad) – simulér som en lige linje på ca. 55.6°N
-      const e65 = turf.lineString([
-        [10.7, 55.6],
-        [14.0, 55.6]
-      ]);
-      // 7) Offset 25 km mod nord
-      const nordOffset = turf.lineOffset(e65, 25000, { units: "meters" });
-      L.geoJSON(nordOffset, { style: { color: "blue", weight: 2 } })
-        .addTo(graense25Layer);
-    })
-    .catch(console.error);
-}
-
-// Kald funktionen med det samme, så laget er fyldt, inden vi tilføjer kontrol
-create25kmGrænse();
 
 // Opret WMS-lag for redningsnumre (Strandposter)
 var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/ows", {
@@ -229,7 +190,6 @@ var dyrenesBeskyttelseLink = L.layerGroup();
 const baseMaps = {
   "OpenStreetMap": osmLayer,
   "Satellit": ortofotoLayer
-  "25 km grænse": graense25Layer
 };
 const overlayMaps = {
   "Strandposter": redningsnrLayer,
