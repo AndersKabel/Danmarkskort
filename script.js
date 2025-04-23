@@ -188,23 +188,29 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
 var dyrenesBeskyttelseLink = L.layerGroup();
 // NYT: “25 km grænse” – et tomt layer, vi vil tegne en 25 km forskudt grænse på
 var border25Layer = L.layerGroup();
-
-// hent den originale dansk-tysk-grænse
+// hent den originale dansk-tysk-grænse og tegn den 25 km mod syd
 var originalBorderCoords = [];
 fetch("dansk-tysk-grænse.geojson")
   .then(r => r.json())
   .then(g => {
     originalBorderCoords = g.features[0].geometry.coordinates;
+    // flyt hvert punkt 25 000 m mod syd i UTM (zone 32)
+    var offsetCoords = originalBorderCoords.map(function(coord) {
+      var lon = coord[0], lat = coord[1];
+      // til UTM
+      var [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+      y -= 25000;
+      // tilbage til lat/lon
+      var [lon2, lat2] = proj4("EPSG:25832", "EPSG:4326", [x, y]);
+      return [lat2, lon2];
+    });
+    // tegn stiplet rød linje
+    L.polyline(offsetCoords, {
+      color: 'red',
+      weight: 2,
+      dashArray: '5,5'
+    }).addTo(border25Layer);
   });
-
-// 2) 25 km nord for E65 ruten Malmö–Ystad (brug ca. lat 55.50)
-var latE65        = 55.50;
-var lat25North    = latE65 + (25 / 111.32);
-L.polyline(
-  [ [lat25North, 10.5], [lat25North, 13.0] ],    // juster long: fra vest til øst
-  { color: 'red', weight: 2, dashArray: '5,5' }
-).addTo(border25Layer);
-// --- SLUT: 25 km grænse-lag ---
 
 const baseMaps = {
   "OpenStreetMap": osmLayer,
