@@ -215,7 +215,7 @@ const overlayMaps = {
   "Falck Ass": falckAssLayer,
   "Kommunegrænser": kommunegrænserLayer,
   "Dyrenes Beskyttelse": dyrenesBeskyttelseLink,
-  "25 km grænse": grænse25Layer
+  "25 km grænse": border25Layer
 };
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
