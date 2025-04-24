@@ -962,6 +962,8 @@ fetch(revUrl)
         else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
           let [x, y] = obj.bbox.coordinates[0][0];
           placeMarkerAndZoom([x, y], obj.navn);
+          listElement.innerHTML = "";
+          listElement.style.display = "none";
         }
         else if (obj.type === "strandpost") {
           setCoordinateBox(obj.lat, obj.lon);
