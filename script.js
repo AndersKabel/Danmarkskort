@@ -211,6 +211,27 @@ fetch("dansk-tysk-grænse.geojson")
       dashArray: '5,5'
     }).addTo(border25Layer);
   });
+// hent og tegn 25 km-offset for den svenske grænse (LineString)
+fetch("svensk-grænse.geojson")
+  .then(r => r.json())
+  .then(g => {
+    // her er geometry.coordinates et fladt array af [lon,lat]
+    var coords = g.features[0].geometry.coordinates;
+    // kortlæg hvert punkt til 25 km mod syd i UTM
+    var swOffset = coords.map(function(coord) {
+      var lon = coord[0], lat = coord[1];
+      var [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+      y -= 25000;
+      var [lon2, lat2] = proj4("EPSG:25832", "EPSG:4326", [x, y]);
+      return [lat2, lon2];
+    });
+    // tegn én samlet stiplet rød linje
+    L.polyline(swOffset, {
+      color: 'red',
+      weight: 2,
+      dashArray: '5,5'
+    }).addTo(border25Layer);
+  });
 
 const baseMaps = {
   "OpenStreetMap": osmLayer,
