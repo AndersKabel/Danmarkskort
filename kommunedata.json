@@ -23,7 +23,7 @@
   "Faaborg-Midtfyn":    { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
   "Gentofte":           { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Gladsaxe":           { "Døde dyr": "Nej", "Gader og veje": "Nej" },
-  "Glostrup":           { "Døde dyr": "Læs Instruks i Gems",  "Gader og veje": "Ja" },
+  "Glostrup":           { "Døde dyr": "Læs instruks i Gems",  "Gader og veje": "Ja" },
   "Greve":              { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Gribskov":           { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
   "Guldborgsund":       { "Døde dyr": "Nej", "Gader og veje": "Nej" },
@@ -67,7 +67,7 @@
   "Odsherred":          { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Randers":            { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
   "Rebild":             { "Døde dyr": "Nej", "Gader og veje": "Ja" },
-  "Ringkøbing-Skjern":  { "Døde dyr": "Læs Instruks i Gems",  "Gader og veje": "Ja" },
+  "Ringkøbing-Skjern":  { "Døde dyr": "Læs instruks i Gems",  "Gader og veje": "Ja" },
   "Ringsted":           { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Roskilde":           { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Rudersdal":          { "Døde dyr": "Nej", "Gader og veje": "Nej" },
@@ -97,5 +97,5 @@
   "Ærø":                { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Aabenraa":           { "Døde dyr": "Nej", "Gader og veje": "Ja" },
   "Aalborg":            { "Døde dyr": "Nej", "Gader og veje": "Nej" },
-  "Aarhus":             { "Døde dyr": "Ja",  "Gader og veje": "Nej" }
+  "Aarhus":             { "Døde dyr": "Læs instruks i GEMS",  "Gader og veje": "Nej" }
 }
