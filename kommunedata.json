@@ -92,7 +92,7 @@
   "Vejen":              { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
   "Vejle":              { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
   "Vesthimmerlands":    { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
-  "Viborg":             { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
+  "Viborg":             { "Døde dyr": "Nej",  "Gader og veje": "Nej" },
   "Vordingborg":        { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Ærø":                { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Aabenraa":           { "Døde dyr": "Nej", "Gader og veje": "Ja" },
