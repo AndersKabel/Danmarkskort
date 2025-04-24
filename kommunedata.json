@@ -23,7 +23,7 @@
   "Faaborg-Midtfyn":    { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
   "Gentofte":           { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Gladsaxe":           { "Døde dyr": "Nej", "Gader og veje": "Nej" },
-  "Glostrup":           { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
+  "Glostrup":           { "Døde dyr": "Læs Instruks i Gems",  "Gader og veje": "Ja" },
   "Greve":              { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Gribskov":           { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
   "Guldborgsund":       { "Døde dyr": "Nej", "Gader og veje": "Nej" },
