@@ -221,7 +221,7 @@ fetch("svensk-grænse.geojson")
     var swOffset = coords.map(function(coord) {
       var lon = coord[0], lat = coord[1];
       var [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-      y -= 25000;
+      y += 25000;
       var [lon2, lat2] = proj4("EPSG:25832", "EPSG:4326", [x, y]);
       return [lat2, lon2];
     });
