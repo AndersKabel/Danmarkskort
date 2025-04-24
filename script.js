@@ -1232,7 +1232,7 @@ function toggleCircle(radius) {
   }
 }
 document.getElementById("btn10").addEventListener("click", function() {
-  toggleCircle(10000);
+  toggleCircle(25000);
 });
 document.getElementById("btn50").addEventListener("click", function() {
   toggleCircle(50000);
