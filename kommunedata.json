@@ -67,7 +67,7 @@
   "Odsherred":          { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Randers":            { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
   "Rebild":             { "Døde dyr": "Nej", "Gader og veje": "Ja" },
-  "Ringkøbing-Skjern":  { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
+  "Ringkøbing-Skjern":  { "Døde dyr": "Læs Instruks i Gems",  "Gader og veje": "Ja" },
   "Ringsted":           { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Roskilde":           { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Rudersdal":          { "Døde dyr": "Nej", "Gader og veje": "Nej" },
