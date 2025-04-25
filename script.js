@@ -965,6 +965,15 @@ fetch(revUrl)
           listElement.innerHTML = "";
           listElement.style.display = "none";
         }
+           else if (obj.type === "stednavn" && obj.geometry && obj.geometry.coordinates) {
+          // fallback når der ikke er bbox: brug punktet fra geometry (MultiPoint eller Point)
+          // hvis geometry.coordinates er [[lon,lat],…] så tag første array, ellers selve coords
+          let coordsArr = Array.isArray(obj.geometry.coordinates[0])
+                          ? obj.geometry.coordinates[0]
+                          : obj.geometry.coordinates;
+          // coordsArr er [lon,lat] i UTM => placeMarkerAndZoom konverterer automatisk
+          placeMarkerAndZoom(coordsArr, obj.navn);
+        }
         else if (obj.type === "strandpost") {
           setCoordinateBox(obj.lat, obj.lon);
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
