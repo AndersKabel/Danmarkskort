@@ -979,6 +979,8 @@ fetch(revUrl)
         else if (obj.type === "strandpost") {
           setCoordinateBox(obj.lat, obj.lon);
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
+          listElement.innerHTML = "";
+          listElement.style.display = "none"; 
           let marker = currentMarker;
           let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${obj.lon}&y=${obj.lat}&struktur=flad`;
 fetch(revUrl)
