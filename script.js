@@ -973,6 +973,8 @@ fetch(revUrl)
                           : obj.geometry.coordinates;
           // coordsArr er [lon,lat] i UTM => placeMarkerAndZoom konverterer automatisk
           placeMarkerAndZoom(coordsArr, obj.navn);
+          listElement.innerHTML = "";
+          listElement.style.display = "none"; 
         }
         else if (obj.type === "strandpost") {
           setCoordinateBox(obj.lat, obj.lon);
