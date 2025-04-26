@@ -267,7 +267,7 @@ map.on('overlayadd', function(e) {
     // Hent ladestandere fra Open Charge Map
     fetch(
       'https://api.openchargemap.io/v3/poi/?output=json' +
-      '&countrycode=SE' +               // eller DK/NO etc.
+      '&countrycode=DK' +               // eller DK/NO etc.
       '&maxresults=200' +
       '&key=3c33b286-7067-426b-8e46-a727dd12f6f3'
     )
