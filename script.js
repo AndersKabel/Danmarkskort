@@ -280,14 +280,22 @@ map.on('overlayadd', function(e) {
       data.forEach(point => {
         const lat = point.AddressInfo?.Latitude;
         const lon = point.AddressInfo?.Longitude;
-        if (lat && lon) {
-          L.marker([lat, lon])
-            .bindPopup(
-              '<strong>' + (point.AddressInfo.Title || '') + '</strong><br>' +
-              (point.AddressInfo.AddressLine1 || '') + ', ' +
-              (point.AddressInfo.Town || '')
-            )
-            .addTo(chargeMapLayer);
+        // kun hvis indenfor valgt radius (valgt i meters)
+        if (lat && lon && currentMarker &&
+            map.distance(currentMarker.getLatLng(), L.latLng(lat, lon)) <= selectedRadius) {
+          // gul circleMarker
+          L.circleMarker([lat, lon], {
+            radius: 8,
+            color: 'yellow',
+            fillColor: 'yellow',
+            fillOpacity: 1
+          })
+          .bindPopup(
+            '<strong>' + (point.AddressInfo.Title || '') + '</strong><br>' +
+            (point.AddressInfo.AddressLine1 || '') + ', ' +
+            (point.AddressInfo.Town || '')
+          )
+          .addTo(chargeMapLayer);
         }
       });
     })
