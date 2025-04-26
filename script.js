@@ -262,6 +262,10 @@ map.on('overlayadd', function(e) {
 // MARKER: chargeFetchStart
 map.on('overlayadd', function(e) {
   if (e.layer === chargeMapLayer) {
+    if (!selectedRadius) {
+      alert("Vælg radius først");
+      return;
+    }
     // Ryd evt. gamle markører
     chargeMapLayer.clearLayers();
     // Hent ladestandere fra Open Charge Map
