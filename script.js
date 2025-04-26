@@ -1263,6 +1263,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
  * NYT: Distance Options – Tegn cirkel med radius 10, 50 eller 100 km
  ***************************************************/
 var currentCircle = null;
+var selectedRadius = null;   // husker hvilken radius brugeren har valgt
 function toggleCircle(radius) {
   if (!currentMarker) {
     alert("Vælg venligst en adresse eller klik på kortet først.");
@@ -1284,15 +1285,19 @@ function toggleCircle(radius) {
   }
 }
 document.getElementById("btn10").addEventListener("click", function() {
+  selectedRadius = 10000;
   toggleCircle(10000);
 });
 document.getElementById("btn25").addEventListener("click", function() {
+  selectedRadius = 25000;
   toggleCircle(25000);
 });
 document.getElementById("btn50").addEventListener("click", function() {
+  selectedRadius = 50000;
   toggleCircle(50000);
 });
 document.getElementById("btn100").addEventListener("click", function() {
+  selectedRadius = 100000;
   toggleCircle(100000);
 });
 document.addEventListener("DOMContentLoaded", function() {
