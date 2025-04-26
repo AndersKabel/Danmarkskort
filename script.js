@@ -259,6 +259,38 @@ map.on('overlayadd', function(e) {
     map.removeLayer(dyrenesBeskyttelseLink);
   }
 });
+// MARKER: chargeFetchStart
+map.on('overlayadd', function(e) {
+  if (e.layer === chargeMapLayer) {
+    // Ryd evt. gamle markører
+    chargeMapLayer.clearLayers();
+    // Hent ladestandere fra Open Charge Map
+    fetch(
+      'https://api.openchargemap.io/v3/poi/?output=json' +
+      '&countrycode=SE' +               // eller DK/NO etc.
+      '&maxresults=200' +
+      '&key=3c33b286-7067-426b-8e46-a727dd12f6f3'
+    )
+    .then(r => r.json())
+    .then(data => {
+      data.forEach(point => {
+        const lat = point.AddressInfo?.Latitude;
+        const lon = point.AddressInfo?.Longitude;
+        if (lat && lon) {
+          L.marker([lat, lon])
+            .bindPopup(
+              '<strong>' + (point.AddressInfo.Title || '') + '</strong><br>' +
+              (point.AddressInfo.AddressLine1 || '') + ', ' +
+              (point.AddressInfo.Town || '')
+            )
+            .addTo(chargeMapLayer);
+        }
+      });
+    })
+    .catch(err => console.error('Fejl ved hentning af ladestandere:', err));
+  }
+});
+// MARKER: chargeFetchEnd
 
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
