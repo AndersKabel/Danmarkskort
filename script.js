@@ -188,6 +188,10 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
 var dyrenesBeskyttelseLink = L.layerGroup();
 // NYT: “25 km grænse” – et tomt layer, vi vil tegne en 25 km forskudt grænse på
 var border25Layer = L.layerGroup();
+// MARKER: chargeLayerStart
+// NYT: Ladestandere-lag (Open Charge Map)
+var chargeMapLayer = L.layerGroup();
+// MARKER: chargeLayerEnd
 // hent den originale dansk-tysk-grænse og tegn den 25 km mod syd
 var originalBorderCoords = [];
 fetch("dansk-tysk-grænse.geojson")
