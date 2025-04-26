@@ -247,7 +247,7 @@ const overlayMaps = {
   "Kommunegrænser": kommunegrænserLayer,
   "Dyrenes Beskyttelse": dyrenesBeskyttelseLink,
   "25 km grænse": border25Layer,
-  "Ladestandere": chargeLayer
+  "Ladestandere": chargeMapLayer
 };
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
