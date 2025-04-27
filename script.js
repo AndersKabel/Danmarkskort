@@ -1293,6 +1293,7 @@ function toggleCircle(radius) {
   if (currentCircle && currentCircle.getRadius() === radius) {
     map.removeLayer(currentCircle);
     currentCircle = null;
+    selectedRadius = null;    // <-- nulstil radius-variablen når cirklen fjernes
   } else {
     if (currentCircle) {
       map.removeLayer(currentCircle);
