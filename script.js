@@ -268,11 +268,18 @@ map.on('overlayadd', function(e) {
     }
     // Ryd evt. gamle markører
     chargeMapLayer.clearLayers();
-    // Hent ladestandere fra Open Charge Map
+    // Hent ladestandere fra Open Charge Map – begræns til cirkel
+    const center = currentMarker.getLatLng();
+    const lat = center.lat, lon = center.lng;
+    const distKm = selectedRadius / 1000;   // omsæt fra m til km
     fetch(
       'https://api.openchargemap.io/v3/poi/?output=json' +
-      '&countrycode=DK' +               // eller DK/NO etc.
-      '&maxresults=200' +
+      '&countrycode=DK'               // eller DK/NO etc.
+      '&maxresults=200'
+      `&latitude=${lat}`
+      `&longitude=${lon}`
+      `&distance=${distKm}`
+      `&distanceunit=KM`
       '&key=3c33b286-7067-426b-8e46-a727dd12f6f3'
     )
     .then(r => r.json())
