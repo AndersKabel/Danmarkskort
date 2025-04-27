@@ -274,12 +274,12 @@ map.on('overlayadd', function(e) {
     const distKm = selectedRadius / 1000;   // omsæt fra m til km
     fetch(
       'https://api.openchargemap.io/v3/poi/?output=json' +
-      '&countrycode=DK'               // eller DK/NO etc.
-      '&maxresults=200'
-      `&latitude=${lat}`
-      `&longitude=${lon}`
-      `&distance=${distKm}`
-      `&distanceunit=KM`
+      '&countrycode=DK' +                // eller DK/NO etc.
+      '&maxresults=200' + 
+      `&latitude=${lat}` + 
+      `&longitude=${lon}` + 
+      `&distance=${distKm}` + 
+      `&distanceunit=KM` + 
       '&key=3c33b286-7067-426b-8e46-a727dd12f6f3'
     )
     .then(r => r.json())
