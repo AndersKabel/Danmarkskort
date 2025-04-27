@@ -298,10 +298,31 @@ map.on('overlayadd', function(e) {
             fillOpacity: 1
           })
           .bindPopup(
-            '<strong>' + (point.AddressInfo.Title || '') + '</strong><br>' +
-            (point.AddressInfo.AddressLine1 || '') + ', ' +
-            (point.AddressInfo.Town || '')
-          )
+   `<strong>${point.AddressInfo.Title || ''}</strong><br>
+    ${point.AddressInfo.AddressLine1 || ''}, ${point.AddressInfo.Town || ''}<br>
+    <strong>Power:</strong> ${point.Connections?.[0]?.PowerKW || 'N/A'} kW<br>
+    <strong>Type:</strong> ${point.Connections?.[0]?.ConnectionType?.Title || 'N/A'}<br>
+    <br>
+    <a href="#" title="Kopier adresse til Eva.Net" onclick="
+      (function(el){
+        el.style.color='red';
+        copyToClipboard('${point.AddressInfo.AddressLine1 || ''},${point.AddressInfo.Town || ''}');
+        showCopyPopup('Kopieret til Eva.Net');
+        setTimeout(()=>el.style.color='',1000);
+      })(this);
+      return false;
+    ">Eva.Net</a>
+    &nbsp;
+    <a href="#" title="Kopier adresse til Notes" onclick="
+      (function(el){
+        el.style.color='red';
+        copyToClipboard('${point.AddressInfo.AddressLine1 || ''} ${point.AddressInfo.Town || ''}');
+        showCopyPopup('Kopieret til Notes');
+        setTimeout(()=>el.style.color='',1000);
+      })(this);
+      return false;
+    ">Notes</a>`
+ )
           .addTo(chargeMapLayer);
         }
       });
