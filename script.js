@@ -184,8 +184,10 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
  * Tilføj lagkontrol
  * (Matrikel-laget og CVR–rester er fjernet)
  ***************************************************/
-// NYT “lag” som kun åbner et link i ny fane
-var dyrenesBeskyttelseLink = L.layerGroup();
+// NYT: DB SMS kort (åbner dvc.nsf/kort)
+var dbSmsLayer        = L.layerGroup();
+// NYT: DB Journal (åbner dvc.nsf/Efter journalnr)
+var dbJournalLayer    = L.layerGroup();
 // NYT: “25 km grænse” – et tomt layer, vi vil tegne en 25 km forskudt grænse på
 var border25Layer = L.layerGroup();
 // MARKER: chargeLayerStart
