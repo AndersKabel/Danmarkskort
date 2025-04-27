@@ -247,7 +247,8 @@ const overlayMaps = {
   "Strandposter": redningsnrLayer,
   "Falck Ass": falckAssLayer,
   "Kommunegrænser": kommunegrænserLayer,
-  "Dyrenes Beskyttelse": dyrenesBeskyttelseLink,
+  "DB SMS kort":       dbSmsLayer,
+  "DB Journal":        dbJournalLayer,
   "25 km grænse": border25Layer,
   "Ladestandere": chargeMapLayer
 };
