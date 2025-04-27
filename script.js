@@ -1277,6 +1277,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
 var currentCircle = null;
 var selectedRadius = null;   // husker hvilken radius brugeren har valgt
 function toggleCircle(radius) {
+  selectedRadius = radius;
   if (!currentMarker) {
     alert("Vælg venligst en adresse eller klik på kortet først.");
     return;
@@ -1294,6 +1295,10 @@ function toggleCircle(radius) {
       color: "blue",
       fillOpacity: 0.2
     }).addTo(map);
+    // hvis ladestander-laget er tændt, gen-udløs fetch
+    if (map.hasLayer(chargeMapLayer)) {
+    map.fire('overlayadd', { layer: chargeMapLayer });
+    }
   }
 }
 document.getElementById("btn10").addEventListener("click", function() {
