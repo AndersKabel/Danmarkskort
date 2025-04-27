@@ -256,6 +256,7 @@ L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 map.on('overlayadd', function(e) {
   if (e.layer === dyrenesBeskyttelseLink) {
     window.open('https://kort.dyrenesbeskyttelse.dk/db/dvc.nsf/kort', '_blank');
+    window.open('https://dvc.dyrenesbeskyttelse.dk/', '_blank');
     map.removeLayer(dyrenesBeskyttelseLink);
   }
 });
