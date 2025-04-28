@@ -1322,6 +1322,11 @@ function toggleCircle(radius) {
     map.removeLayer(currentCircle);
     currentCircle = null;
     selectedRadius = null;    // <-- nulstil radius-variablen når cirklen fjernes
+    
+    // Hvis ladestander-laget er tændt, så slå det fra
+    if (map.hasLayer(chargeMapLayer)) {
+    map.removeLayer(chargeMapLayer);
+    }
   } else {
     if (currentCircle) {
       map.removeLayer(currentCircle);
