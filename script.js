@@ -273,6 +273,12 @@ map.on('overlayadd', function(e) {
       alert("Vælg radius først");
       return;
     }
+    if (!selectedRadius) {
+      alert("Vælg radius først");
+      // fjern alle gamle markører
+      chargeMapLayer.clearLayers();
+      return;
+    }
     // Ryd evt. gamle markører
     chargeMapLayer.clearLayers();
     // Hent ladestandere fra Open Charge Map – begræns til cirkel
