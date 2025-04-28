@@ -282,7 +282,7 @@ map.on('overlayadd', function(e) {
     fetch(
       'https://api.openchargemap.io/v3/poi/?output=json' +
       '&countrycode=DK' +                // eller DK/NO etc.
-      '&maxresults=200' + 
+      '&maxresults=10000' + 
       `&latitude=${lat}` + 
       `&longitude=${lon}` + 
       `&distance=${distKm}` + 
