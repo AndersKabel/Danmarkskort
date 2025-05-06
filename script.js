@@ -570,7 +570,11 @@ async function updateInfoBox(data, lat, lon) {
           let info = kommuneInfo[kommunenavn];
           let doedeDyr = info["Døde dyr"];
           let gaderVeje = info["Gader og veje"];
-          extraInfoEl.innerHTML += `<br>Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}`;
+          extraInfoEl.innerHTML += `<br>
+    Kommune: 
+    <a href="https://gems.falck.com/?DokID=242578" target="_blank">${kommunenavn}</a>
+    | Døde dyr: ${doedeDyr}
+    | Gader og veje: ${gaderVeje}`;
         }
       }
     } catch (e) {
