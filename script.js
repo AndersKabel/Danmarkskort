@@ -255,17 +255,18 @@ const overlayMaps = {
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 
-// Når brugeren tænder for “Dyrenes Beskyttelse”, åbn link og fjern laget igen
+// Når brugeren tænder for “DB SMS kort” eller “DB Journal”
 map.on('overlayadd', function(e) {
   if (e.layer === dbSmsLayer) {
     window.open('https://kort.dyrenesbeskyttelse.dk/db/dvc.nsf/kort', '_blank');
     map.removeLayer(dbSmsLayer);
   }
-  if (e.layer === dbJournalLayer) {
-     window.open('https://dvc.dyrenesbeskyttelse.dk/db/dvc.nsf/Efter%20journalnr?OpenView', '_blank');
-     map.removeLayer(dbJournalLayer);
-   }
+  else if (e.layer === dbJournalLayer) {
+    window.open('https://dvc.dyrenesbeskyttelse.dk/db/dvc.nsf/Efter%20journalnr?OpenView', '_blank');
+    map.removeLayer(dbJournalLayer);
+  }
 });
+
 // MARKER: chargeFetchStart
 map.on('overlayadd', function(e) {
   if (e.layer === chargeMapLayer) {
