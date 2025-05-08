@@ -97,5 +97,5 @@
   "Ærø":                { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Aabenraa":           { "Døde dyr": "Nej", "Gader og veje": "Ja" },
   "Aalborg":            { "Døde dyr": "Nej", "Gader og veje": "Nej" },
-  "Aarhus":             { "Døde dyr": "Læs instruks i GEMS",  "Gader og veje": "Nej" }
+  "Aarhus":             { "Døde dyr": "Læs instruks i GEMS",  "Gader og veje": "Nej" /* … */, "gemLink": "https://gems.falck.com/?DokID=242578" }
 }
