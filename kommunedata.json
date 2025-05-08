@@ -37,7 +37,7 @@
   "Hjørring":           { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
   "Holbæk":             { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Holstebro":          { "Døde dyr": "Nej", "Gader og veje": "Ja" },
-  "Horsens":            { "Døde dyr": "Nej", "Gader og veje": "Nej" },
+  "Horsens":            { "Døde dyr": "Nej", "Gader og veje": "Nej", "gemLink": "https://gems.falck.com/?DokID=242495" },
   "Hvidovre":           { "Døde dyr": "Ja",  "Gader og veje": "Ja" },
   "Høje-Taastrup":      { "Døde dyr": "Nej", "Gader og veje": "Nej" },
   "Hørsholm":           { "Døde dyr": "Nej", "Gader og veje": "Nej" },
