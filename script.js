@@ -110,7 +110,7 @@ var osmLayer = L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
     maxZoom: 19,
-    attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur"
+    attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur, CVR API"
   }
 ).addTo(map);
 
