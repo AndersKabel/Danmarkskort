@@ -995,7 +995,7 @@ function doSearch(query, listElement) {
   Promise.all([
     fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
     fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; }),
-    strandPromise
+    strandPromise,
     cvrPromise
   ])
   .then(([addrData, stedData, strandData, cvrData]) => {
