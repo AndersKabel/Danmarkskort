@@ -1029,6 +1029,21 @@ function doSearch(query, listElement) {
         }));
       }
     }
+    // ---- Byg strandposter-resultater ----
+    let strandResults = (strandData || []).map(feature => ({
+      type: "strandpost",
+      tekst: `Redningsnummer: ${feature.properties.StrandNr}`,
+      lat: feature.geometry.coordinates[1],
+      lon: feature.geometry.coordinates[0]
+    }));
+    // ---- Slut strandposter ----
+
+    // ---- Byg CVR-resultater ----
+    let cvrResults = (cvrData || []).map(item => ({
+      type: "cvr",
+      tekst: item.navn + (item.cvrnr ? ` (CVR ${item.cvrnr})` : "")
+    }));
+    // ---- Slut CVR ----
     let combined = [...addrResults, ...stedResults, ...strandData, ...cvrResults];
     // Sorter efter relevans
     combined.sort((a, b) => {
