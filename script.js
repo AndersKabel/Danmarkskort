@@ -982,6 +982,7 @@ function doSearch(query, listElement) {
   let strandPromise = (map.hasLayer(redningsnrLayer) && strandposterReady)
   ? doSearchStrandposter(query)
   : Promise.resolve([]);
+  // --- NYT TILFØJ : CVR-autocomplete via Datafordeleren ---
   let cvrUrl     = `https://api.dataforsyningen.dk/virksomhed/autocomplete?q=${encodeURIComponent(query)}`;
   let cvrPromise = fetch(cvrUrl)
     .then(r => r.json())
@@ -1028,7 +1029,7 @@ function doSearch(query, listElement) {
         }));
       }
     }
-    let combined = [...addrResults, ...stedResults, ...strandData];
+    let combined = [...addrResults, ...stedResults, ...strandData, ...cvrResults];
     // Sorter efter relevans
     combined.sort((a, b) => {
       if (a.type === "stednavn" && b.type === "adresse") {
