@@ -979,17 +979,6 @@ function doSearchStrandposter(query) {
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
   let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&token=a63a88838c24fc85d47f32cde0ec0144`;
-    // NYT: Hent CVR-virksomheder via Datafordeleren
-  let cvrUrl  = `https://api.dataforsyningen.dk/virksomhed/autocomplete?q=${encodeURIComponent(query)}`;
-  let cvrPromise = fetch(cvrUrl)
-    .then(r => r.json())
-    .then(list => list.map(item => ({
-      type:  "cvr",
-      navn:  item.navn,
-      cvrnr: item.cvrNummer   // feltnavn kan variere lidt: tjek om det hedder cvrNummer eller cvrnr
-    })))
-    .catch(() => []);
-
   let strandPromise = (map.hasLayer(redningsnrLayer) && strandposterReady)
   ? doSearchStrandposter(query)
   : Promise.resolve([]);
@@ -997,7 +986,6 @@ function doSearch(query, listElement) {
     fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
     fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; }),
     strandPromise
-    cvrPromise
   ])
   .then(([addrData, stedData, strandData]) => {
     console.log("addrData:", addrData);
