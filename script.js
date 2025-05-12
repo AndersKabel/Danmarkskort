@@ -1044,7 +1044,7 @@ function doSearch(query, listElement) {
       tekst: item.navn + (item.cvrnr ? ` (CVR ${item.cvrnr})` : "")
     }));
     // ---- Slut CVR ----
-    let combined = [...addrResults, ...stedResults, ...strandResults, ...cvrResults];
+    let combined = [...addrResults, ...stedResults, ...strandData, ...cvrResults];
     // Sorter efter relevans
     combined.sort((a, b) => {
       if (a.type === "stednavn" && b.type === "adresse") {
