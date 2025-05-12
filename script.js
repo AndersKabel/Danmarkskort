@@ -982,15 +982,26 @@ function doSearch(query, listElement) {
   let strandPromise = (map.hasLayer(redningsnrLayer) && strandposterReady)
   ? doSearchStrandposter(query)
   : Promise.resolve([]);
+  let cvrUrl     = `https://api.dataforsyningen.dk/virksomhed/autocomplete?q=${encodeURIComponent(query)}`;
+  let cvrPromise = fetch(cvrUrl)
+    .then(r => r.json())
+    .then(list => list.map(item => ({
+      type:  "cvr",
+      navn:  item.navn,
+      cvrnr: item.cvrNummer
+    })))
+    .catch(() => []);
   Promise.all([
     fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
     fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; }),
     strandPromise
+    cvrPromise
   ])
-  .then(([addrData, stedData, strandData]) => {
+  .then(([addrData, stedData, strandData, cvrData]) => {
     console.log("addrData:", addrData);
     console.log("stedData:", stedData);
     console.log("strandData:", strandData);
+    console.log("cvrData:", cvrData);
     listElement.innerHTML = "";
     searchItems = [];
     searchCurrentIndex = -1;
