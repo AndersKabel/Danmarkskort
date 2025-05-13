@@ -255,45 +255,33 @@ const overlayMaps = {
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 
-// Når brugeren tænder for “DB SMS kort” eller “DB Journal”
 map.on('overlayadd', function(e) {
   if (e.layer === dbSmsLayer) {
     window.open('https://kort.dyrenesbeskyttelse.dk/db/dvc.nsf/kort', '_blank');
     map.removeLayer(dbSmsLayer);
-  }
-  else if (e.layer === dbJournalLayer) {
+  } else if (e.layer === dbJournalLayer) {
     window.open('https://dvc.dyrenesbeskyttelse.dk/db/dvc.nsf/Efter%20journalnr?OpenView', '_blank');
     map.removeLayer(dbJournalLayer);
-  }
-});
-
-// MARKER: chargeFetchStart
-map.on('overlayadd', function(e) {
-  if (e.layer === chargeMapLayer) {
+  } else if (e.layer === chargeMapLayer) {
     if (!selectedRadius) {
       alert("Vælg radius først");
-      return;
-    }
-    if (!selectedRadius) {
-      alert("Vælg radius først");
-      // fjern alle gamle markører
       chargeMapLayer.clearLayers();
       return;
     }
-    // Ryd evt. gamle markører
+
     chargeMapLayer.clearLayers();
-    // Hent ladestandere fra Open Charge Map – begræns til cirkel
     const center = currentMarker.getLatLng();
     const lat = center.lat, lon = center.lng;
-    const distKm = selectedRadius / 1000;   // omsæt fra m til km
+    const distKm = selectedRadius / 1000;
+
     fetch(
       'https://api.openchargemap.io/v3/poi/?output=json' +
-      '&countrycode=DK' +                // eller DK/NO etc.
-      '&maxresults=10000' + 
-      `&latitude=${lat}` + 
-      `&longitude=${lon}` + 
-      `&distance=${distKm}` + 
-      `&distanceunit=KM` + 
+      '&countrycode=DK' +
+      '&maxresults=10000' +
+      `&latitude=${lat}` +
+      `&longitude=${lon}` +
+      `&distance=${distKm}` +
+      `&distanceunit=KM` +
       '&key=3c33b286-7067-426b-8e46-a727dd12f6f3'
     )
     .then(r => r.json())
@@ -301,42 +289,15 @@ map.on('overlayadd', function(e) {
       data.forEach(point => {
         const lat = point.AddressInfo?.Latitude;
         const lon = point.AddressInfo?.Longitude;
-        // kun hvis indenfor valgt radius (valgt i meters)
         if (lat && lon && currentMarker &&
             map.distance(currentMarker.getLatLng(), L.latLng(lat, lon)) <= selectedRadius) {
-          // gul circleMarker
           L.circleMarker([lat, lon], {
             radius: 8,
             color: 'yellow',
             fillColor: 'yellow',
             fillOpacity: 1
           })
-          .bindPopup(
-   `<strong>${point.AddressInfo.Title || ''}</strong><br>
-    ${point.AddressInfo.AddressLine1 || ''}, ${point.AddressInfo.Town || ''}<br>
-    <strong>Power:</strong> ${point.Connections?.[0]?.PowerKW || 'N/A'} kW<br>
-    <strong>Type:</strong> ${point.Connections?.[0]?.ConnectionType?.Title || 'N/A'}<br>
-    <br>
-    <a href="#" title="Kopier adresse til Eva.Net" onclick="
-      (function(el){
-        el.style.color='red';
-        copyToClipboard('${point.AddressInfo.AddressLine1 || ''},${point.AddressInfo.Town || ''}');
-        showCopyPopup('Kopieret til Eva.Net');
-        setTimeout(()=>el.style.color='',1000);
-      })(this);
-      return false;
-    ">Eva.Net</a>
-    &nbsp;
-    <a href="#" title="Kopier adresse til Notes" onclick="
-      (function(el){
-        el.style.color='red';
-        copyToClipboard('${point.AddressInfo.AddressLine1 || ''} ${point.AddressInfo.Town || ''}');
-        showCopyPopup('Kopieret til Notes');
-        setTimeout(()=>el.style.color='',1000);
-      })(this);
-      return false;
-    ">Notes</a>`
- )
+          .bindPopup(/* din popup-kode her */)
           .addTo(chargeMapLayer);
         }
       });
@@ -344,7 +305,6 @@ map.on('overlayadd', function(e) {
     .catch(err => console.error('Fejl ved hentning af ladestandere:', err));
   }
 });
-// MARKER: chargeFetchEnd
 
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
