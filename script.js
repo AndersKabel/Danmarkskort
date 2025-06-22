@@ -1002,8 +1002,6 @@ async function doSearch(query, listElement) {
   });
 
   listElement.style.display = combined.length>0?"block":"none";
-  })
-  .catch(err => console.error("Fejl i doSearch:", err));
 }
 
 /***************************************************
