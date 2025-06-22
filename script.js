@@ -967,11 +967,19 @@ function doSearchStrandposter(query) {
    return data.CVR_Soegning.nodes;
   }
 async function doSearch(query, listElement) {
-  let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
-  let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&token=a63a88838c24fc85d47f32cde0ec0144`;
-  let strandPromise = (map.hasLayer(redningsnrLayer) && strandposterReady)
-  ? doSearchStrandposter(query)
-  : Promise.resolve([]);
+ // 1) Adresse, stednavn og strandposter parallelt  
+   const [addrData, stedData, strandData] = await Promise.all([  
+     fetch(`https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`)  
+       .then(r => r.json()).catch(_ => []),  
+     fetch(`https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&token=…`)  
+       .then(r => r.json()).catch(_ => ({results:[] })),  
+     (map.hasLayer(redningsnrLayer) && strandposterReady)  
+       ? doSearchStrandposter(query)  
+       : Promise.resolve([])  
+   ]);  
+  
+   // 2) Firma-autocomplete via GraphQL  
+   const firmaData = await autocompleteFirma(query);  
   Promise.all([
     fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
     fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; }),
