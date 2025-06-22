@@ -936,6 +936,36 @@ function doSearchStrandposter(query) {
 /***************************************************
  * doSearch => kombinerer adresser, stednavne og strandposter
  ***************************************************/
+/**
+   * Autocomplete firma via Datafordeler GraphQL
+   */
+  async function autocompleteFirma(term) {
+    const endpoint = "https://graphql.datafordeler.dk/CVR/v1?apikey=1fb0WhlmXJSNL4gfzU36eXrspTbO3SJNSXlqU5D4pNcbETWkxCtLXiCrHQ72imTWMdzk8GoKjG6zrDJrna2K0XFmXzEl3r5WI";
+    const body = {
+      query: `
+        query FirmaAutocomplete($term: String!) {
+          CVR_Soegning(soeg: $term, profil: "CVR") {
+            nodes {
+              CVRnummer
+              Navn
+              VirkningStatus
+              CVRAdresse_vejnavn
+              CVRAdresse_postnummer
+              CVRAdresse_kommunenavn
+            }
+          }
+        }
+      `,
+      variables: { term }
+    };
+    const resp = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+   });
+   const { data } = await resp.json();
+   return data.CVR_Soegning.nodes;
+  }
 async function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
   let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&token=a63a88838c24fc85d47f32cde0ec0144`;
