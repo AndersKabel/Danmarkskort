@@ -936,7 +936,7 @@ function doSearchStrandposter(query) {
 /***************************************************
  * doSearch => kombinerer adresser, stednavne og strandposter
  ***************************************************/
-function doSearch(query, listElement) {
+async function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
   let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&token=a63a88838c24fc85d47f32cde0ec0144`;
   let strandPromise = (map.hasLayer(redningsnrLayer) && strandposterReady)
