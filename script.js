@@ -992,30 +992,42 @@ async function doSearch(query, listElement) {
     listElement.innerHTML = "";
     searchItems = [];
     searchCurrentIndex = -1;
-    let addrResults = (addrData || []).map(item => ({
-      type: "adresse",
-      tekst: item.tekst,
-      adgangsadresse: item.adgangsadresse
-    }));
-    let stedResults = [];
-    if (stedData) {
-      if (Array.isArray(stedData.results)) {
-        stedResults = stedData.results.map(result => ({
-          type: "stednavn",
-          navn: result.visningstekst || result.navn,
-          bbox: result.bbox || null,
-          geometry: result.geometry
-        }));
-      } else if (Array.isArray(stedData)) {
-        stedResults = stedData.map(result => ({
-          type: "stednavn",
-          navn: result.visningstekst || result.skrivemaade_officiel,
-          bbox: result.bbox || null,
-          geometry: result.geometri
-        }));
-      }
-    }
-    let combined = [...addrResults, ...stedResults, ...strandData];
+    // 3) Byg result-arrays
+   const addrResults = (addrData || []).map(item => ({
+     type: "adresse",
+     tekst: item.tekst,
+     adgangsadresse: item.adgangsadresse
+   }));
+   let stedResults = [];
+   if (Array.isArray(stedData.results)) {
+     stedResults = stedData.results.map(r => ({
+       type: "stednavn",
+       navn: r.visningstekst || r.navn,
+       bbox: r.bbox || null,
+       geometry: r.geometry || r.geometri
+     }));
+   }
+
+   const strandResults = (strandData || []).map(f => ({
+     type: "strandpost",
+     tekst: `Redningsnummer: ${f.properties.StrandNr}`,
+     lat: f.geometry.coordinates[1],
+     lon: f.geometry.coordinates[0]
+   }));
+
+   const cvrResults = (firmaData || []).map(f => ({
+     type: "firma",
+     tekst: `${f.Navn} (CVR ${f.CVRnummer}) — ${f.VirkningStatus}`,
+     adr: `${f.CVRAdresse_vejnavn}, ${f.CVRAdresse_postnummer} ${f.CVRAdresse_kommunenavn}`
+   }));
+
+   // 4) Kombinér ALT
+   const combined = [
+     ...addrResults,
+     ...stedResults,
+     ...strandResults,
+     ...cvrResults
+   ];
     // Sorter efter relevans
     combined.sort((a, b) => {
       if (a.type === "stednavn" && b.type === "adresse") {
