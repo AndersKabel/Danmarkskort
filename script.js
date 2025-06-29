@@ -511,6 +511,8 @@ async function updateInfoBox(data, lat, lon) {
       <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
       <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
       <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
+      <strong>Start-kilometrering:</strong> ${statsvejData.ERFAKMT || statsvejData.START_KMT || "Ukendt"}<br>
+      <strong>Slut-kilometrering:</strong> ${statsvejData.TILKMT || statsvejData.SLUT_KMT || "Ukendt"}`;
     document.getElementById("statsvejInfoBox").style.display = "block";
   } else {
     statsvejInfoEl.innerHTML = "";
