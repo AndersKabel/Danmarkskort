@@ -503,7 +503,6 @@ async function updateInfoBox(data, lat, lon) {
   if (vej2List)    vej2List.innerHTML    = "";
 
   let statsvejData = await checkForStatsvej(lat, lon);
-  console.log("Statsvej-felter:", Object.keys(statsvejData));
   const statsvejInfoEl = document.getElementById("statsvejInfo");
   if (statsvejData) {
     statsvejInfoEl.innerHTML = 
