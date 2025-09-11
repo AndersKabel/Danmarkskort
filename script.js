@@ -505,6 +505,9 @@ async function updateInfoBox(data, lat, lon) {
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
   if (statsvejData) {
+    // <-- FIX: log først her, når vi ved at objektet eksisterer
+    console.log("Statsvej-felter:", Object.keys(statsvejData));
+
     statsvejInfoEl.innerHTML = 
       `<strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
       <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
@@ -530,7 +533,7 @@ async function updateInfoBox(data, lat, lon) {
          let info       = kommuneInfo[kommunenavn];
          let doedeDyr   = info["Døde dyr"];
          let gaderVeje  = info["Gader og veje"];
-         let link       = info.gemLink;          // ← nyt: læs gemLink‑feltet
+         let link       = info.gemLink;          // ← nyt: læs gemLink-feltet
          if (link) {
           extraInfoEl.innerHTML += `<br>
             Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
