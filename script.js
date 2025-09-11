@@ -1178,11 +1178,11 @@ Y=50`;
     if (jsonData.features && jsonData.features.length > 0) {
       return jsonData.features[0].properties;
     } else {
-      return null;
+      return {};
     }
   } catch (error) {
     console.error("Fejl ved hentning af vejdata:", error);
-    return null;
+    return {};
   }
 }
 
@@ -1342,3 +1342,4 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
