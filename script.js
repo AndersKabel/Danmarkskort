@@ -239,6 +239,15 @@ fetch("svensk-grænse.geojson")
     }).addTo(border25Layer);
   });
 
+// Km-markører fra VD (CVF) – WMS
+const kmMarkLayer = L.tileLayer.wms("https://geocloud.vd.dk/CVF/wms", {
+  layers: "CVF:KM_MARKORER",   // hvis intet vises, prøv "CVF:km_markorer"
+  format: "image/png",
+  transparent: true,
+  version: "1.1.1",
+  attribution: "© Vejdirektoratet / CVF"
+});
+
 const baseMaps = {
   "OpenStreetMap": osmLayer,
   "Satellit": ortofotoLayer
@@ -250,7 +259,8 @@ const overlayMaps = {
   "DB SMS kort":       dbSmsLayer,
   "DB Journal":        dbJournalLayer,
   "25 km grænse": border25Layer,
-  "Ladestandere": chargeMapLayer
+  "Ladestandere": chargeMapLayer,
+  "Km-markører (CVF)": kmMarkLayer
 };
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
@@ -1427,3 +1437,4 @@ async function getKmAtPoint(lat, lon) {
     return "";
   }
 }
+
