@@ -513,7 +513,7 @@ async function updateInfoBox(data, lat, lon) {
   if (vej2List)    vej2List.innerHTML    = "";
 
   // Statsvej + KM
-  const stats    = await checkForStatsvej(lat, lon);
+  const stats = await checkForStatsvej(lat, lon);
   const statsBox = document.getElementById("statsvejInfoBox");
   const statsEl  = document.getElementById("statsvejInfo");
 
@@ -541,29 +541,27 @@ async function updateInfoBox(data, lat, lon) {
         let komData = await komResp.json();
         let kommunenavn = komData.navn || "";
         if (kommunenavn && kommuneInfo[kommunenavn]) {
-          let info       = kommuneInfo[kommunenavn];
-          let doedeDyr   = info["Døde dyr"];
-          let gaderVeje  = info["Gader og veje"];
-          let link       = info.gemLink; // evt. link
-          if (link) {
-            extraInfoEl.innerHTML += `<br>
-              Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
-              | Døde dyr: ${doedeDyr}
-              | Gader og veje: ${gaderVeje}`;
-          } else {
-            extraInfoEl.innerHTML += `<br>
-              Kommune: ${kommunenavn}
-              | Døde dyr: ${doedeDyr}
-              | Gader og veje: ${gaderVeje}`;
-          }
+         let info       = kommuneInfo[kommunenavn];
+         let doedeDyr   = info["Døde dyr"];
+         let gaderVeje  = info["Gader og veje"];
+         let link       = info.gemLink;          // ← nyt: læs gemLink-feltet
+         if (link) {
+          extraInfoEl.innerHTML += `<br>
+            Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
+            | Døde dyr: ${doedeDyr}
+            | Gader og veje: ${gaderVeje}`;
+        } else {
+         extraInfoEl.innerHTML += `<br>
+           Kommune: ${kommunenavn}
+           | Døde dyr: ${doedeDyr}
+           | Gader og veje: ${gaderVeje}`;
         }
+      }
       }
     } catch (e) {
       console.error("Kunne ikke hente kommuneinfo:", e);
     }
   }
-
-  document.getElementById("infoBox").style.display = "block";
 }
 
 /***************************************************
@@ -1154,7 +1152,9 @@ function placeMarkerAndZoom(coords, displayText) {
   document.getElementById("infoBox").style.display = "block";
 }
 
-// Læs statsvej-attributter via CVF WMS GetFeatureInfo (giver bl.a. ADM_NR)
+/***************************************************
+ * checkForStatsvej => WMS GetFeatureInfo (ADM_NR, m.m.)
+ ***************************************************/
 async function checkForStatsvej(lat, lon) {
   try {
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
@@ -1190,24 +1190,41 @@ function parseTextResponse(text) {
  * JSON-robust CORS-helper (prøver flere proxier)
  ***************************************************/
 async function fetchJsonViaCors(url) {
-  const wraps = [
-    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-    u => `https://thingproxy.freeboard.io/fetch/${u}`
-  ];
-  let lastErr = null;
-
-  for (const wrap of wraps) {
-    const proxied = wrap(url);
-    try {
-      const r   = await fetch(proxied, { cache: "no-store" });
-      const txt = await r.text();
-      try {
-        return JSON.parse(txt);
-      } catch (e) {
-        lastErr = e; // ikke JSON – prøv næste proxy
+  const candidates = [
+    {
+      wrap: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+      parse: async r => {
+        if (!r.ok) throw new Error("allorigins: " + r.status);
+        const j = await r.json();              // { contents: "<...>" }
+        return JSON.parse(j.contents);
       }
+    },
+    {
+      wrap: u => `https://cors.isomorphic-git.org/${u}`,
+      parse: async r => {
+        if (!r.ok) throw new Error("isomorphic-git: " + r.status);
+        const t = await r.text();              // kan komme som text
+        return JSON.parse(t);
+      }
+    },
+    {
+      wrap: u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+      parse: async r => {
+        if (!r.ok) throw new Error("corsproxy: " + r.status);
+        const t = await r.text();              // kan komme som text
+        return JSON.parse(t);
+      }
+    }
+    // thingproxy droppes – ofte cert-fejl
+  ];
+
+  let lastErr = null;
+  for (const c of candidates) {
+    try {
+      const r = await fetch(c.wrap(url), { cache: "no-store" });
+      return await c.parse(r);
     } catch (e) {
+      console.warn("CORS fallback fejlede:", e);
       lastErr = e;
     }
   }
@@ -1215,8 +1232,42 @@ async function fetchJsonViaCors(url) {
 }
 
 /***************************************************
- * Hent km-position via VD reference-service
- * (bruger JSON-robust CORS-helper)
+ * Fallback: hent nærmeste hele km via KM_MARKORER
+ ***************************************************/
+async function getKmFromMarker(lat, lon) {
+  try {
+    const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+    const buffer = 150;
+    const bbox   = `${x - buffer},${y - buffer},${x + buffer},${y + buffer}`;
+    const url =
+      `https://geocloud.vd.dk/CVF/wms?` +
+      `SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&INFO_FORMAT=application/json` +
+      `&TRANSPARENT=true&LAYERS=CVF:KM_MARKORER&QUERY_LAYERS=CVF:KM_MARKORER&SRS=EPSG:25832` +
+      `&WIDTH=101&HEIGHT=101&BBOX=${bbox}&X=50&Y=50`;
+
+    const r = await fetch(url);
+    const t = await r.text();
+    const j = t.startsWith("Results") ? (function parseText(txt){
+      const data = {};
+      txt.split("\n").forEach(line => {
+        const [k,v] = line.split(" = ");
+        if (k && v) data[k.trim()] = v.trim();
+      });
+      return { features:[{ properties:data }] };
+    })(t) : JSON.parse(t);
+
+    const props = j?.features?.[0]?.properties || {};
+    const km    = props.KM ?? props.km ?? props.KM_HELT ?? props.km_helt;
+    if (km != null && km !== "") return `km ${km} (nærmeste mærke)`;
+  } catch (e) {
+    console.error("getKmFromMarker fallback fejl:", e);
+  }
+  return "";
+}
+
+/***************************************************
+ * Hent km-position via reference-service
+ * (robust CORS + fallback til KM_MARKORER)
  ***************************************************/
 async function getKmAtPoint(lat, lon) {
   try {
@@ -1226,7 +1277,7 @@ async function getKmAtPoint(lat, lon) {
       `?geometry=POINT(${x}%20${y})` +
       `&srs=EPSG:25832` +
       `&layers=CVF:veje` +
-      `&buffer=150` +     // lidt større buffer for at fange nærmeste vej
+      `&buffer=150` +
       `&limit=1` +
       `&format=json`;
 
@@ -1234,9 +1285,8 @@ async function getKmAtPoint(lat, lon) {
 
     const data  = await fetchJsonViaCors(url);
     const props = data?.features?.[0]?.properties ?? data?.properties ?? null;
-    if (!props) return "";
+    if (!props) throw new Error("reference: tomt svar");
 
-    // Tjek almindelige feltnavne først
     const direct = ["km","KM","km_vaerdi","KM_VAERDI","km_value","kmtekst","km_text","KMTEKST"];
     for (const k of direct) {
       const v = props[k];
@@ -1246,17 +1296,44 @@ async function getKmAtPoint(lat, lon) {
         return String(v);
       }
     }
-    // Alternativt helt/meter-format
     const kh = props.km_helt ?? props.KM_HELT;
     const mm = props.km_meter ?? props.KM_METER;
     if (kh != null && mm != null) return `km ${kh}+${mm}`;
 
-    return "";
+    // ingen felter – prøv fallback
+    return await getKmFromMarker(lat, lon);
   } catch (e) {
-    console.error("getKmAtPoint fejl:", e);
-    return "";
+    console.warn("getKmAtPoint: proxy/reference fejlede – bruger fallback.", e);
+    return await getKmFromMarker(lat, lon);
   }
 }
+
+/***************************************************
+ * Statsvej / info-bokse
+ ***************************************************/
+const statsvejInfoBox = document.getElementById("statsvejInfoBox");
+const statsvejCloseBtn = document.getElementById("statsvejCloseBtn");
+statsvejCloseBtn.addEventListener("click", function() {
+  statsvejInfoBox.style.display = "none";
+  document.getElementById("infoBox").style.display = "none";
+  resetCoordinateBox();
+  if (currentMarker) {
+    map.removeLayer(currentMarker);
+    currentMarker = null;
+  }
+});
+const infoCloseBtn = document.getElementById("infoCloseBtn");
+infoCloseBtn.addEventListener("click", function() {
+  document.getElementById("infoBox").style.display = "none";
+  document.getElementById("statsvejInfoBox").style.display = "none";
+  if (currentMarker) {
+    map.removeLayer(currentMarker);
+    currentMarker = null;
+  }
+  resetCoordinateBox();
+  resultsList.innerHTML = "";
+  document.getElementById("kommuneOverlay").style.display = "none";
+});
 
 /***************************************************
  * "Find X"-knap => find intersection med Turf.js
