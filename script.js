@@ -260,7 +260,7 @@ const overlayMaps = {
   "DB Journal":        dbJournalLayer,
   "25 km grænse": border25Layer,
   "Ladestandere": chargeMapLayer,
-  "Km-markører (CVF)": kmMarkLayer
+  // "Km-markører (CVF)": kmMarkLayer
 };
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
@@ -1478,4 +1478,5 @@ async function getKmAtPoint(lat, lon) {
     return "";
   }
 }
+
 
