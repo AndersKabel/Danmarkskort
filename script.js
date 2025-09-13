@@ -502,6 +502,26 @@ async function updateInfoBox(data, lat, lon) {
   if (vej1List)    vej1List.innerHTML    = "";
   if (vej2List)    vej2List.innerHTML    = "";
 
+  // Statsvej + KM
+const stats = await checkForStatsvej(lat, lon);
+const statsBox = document.getElementById("statsvejInfoBox");
+const statsEl  = document.getElementById("statsvejInfo");
+
+if (stats && Object.keys(stats).length) {
+  const kmText = await getKmAtPoint(lat, lon);
+  statsEl.innerHTML =
+    `<strong>Administrativt nummer:</strong> ${stats.ADM_NR ?? stats.adm_nr ?? "Ukendt"}<br>
+     <strong>Forgrening:</strong> ${stats.FORGRENING ?? stats.forgrening ?? "Ukendt"}<br>
+     <strong>Vejnavn:</strong> ${stats.BETEGNELSE ?? stats.betegnelse ?? "Ukendt"}<br>
+     <strong>Bestyrer:</strong> ${stats.BESTYRER ?? stats.bestyrer ?? "Ukendt"}<br>
+     <strong>Vejtype:</strong> ${stats.VEJTYPE ?? stats.vejtype ?? "Ukendt"}${
+       kmText ? `<br><strong>Kilometer:</strong> ${kmText}` : ""}`;
+  if (statsBox) statsBox.style.display = "block";
+} else {
+  if (statsEl)  statsEl.innerHTML = "";
+  if (statsBox) statsBox.style.display = "none";
+}
+
   let statsvejData = await checkForStatsvej(lat, lon);
   console.log("Statsvej-felter:", Object.keys(statsvejData));
   const statsvejInfoEl = document.getElementById("statsvejInfo");
@@ -1340,3 +1360,70 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
+// Læs statsvej-attributter via CVF WMS GetFeatureInfo (giver bl.a. ADM_NR)
+async function checkForStatsvej(lat, lon) {
+  try {
+    const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+    const buffer = 100;
+    const bbox = `${x - buffer},${y - buffer},${x + buffer},${y + buffer}`;
+    const url =
+      `https://geocloud.vd.dk/CVF/wms?` +
+      `SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&INFO_FORMAT=application/json` +
+      `&TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&SRS=EPSG:25832` +
+      `&WIDTH=101&HEIGHT=101&BBOX=${bbox}&X=50&Y=50`;
+
+    const r = await fetch(url);
+    const t = await r.text();
+    if (t.startsWith("Results")) return parseTextResponse(t) || {};
+    const j = JSON.parse(t);
+    return (j.features && j.features[0] && j.features[0].properties) || {};
+  } catch (e) {
+    console.error("checkForStatsvej:", e);
+    return {};
+  }
+}
+
+function parseTextResponse(text) {
+  const data = {};
+  text.split("\n").forEach(line => {
+    const [k, v] = line.split(" = ");
+    if (k && v) data[k.trim()] = v.trim();
+  });
+  return data;
+}
+
+// Hent kilometer-værdi via CVF "reference"
+async function getKmAtPoint(lat, lon) {
+  try {
+    const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+    const url =
+      `https://geocloud.vd.dk/CVF/reference` +
+      `?geometry=POINT(${x}%20${y})&srs=EPSG:25832&layers=CVF:veje` +
+      `&buffer=30&limit=1&format=json`;
+
+    const r   = await fetch(url);
+    const txt = await r.text();
+    let data; try { data = JSON.parse(txt); } catch { data = null; }
+
+    const props =
+      (data && data.features && data.features[0] && data.features[0].properties) ? data.features[0].properties :
+      (data && data.properties) ? data.properties :
+      null;
+    if (!props) return "";
+
+    const kmRaw   = props.km ?? props.KM ?? props.km_værdi ?? props.KM_VAERDI ?? props.km_value ?? null;
+    const kmHelt  = props.km_helt ?? props.KM_HELT;
+    const kmMeter = props.km_meter ?? props.KM_METER;
+
+    if (kmRaw != null && kmRaw !== "") {
+      const val = ("" + kmRaw).replace(",", ".");
+      return `km ${Number(val).toFixed(3)}`;
+    }
+    if (kmHelt != null && kmMeter != null) return `km ${kmHelt}+${kmMeter}`;
+    return "";
+  } catch (e) {
+    console.error("getKmAtPoint:", e);
+    return "";
+  }
+}
