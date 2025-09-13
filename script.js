@@ -1403,37 +1403,78 @@ function parseTextResponse(text) {
   return data;
 }
 
-// Hent kilometer-værdi via CVF "reference"
+// Mere robust km-opslag via CVF reference
 async function getKmAtPoint(lat, lon) {
   try {
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const url =
-      `https://geocloud.vd.dk/CVF/reference` +
-      `?geometry=POINT(${x}%20${y})&srs=EPSG:25832&layers=CVF:veje` +
-      `&buffer=30&limit=1&format=json`;
 
-    const r   = await fetch(url);
-    const txt = await r.text();
-    let data; try { data = JSON.parse(txt); } catch { data = null; }
+    // prøv disse endpoints i rækkefølge
+    const endpoints = [
+      `https://geocloud.vd.dk/CVF/reference`,
+      `https://geocloud.vd.dk/reference` // fallback hvis første giver 404
+    ];
+
+    // lidt større buffer så vi fanger centerlinjen mere stabilt
+    const qs = (base) =>
+      `${base}?geometry=POINT(${x}%20${y})&srs=EPSG:25832&layers=CVF:veje&buffer=120&limit=1&format=json`;
+
+    let data = null, lastTxt = "";
+    for (const base of endpoints) {
+      const url = qs(base);
+      const resp = await fetch(url);
+      lastTxt = await resp.text();
+      try { data = JSON.parse(lastTxt); } catch { data = null; }
+      if (resp.ok && data) break; // vi har et brugbart svar
+    }
+
+    if (!data) {
+      console.warn("reference-service gav ikke JSON:", lastTxt);
+      return "";
+    }
 
     const props =
-      (data && data.features && data.features[0] && data.features[0].properties) ? data.features[0].properties :
-      (data && data.properties) ? data.properties :
-      null;
+      data?.features?.[0]?.properties ??
+      data?.properties ?? null;
+
     if (!props) return "";
 
-    const kmRaw   = props.km ?? props.KM ?? props.km_værdi ?? props.KM_VAERDI ?? props.km_value ?? null;
-    const kmHelt  = props.km_helt ?? props.KM_HELT;
-    const kmMeter = props.km_meter ?? props.KM_METER;
+    // prøv en håndfuld sandsynlige feltnavne
+    let kmText = "";
+    const tryProps = [
+      "km", "KM", "km_vaerdi", "KM_VAERDI", "km_value",
+      "kmtekst", "km_text", "KMTEKST",
+      "km_helt", "KM_HELT", "km_meter", "KM_METER"
+    ];
 
-    if (kmRaw != null && kmRaw !== "") {
-      const val = ("" + kmRaw).replace(",", ".");
-      return `km ${Number(val).toFixed(3)}`;
+    // direkte km-værdi?
+    for (const k of tryProps) {
+      if (props[k] != null && props[k] !== "") {
+        const v = String(props[k]).replace(",", ".");
+        if (!isNaN(Number(v))) { kmText = `km ${Number(v).toFixed(3)}`; break; }
+      }
     }
-    if (kmHelt != null && kmMeter != null) return `km ${kmHelt}+${kmMeter}`;
-    return "";
+
+    // hvis ikke – prøv kombination helt + meter
+    if (!kmText && props) {
+      const kH = props.km_helt ?? props.KM_HELT;
+      const kM = props.km_meter ?? props.KM_METER;
+      if (kH != null && kM != null) kmText = `km ${kH}+${kM}`;
+    }
+
+    // sidste udvej: find et felt der LIGNER “km” (men undgå “kommune”)
+    if (!kmText) {
+      const cand = Object.entries(props).find(([k,v]) =>
+        (/^km($|_|-)|kilometer/i.test(k)) && !/^komm/i.test(k) && v != null && v !== ""
+      );
+      if (cand) kmText = String(cand[1]);
+    }
+
+    // debug i konsollen hvis vi stadig ikke fandt noget
+    if (!kmText) console.debug("reference props (ingen genkendt km):", props);
+
+    return kmText;
   } catch (e) {
-    console.error("getKmAtPoint:", e);
+    console.error("getKmAtPoint fejl:", e);
     return "";
   }
 }
