@@ -1403,80 +1403,44 @@ function parseTextResponse(text) {
   return data;
 }
 
-// Mere robust km-opslag via CVF reference
+// ⚠️ Midlertidig proxy til test. Brug en egen proxy i drift!
+const PROXY_BASE = "https://cors.isomorphic-git.org/https://geocloud.vd.dk/reference";
+
 async function getKmAtPoint(lat, lon) {
   try {
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+    const url =
+      `${PROXY_BASE}?geometry=POINT(${x}%20${y})` +
+      `&srs=EPSG:25832` +
+      `&layers=CVF:veje` +
+      `&buffer=120` +          // lidt større buffer for at ramme nærmeste vej
+      `&limit=1` +
+      `&format=json`;
 
-    // prøv disse endpoints i rækkefølge
-    const endpoints = [
-      `https://geocloud.vd.dk/CVF/reference`,
-      `https://geocloud.vd.dk/reference` // fallback hvis første giver 404
-    ];
+    const resp = await fetch(url);
+    if (!resp.ok) return "";
 
-    // lidt større buffer så vi fanger centerlinjen mere stabilt
-    const qs = (base) =>
-      `${base}?geometry=POINT(${x}%20${y})&srs=EPSG:25832&layers=CVF:veje&buffer=120&limit=1&format=json`;
-
-    let data = null, lastTxt = "";
-    for (const base of endpoints) {
-      const url = qs(base);
-      const resp = await fetch(url);
-      lastTxt = await resp.text();
-      try { data = JSON.parse(lastTxt); } catch { data = null; }
-      if (resp.ok && data) break; // vi har et brugbart svar
-    }
-
-    if (!data) {
-      console.warn("reference-service gav ikke JSON:", lastTxt);
-      return "";
-    }
-
-    const props =
-      data?.features?.[0]?.properties ??
-      data?.properties ?? null;
-
+    const data  = await resp.json();
+    const props = data?.features?.[0]?.properties ?? data?.properties ?? null;
     if (!props) return "";
 
-    // prøv en håndfuld sandsynlige feltnavne
-    let kmText = "";
-    const tryProps = [
-      "km", "KM", "km_vaerdi", "KM_VAERDI", "km_value",
-      "kmtekst", "km_text", "KMTEKST",
-      "km_helt", "KM_HELT", "km_meter", "KM_METER"
-    ];
-
-    // direkte km-værdi?
-    for (const k of tryProps) {
-      if (props[k] != null && props[k] !== "") {
-        const v = String(props[k]).replace(",", ".");
-        if (!isNaN(Number(v))) { kmText = `km ${Number(v).toFixed(3)}`; break; }
+    // prøv flere potentielle feltnavne
+    const direct = ["km","KM","km_vaerdi","KM_VAERDI","km_value","kmtekst","km_text","KMTEKST"];
+    for (const k of direct) {
+      const v = props[k];
+      if (v != null && v !== "") {
+        const n = String(v).replace(",", ".");
+        if (!isNaN(Number(n))) return `km ${Number(n).toFixed(3)}`;
+        return String(v);
       }
     }
+    const kh = props.km_helt ?? props.KM_HELT;
+    const km = props.km_meter ?? props.KM_METER;
+    if (kh != null && km != null) return `km ${kh}+${km}`;
 
-    // hvis ikke – prøv kombination helt + meter
-    if (!kmText && props) {
-      const kH = props.km_helt ?? props.KM_HELT;
-      const kM = props.km_meter ?? props.KM_METER;
-      if (kH != null && kM != null) kmText = `km ${kH}+${kM}`;
-    }
-
-    // sidste udvej: find et felt der LIGNER “km” (men undgå “kommune”)
-    if (!kmText) {
-      const cand = Object.entries(props).find(([k,v]) =>
-        (/^km($|_|-)|kilometer/i.test(k)) && !/^komm/i.test(k) && v != null && v !== ""
-      );
-      if (cand) kmText = String(cand[1]);
-    }
-
-    // debug i konsollen hvis vi stadig ikke fandt noget
-    if (!kmText) console.debug("reference props (ingen genkendt km):", props);
-
-    return kmText;
+    return "";
   } catch (e) {
     console.error("getKmAtPoint fejl:", e);
     return "";
   }
 }
-
-
