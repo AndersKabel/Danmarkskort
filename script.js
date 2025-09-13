@@ -532,23 +532,6 @@ if (stats && Object.keys(stats).length) {
   if (statsBox) statsBox.style.display = "none";
 }
 
-  let statsvejData = await checkForStatsvej(lat, lon);
-  console.log("Statsvej-felter:", Object.keys(statsvejData));
-  const statsvejInfoEl = document.getElementById("statsvejInfo");
-  if (statsvejData) {
-    statsvejInfoEl.innerHTML = 
-      `<strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
-      <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
-      <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
-      <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
-      <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
-    document.getElementById("statsvejInfoBox").style.display = "block";
-  } else {
-    statsvejInfoEl.innerHTML = "";
-    document.getElementById("statsvejInfoBox").style.display = "none";
-  }
-  document.getElementById("infoBox").style.display = "block";
-  
   // Hent kommuneinfo
   if (kommunekode !== "?") {
     try {
@@ -1257,4 +1240,5 @@ async function getKmAtPoint(lat, lon) {
     return "";
   }
 }
+
 
