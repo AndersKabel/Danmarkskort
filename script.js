@@ -1403,28 +1403,43 @@ function parseTextResponse(text) {
   return data;
 }
 
-// ⚠️ Midlertidig proxy til test. Brug en egen proxy i drift!
-const PROXY_BASE = "https://cors.isomorphic-git.org/https://geocloud.vd.dk/reference";
+// Prøv flere CORS-proxier i rækkefølge, returnér første der virker
+async function fetchViaCors(url) {
+  const candidates = [
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://thingproxy.freeboard.io/fetch/${url}`
+  ];
+  for (const u of candidates) {
+    try {
+      const r = await fetch(u, { cache: "no-store" });
+      if (r.ok) return r;
+    } catch (_) { /* prøv næste */ }
+  }
+  throw new Error("CORS: alle proxier fejlede");
+}
 
+// 🔹 Henter km-position via VD reference-service (med CORS-fallback)
 async function getKmAtPoint(lat, lon) {
   try {
+    // NB: korrekt endpoint er /reference (ikke /CVF/reference)
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const url =
-      `${PROXY_BASE}?geometry=POINT(${x}%20${y})` +
+    const bareUrl =
+      `https://geocloud.vd.dk/reference` +
+      `?geometry=POINT(${x}%20${y})` +
       `&srs=EPSG:25832` +
       `&layers=CVF:veje` +
-      `&buffer=120` +          // lidt større buffer for at ramme nærmeste vej
+      `&buffer=120` +      // lidt større buffer for at ramme nærmeste vej
       `&limit=1` +
       `&format=json`;
 
-    const resp = await fetch(url);
-    if (!resp.ok) return "";
-
+    // brug vores CORS-helper
+    const resp  = await fetchViaCors(bareUrl);
     const data  = await resp.json();
     const props = data?.features?.[0]?.properties ?? data?.properties ?? null;
     if (!props) return "";
 
-    // prøv flere potentielle feltnavne
+    // prøv en række mulige feltnavne
     const direct = ["km","KM","km_vaerdi","KM_VAERDI","km_value","kmtekst","km_text","KMTEKST"];
     for (const k of direct) {
       const v = props[k];
