@@ -533,28 +533,57 @@ const hasStatsvej =
     (statsvejData.VEJTYPE && String(statsvejData.VEJTYPE).trim() !== "")
   );
 
-if (hasStatsvej) {
+// vis kun boksen hvis der er meningsfulde statsvejsfelter
+const hasStatsvej =
+  statsvejData &&
+  (
+    statsvejData.ADM_NR != null ||
+    statsvejData.FORGRENING != null ||
+    (statsvejData.BETEGNELSE && String(statsvejData.BETEGNELSE).trim() !== "") ||
+    (statsvejData.VEJTYPE && String(statsvejData.VEJTYPE).trim() !== "")
+  );
 
-    console.log("Statsvej-felter:", Object.keys(statsvejData));
+// vis boksen hvis der er statsvej-INFO ELLER vejstatus/vejmyndighed
+const showBox = hasStatsvej || vejstatus || vejmyndighed;
 
-    statsvejInfoEl.innerHTML = 
+if (showBox) {
+  let html = "";
+
+  if (hasStatsvej) {
+    html +=
       `<strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
-      <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
-      <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
-      <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
-      <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
+       <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
+       <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
+       <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
+       <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
+  }
 
-    /* ➕ NYT: hent km via din Cloudflare-proxy og vis den (ét tal i kmtText-format) */
+  // Tilføj vejstatus/vejmyndighed KUN hvis de findes (ingen “Ukendt”)
+  if (vejstatus) {
+    if (html) html += "<br>";
+    html += `<strong>Vejstatus:</strong> ${vejstatus}`;
+  }
+  if (vejmyndighed) {
+    if (html) html += "<br>";
+    html += `<strong>Vejmyndighed:</strong> ${vejmyndighed}`;
+  }
+
+  statsvejInfoEl.innerHTML = html;
+
+  // km vises kun, når der er statsvej (referencevej)
+  if (hasStatsvej) {
     const kmText = await getKmAtPoint(lat, lon);
     if (kmText) {
       statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
     }
-
-    document.getElementById("statsvejInfoBox").style.display = "block";
-  } else {
-    statsvejInfoEl.innerHTML = "";
-    document.getElementById("statsvejInfoBox").style.display = "none";
   }
+
+  document.getElementById("statsvejInfoBox").style.display = "block";
+} else {
+  statsvejInfoEl.innerHTML = "";
+  document.getElementById("statsvejInfoBox").style.display = "none";
+}
+
   document.getElementById("infoBox").style.display = "block";
   
   // Hent kommuneinfo
@@ -1453,6 +1482,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
