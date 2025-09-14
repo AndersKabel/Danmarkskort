@@ -613,7 +613,14 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
               Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
               | Døde dyr: ${doedeDyr}
               | Gader og veje: ${gaderVeje}`;
-            // ➕ Politikreds (kommer fra reverse-svaret med struktur=flad)
+           
+          } else {
+            extraInfoEl.innerHTML += `<br>
+              Kommune: ${kommunenavn}
+              | Døde dyr: ${doedeDyr}
+              | Gader og veje: ${gaderVeje}`;
+          }
+           // ➕ Politikreds (kommer fra reverse-svaret med struktur=flad)
 const politikredsNavn = data.politikredsnavn
   ?? data.adgangsadresse?.politikredsnavn
   ?? null;
@@ -627,12 +634,6 @@ if (politikredsNavn || politikredsKode) {
     : `${politikredsNavn}`;
   extraInfoEl.innerHTML += `<br>Politikreds: ${polititekst}`;
 }
-          } else {
-            extraInfoEl.innerHTML += `<br>
-              Kommune: ${kommunenavn}
-              | Døde dyr: ${doedeDyr}
-              | Gader og veje: ${gaderVeje}`;
-          }
         }
       }
     } catch (e) {
@@ -1505,6 +1506,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
