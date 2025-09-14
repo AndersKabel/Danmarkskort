@@ -646,12 +646,12 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
     ?? data.adgangsadresse?.politikredskode
     ?? null;
 
-  if (politikredsNavn || politikredsKode) {
-    const polititekst = politikredsKode
-      ? `${politikredsNavn || ""} (${politikredsKode})`
-      : `${politikredsNavn}`;
-    extraInfoEl.innerHTML += `<br>Politikreds: ${polititekst}`;
-  }
+if (politikredsNavn || politikredsKode) {
+  const polititekst = politikredsKode
+    ? `${politikredsNavn || ""} (${politikredsKode})`
+    : `${politikredsNavn}`;
+  infoMetaEl.innerHTML += `<br>Politikreds: ${polititekst}`;
+}  
 }
 
 /***************************************************
@@ -1471,6 +1471,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
