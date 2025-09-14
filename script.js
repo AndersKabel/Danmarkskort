@@ -508,7 +508,6 @@ async function updateInfoBox(data, lat, lon) {
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
   if (statsvejData) {
-    // <-- FIX: log først her, når vi ved at objektet eksisterer
     console.log("Statsvej-felter:", Object.keys(statsvejData));
 
     statsvejInfoEl.innerHTML = 
@@ -517,6 +516,13 @@ async function updateInfoBox(data, lat, lon) {
       <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
       <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
       <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
+
+    /* ➕ NYT: hent km via din Cloudflare-proxy og vis den */
+    const kmText = await getKmAtPoint(lat, lon);
+    if (kmText) {
+      statsvejInfoEl.innerHTML += `<br><strong>Kilometer:</strong> ${kmText}`;
+    }
+
     document.getElementById("statsvejInfoBox").style.display = "block";
   } else {
     statsvejInfoEl.innerHTML = "";
@@ -533,22 +539,22 @@ async function updateInfoBox(data, lat, lon) {
         let komData = await komResp.json();
         let kommunenavn = komData.navn || "";
         if (kommunenavn && kommuneInfo[kommunenavn]) {
-         let info       = kommuneInfo[kommunenavn];
-         let doedeDyr   = info["Døde dyr"];
-         let gaderVeje  = info["Gader og veje"];
-         let link       = info.gemLink;          // ← nyt: læs gemLink-feltet
-         if (link) {
-          extraInfoEl.innerHTML += `<br>
-            Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
-            | Døde dyr: ${doedeDyr}
-            | Gader og veje: ${gaderVeje}`;
-        } else {
-         extraInfoEl.innerHTML += `<br>
-           Kommune: ${kommunenavn}
-           | Døde dyr: ${doedeDyr}
-           | Gader og veje: ${gaderVeje}`;
-  }
-}
+          let info      = kommuneInfo[kommunenavn];
+          let doedeDyr  = info["Døde dyr"];
+          let gaderVeje = info["Gader og veje"];
+          let link      = info.gemLink;
+          if (link) {
+            extraInfoEl.innerHTML += `<br>
+              Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
+              | Døde dyr: ${doedeDyr}
+              | Gader og veje: ${gaderVeje}`;
+          } else {
+            extraInfoEl.innerHTML += `<br>
+              Kommune: ${kommunenavn}
+              | Døde dyr: ${doedeDyr}
+              | Gader og veje: ${gaderVeje}`;
+          }
+        }
       }
     } catch (e) {
       console.error("Kunne ikke hente kommuneinfo:", e);
@@ -1205,6 +1211,66 @@ function parseTextResponse(text) {
 }
 
 /***************************************************
+ * ➕ NY: getKmAtPoint – henter km via din Cloudflare-worker
+ * Returnerer "" hvis intet kan udledes.
+ ***************************************************/
+async function getKmAtPoint(lat, lon) {
+  try {
+    // 1) WGS84 -> UTM32
+    const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+
+    // 2) Brug statsvej-info til at låse vej/forgrening
+    const stats = await checkForStatsvej(lat, lon);
+    const roadNumber = stats.ADM_NR ?? stats.adm_nr ?? null;
+    const roadPart   = stats.FORGRENING ?? stats.forgrening ?? 0;
+
+    if (!roadNumber) return "";
+
+    // 3) Kald din worker
+    const url =
+      `${VD_PROXY}/reference` +
+      `?geometry=POINT(${x}%20${y})` +
+      `&srs=EPSG:25832` +
+      `&roadNumber=${roadNumber}` +
+      `&roadPart=${roadPart}` +
+      `&format=json`;
+
+    const resp = await fetch(url, { cache: "no-store" });
+    if (!resp.ok) {
+      console.error("getKmAtPoint proxy-fejl:", resp.status, await resp.text());
+      return "";
+    }
+    const data = await resp.json();
+
+    // 4) Læs felter som i dit proxy-svar
+    const props =
+      data?.properties ??
+      data?.features?.[0]?.properties ??
+      data;
+
+    const km      = props?.km ?? props?.KM ?? null;
+    const m       = props?.m  ?? props?.M  ?? props?.km_meter ?? null;
+    const kmtText = props?.kmtText ?? props?.KMTEKST ?? props?.kmtekst ?? null;
+
+    if (kmtText) {
+      // f.eks. "94/0767" -> "km 94+767"
+      const norm = String(kmtText).replace("/", "+");
+      return `km ${norm}`;
+    }
+    if (km != null && m != null) return `km ${km}+${m}`;
+
+    if (km != null) {
+      const n = Number(String(km).replace(",", "."));
+      return isNaN(n) ? `km ${km}` : `km ${n.toFixed(3)}`;
+    }
+    return "";
+  } catch (e) {
+    console.error("getKmAtPoint fejl:", e);
+    return "";
+  }
+}
+
+/***************************************************
  * Statsvej / info-bokse
  ***************************************************/
 const statsvejInfoBox = document.getElementById("statsvejInfoBox");
@@ -1345,4 +1411,3 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
-
