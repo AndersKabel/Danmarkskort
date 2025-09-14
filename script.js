@@ -262,7 +262,8 @@ const overlayMaps = {
   "DB SMS kort":       dbSmsLayer,
   "DB Journal":        dbJournalLayer,
   "25 km grænse": border25Layer,
-  "Ladestandere": chargeMapLayer
+  "Ladestandere": chargeMapLayer,
+  "Rutenummereret vejnet": rutenummerLayer
 };
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
@@ -1481,6 +1482,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
