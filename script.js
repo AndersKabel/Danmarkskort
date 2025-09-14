@@ -557,7 +557,16 @@ if (showBox) {
        <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
        <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
   }
+// ➕ Husnumre / beskrivelse fra CVF-featureinfo
+const beskrivelse =
+  statsvejData.BESKRIVELSE ??
+  statsvejData.beskrivelse ??
+  null;
 
+if (beskrivelse && String(beskrivelse).trim() !== "") {
+  statsvejInfoEl.innerHTML += `<br><strong>Husnumre:</strong> ${beskrivelse}`;
+}
+  
   // Tilføj vejstatus/vejmyndighed KUN hvis de findes (ingen “Ukendt”)
   if (vejstatus) {
     if (html) html += "<br>";
@@ -1496,6 +1505,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
