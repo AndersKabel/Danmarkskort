@@ -507,6 +507,22 @@ async function updateInfoBox(data, lat, lon) {
 
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
+
+  // Forsøg at udlæse vejstatus/vejmyndighed fra CVF-svaret
+const vejstatus =
+  statsvejData?.VEJSTATUS ??
+  statsvejData?.vejstatus ??
+  statsvejData?.VEJ_STATUS ??
+  statsvejData?.status ??
+  null;
+
+const vejmyndighed =
+  statsvejData?.VEJMYNDIGHED ??
+  statsvejData?.vejmyndighed ??
+  statsvejData?.VEJMYND ??
+  statsvejData?.VEJMND ??
+  null;
+
   // vis kun boksen hvis der er meningsfulde felter
 const hasStatsvej =
   statsvejData &&
@@ -1437,5 +1453,6 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
