@@ -140,6 +140,15 @@ var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/o
   attribution: "Data: redningsnummer.dk"
 });
 
+// Rutenummereret vejnet (VD Geocloud WMS)
+var rutenummerLayer = L.tileLayer.wms("https://geocloud.vd.dk/VM/wms", {
+  layers: "rutenummereret-vejnet",
+  format: "image/png",
+  transparent: true,
+  version: "1.3.0",
+  attribution: "© Vejdirektoratet"
+});
+
 /***************************************************
  * NYT: Opret nyt Falck Ass-lag (GeoJSON)
  * Henter data fra filen "FalckStationer_data.json"
@@ -1472,6 +1481,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
