@@ -507,7 +507,18 @@ async function updateInfoBox(data, lat, lon) {
 
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
-  if (statsvejData) {
+  // vis kun boksen hvis der er meningsfulde felter
+const hasStatsvej =
+  statsvejData &&
+  (
+    statsvejData.ADM_NR != null ||
+    statsvejData.FORGRENING != null ||
+    (statsvejData.BETEGNELSE && String(statsvejData.BETEGNELSE).trim() !== "") ||
+    (statsvejData.VEJTYPE && String(statsvejData.VEJTYPE).trim() !== "")
+  );
+
+if (hasStatsvej) {
+
     console.log("Statsvej-felter:", Object.keys(statsvejData));
 
     statsvejInfoEl.innerHTML = 
@@ -1426,4 +1437,5 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
