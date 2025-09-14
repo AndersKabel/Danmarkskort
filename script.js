@@ -3,6 +3,9 @@
  ***************************************************/
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m +no_defs");
 
+// Cloudflare proxy til VD-reference
+const VD_PROXY = "https://vd-proxy.anderskabel8.workers.dev";
+
 function convertToWGS84(x, y) {
   // Ved at bytte parameterne [y, x] opnår vi, at northing (y) kommer først,
   // som derefter bliver konverteret til latitude, og easting (x) til longitude.
@@ -1342,3 +1345,4 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
