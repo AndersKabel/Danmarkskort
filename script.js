@@ -490,7 +490,7 @@ const actionsHtml = `
 `;
 
 extraInfoEl.innerHTML = `
-  <div id="info-actions" style="margin:6px 0;">${actionsHtml}</div>
+  <div id="info-actions" style="margin:2px 0;">${actionsHtml}</div>
   <div id="info-meta"></div>
 `;
 const infoMetaEl = document.getElementById("info-meta");
@@ -1471,6 +1471,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
