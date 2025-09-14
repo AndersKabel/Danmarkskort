@@ -604,6 +604,20 @@ if (showBox) {
               Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
               | Døde dyr: ${doedeDyr}
               | Gader og veje: ${gaderVeje}`;
+            // ➕ Politikreds (kommer fra reverse-svaret med struktur=flad)
+const politikredsNavn = data.politikredsnavn
+  ?? data.adgangsadresse?.politikredsnavn
+  ?? null;
+const politikredsKode = data.politikredskode
+  ?? data.adgangsadresse?.politikredskode
+  ?? null;
+
+if (politikredsNavn || politikredsKode) {
+  const polititekst = politikredsKode
+    ? `${politikredsNavn || ""} (${politikredsKode})`
+    : `${politikredsNavn}`;
+  extraInfoEl.innerHTML += `<br>Politikreds: ${polititekst}`;
+}
           } else {
             extraInfoEl.innerHTML += `<br>
               Kommune: ${kommunenavn}
@@ -1482,6 +1496,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
