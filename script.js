@@ -754,7 +754,7 @@ async function getKmAtPoint(lat, lon) {
   try {
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
     const url =
-      https://geocloud.vd.dk/reference +
+      `https://geocloud.vd.dk/reference +
       `?geometry=POINT(${x}%20${y})` +
       `&srs=EPSG:25832` +
       `&layers=CVF:veje` +
@@ -873,4 +873,5 @@ document.getElementById("btn25").addEventListener("click", () => { selectedRadiu
 document.getElementById("btn50").addEventListener("click", () => { selectedRadius = 50000; toggleCircle(50000); });
 document.getElementById("btn100").addEventListener("click", () => { selectedRadius = 100000; toggleCircle(100000); });
 document.addEventListener("DOMContentLoaded", function() { document.getElementById("search").focus(); });
+
 
