@@ -523,16 +523,6 @@ const vejmyndighed =
   statsvejData?.VEJMND ??
   null;
 
-  // vis kun boksen hvis der er meningsfulde felter
-const hasStatsvej =
-  statsvejData &&
-  (
-    statsvejData.ADM_NR != null ||
-    statsvejData.FORGRENING != null ||
-    (statsvejData.BETEGNELSE && String(statsvejData.BETEGNELSE).trim() !== "") ||
-    (statsvejData.VEJTYPE && String(statsvejData.VEJTYPE).trim() !== "")
-  );
-
 // vis kun boksen hvis der er meningsfulde statsvejsfelter
 const hasStatsvej =
   statsvejData &&
@@ -1482,6 +1472,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
