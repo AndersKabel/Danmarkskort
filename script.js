@@ -517,10 +517,10 @@ async function updateInfoBox(data, lat, lon) {
       <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
       <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
 
-    /* ➕ NYT: hent km via din Cloudflare-proxy og vis den */
+    /* ➕ NYT: hent km via din Cloudflare-proxy og vis den (ét tal i kmtText-format) */
     const kmText = await getKmAtPoint(lat, lon);
     if (kmText) {
-      statsvejInfoEl.innerHTML += `<br><strong>Kilometer:</strong> ${kmText}`;
+      statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
     }
 
     document.getElementById("statsvejInfoBox").style.display = "block";
@@ -1211,8 +1211,10 @@ function parseTextResponse(text) {
 }
 
 /***************************************************
- * ➕ NY: getKmAtPoint – henter km via din Cloudflare-worker
- * Returnerer "" hvis intet kan udledes.
+ * ➕ NY (opdateret): getKmAtPoint – returnerer ét kmtText-tal
+ *  - Hvis kmtText findes: returnér det direkte (fx "99/0031")
+ *  - Ellers: forsøg at formatere som KM/MMMM (m med 4 cifre)
+ *  - Ellers: "" (ingen værdi)
  ***************************************************/
 async function getKmAtPoint(lat, lon) {
   try {
@@ -1248,21 +1250,17 @@ async function getKmAtPoint(lat, lon) {
       data?.features?.[0]?.properties ??
       data;
 
-    const km      = props?.km ?? props?.KM ?? null;
-    const m       = props?.m  ?? props?.M  ?? props?.km_meter ?? null;
     const kmtText = props?.kmtText ?? props?.KMTEKST ?? props?.kmtekst ?? null;
+    if (kmtText) return String(kmtText); // Ét tal som ønsket
 
-    if (kmtText) {
-      // f.eks. "94/0767" -> "km 94+767"
-      const norm = String(kmtText).replace("/", "+");
-      return `km ${norm}`;
+    // fallback: forsøg at bygge "KM/MMMM"
+    const km = props?.km ?? props?.KM ?? null;
+    const m  = props?.m  ?? props?.M  ?? props?.km_meter ?? null;
+    if (km != null && m != null) {
+      const m4 = String(m).padStart(4, "0");
+      return `${km}/${m4}`;
     }
-    if (km != null && m != null) return `km ${km}+${m}`;
 
-    if (km != null) {
-      const n = Number(String(km).replace(",", "."));
-      return isNaN(n) ? `km ${km}` : `km ${n.toFixed(3)}`;
-    }
     return "";
   } catch (e) {
     console.error("getKmAtPoint fejl:", e);
