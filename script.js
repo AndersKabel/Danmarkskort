@@ -1250,18 +1250,35 @@ async function getKmAtPoint(lat, lon) {
       data?.features?.[0]?.properties ??
       data;
 
-    const kmtText = props?.kmtText ?? props?.KMTEKST ?? props?.kmtekst ?? null;
-    if (kmtText) return String(kmtText); // Ét tal som ønsket
+   // Nogle svar har km-teksten i nested felter: properties.from.kmtText (eller to.kmtText)
+const from = props?.from ?? props?.FROM ?? props?.fra ?? null;
+const to   = props?.to   ?? props?.TO   ?? props?.til ?? null;
 
-    // fallback: forsøg at bygge "KM/MMMM"
-    const km = props?.km ?? props?.KM ?? null;
-    const m  = props?.m  ?? props?.M  ?? props?.km_meter ?? null;
-    if (km != null && m != null) {
-      const m4 = String(m).padStart(4, "0");
-      return `${km}/${m4}`;
-    }
+const kmtText =
+  from?.kmtText ??
+  from?.KMTTEXT ??
+  to?.kmtText ??
+  to?.KMTTEXT ??
+  props?.kmtText ??
+  props?.KMTEKST ??
+  props?.kmtekst ??
+  props?.at?.kmtText ??        // enkelte svar bruger 'at'
+  null;
 
-    return "";
+if (kmtText) {
+  // returnér ét tal præcist som pælen angives (fx "99/0031")
+  return String(kmtText);
+}
+
+// Fallback: forsøg at bygge "KM/MMMM" ud fra 'from' først
+const km = (from?.km ?? props?.km ?? props?.KM ?? null);
+const m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
+if (km != null && m != null) {
+  return `${km}/${String(m).padStart(4, "0")}`;
+}
+
+return "";
+
   } catch (e) {
     console.error("getKmAtPoint fejl:", e);
     return "";
@@ -1409,3 +1426,4 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
