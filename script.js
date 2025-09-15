@@ -644,6 +644,7 @@ positionStatsvejBox();   // <- NY: placer stats-boksen under info-boksen
     Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
     | Døde dyr: ${doedeDyr}
     | Gader og veje: ${gaderVeje}`;
+    requestAnimationFrame(positionStatsvejBox);       
 } else {
   infoMetaEl.innerHTML += `<br>
     Kommune: ${kommunenavn}
@@ -1493,6 +1494,7 @@ window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
