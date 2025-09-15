@@ -559,16 +559,16 @@ async function updateInfoBox(data, lat, lon) {
          <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
     }
 
-    // ➕ Husnumre / beskrivelse fra CVF-featureinfo – føjes til samme html
-    const beskrivelse =
-      statsvejData.BESKRIVELSE ??
-      statsvejData.beskrivelse ??
-      null;
+    // ➕ Beskrivelse fra CVF-featureinfo – (indeholder ofte husnr. intervaller)
+const beskrivelse =
+  statsvejData.BESKRIVELSE ??
+  statsvejData.beskrivelse ??
+  null;
 
-    if (beskrivelse && String(beskrivelse).trim() !== "") {
-      if (html) html += "<br>";
-      html += `<strong>Husnumre:</strong> ${beskrivelse}`;
-    }
+if (beskrivelse && String(beskrivelse).trim() !== "") {
+  if (html) html += "<br>";
+  html += `<strong>Beskrivelse:</strong> ${beskrivelse}`;
+}
 
     // Tilføj vejstatus/vejmyndighed KUN hvis de findes (ingen “Ukendt”)
     if (vejstatus) {
@@ -1462,3 +1462,4 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
