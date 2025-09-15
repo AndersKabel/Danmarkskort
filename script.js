@@ -625,7 +625,7 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
   }
 
   document.getElementById("infoBox").style.display = "block";
-positionStatsvejBox();   // <- NY: placer stats-boksen under info-boksen
+requestAnimationFrame(positionStatsvejBox);
 
   // Hent kommuneinfo
   if (kommunekode !== "?") {
@@ -1496,6 +1496,7 @@ window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
