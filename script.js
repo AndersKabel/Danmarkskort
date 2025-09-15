@@ -10,9 +10,8 @@ const VD_PROXY = "https://vd-proxy.anderskabel8.workers.dev";
  * Koordinat-konvertering (UTM32 -> WGS84)
  ***************************************************/
 function convertToWGS84(x, y) {
-  // Byt [x,y] -> proj4 returnerer [lon,lat]
   const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [x, y]);
-  return [lat, lon]; // Leaflet bruger [lat,lon]
+  return [lat, lon]; // Leaflet bruger [lat, lon]
 }
 
 /***************************************************
@@ -128,28 +127,41 @@ L.control.layers(baseMaps, overlayMaps, { position: "topright" }).addTo(map);
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
 /***************************************************
- * Strandposter – lokal indlæsning når laget tændes
+ * Strandposter – robust lokal indlæsning + auto-rerun
  ***************************************************/
-let allStrandposter = [];    // GeoJSON features
-let strandposterReady = false;
+let allStrandposter = [];
+let strandposterReady   = false;
+let strandposterLoading = false;
+let lastSearchQuery     = "";
+let lastListElement     = null;
 
-function fetchAllStrandposter() {
-  // Filen hedder præcis "Strandposter" i dit repo.
-  const localUrl = "Strandposter";
-  return fetch(localUrl)
-    .then(resp => resp.json())
-    .then(geojson => {
-      allStrandposter = Array.isArray(geojson.features) ? geojson.features : [];
-      strandposterReady = true;
-    })
-    .catch(() => { strandposterReady = false; });
+/* Prøv flere mulige filnavne i rækkefølge – loader kun én gang */
+async function loadStrandposterOnce() {
+  if (strandposterReady || strandposterLoading) return;
+  strandposterLoading = true;
+
+  const candidates = ["Strandposter", "Strandposter.json", "Strandposter.geojson"];
+  for (const url of candidates) {
+    try {
+      const resp = await fetch(url, { cache: "no-store" });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      if (data && Array.isArray(data.features)) {
+        allStrandposter = data.features;
+        strandposterReady = true;
+        break;
+      }
+    } catch (_) { /* prøv næste */ }
+  }
+  strandposterLoading = false;
 }
 
-/* Hent strandposter første gang laget tændes */
-map.on("overlayadd", e => {
+/* Når laget tændes: hent lokalt og rerun søgning, hvis bruger skriver */
+map.on("overlayadd", async (e) => {
   if (e.layer === redningsnrLayer) {
-    if (!strandposterReady || allStrandposter.length === 0) {
-      fetchAllStrandposter();
+    await loadStrandposterOnce();
+    if (strandposterReady && lastSearchQuery && lastListElement) {
+      doSearch(lastSearchQuery, lastListElement);
     }
   } else if (e.layer === dbSmsLayer) {
     window.open("https://kort.dyrenesbeskyttelse.dk/db/dvc.nsf/kort", "_blank");
@@ -183,8 +195,25 @@ map.on("overlayadd", e => {
   }
 });
 
+/* Filtrér kun hvis laget er tændt og data er klar */
+function filterStrandposter(query) {
+  if (!(map.hasLayer(redningsnrLayer) && strandposterReady)) return [];
+  const q = (query || "").toLowerCase();
+
+  return (allStrandposter || [])
+    .map(f => {
+      const p = f.properties || {}, g = f.geometry || {};
+      if (g.type !== "Point" || !Array.isArray(g.coordinates)) return null;
+      const [lon, lat] = g.coordinates;
+      const tekst =
+        p.tekst ?? p.navn ?? p.label ?? (p.nr != null ? `Strandpost ${p.nr}` : null) ?? "Strandpost";
+      return { type: "strandpost", tekst, lat, lon };
+    })
+    .filter(o => o && o.tekst && o.tekst.toLowerCase().includes(q));
+}
+
 /***************************************************
- * Kommune-lookup fra lokal fil
+ * Kommune-lookup
  ***************************************************/
 let kommuneInfo = {};
 fetch("kommunedata.json").then(r=>r.json()).then(d=>{ kommuneInfo=d; }).catch(()=>{});
@@ -410,28 +439,26 @@ let vej2Items = [], vej2CurrentIndex = -1;
 
 /***************************************************
  * Søgning – adresse + stednavn + (lokal) strandpost
- * Strandposter returneres KUN når laget er tændt.
+ * Kun strandposter når laget er tændt.
+ * Hvis data ikke er klar endnu: hent og rerun.
  ***************************************************/
-function filterStrandposter(query) {
-  if (!(map.hasLayer(redningsnrLayer) && strandposterReady)) return [];
-  const q = (query || "").toLowerCase();
-  return (allStrandposter || [])
-    .map(f => {
-      const p = f.properties || {}, g = f.geometry || {};
-      if (g.type !== "Point" || !Array.isArray(g.coordinates)) return null;
-      const [lon, lat] = g.coordinates;
-      const tekst =
-        p.tekst ?? p.navn ?? p.label ?? (p.nr != null ? `Strandpost ${p.nr}` : null) ?? "Strandpost";
-      return { type: "strandpost", tekst, lat, lon };
-    })
-    .filter(o => o && o.tekst && o.tekst.toLowerCase().includes(q));
-}
-
 function doSearch(query, listElement) {
+  lastSearchQuery = query;
+  lastListElement = listElement;
+
+  // Hvis strandposter er relevante men ikke klar, start indlæsning og rerun
+  if (map.hasLayer(redningsnrLayer) && !strandposterReady && !strandposterLoading) {
+    loadStrandposterOnce().then(()=>{
+      if (strandposterReady && lastSearchQuery === query && lastListElement === listElement) {
+        doSearch(query, listElement);
+      }
+    });
+  }
+
   const addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
   const stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&token=a63a88838c24fc85d47f32cde0ec0144`;
 
-  const strandData = filterStrandposter(query); // ingen fetch – kun når laget er tændt
+  const strandData = filterStrandposter(query); // ingen fetch – lokalt
 
   Promise.all([
     fetch(addrUrl).then(r=>r.json()).catch(()=>[]),
@@ -490,7 +517,7 @@ function doSearch(query, listElement) {
           listElement.innerHTML = ""; listElement.style.display = "none";
         } else if (obj.type === "stednavn" && obj.geometry?.coordinates) {
           const coordsArr = Array.isArray(obj.geometry.coordinates[0]) ? obj.geometry.coordinates[0] : obj.geometry.coordinates;
-          placeMarkerAndZoom(coordsArr, obj.navn); // UTM -> WGS i placeMarkerAndZoom
+          placeMarkerAndZoom(coordsArr, obj.navn);
           listElement.innerHTML = ""; listElement.style.display = "none";
         } else if (obj.type === "strandpost") {
           setCoordinateBox(obj.lat, obj.lon);
@@ -732,7 +759,13 @@ searchInput.addEventListener("input", ()=>{
     return;
   }
   clearBtn.style.display = "inline";
-  doSearch(txt, resultsList);
+
+  // Sørg for at strandposter er indlæst, hvis laget er tændt
+  if (map.hasLayer(redningsnrLayer) && !strandposterReady && !strandposterLoading) {
+    loadStrandposterOnce().then(()=> doSearch(txt, resultsList));
+  } else {
+    doSearch(txt, resultsList);
+  }
 
   // Brugeren har indtastet "lat, lon" direkte?
   const m = txt.match(/^(-?\d+(?:\.\d+))\s*,\s*(-?\d+(?:\.\d+))$/);
@@ -809,7 +842,7 @@ vej2Input.addEventListener("keydown", (e)=>{
 });
 function highlightVej2Item(){ vej2Items.forEach(li=>li.classList.remove("highlight")); if (vej2CurrentIndex>=0 && vej2CurrentIndex<vej2Items.length) vej2Items[vej2CurrentIndex].classList.add("highlight"); }
 
-/* Clear-knapper på vejfelter nulstiller info */
+/* Clear-knapper på vejfelter */
 vej1Input.parentElement.querySelector(".clear-button").onclick = ()=>{
   vej1Input.value=""; vej1List.innerHTML=""; document.getElementById("infoBox").style.display="none"; resetCoordinateBox();
 };
