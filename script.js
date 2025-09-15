@@ -650,6 +650,7 @@ positionStatsvejBox();   // <- NY: placer stats-boksen under info-boksen
     Kommune: ${kommunenavn}
     | Døde dyr: ${doedeDyr}
     | Gader og veje: ${gaderVeje}`;
+    requestAnimationFrame(positionStatsvejBox);
 }
         }
       }
@@ -1494,6 +1495,7 @@ window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
