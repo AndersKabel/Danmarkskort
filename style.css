@@ -94,7 +94,7 @@
   position: absolute;
   top: 100%;
   left: 0;
-  width: 391px;
+  width: 100%;          /* følger inputbredden */
   background: white;
   z-index: 2000;
   display: none;
@@ -136,7 +136,7 @@
   display: none;
   position: absolute;
   top: 4px; 
-  left: -10px;
+  left: 0;              /* matcher JS’ left-beregning */
   width: 100%;
   max-width: 400px;
   box-sizing: border-box;
@@ -219,17 +219,16 @@
 #statsvejInfoBox {
   display: none;
   position: absolute;
-  top: 0;
-  left: 0px;
-  width: 380px;
+  top: 0;                  /* styres i JS */
+  left: 0;                 /* styres i JS */
+  width: 100%;             /* følg #infoContainer */
+  max-width: 400px;        /* samme cap som #infoBox */
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   z-index: 1000;
-
-  /* NYT: lidt ekstra afstand til infoboksen ovenover */
-  margin-top: 8px;
+  /* ingen margin-top: afstand (15px) beregnes i JS */
 }
 .hidden {
   display: none;
@@ -315,9 +314,3 @@
   font-size: 14px;
   cursor: pointer;
 }
-
-
-
-
-
-
