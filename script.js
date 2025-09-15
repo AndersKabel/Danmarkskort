@@ -407,7 +407,7 @@ function positionStatsvejBox() {
   const top          = (infoRect.bottom - containerTop) + 15; // 15px luft
 
   statsBox.style.top  = `${top}px`;
-  statsBox.style.left = `${infoRect.left - container.getBoundingClientRect().left}px`;
+  statsBox.style.left = `${infoBox.offsetLeft}px`;
 }
 
 /***************************************************
@@ -1493,6 +1493,7 @@ window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
