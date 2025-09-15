@@ -393,22 +393,6 @@ function setCoordinateBox(lat, lon) {
   lonSpan.addEventListener("click", handleCoordClick);
 }
 
-// --- Placér statsvej-boksen lige under info-boksen ---
-function positionStatsvejBox() {
-  const container = document.getElementById("infoContainer");
-  const infoBox   = document.getElementById("infoBox");
-  const statsBox  = document.getElementById("statsvejInfoBox");
-  if (!container || !infoBox || !statsBox) return;
-  if (infoBox.style.display === "none") return;
-
-  // Brug offsetTop/offsetHeight, så vi holder os i samme koordinatsystem
-  const top = infoBox.offsetTop + infoBox.offsetHeight + 15; // 15px luft
-
-  // Venstrekant flugter 1:1 med infoBox
-  statsBox.style.top  = `${top}px`;
-  statsBox.style.left = `${infoBox.offsetLeft}px`;
-}
-
 /***************************************************
  * Global variabel og funktioner til Strandposter-søgning
  ***************************************************/
@@ -494,22 +478,13 @@ async function updateInfoBox(data, lat, lon) {
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
 
-  // Top actions (Eva/Notes) + a separate meta area (kommune/politikreds)
-const actionsHtml = `
-  <a href="#" title="Kopier til Eva.net"
-     onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}');
-              showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
-  &nbsp;
-  <a href="#" title="Kopier til Notes"
-     onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}');
-              showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
-`;
-
-extraInfoEl.innerHTML = `
-  <div id="info-actions" style="margin:2px 0;">${actionsHtml}</div>
-  <div id="info-meta"></div>
-`;
-const infoMetaEl = document.getElementById("info-meta");
+  extraInfoEl.innerHTML = "";
+  extraInfoEl.insertAdjacentHTML("beforeend",
+    `<br>
+    <a href="#" title="Kopier til Eva.net" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
+    &nbsp;
+    <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>`
+  );
 
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "inline";
@@ -584,16 +559,16 @@ const infoMetaEl = document.getElementById("info-meta");
          <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
     }
 
-    // ➕ Beskrivelse fra CVF-featureinfo – (indeholder ofte husnr. intervaller)
-const beskrivelse =
-  statsvejData.BESKRIVELSE ??
-  statsvejData.beskrivelse ??
-  null;
+    // ➕ Husnumre / beskrivelse fra CVF-featureinfo – føjes til samme html
+    const beskrivelse =
+      statsvejData.BESKRIVELSE ??
+      statsvejData.beskrivelse ??
+      null;
 
-if (beskrivelse && String(beskrivelse).trim() !== "") {
-  if (html) html += "<br>";
-  html += `<strong>Beskrivelse:</strong> ${beskrivelse}`;
-}
+    if (beskrivelse && String(beskrivelse).trim() !== "") {
+      if (html) html += "<br>";
+      html += `<strong>Husnumre:</strong> ${beskrivelse}`;
+    }
 
     // Tilføj vejstatus/vejmyndighed KUN hvis de findes (ingen “Ukendt”)
     if (vejstatus) {
@@ -612,19 +587,16 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
       const kmText = await getKmAtPoint(lat, lon);
       if (kmText) {
         statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
-        requestAnimationFrame(positionStatsvejBox);
       }
     }
 
     document.getElementById("statsvejInfoBox").style.display = "block";
-    requestAnimationFrame(positionStatsvejBox);
   } else {
     statsvejInfoEl.innerHTML = "";
     document.getElementById("statsvejInfoBox").style.display = "none";
   }
 
   document.getElementById("infoBox").style.display = "block";
-requestAnimationFrame(positionStatsvejBox);
 
   // Hent kommuneinfo
   if (kommunekode !== "?") {
@@ -640,18 +612,16 @@ requestAnimationFrame(positionStatsvejBox);
           let gaderVeje = info["Gader og veje"];
           let link      = info.gemLink;
           if (link) {
-  infoMetaEl.innerHTML += `
-    Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
-    | Døde dyr: ${doedeDyr}
-    | Gader og veje: ${gaderVeje}`;
-    requestAnimationFrame(positionStatsvejBox);       
-} else {
-  infoMetaEl.innerHTML += `<br>
-    Kommune: ${kommunenavn}
-    | Døde dyr: ${doedeDyr}
-    | Gader og veje: ${gaderVeje}`;
-    requestAnimationFrame(positionStatsvejBox);
-}
+            extraInfoEl.innerHTML += `<br>
+              Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
+              | Døde dyr: ${doedeDyr}
+              | Gader og veje: ${gaderVeje}`;
+          } else {
+            extraInfoEl.innerHTML += `<br>
+              Kommune: ${kommunenavn}
+              | Døde dyr: ${doedeDyr}
+              | Gader og veje: ${gaderVeje}`;
+          }
         }
       }
     } catch (e) {
@@ -667,13 +637,12 @@ requestAnimationFrame(positionStatsvejBox);
     ?? data.adgangsadresse?.politikredskode
     ?? null;
 
-if (politikredsNavn || politikredsKode) {
-  const polititekst = politikredsKode
-    ? `${politikredsNavn || ""} (${politikredsKode})`
-    : `${politikredsNavn}`;
-  infoMetaEl.innerHTML += `<br>Politikreds: ${polititekst}`;
-  requestAnimationFrame(positionStatsvejBox);
-}  
+  if (politikredsNavn || politikredsKode) {
+    const polititekst = politikredsKode
+      ? `${politikredsNavn || ""} (${politikredsKode})`
+      : `${politikredsNavn}`;
+    extraInfoEl.innerHTML += `<br>Politikreds: ${polititekst}`;
+  }
 }
 
 /***************************************************
@@ -1490,18 +1459,6 @@ document.getElementById("btn100").addEventListener("click", function() {
   selectedRadius = 100000;
   toggleCircle(100000);
 });
-// Opdater placering hvis vinduet ændrer størrelse (tekst wrap kan ændre højde)
-window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
-
-
-
-
-
-
-
-
-
-
