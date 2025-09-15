@@ -393,6 +393,19 @@ function setCoordinateBox(lat, lon) {
   lonSpan.addEventListener("click", handleCoordClick);
 }
 
+// --- Placér statsvej-boksen lige under info-boksen ---
+function positionStatsvejBox() {
+  const container = document.getElementById("infoContainer");
+  const infoBox   = document.getElementById("infoBox");
+  const statsBox  = document.getElementById("statsvejInfoBox");
+  if (!container || !infoBox || !statsBox) return;
+
+  // Læg stats-boksen 10px under info-boksen
+  const top = infoBox.offsetTop + infoBox.offsetHeight + 10;
+  statsBox.style.top  = `${top}px`;
+  statsBox.style.left = `${infoBox.offsetLeft}px`;
+}
+
 /***************************************************
  * Global variabel og funktioner til Strandposter-søgning
  ***************************************************/
@@ -1471,6 +1484,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
