@@ -617,6 +617,7 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
     }
 
     document.getElementById("statsvejInfoBox").style.display = "block";
+    requestAnimationFrame(positionStatsvejBox);
   } else {
     statsvejInfoEl.innerHTML = "";
     document.getElementById("statsvejInfoBox").style.display = "none";
@@ -1491,4 +1492,5 @@ window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
