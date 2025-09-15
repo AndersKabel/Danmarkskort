@@ -478,13 +478,22 @@ async function updateInfoBox(data, lat, lon) {
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
 
-  extraInfoEl.innerHTML = "";
-  extraInfoEl.insertAdjacentHTML("beforeend",
-    `<br>
-    <a href="#" title="Kopier til Eva.net" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
-    &nbsp;
-    <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>`
-  );
+// Top actions (Eva/Notes) + a separate meta area (kommune/politikreds)
+const actionsHtml = `
+  <a href="#" title="Kopier til Eva.net"
+     onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}');
+              showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
+  &nbsp;
+  <a href="#" title="Kopier til Notes"
+     onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}');
+              showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
+`;
+
+extraInfoEl.innerHTML = `
+  <div id="info-actions" style="margin:6px 0;">${actionsHtml}</div>
+  <div id="info-meta"></div>
+`;
+const infoMetaEl = document.getElementById("info-meta");
 
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "inline";
@@ -1462,4 +1471,5 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
