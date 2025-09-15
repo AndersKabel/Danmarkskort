@@ -619,6 +619,7 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
   }
 
   document.getElementById("infoBox").style.display = "block";
+positionStatsvejBox();   // <- NY: placer stats-boksen under info-boksen
 
   // Hent kommuneinfo
   if (kommunekode !== "?") {
@@ -1484,6 +1485,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
