@@ -1482,14 +1482,8 @@ document.getElementById("btn100").addEventListener("click", function() {
   selectedRadius = 100000;
   toggleCircle(100000);
 });
+// Opdater placering hvis vinduet ændrer størrelse (tekst wrap kan ændre højde)
+window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
-
-
-
-
-
-
-
-
