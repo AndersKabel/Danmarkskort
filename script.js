@@ -613,6 +613,7 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
       const kmText = await getKmAtPoint(lat, lon);
       if (kmText) {
         statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
+        requestAnimationFrame(positionStatsvejBox);
       }
     }
 
@@ -1495,6 +1496,7 @@ window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
