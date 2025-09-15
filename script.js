@@ -401,11 +401,10 @@ function positionStatsvejBox() {
   if (!container || !infoBox || !statsBox) return;
   if (infoBox.style.display === "none") return;
 
-  // Mål i viewport-koordinater og regn tilbage til containerens koordinater
-  const containerTop = container.getBoundingClientRect().top;
-  const infoRect     = infoBox.getBoundingClientRect();
-  const top          = (infoRect.bottom - containerTop) + 15; // 15px luft
+  // Brug offsetTop/offsetHeight, så vi holder os i samme koordinatsystem
+  const top = infoBox.offsetTop + infoBox.offsetHeight + 15; // 15px luft
 
+  // Venstrekant flugter 1:1 med infoBox
   statsBox.style.top  = `${top}px`;
   statsBox.style.left = `${infoBox.offsetLeft}px`;
 }
@@ -1496,6 +1495,7 @@ window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
