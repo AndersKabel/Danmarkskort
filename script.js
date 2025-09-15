@@ -670,6 +670,7 @@ if (politikredsNavn || politikredsKode) {
     ? `${politikredsNavn || ""} (${politikredsKode})`
     : `${politikredsNavn}`;
   infoMetaEl.innerHTML += `<br>Politikreds: ${polititekst}`;
+  requestAnimationFrame(positionStatsvejBox);
 }  
 }
 
@@ -1492,5 +1493,6 @@ window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
