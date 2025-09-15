@@ -399,11 +399,15 @@ function positionStatsvejBox() {
   const infoBox   = document.getElementById("infoBox");
   const statsBox  = document.getElementById("statsvejInfoBox");
   if (!container || !infoBox || !statsBox) return;
+  if (infoBox.style.display === "none") return;
 
-  // Læg stats-boksen 10px under info-boksen
-  const top = infoBox.offsetTop + infoBox.offsetHeight + 10;
+  // Mål i viewport-koordinater og regn tilbage til containerens koordinater
+  const containerTop = container.getBoundingClientRect().top;
+  const infoRect     = infoBox.getBoundingClientRect();
+  const top          = (infoRect.bottom - containerTop) + 10; // 10px luft
+
   statsBox.style.top  = `${top}px`;
-  statsBox.style.left = `${infoBox.offsetLeft}px`;
+  statsBox.style.left = `${infoRect.left - container.getBoundingClientRect().left}px`;
 }
 
 /***************************************************
@@ -1487,3 +1491,4 @@ window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
