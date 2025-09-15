@@ -404,7 +404,7 @@ function positionStatsvejBox() {
   // Mål i viewport-koordinater og regn tilbage til containerens koordinater
   const containerTop = container.getBoundingClientRect().top;
   const infoRect     = infoBox.getBoundingClientRect();
-  const top          = (infoRect.bottom - containerTop) + 10; // 10px luft
+  const top          = (infoRect.bottom - containerTop) + 15; // 15px luft
 
   statsBox.style.top  = `${top}px`;
   statsBox.style.left = `${infoRect.left - container.getBoundingClientRect().left}px`;
@@ -1493,6 +1493,7 @@ window.addEventListener("resize", positionStatsvejBox);
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
