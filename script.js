@@ -621,16 +621,16 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
           let gaderVeje = info["Gader og veje"];
           let link      = info.gemLink;
           if (link) {
-            extraInfoEl.innerHTML += `<br>
-              Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
-              | Døde dyr: ${doedeDyr}
-              | Gader og veje: ${gaderVeje}`;
-          } else {
-            extraInfoEl.innerHTML += `<br>
-              Kommune: ${kommunenavn}
-              | Døde dyr: ${doedeDyr}
-              | Gader og veje: ${gaderVeje}`;
-          }
+  infoMetaEl.innerHTML += `<br>
+    Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
+    | Døde dyr: ${doedeDyr}
+    | Gader og veje: ${gaderVeje}`;
+} else {
+  infoMetaEl.innerHTML += `<br>
+    Kommune: ${kommunenavn}
+    | Døde dyr: ${doedeDyr}
+    | Gader og veje: ${gaderVeje}`;
+}
         }
       }
     } catch (e) {
@@ -1471,5 +1471,6 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
