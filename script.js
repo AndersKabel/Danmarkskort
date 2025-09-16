@@ -113,7 +113,7 @@ var osmLayer = L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
     maxZoom: 19,
-    attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur,© CVR API"
+    attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur, © CVR API"
   }
 ).addTo(map);
 
@@ -268,15 +268,15 @@ const overlayMaps = {
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 
-// Strandposter: hent data første gang laget tændes
+// Strandposter: hent data første gang laget tændes (eller auto-opdatér efter 24t)
 map.on("overlayadd", function(event) {
   if (event.layer === redningsnrLayer) {
     console.log("Strandposter laget er tilføjet.");
-    if (allStrandposter.length === 0) {
-      console.log("Henter strandposter-data første gang...");
+    if (!strandposterReady || shouldUpdateData()) {
+      console.log("Henter strandposter-data" + (!strandposterReady ? " (første gang)" : " (24-timers auto-opdatering)") + "...");
       fetchAllStrandposter();
     } else {
-      console.log("Strandposter-data allerede hentet.");
+      console.log("Strandposter-data allerede hentet og opdateret.");
     }
   }
 });
@@ -349,7 +349,6 @@ fetch("kommunedata.json")
     console.log("Kommunedata indlæst:", kommuneInfo);
   })
   .catch(err => console.error("Fejl ved hentning af kommunedata:", err));
-
 
 /***************************************************
  * Ny hjælpefunktion: Nulstil koordinatboksen
@@ -478,22 +477,22 @@ async function updateInfoBox(data, lat, lon) {
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
 
-// Top actions (Eva/Notes) + a separate meta area (kommune/politikreds)
-const actionsHtml = `
-  <a href="#" title="Kopier til Eva.net"
-     onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}');
-              showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
-  &nbsp;
-  <a href="#" title="Kopier til Notes"
-     onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}');
-              showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
-`;
+  // Top actions (Eva/Notes) + a separate meta area (kommune/politikreds)
+  const actionsHtml = `
+    <a href="#" title="Kopier til Eva.net"
+       onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}');
+                showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
+    &nbsp;
+    <a href="#" title="Kopier til Notes"
+       onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}');
+                showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
+  `;
 
-extraInfoEl.innerHTML = `
-  <div id="info-actions" style="margin:6px 0;">${actionsHtml}</div>
-  <div id="info-meta"></div>
-`;
-const infoMetaEl = document.getElementById("info-meta");
+  extraInfoEl.innerHTML = `
+    <div id="info-actions" style="margin:6px 0;">${actionsHtml}</div>
+    <div id="info-meta"></div>
+  `;
+  const infoMetaEl = document.getElementById("info-meta");
 
   skråfotoLink.href = `https://skraafoto.dataforsyningen.dk/?search=${encodeURIComponent(adresseStr)}`;
   skråfotoLink.style.display = "inline";
@@ -569,15 +568,15 @@ const infoMetaEl = document.getElementById("info-meta");
     }
 
     // ➕ Beskrivelse fra CVF-featureinfo – (indeholder ofte husnr. intervaller)
-const beskrivelse =
-  statsvejData.BESKRIVELSE ??
-  statsvejData.beskrivelse ??
-  null;
+    const beskrivelse =
+      statsvejData.BESKRIVELSE ??
+      statsvejData.beskrivelse ??
+      null;
 
-if (beskrivelse && String(beskrivelse).trim() !== "") {
-  if (html) html += "<br>";
-  html += `<strong>Beskrivelse:</strong> ${beskrivelse}`;
-}
+    if (beskrivelse && String(beskrivelse).trim() !== "") {
+      if (html) html += "<br>";
+      html += `<strong>Beskrivelse:</strong> ${beskrivelse}`;
+    }
 
     // Tilføj vejstatus/vejmyndighed KUN hvis de findes (ingen “Ukendt”)
     if (vejstatus) {
@@ -621,16 +620,16 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
           let gaderVeje = info["Gader og veje"];
           let link      = info.gemLink;
           if (link) {
-  infoMetaEl.innerHTML += `
-    Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
-    | Døde dyr: ${doedeDyr}
-    | Gader og veje: ${gaderVeje}`;
-} else {
-  infoMetaEl.innerHTML += `<br>
-    Kommune: ${kommunenavn}
-    | Døde dyr: ${doedeDyr}
-    | Gader og veje: ${gaderVeje}`;
-}
+            infoMetaEl.innerHTML += `
+              Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
+              | Døde dyr: ${doedeDyr}
+              | Gader og veje: ${gaderVeje}`;
+          } else {
+            infoMetaEl.innerHTML += `<br>
+              Kommune: ${kommunenavn}
+              | Døde dyr: ${doedeDyr}
+              | Gader og veje: ${gaderVeje}`;
+          }
         }
       }
     } catch (e) {
@@ -645,12 +644,12 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
   const politikredsKode = data.politikredskode
     ?? data.adgangsadresse?.politikredskode
     ?? null;
-if (politikredsNavn || politikredsKode) {
-  const polititekst = politikredsKode
-    ? `${politikredsNavn || ""} (${politikredsKode})`
-    : `${politikredsNavn}`;
-  infoMetaEl.innerHTML += `<br>Politikreds: ${polititekst}`;
-} 
+  if (politikredsNavn || politikredsKode) {
+    const polititekst = politikredsKode
+      ? `${politikredsNavn || ""} (${politikredsKode})`
+      : `${politikredsNavn}`;
+    infoMetaEl.innerHTML += `<br>Politikreds: ${polititekst}`;
+  }
 }
 
 /***************************************************
@@ -992,6 +991,7 @@ function doSearchRoad(query, listElement, inputField, which) {
     })
     .catch(err => console.error("Fejl i doSearchRoad:", err));
 }
+
 /***************************************************
  * Hjælper: filtrér strandposter lokalt
  * Returnerer et array af { type:'strandpost', tekst, lat, lon }
@@ -1012,36 +1012,6 @@ function filterStrandposter(query) {
       const lat = g.coordinates[1];
 
       // Vi forsøger at finde et fornuftigt visningsnavn
-      const tekst =
-        props.tekst ??
-        props.navn ??
-        props.label ??
-        (props.nr != null ? `Strandpost ${props.nr}` : null) ??
-        "Strandpost";
-
-      return { type: "strandpost", tekst, lat, lon };
-    })
-    .filter(o => o && o.tekst && o.tekst.toLowerCase().includes(q));
-}
-
-/***************************************************
- * Hjælper: filtrér strandposter lokalt
- * Returnerer et array af { type:'strandpost', tekst, lat, lon }
- ***************************************************/
-function filterStrandposter(query) {
-  if (!(map.hasLayer(redningsnrLayer) && strandposterReady)) return [];
-
-  const q = (query || "").toLowerCase();
-
-  return (allStrandposter || [])
-    .map(f => {
-      const props = f.properties || {};
-      const g     = f.geometry || {};
-      if (g.type !== "Point" || !Array.isArray(g.coordinates)) return null;
-
-      const lon = g.coordinates[0];
-      const lat = g.coordinates[1];
-
       const tekst =
         props.tekst ??
         props.navn ??
@@ -1107,7 +1077,7 @@ function doSearch(query, listElement) {
     // Saml alt
     const combined = [...addrResults, ...stedResults, ...strandData];
 
-    // Sortér efter relevans (din eksisterende logik)
+    // Sortér efter relevans (eksisterende logik)
     combined.sort((a, b) => {
       if (a.type === "stednavn" && b.type === "adresse") return -1;
       if (a.type === "adresse" && b.type === "stednavn") return 1;
@@ -1384,7 +1354,7 @@ async function getKmAtPoint(lat, lon) {
 
     // Fallback: forsøg at bygge "KM/MMMM" ud fra 'from' først
     const km = (from?.km ?? props?.km ?? props?.KM ?? null);
-    const m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
+    the m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
     if (km != null && m != null) {
       return `${km}/${String(m).padStart(4, "0")}`;
     }
@@ -1498,7 +1468,7 @@ function toggleCircle(radius) {
   if (currentCircle && currentCircle.getRadius() === radius) {
     map.removeLayer(currentCircle);
     currentCircle = null;
-    selectedRadius = null;    // <-- nulstil radius-variablen når cirklen fjernes
+    selectedRadius = null;    // nulstil radius-variablen når cirklen fjernes
 
     // Hvis ladestander-laget er tændt, så slå det fra
     if (map.hasLayer(chargeMapLayer)) {
