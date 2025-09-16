@@ -1353,8 +1353,9 @@ async function getKmAtPoint(lat, lon) {
     }
 
     // Fallback: forsøg at bygge "KM/MMMM" ud fra 'from' først
+        // Fallback: forsøg at bygge "KM/MMMM" ud fra 'from' først
     const km = (from?.km ?? props?.km ?? props?.KM ?? null);
-    the m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
+    const m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
     if (km != null && m != null) {
       return `${km}/${String(m).padStart(4, "0")}`;
     }
@@ -1508,3 +1509,4 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
