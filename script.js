@@ -1023,11 +1023,41 @@ function filterStrandposter(query) {
     })
     .filter(o => o && o.tekst && o.tekst.toLowerCase().includes(q));
 }
-
 /***************************************************
  * doSearch => kombinerer adresser, stednavne og strandposter
+ * (opdateret: sikrer at results-UL findes og vises foran kortet)
  ***************************************************/
 function doSearch(query, listElement) {
+  // Sørg for at have en UL til resultaterne
+  function ensureResultsList(el) {
+    if (!el) {
+      // prøv at finde den igen
+      el = document.getElementById("results");
+      if (!el) {
+        // opret hvis den ikke findes
+        el = document.createElement("ul");
+        el.id = "results";
+        // læg den ind i samme container som søgefeltet, ellers i body
+        const searchBox = document.getElementById("search")?.parentElement || document.body;
+        searchBox.appendChild(el);
+      }
+    }
+    // Gør listen synlig og foran kortet
+    el.style.position = "absolute";
+    el.style.zIndex   = "10000";
+    el.style.background = "white";
+    el.style.listStyle  = "none";
+    el.style.margin     = "6px 0 0 0";
+    el.style.padding    = "0";
+    el.style.maxHeight  = "260px";
+    el.style.overflowY  = "auto";
+    el.style.boxShadow  = "0 4px 12px rgba(0,0,0,.15)";
+    el.style.minWidth   = (document.getElementById("search")?.offsetWidth || 260) + "px";
+    return el;
+  }
+
+  listElement = ensureResultsList(listElement);
+
   const addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
   const stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=100&token=a63a88838c24fc85d47f32cde0ec0144`;
 
@@ -1077,7 +1107,13 @@ function doSearch(query, listElement) {
     // Saml alt
     const combined = [...addrResults, ...stedResults, ...strandData];
 
-    // Sortér efter relevans (eksisterende logik)
+    // Hvis ingen resultater – skjul listen og stop
+    if (!combined.length) {
+      listElement.style.display = "none";
+      return;
+    }
+
+    // Sortér efter relevans
     combined.sort((a, b) => {
       if (a.type === "stednavn" && b.type === "adresse") return -1;
       if (a.type === "adresse" && b.type === "stednavn") return 1;
@@ -1087,6 +1123,11 @@ function doSearch(query, listElement) {
     // Render liste + klik-håndtering
     combined.forEach(obj => {
       const li = document.createElement("li");
+      li.style.padding = "8px 10px";
+      li.style.cursor  = "pointer";
+      li.onmouseenter  = () => li.style.background = "#f3f4f6";
+      li.onmouseleave  = () => li.style.background = "";
+
       if (obj.type === "strandpost") {
         li.innerHTML = `🛟 ${obj.tekst}`;
       } else if (obj.type === "adresse") {
@@ -1120,22 +1161,16 @@ function doSearch(query, listElement) {
         else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
           const [x, y] = obj.bbox.coordinates[0][0];
           placeMarkerAndZoom([x, y], obj.navn);
-          listElement.innerHTML = "";
-          listElement.style.display = "none";
         }
         else if (obj.type === "stednavn" && obj.geometry && obj.geometry.coordinates) {
           const coordsArr = Array.isArray(obj.geometry.coordinates[0])
             ? obj.geometry.coordinates[0]
             : obj.geometry.coordinates;
-          placeMarkerAndZoom(coordsArr, obj.navn); // UTM -> WGS håndteres i placeMarkerAndZoom
-          listElement.innerHTML = "";
-          listElement.style.display = "none";
+          placeMarkerAndZoom(coordsArr, obj.navn);
         }
         else if (obj.type === "strandpost") {
           setCoordinateBox(obj.lat, obj.lon);
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
-          listElement.innerHTML = "";
-          listElement.style.display = "none";
 
           const marker = currentMarker;
           const revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${obj.lon}&y=${obj.lat}&struktur=flad`;
@@ -1172,13 +1207,17 @@ function doSearch(query, listElement) {
               marker.bindPopup(`<strong>${obj.tekst}</strong><br>(Reverse geocoding fejlede)`).openPopup();
             });
         }
+
+        // luk dropdown efter valg
+        listElement.innerHTML = "";
+        listElement.style.display = "none";
       });
 
       listElement.appendChild(li);
       searchItems.push(li);
     });
 
-    listElement.style.display = combined.length > 0 ? "block" : "none";
+    listElement.style.display = "block";
   })
   .catch(err => console.error("Fejl i doSearch:", err));
 }
@@ -1509,4 +1548,5 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
