@@ -445,6 +445,8 @@ map.on('click', function(e) {
  * Viser kommunekode/vejkode i overlay
  ***************************************************/
 async function updateInfoBox(data, lat, lon) {
+  // Drop hvis et nyere klik er sket, mens vi ventede på netværk
+  if (clickId !== lastClickId) return;
   const streetviewLink = document.getElementById("streetviewLink");
   const addressEl      = document.getElementById("address");
   const extraInfoEl    = document.getElementById("extra-info");
@@ -1510,6 +1512,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
