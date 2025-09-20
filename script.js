@@ -577,7 +577,7 @@ const beskrivelse =
   statsvejData.beskrivelse ??
   null;
 
-if (!hasStatsvej && beskrivelse && String(beskrivelse).trim() !== "") {
+if (!isStatsvej && beskrivelse && String(beskrivelse).trim() !== "") {
   if (html) html += "<br>";
   html += `<strong>Beskrivelse:</strong> ${beskrivelse}`;
 }
@@ -1510,6 +1510,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
