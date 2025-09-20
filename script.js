@@ -1304,11 +1304,11 @@ async function getKmAtPoint(lat, lon) {
   try {
     // 1) WGS84 -> UTM32
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-
-    // 2) Brug statsvej-info til at låse vej/forgrening
-    const stats = await checkForStatsvej(lat, lon);
-    const roadNumber = stats.ADM_NR ?? stats.adm_nr ?? null;
-    const roadPart   = stats.FORGRENING ?? stats.forgrening ?? 0;
+    
+     // 2) Brug statsvej-info (hvis ikke givet, hentes den)
+    const s = stats || await checkForStatsvej(lat, lon);
+    const roadNumber = s.ADM_NR ?? s.adm_nr ?? null;
+    const roadPart   = s.FORGRENING ?? s.forgrening ?? 0;
 
     if (!roadNumber) return "";
 
@@ -1510,6 +1510,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
