@@ -533,11 +533,6 @@ async function updateInfoBox(data, lat, lon, clickId) {
     statsvejData?.VEJMND ??
     null;
 
-  // Detekter statsvej (Vejdirektoratet)
-  const isStatsvej = /vejdirektoratet/i.test(
-    String(vejmyndighed ?? statsvejData?.BESTYRER ?? statsvejData?.bestyrer ?? "")
-  );
-
   // Findes statsvejfelter?
   const hasStatsvej =
     statsvejData &&
@@ -1279,4 +1274,5 @@ document.getElementById("btn100").addEventListener("click", function() { selecte
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
