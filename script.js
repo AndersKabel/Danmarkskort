@@ -542,7 +542,11 @@ const infoMetaEl = document.getElementById("info-meta");
     statsvejData?.VEJMYND ??
     statsvejData?.VEJMND ??
     null;
-
+// NYT: detekter statsvej (Vejdirektoratet)
+  const isStatsvej = /vejdirektoratet/i.test(
+    String(vejmyndighed ?? statsvejData?.BESTYRER ?? statsvejData?.bestyrer ?? "")
+  );
+  
   // vis kun boksen hvis der er meningsfulde statsvejsfelter
   const hasStatsvej =
     statsvejData &&
@@ -1506,6 +1510,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
