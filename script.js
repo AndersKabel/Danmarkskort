@@ -558,23 +558,22 @@ const infoMetaEl = document.getElementById("info-meta");
 
   if (showBox) {
     let html = "";
+if (hasStatsvej) {
+  html +=
+    `<strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
+     <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
+     <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
+     <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
+     <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
+}
 
-    if (hasStatsvej) {
-      html +=
-        `<strong>Administrativt nummer:</strong> ${statsvejData.ADM_NR || "Ukendt"}<br>
-         <strong>Forgrening:</strong> ${statsvejData.FORGRENING || "Ukendt"}<br>
-         <strong>Vejnavn:</strong> ${statsvejData.BETEGNELSE || "Ukendt"}<br>
-         <strong>Bestyrer:</strong> ${statsvejData.BESTYRER || "Ukendt"}<br>
-         <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
-    }
-
-    // ➕ Beskrivelse fra CVF-featureinfo – (indeholder ofte husnr. intervaller)
+// ➕ Beskrivelse fra CVF-featureinfo – kun hvis det IKKE er en statsvej
 const beskrivelse =
   statsvejData.BESKRIVELSE ??
   statsvejData.beskrivelse ??
   null;
 
-if (beskrivelse && String(beskrivelse).trim() !== "") {
+if (!hasStatsvej && beskrivelse && String(beskrivelse).trim() !== "") {
   if (html) html += "<br>";
   html += `<strong>Beskrivelse:</strong> ${beskrivelse}`;
 }
@@ -1507,6 +1506,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
