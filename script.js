@@ -562,13 +562,6 @@ async function updateInfoBox(data, lat, lon, clickId) {
          <strong>Vejtype:</strong> ${statsvejData.VEJTYPE || "Ukendt"}`;
     }
 
-    // Beskrivelse – kun hvis IKKE statsvej
-    const beskrivelse = statsvejData.BESKRIVELSE ?? statsvejData.beskrivelse ?? null;
-    if (!isStatsvej && beskrivelse && String(beskrivelse).trim() !== "") {
-      if (html) html += "<br>";
-      html += `<strong>Beskrivelse:</strong> ${beskrivelse}`;
-    }
-
     if (vejstatus) {
       if (html) html += "<br>";
       html += `<strong>Vejstatus:</strong> ${vejstatus}`;
@@ -1286,3 +1279,4 @@ document.getElementById("btn100").addEventListener("click", function() { selecte
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
