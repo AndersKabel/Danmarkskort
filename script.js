@@ -418,6 +418,8 @@ function fetchAllStrandposter() {
     });
 }
 
+let lastClickId = 0;
+
 /***************************************************
  * Klik på kort => reverse geocoding => opdater sidepanelet
  ***************************************************/
@@ -1510,6 +1512,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
