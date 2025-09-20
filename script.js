@@ -3,18 +3,8 @@
  ***************************************************/
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m +no_defs");
 
-// ------------------------------------------------------------------
-// PROXY-konfiguration
-// ------------------------------------------------------------------
-// Brug to proxies side-om-side:
-// - VD_PROXY_WMS  : bruges som WMS/orto proxy (til luftfoto tiles).
-// - VD_PROXY_REF  : bruges til /reference kald (getKmAtPoint).
-//
-// Hvis du ønsker at samle alt i én worker, kan worker'en
-// konfigureres til både at acceptere ?url=... (tiles) og /reference.
-// For nu bruger vi: WMS -> ny worker, REFERENCE -> din gamle worker.
-const VD_PROXY_WMS = "https://still-wildflower-1c0b.anderskabel8.workers.dev";
-const VD_PROXY_REF = "https://vd-proxy.anderskabel8.workers.dev";
+// Cloudflare proxy til VD-reference
+const VD_PROXY = "https://vd-proxy.anderskabel8.workers.dev";
 
 function convertToWGS84(x, y) {
   // Ved at bytte parameterne [y, x] opnår vi, at northing (y) kommer først,
@@ -122,29 +112,24 @@ var map = L.map('map', {
 var osmLayer = L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
-    maxZoom: 19,
+    maxZoom: 21,
     attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur,© CVR API"
   }
 ).addTo(map);
 
 /***************************************************
- * NYT: Luftfoto-lag (Dataforsyningen GeoDanmarkOrto WMS) VIA NY PROXY
- *
- * Vi bruger VD_PROXY_WMS som mellemled for at undgå CORS / blokering på klienten.
- * Leaflet vil tilføje WMS-params (SERVICE, BBOX etc.) selv — worker'en skal forwarde dem.
+ * TILFØJET: Ortofoto-lag fra Kortforsyningen (satellit)
  ***************************************************/
-const satWmsUrl = "https://services.datafordeler.dk/GeoDanmarkOrto/orto_foraar/1.0.0/WMS";
-const satProxyBase = `${VD_PROXY_WMS}/proxy?url=${encodeURIComponent(satWmsUrl)}`;
-
-var luftfotoLayer = L.tileLayer.wms(satProxyBase, {
-  layers: "orto_foraar",
-  format: "image/png",
-  transparent: false,
-  version: "1.3.0",
-  attribution: "Luftfoto © Dataforsyningen / Styrelsen for Dataforsyning og Infrastruktur",
-  tileSize: 256,
-  maxZoom: 19
-});
+var ortofotoLayer = L.tileLayer.wms(
+  "https://api.dataforsyningen.dk/orto_foraar_DAF?service=WMS&request=GetCapabilities&token=a63a88838c24fc85d47f32cde0ec0144",
+  {
+    layers: "orto_foraar",
+    format: "image/jpeg",
+    transparent: false,
+    version: "1.1.1",
+    attribution: "Ortofoto © Kortforsyningen"
+  }
+);
 
 // Opret WMS-lag for redningsnumre (Strandposter)
 var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/ows", {
@@ -268,7 +253,7 @@ fetch("svensk-grænse.geojson")
 
 const baseMaps = {
   "OpenStreetMap": osmLayer,
-  "luftfoto": luftfotoLayer
+  "Satellit": ortofotoLayer
 };
 const overlayMaps = {
   "Strandposter": redningsnrLayer,
@@ -302,7 +287,7 @@ map.on('overlayadd', function(e) {
     window.open('https://kort.dyrenesbeskyttelse.dk/db/dvc.nsf/kort', '_blank');
     map.removeLayer(dbSmsLayer);
   } else if (e.layer === dbJournalLayer) {
-    window.open('https://dvc.dyreneskyttelse.dk/db/dvc.nsf/Efter%20journalnr?OpenView', '_blank');
+    window.open('https://dvc.dyrenesbeskyttelse.dk/db/dvc.nsf/Efter%20journalnr?OpenView', '_blank');
     map.removeLayer(dbJournalLayer);
   } else if (e.layer === chargeMapLayer) {
     if (!selectedRadius) {
@@ -658,8 +643,8 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
     ?? data.adgangsadresse?.politikredsnavn
     ?? null;
   const politikredsKode = data.politikredskode
-    ?? data.adgangsadresse?.politikredsnavne ??
-    null;
+    ?? data.adgangsadresse?.politikredskode
+    ?? null;
 if (politikredsNavn || politikredsKode) {
   const polititekst = politikredsKode
     ? `${politikredsNavn || ""} (${politikredsKode})`
@@ -1040,6 +1025,36 @@ function filterStrandposter(query) {
 }
 
 /***************************************************
+ * Hjælper: filtrér strandposter lokalt
+ * Returnerer et array af { type:'strandpost', tekst, lat, lon }
+ ***************************************************/
+function filterStrandposter(query) {
+  if (!(map.hasLayer(redningsnrLayer) && strandposterReady)) return [];
+
+  const q = (query || "").toLowerCase();
+
+  return (allStrandposter || [])
+    .map(f => {
+      const props = f.properties || {};
+      const g     = f.geometry || {};
+      if (g.type !== "Point" || !Array.isArray(g.coordinates)) return null;
+
+      const lon = g.coordinates[0];
+      const lat = g.coordinates[1];
+
+      const tekst =
+        props.tekst ??
+        props.navn ??
+        props.label ??
+        (props.nr != null ? `Strandpost ${props.nr}` : null) ??
+        "Strandpost";
+
+      return { type: "strandpost", tekst, lat, lon };
+    })
+    .filter(o => o && o.tekst && o.tekst.toLowerCase().includes(q));
+}
+
+/***************************************************
  * doSearch => kombinerer adresser, stednavne og strandposter
  ***************************************************/
 function doSearch(query, listElement) {
@@ -1312,11 +1327,6 @@ function parseTextResponse(text) {
 
 /***************************************************
  * ➕ NY (opdateret): getKmAtPoint – returnerer ét kmtText-tal
- *
- * Dette kalder nu VD_PROXY_REF (din gamle worker) på endpoint /reference
- * så vi bevarer eksisterende behavior. Hvis du hellere vil samle alt i
- * den nye worker, kan vi ændre VD_PROXY_REF til samme som VD_PROXY_WMS,
- * men så skal worker'en også implementere /reference forwarding.
  ***************************************************/
 async function getKmAtPoint(lat, lon) {
   try {
@@ -1330,9 +1340,9 @@ async function getKmAtPoint(lat, lon) {
 
     if (!roadNumber) return "";
 
-    // 3) Kald reference endpoint på VD_PROXY_REF
+    // 3) Kald din worker
     const url =
-      `${VD_PROXY_REF}/reference` +
+      `${VD_PROXY}/reference` +
       `?geometry=POINT(${x}%20${y})` +
       `&srs=EPSG:25832` +
       `&roadNumber=${roadNumber}` +
