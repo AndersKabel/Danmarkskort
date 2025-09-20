@@ -593,14 +593,14 @@ if (!isStatsvej && beskrivelse && String(beskrivelse).trim() !== "") {
     }
 
     statsvejInfoEl.innerHTML = html;
-
-    // km vises kun, når der er statsvej (referencevej)
-    if (hasStatsvej) {
-      const kmText = await getKmAtPoint(lat, lon);
-      if (kmText) {
-        statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
-      }
-    }
+    
+// km vises kun, når der er statsvej (referencevej)
+if (hasStatsvej) {
+  const kmText = await getKmAtPoint(lat, lon, statsvejData); // ← genbrug stats
+  if (kmText) {
+    statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
+  }
+}
 
     document.getElementById("statsvejInfoBox").style.display = "block";
   } else {
@@ -1510,6 +1510,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
