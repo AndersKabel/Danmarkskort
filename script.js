@@ -426,17 +426,15 @@ let lastClickId = 0;
 map.on('click', function(e) {
   let lat = e.latlng.lat;
   let lon = e.latlng.lng;
-  if (currentMarker) {
-    map.removeLayer(currentMarker);
-  }
-  currentMarker = L.marker([lat, lon]).addTo(map);
-  setCoordinateBox(lat, lon);
-  let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
-  console.log("Kalder reverse geocoding:", revUrl);
+
+  lastClickId++;                  // ← nyt
+  const clickId = lastClickId;    // ← nyt
+
+  ...
   fetch(revUrl)
     .then(r => r.json())
     .then(data => {
-      updateInfoBox(data, lat, lon);
+      updateInfoBox(data, lat, lon, clickId);  // ← send videre
     })
     .catch(err => console.error("Reverse geocoding fejl:", err));
 });
@@ -1512,6 +1510,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
