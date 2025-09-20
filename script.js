@@ -599,6 +599,7 @@ if (!isStatsvej && beskrivelse && String(beskrivelse).trim() !== "") {
 // km vises kun, når der er statsvej (referencevej)
 if (hasStatsvej) {
   const kmText = await getKmAtPoint(lat, lon, statsvejData); // ← genbrug stats
+  if (clickId !== lastClickId) return;            // ← stadig aktuelt?
   if (kmText) {
     statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
   }
@@ -1512,6 +1513,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
