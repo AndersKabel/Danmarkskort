@@ -992,37 +992,6 @@ function doSearchRoad(query, listElement, inputField, which) {
     })
     .catch(err => console.error("Fejl i doSearchRoad:", err));
 }
-/***************************************************
- * Hjælper: filtrér strandposter lokalt
- * Returnerer et array af { type:'strandpost', tekst, lat, lon }
- ***************************************************/
-function filterStrandposter(query) {
-  // Kun hvis laget er tændt og data er klar
-  if (!(map.hasLayer(redningsnrLayer) && strandposterReady)) return [];
-
-  const q = (query || "").toLowerCase();
-
-  return (allStrandposter || [])
-    .map(f => {
-      const props = f.properties || {};
-      const g     = f.geometry || {};
-      if (g.type !== "Point" || !Array.isArray(g.coordinates)) return null;
-
-      const lon = g.coordinates[0];
-      const lat = g.coordinates[1];
-
-      // Vi forsøger at finde et fornuftigt visningsnavn
-      const tekst =
-        props.tekst ??
-        props.navn ??
-        props.label ??
-        (props.nr != null ? `Strandpost ${props.nr}` : null) ??
-        "Strandpost";
-
-      return { type: "strandpost", tekst, lat, lon };
-    })
-    .filter(o => o && o.tekst && o.tekst.toLowerCase().includes(q));
-}
 
 /***************************************************
  * Hjælper: filtrér strandposter lokalt
@@ -1538,4 +1507,5 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
