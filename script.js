@@ -118,20 +118,19 @@ var osmLayer = L.tileLayer(
 ).addTo(map);
 
 /***************************************************
- * NYT: Luftfoto-lag (Dataforsyningen GeoDanmarkOrto WMS)
+ * TILFØJET: Ortofoto-lag fra Kortforsyningen (satellit -> nu "luftfoto" via proxy)
  *
- * Bemærk: hvis WMS-tjenesten kræver token/username eller
- * hvis du får CORS-fejl, så kan du pege requests via din
- * eksisterende `VD_PROXY`. Sig til hvis du ønsker at jeg
- * ændrer koden så tiles proxyes gennem VD_PROXY.
+ * Vi bruger VD_PROXY som mellemled for at undgå CORS / blokering på klienten.
  ***************************************************/
 const satWmsUrl = "https://services.datafordeler.dk/GeoDanmarkOrto/orto_foraar/1.0.0/WMS";
-var luftfotoLayer = L.tileLayer.wms(satWmsUrl, {
+const satProxyBase = `${VD_PROXY}/proxy?url=${encodeURIComponent(satWmsUrl)}`;
+
+var luftfotoLayer = L.tileLayer.wms(satProxyBase, {
   layers: "orto_foraar",
   format: "image/png",
   transparent: false,
   version: "1.3.0",
-  attribution: "Luftfoto © Dataforsyningen / Styrelsen for Dataforsyning og Infrastruktur",
+  attribution: "Luftfoto © Dataforsyningen",
   tileSize: 256,
   maxZoom: 19
 });
@@ -1017,36 +1016,6 @@ function filterStrandposter(query) {
       const lat = g.coordinates[1];
 
       // Vi forsøger at finde et fornuftigt visningsnavn
-      const tekst =
-        props.tekst ??
-        props.navn ??
-        props.label ??
-        (props.nr != null ? `Strandpost ${props.nr}` : null) ??
-        "Strandpost";
-
-      return { type: "strandpost", tekst, lat, lon };
-    })
-    .filter(o => o && o.tekst && o.tekst.toLowerCase().includes(q));
-}
-
-/***************************************************
- * Hjælper: filtrér strandposter lokalt
- * Returnerer et array af { type:'strandpost', tekst, lat, lon }
- ***************************************************/
-function filterStrandposter(query) {
-  if (!(map.hasLayer(redningsnrLayer) && strandposterReady)) return [];
-
-  const q = (query || "").toLowerCase();
-
-  return (allStrandposter || [])
-    .map(f => {
-      const props = f.properties || {};
-      const g     = f.geometry || {};
-      if (g.type !== "Point" || !Array.isArray(g.coordinates)) return null;
-
-      const lon = g.coordinates[0];
-      const lat = g.coordinates[1];
-
       const tekst =
         props.tekst ??
         props.navn ??
