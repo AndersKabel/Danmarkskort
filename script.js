@@ -118,18 +118,23 @@ var osmLayer = L.tileLayer(
 ).addTo(map);
 
 /***************************************************
- * TILFØJET: Ortofoto-lag fra Kortforsyningen (satellit)
+ * NYT: Luftfoto-lag (Dataforsyningen GeoDanmarkOrto WMS)
+ *
+ * Bemærk: hvis WMS-tjenesten kræver token/username eller
+ * hvis du får CORS-fejl, så kan du pege requests via din
+ * eksisterende `VD_PROXY`. Sig til hvis du ønsker at jeg
+ * ændrer koden så tiles proxyes gennem VD_PROXY.
  ***************************************************/
-var ortofotoLayer = L.tileLayer.wms(
-  "https://api.dataforsyningen.dk/orto_foraar_DAF?service=WMS&request=GetCapabilities&token=a63a88838c24fc85d47f32cde0ec0144",
-  {
-    layers: "orto_foraar",
-    format: "image/jpeg",
-    transparent: false,
-    version: "1.1.1",
-    attribution: "Ortofoto © Kortforsyningen"
-  }
-);
+const satWmsUrl = "https://services.datafordeler.dk/GeoDanmarkOrto/orto_foraar/1.0.0/WMS";
+var luftfotoLayer = L.tileLayer.wms(satWmsUrl, {
+  layers: "orto_foraar",
+  format: "image/png",
+  transparent: false,
+  version: "1.3.0",
+  attribution: "Luftfoto © Dataforsyningen / Styrelsen for Dataforsyning og Infrastruktur",
+  tileSize: 256,
+  maxZoom: 19
+});
 
 // Opret WMS-lag for redningsnumre (Strandposter)
 var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/ows", {
@@ -253,7 +258,7 @@ fetch("svensk-grænse.geojson")
 
 const baseMaps = {
   "OpenStreetMap": osmLayer,
-  "Satellit": ortofotoLayer
+  "luftfoto": luftfotoLayer
 };
 const overlayMaps = {
   "Strandposter": redningsnrLayer,
