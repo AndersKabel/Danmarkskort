@@ -3,8 +3,18 @@
  ***************************************************/
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m +no_defs");
 
-// Cloudflare proxy til VD-reference
-const VD_PROXY = "https://vd-proxy.anderskabel8.workers.dev";
+// ------------------------------------------------------------------
+// PROXY-konfiguration
+// ------------------------------------------------------------------
+// Brug to proxies side-om-side:
+// - VD_PROXY_WMS  : bruges som WMS/orto proxy (til luftfoto tiles).
+// - VD_PROXY_REF  : bruges til /reference kald (getKmAtPoint).
+//
+// Hvis du ønsker at samle alt i én worker, kan worker'en
+// konfigureres til både at acceptere ?url=... (tiles) og /reference.
+// For nu bruger vi: WMS -> ny worker, REFERENCE -> din gamle worker.
+const VD_PROXY_WMS = "https://still-wildflower-1c0b.anderskabel8.workers.dev";
+const VD_PROXY_REF = "https://vd-proxy.anderskabel8.workers.dev";
 
 function convertToWGS84(x, y) {
   // Ved at bytte parameterne [y, x] opnår vi, at northing (y) kommer først,
@@ -118,19 +128,20 @@ var osmLayer = L.tileLayer(
 ).addTo(map);
 
 /***************************************************
- * TILFØJET: Ortofoto-lag fra Kortforsyningen (satellit -> nu "luftfoto" via proxy)
+ * NYT: Luftfoto-lag (Dataforsyningen GeoDanmarkOrto WMS) VIA NY PROXY
  *
- * Vi bruger VD_PROXY som mellemled for at undgå CORS / blokering på klienten.
+ * Vi bruger VD_PROXY_WMS som mellemled for at undgå CORS / blokering på klienten.
+ * Leaflet vil tilføje WMS-params (SERVICE, BBOX etc.) selv — worker'en skal forwarde dem.
  ***************************************************/
 const satWmsUrl = "https://services.datafordeler.dk/GeoDanmarkOrto/orto_foraar/1.0.0/WMS";
-const satProxyBase = `${VD_PROXY}/proxy?url=${encodeURIComponent(satWmsUrl)}`;
+const satProxyBase = `${VD_PROXY_WMS}/proxy?url=${encodeURIComponent(satWmsUrl)}`;
 
 var luftfotoLayer = L.tileLayer.wms(satProxyBase, {
   layers: "orto_foraar",
   format: "image/png",
   transparent: false,
   version: "1.3.0",
-  attribution: "Luftfoto © Dataforsyningen",
+  attribution: "Luftfoto © Dataforsyningen / Styrelsen for Dataforsyning og Infrastruktur",
   tileSize: 256,
   maxZoom: 19
 });
@@ -291,7 +302,7 @@ map.on('overlayadd', function(e) {
     window.open('https://kort.dyrenesbeskyttelse.dk/db/dvc.nsf/kort', '_blank');
     map.removeLayer(dbSmsLayer);
   } else if (e.layer === dbJournalLayer) {
-    window.open('https://dvc.dyrenesbeskyttelse.dk/db/dvc.nsf/Efter%20journalnr?OpenView', '_blank');
+    window.open('https://dvc.dyreneskyttelse.dk/db/dvc.nsf/Efter%20journalnr?OpenView', '_blank');
     map.removeLayer(dbJournalLayer);
   } else if (e.layer === chargeMapLayer) {
     if (!selectedRadius) {
@@ -647,8 +658,8 @@ if (beskrivelse && String(beskrivelse).trim() !== "") {
     ?? data.adgangsadresse?.politikredsnavn
     ?? null;
   const politikredsKode = data.politikredskode
-    ?? data.adgangsadresse?.politikredskode
-    ?? null;
+    ?? data.adgangsadresse?.politikredsnavne ??
+    null;
 if (politikredsNavn || politikredsKode) {
   const polititekst = politikredsKode
     ? `${politikredsNavn || ""} (${politikredsKode})`
@@ -1301,6 +1312,11 @@ function parseTextResponse(text) {
 
 /***************************************************
  * ➕ NY (opdateret): getKmAtPoint – returnerer ét kmtText-tal
+ *
+ * Dette kalder nu VD_PROXY_REF (din gamle worker) på endpoint /reference
+ * så vi bevarer eksisterende behavior. Hvis du hellere vil samle alt i
+ * den nye worker, kan vi ændre VD_PROXY_REF til samme som VD_PROXY_WMS,
+ * men så skal worker'en også implementere /reference forwarding.
  ***************************************************/
 async function getKmAtPoint(lat, lon) {
   try {
@@ -1314,9 +1330,9 @@ async function getKmAtPoint(lat, lon) {
 
     if (!roadNumber) return "";
 
-    // 3) Kald din worker
+    // 3) Kald reference endpoint på VD_PROXY_REF
     const url =
-      `${VD_PROXY}/reference` +
+      `${VD_PROXY_REF}/reference` +
       `?geometry=POINT(${x}%20${y})` +
       `&srs=EPSG:25832` +
       `&roadNumber=${roadNumber}` +
