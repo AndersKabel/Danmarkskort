@@ -519,9 +519,8 @@ async function updateInfoBox(data, lat, lon) {
 
     /* ➕ NYT: hent km via din Cloudflare-proxy og vis den */
     const kmText = await getKmAtPoint(lat, lon);
-    if (kmText) {
-      statsvejInfoEl.innerHTML += `<br><strong>Kilometer:</strong> ${kmText}`;
-    }
+    // ALTID vis linjen – giver nemmere fejlfinding
+    statsvejInfoEl.innerHTML += `<br><strong>Kilometer:</strong> ${kmText || "(ingen data)"}`;
 
     document.getElementById("statsvejInfoBox").style.display = "block";
   } else {
@@ -1226,55 +1225,56 @@ async function getKmAtPoint(lat, lon) {
 
     if (!roadNumber) return "";
 
-    // 3) Kald din worker
+    // 3) Kald din worker – encode WKT korrekt og brug _format=json + _art=0
+    const geom = encodeURIComponent(`POINT(${x} ${y})`);
     const url =
       `${VD_PROXY}/reference` +
-      `?geometry=POINT(${x}%20${y})` +
+      `?geometry=${geom}` +
       `&srs=EPSG:25832` +
       `&roadNumber=${roadNumber}` +
       `&roadPart=${roadPart}` +
-      `&format=json`;
+      `&_format=json` +
+      `&_art=0`;
 
+    console.log("getKmAtPoint →", url);
     const resp = await fetch(url, { cache: "no-store" });
     if (!resp.ok) {
-      console.error("getKmAtPoint proxy-fejl:", resp.status, await resp.text());
+      const text = await resp.text();
+      console.error("getKmAtPoint proxy-fejl:", resp.status, text);
       return "";
     }
     const data = await resp.json();
+    console.log("getKmAtPoint svar:", data);
 
-    // 4) Læs felter som i dit proxy-svar
+    // 4) Robust udtræk – mange varianter i omløb
     const props =
       data?.properties ??
+      data?.feature?.properties ??
       data?.features?.[0]?.properties ??
       data;
-// Nogle svar har km-teksten i nested felter: properties.from.kmtText (eller to.kmtText)
-const from = props?.from ?? props?.FROM ?? props?.fra ?? null;
-const to   = props?.to   ?? props?.TO   ?? props?.til ?? null;
 
-const kmtText =
-  from?.kmtText ??
-  from?.KMTTEXT ??
-  to?.kmtText ??
-  to?.KMTTEXT ??
-  props?.kmtText ??
-  props?.KMTEKST ??
-  props?.kmtekst ??
-  props?.at?.kmtText ??        // enkelte svar bruger 'at'
-  null;
+    // "from"/"to" kan hedde flere ting
+    const from = props?.from ?? props?.FROM ?? props?.fra ?? props?.at ?? null;
+    const to   = props?.to   ?? props?.TO   ?? props?.til ?? null;
 
-if (kmtText) {
-  // returnér ét tal præcist som pælen angives (fx "99/0031")
-  return String(kmtText);
-}
+    // Prøv alle kendte felt-varianter
+    const kmtText =
+      from?.kmtText ?? from?.KMTTEXT ??
+      to?.kmtText   ?? to?.KMTTEXT   ??
+      props?.kmtText ?? props?.KMTEKST ?? props?.kmtekst ??
+      props?.KM_TEXT ?? props?.km_text ?? props?.kmtegn ??
+      null;
 
-// Fallback: forsøg at bygge "KM/MMMM" ud fra 'from' først
-const km = (from?.km ?? props?.km ?? props?.KM ?? null);
-const m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
-if (km != null && m != null) {
-  return `${km}/${String(m).padStart(4, "0")}`;
-}
+    if (kmtText) return String(kmtText);
 
-return "";
+    // Fallback: bygg "KM/MMMM" hvis muligt
+    const km = (from?.km ?? props?.km ?? props?.KM ?? null);
+    const m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
+    if (km != null && m != null) {
+      return `${km}/${String(m).padStart(4, "0")}`;
+    }
+
+    return "";
     
   } catch (e) {
     console.error("getKmAtPoint fejl:", e);
@@ -1423,4 +1423,3 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
-
