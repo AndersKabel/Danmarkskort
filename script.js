@@ -140,6 +140,21 @@ var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/o
   attribution: "Data: redningsnummer.dk"
 });
 
+/**
+ * Rutenummereret vejnet (VD Geocloud WMS)
+ * Dette lag viser rutenumre på det overordnede vejnet. Det blev fjernet i en
+ * senere version, men genindføres her for at give mulighed for at slå
+ * rutenumre til og fra via lagkontrollen. Laget hentes som et WMS-billede
+ * fra Vejdirektoratets Geocloud.
+ */
+var rutenummerLayer = L.tileLayer.wms("https://geocloud.vd.dk/VM/wms", {
+  layers: "rutenummereret-vejnet",
+  format: "image/png",
+  transparent: true,
+  version: "1.3.0",
+  attribution: "© Vejdirektoratet"
+});
+
 /***************************************************
  * NYT: Opret nyt Falck Ass-lag (GeoJSON)
  * Henter data fra filen "FalckStationer_data.json"
@@ -242,7 +257,9 @@ const overlayMaps = {
   "DB SMS kort":       dbSmsLayer,
   "DB Journal":        dbJournalLayer,
   "25 km grænse": border25Layer,
-  "Ladestandere": chargeMapLayer
+  "Ladestandere": chargeMapLayer,
+  // Overordnede rutenumre på vejnettet
+  "Rutenummereret vejnet": rutenummerLayer
 };
 
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
@@ -560,18 +577,10 @@ async function updateInfoBox(data, lat, lon) {
           let gaderVeje = info["Gader og veje"];
           let link      = info.gemLink;
           if (link) {
-            // Vis kommuneoplysninger med større skrifttype (font-size 16px) og uden en ekstra blank linje før
-            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">
-              Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
-              | Døde dyr: ${doedeDyr}
-              | Gader og veje: ${gaderVeje}
-              </span>`;
+            // Vis kommuneoplysninger med større skrifttype; samlet på én linje for at sikre stilen anvendes korrekt
+            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Kommune: <a href="${link}" target="_blank">${kommunenavn}</a> | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}</span>`;
           } else {
-            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">
-              Kommune: ${kommunenavn}
-              | Døde dyr: ${doedeDyr}
-              | Gader og veje: ${gaderVeje}
-              </span>`;
+            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}</span>`;
           }
         }
       }
