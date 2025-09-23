@@ -607,10 +607,13 @@ async function updateInfoBox(data, lat, lon) {
     const infoBoxEl = document.getElementById("infoBox");
     const statsBoxEl = document.getElementById("statsvejInfoBox");
     if (infoBoxEl && statsBoxEl) {
-      // brug en lille afstand mellem boksene (8px)
+      // brug lidt mere afstand mellem boksene (16px)
       const spacing = 16;
-      // beregn ny top-position relativt til infoBox'ens placering og højde
-      const newTop = infoBoxEl.offsetTop + infoBoxEl.offsetHeight + spacing;
+      // beregn ny top-position relativt til statsBoxEl's offsetParent
+      const infoRect = infoBoxEl.getBoundingClientRect();
+      const parentRect = statsBoxEl.offsetParent?.getBoundingClientRect() ?? { top: 0 };
+      // bottom of infoBox relative to viewport minus offsetParent top gives relative top within parent
+      const newTop = infoRect.bottom - parentRect.top + spacing;
       statsBoxEl.style.top = `${newTop}px`;
     }
   } catch (err) {
@@ -1383,7 +1386,3 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
-
-
-
-
