@@ -560,10 +560,18 @@ async function updateInfoBox(data, lat, lon) {
           let gaderVeje = info["Gader og veje"];
           let link      = info.gemLink;
           if (link) {
-            // Vis kommuneoplysninger med større skrifttype; samlet på én linje for at sikre stilen anvendes korrekt
-            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Kommune: <a href="${link}" target="_blank">${kommunenavn}</a> | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}</span>`;
+            // Vis kommuneoplysninger med større skrifttype (font-size 16px) og uden en ekstra blank linje før
+            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">
+              Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
+              | Døde dyr: ${doedeDyr}
+              | Gader og veje: ${gaderVeje}
+              </span>`;
           } else {
-            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}</span>`;
+            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">
+              Kommune: ${kommunenavn}
+              | Døde dyr: ${doedeDyr}
+              | Gader og veje: ${gaderVeje}
+              </span>`;
           }
         }
       }
