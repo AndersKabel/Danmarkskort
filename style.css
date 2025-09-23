@@ -1,6 +1,6 @@
 /* ============================
    KORT & KONTAINER
-   ============================ */
+============================ */
 #map {
   position: absolute;
   top: 0;
@@ -35,7 +35,7 @@
 
 /* ============================
    INPUTFELTER
- ============================ */
+============================ */
 #search,
 #vej1,
 #vej2 {
@@ -57,7 +57,7 @@
 
 /* ============================
    CLEAR-KNAP
- ============================ */
+============================ */
 .search-wrapper .clear-button {
   position: absolute;
   right: 10px;
@@ -87,7 +87,7 @@
 
 /* ============================
    RESULTATLISTER
- ============================ */
+============================ */
 #results,
 #results-vej1,
 #results-vej2 {
@@ -123,7 +123,7 @@
 
 /* ============================
    INFO-BOKSE
- ============================ */
+============================ */
 #infoContainer {
   position: absolute;
   top: 120px;
@@ -135,7 +135,7 @@
 #infoBox {
   display: none;
   position: absolute;
-  top: 5px;
+  top: 5px; 
   left: -10px;
   width: 100%;
   max-width: 400px;
@@ -218,16 +218,18 @@
 /* Statsvej info-boks */
 #statsvejInfoBox {
   display: none;
-  position: relative;
+  position: absolute;
+  top: 263px;
   left: 0px;
-  /* top: 263px; removed to allow relative positioning */
-  margin-top: 10px;
   width: 380px;
   background: rgba(255, 255, 255, 0.95);
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   z-index: 1000;
+
+  /* NYT: lidt ekstra afstand til infoboksen ovenover */
+  margin-top: 8px;
 }
 .hidden {
   display: none;
@@ -295,7 +297,7 @@
 
 /* ============================
    NY: Distance Options knapper
- ============================ */
+============================ */
 #distanceOptions {
   position: absolute;
   top: 10px;
@@ -313,3 +315,4 @@
   font-size: 14px;
   cursor: pointer;
 }
+
