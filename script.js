@@ -608,7 +608,7 @@ async function updateInfoBox(data, lat, lon) {
     const statsBoxEl = document.getElementById("statsvejInfoBox");
     if (infoBoxEl && statsBoxEl) {
       // brug en lille afstand mellem boksene (8px)
-      const spacing = 16;
+      const spacing = 10;
       // beregn ny top-position relativt til infoBox'ens placering og højde
       const newTop = infoBoxEl.offsetTop + infoBoxEl.offsetHeight + spacing;
       statsBoxEl.style.top = `${newTop}px`;
@@ -1383,4 +1383,5 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
