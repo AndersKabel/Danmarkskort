@@ -601,6 +601,21 @@ async function updateInfoBox(data, lat, lon) {
     // Vis politikreds med større skrifttype og på egen linje
     extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Politikreds: ${polititekst}</span>`;
   }
+
+  // Juster placeringen af statsvej-boksen, så den flyttes ned under info-boksen uanset højde
+  try {
+    const infoBoxEl = document.getElementById("infoBox");
+    const statsBoxEl = document.getElementById("statsvejInfoBox");
+    if (infoBoxEl && statsBoxEl) {
+      // brug en lille afstand mellem boksene (8px)
+      const spacing = 8;
+      // beregn ny top-position relativt til infoBox'ens placering og højde
+      const newTop = infoBoxEl.offsetTop + infoBoxEl.offsetHeight + spacing;
+      statsBoxEl.style.top = `${newTop}px`;
+    }
+  } catch (err) {
+    console.warn('Kunne ikke justere statsvej-boksens placering:', err);
+  }
 }
 
 /***************************************************
