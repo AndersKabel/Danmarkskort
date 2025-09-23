@@ -608,7 +608,7 @@ async function updateInfoBox(data, lat, lon) {
     const statsBoxEl = document.getElementById("statsvejInfoBox");
     if (infoBoxEl && statsBoxEl) {
       // brug lidt mere afstand mellem boksene (16px)
-      const spacing = 2;
+      const spacing = 6;
       // beregn ny top-position relativt til statsBoxEl's offsetParent
       const infoRect = infoBoxEl.getBoundingClientRect();
       const parentRect = statsBoxEl.offsetParent?.getBoundingClientRect() ?? { top: 0 };
@@ -1386,6 +1386,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
 
