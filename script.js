@@ -457,8 +457,10 @@ async function updateInfoBox(data, lat, lon) {
 
   // nulstil og genopbyg extraInfoEl
   extraInfoEl.innerHTML = "";
-  extraInfoEl.insertAdjacentHTML("beforeend", 
-    `<br>
+  // Tilføj Eva.Net/Notes-links uden et ekstra linjeskift før dem. Det fjernede <br> var årsag til en tom linje i infoboksen.
+  extraInfoEl.insertAdjacentHTML(
+    "beforeend",
+    `
     <a href="#" title="Kopier til Eva.net" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
     &nbsp;
     <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>`
@@ -521,9 +523,8 @@ async function updateInfoBox(data, lat, lon) {
       html += `<strong>Bestyrer:</strong> ${bestyrer || "Ukendt"}<br>`;
       html += `<strong>Vejtype:</strong> ${vejtype || "Ukendt"}`;
     }
-    if (beskrivelse && String(beskrivelse).trim() !== "") {
-      html += `<br><strong>Beskrivelse:</strong> ${beskrivelse}`;
-    }
+    // Beskrivelse vises ikke længere i statsvej-info-boksen
+
     if (vejstatus) {
       html += `<br><strong>Vejstatus:</strong> ${vejstatus}`;
     }
@@ -559,15 +560,18 @@ async function updateInfoBox(data, lat, lon) {
           let gaderVeje = info["Gader og veje"];
           let link      = info.gemLink;
           if (link) {
-            extraInfoEl.innerHTML += `<br>
+            // Vis kommuneoplysninger med større skrifttype (font-size 16px) og uden en ekstra blank linje før
+            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">
               Kommune: <a href="${link}" target="_blank">${kommunenavn}</a>
               | Døde dyr: ${doedeDyr}
-              | Gader og veje: ${gaderVeje}`;
+              | Gader og veje: ${gaderVeje}
+              </span>`;
           } else {
-            extraInfoEl.innerHTML += `<br>
+            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">
               Kommune: ${kommunenavn}
               | Døde dyr: ${doedeDyr}
-              | Gader og veje: ${gaderVeje}`;
+              | Gader og veje: ${gaderVeje}
+              </span>`;
           }
         }
       }
@@ -585,7 +589,8 @@ async function updateInfoBox(data, lat, lon) {
     ?? null;
   if (politikredsNavn || politikredsKode) {
     const polititekst = politikredsKode ? `${politikredsNavn || ""} (${politikredsKode})` : `${politikredsNavn}`;
-    extraInfoEl.innerHTML += `<br>Politikreds: ${polititekst}`;
+    // Vis politikreds med større skrifttype og på egen linje
+    extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Politikreds: ${polititekst}</span>`;
   }
 }
 
