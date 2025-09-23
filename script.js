@@ -602,23 +602,8 @@ async function updateInfoBox(data, lat, lon) {
     extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Politikreds: ${polititekst}</span>`;
   }
 
-  // Juster placeringen af statsvej-boksen, så den flyttes ned under info-boksen uanset højde
-  try {
-    const infoBoxEl = document.getElementById("infoBox");
-    const statsBoxEl = document.getElementById("statsvejInfoBox");
-    if (infoBoxEl && statsBoxEl) {
-      // brug lidt mere afstand mellem boksene (16px)
-      const spacing = 6;
-      // beregn ny top-position relativt til statsBoxEl's offsetParent
-      const infoRect = infoBoxEl.getBoundingClientRect();
-      const parentRect = statsBoxEl.offsetParent?.getBoundingClientRect() ?? { top: 0 };
-      // bottom of infoBox relative to viewport minus offsetParent top gives relative top within parent
-      const newTop = infoRect.bottom - parentRect.top + spacing;
-      statsBoxEl.style.top = `${newTop}px`;
-    }
-  } catch (err) {
-    console.warn('Kunne ikke justere statsvej-boksens placering:', err);
-  }
+  // Den dynamiske justering af statsvej-boksen er ikke længere nødvendig,
+  // da boksen nu placeres relativt til infoboksen i DOMContentLoaded.
 }
 
 /***************************************************
@@ -1384,9 +1369,15 @@ document.getElementById("btn100").addEventListener("click", function() {
   toggleCircle(100000);
 });
 document.addEventListener("DOMContentLoaded", function() {
+  // Sæt fokus på søgefeltet og flyt statsvej-boksen ind i den samme container som info-boksen.
   document.getElementById("search").focus();
+  const container = document.getElementById("infoContainer");
+  const statsBox = document.getElementById("statsvejInfoBox");
+  if (container && statsBox) {
+    container.appendChild(statsBox);
+    statsBox.style.position = "relative";
+    statsBox.style.left = "0";
+    statsBox.style.top = "auto";
+    statsBox.style.marginTop = "10px";
+  }
 });
-
-
-
-
