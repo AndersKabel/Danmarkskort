@@ -1241,37 +1241,47 @@ function doSearch(query, listElement) {
         li.innerHTML = `🏠 ${obj.tekst}`;
       } else if (obj.type === "stednavn") {
         li.innerHTML = `📍 ${obj.navn}`;
-      }         } else if (obj.type === "vej_cvf") {
+      } else if (obj.type === "vej_cvf") {
+        li.innerHTML = `🛣️ ${obj.label}`;
+      }
+
+      li.addEventListener("click", async function() {
+        if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
+          fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+            .then(r => r.json())
+            .then(addressData => {
+              let [lon, lat] = addressData.adgangspunkt.koordinater;
+              setCoordinateBox(lat, lon);
+              placeMarkerAndZoom([lat, lon], obj.tekst);
+              let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+              fetch(revUrl)
+                .then(r => r.json())
+                .then(reverseData => {
+                  updateInfoBox(reverseData, lat, lon);
+                })
+                .catch(err => console.error("Reverse geocoding fejl:", err));
+              updateInfoBox(addressData, lat, lon);
+              resultsList.innerHTML = "";
+              vej1List.innerHTML = "";
+              vej2List.innerHTML = "";
+            })
+            .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+        } else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
+          let [x, y] = obj.bbox.coordinates[0][0];
+          placeMarkerAndZoom([x, y], obj.navn);
+          listElement.innerHTML = "";
+          listElement.style.display = "none";
+        } else if (obj.type === "stednavn" && obj.geometry && obj.geometry.coordinates) {
+          let coordsArr = Array.isArray(obj.geometry.coordinates[0])
+                          ? obj.geometry.coordinates[0]
+                          : obj.geometry.coordinates;
+          placeMarkerAndZoom(coordsArr, obj.navn);
+          listElement.innerHTML = "";
+          listElement.style.display = "none"; 
+        } else if (obj.type === "vej_cvf") {
           try {
             const gj = await getCVFGeometryForRoadName(obj.vejnavn); // EPSG:25832
             if (gj) {
-              // Konverter hele geometri-samlingen til en MultiLineString og gem den som valgt vej
-              const geom = multiLineFromCVF25832(gj);
-              // Tildel automatisk til selectedRoad1 eller selectedRoad2
-              if (!selectedRoad1) {
-                selectedRoad1 = {
-                  vejnavn: obj.vejnavn,
-                  kommunekode: "?",
-                  vejkode: "?",
-                  geometry: geom
-                };
-              } else if (!selectedRoad2) {
-                selectedRoad2 = {
-                  vejnavn: obj.vejnavn,
-                  kommunekode: "?",
-                  vejkode: "?",
-                  geometry: geom
-                };
-              } else {
-                // hvis begge allerede er valgt, overskriv nummer to med den nye
-                selectedRoad2 = {
-                  vejnavn: obj.vejnavn,
-                  kommunekode: "?",
-                  vejkode: "?",
-                  geometry: geom
-                };
-              }
-              // Beregn center-koordinat for visning på kortet
               const center = centerWGS84From25832(gj);
               resultsList.innerHTML = "";
               resultsList.style.display = "none";
@@ -1299,7 +1309,7 @@ function doSearch(query, listElement) {
           } catch (e) {
             console.error("CVF klik-fejl:", e);
           }
-        } else if (obj.type === "strandpost") {} else if (obj.type === "strandpost") {
+        } else if (obj.type === "strandpost") {
           setCoordinateBox(obj.lat, obj.lon);
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
           listElement.innerHTML = "";
