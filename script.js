@@ -439,6 +439,7 @@ map.on('click', function(e) {
  * CVF (Geocloud WFS) – søgning & geometri
  ***************************************************/
 const CVF_WFS_BASE = "https://geocloud.vd.dk/CVF/wfs";
+const CVF_TYPENAMES = "CVF:veje"; // <- korrekt lag-navn (med kolon)
 
 /**
  * Find vejnavne i CVF der matcher query (unik liste af navne).
@@ -1605,3 +1606,4 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
