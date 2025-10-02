@@ -445,25 +445,34 @@ const CVF_TYPENAMES = "CVF:veje"; // <- korrekt lag-navn (med kolon)
  * Find vejnavne i CVF der matcher query (unik liste af navne).
  * Returnerer [{ type:'vej_cvf', vejnavn, label, sampleProps }]
  */
+/**
+ * Find vejnavne i CVF der matcher query (unik liste af navne).
+ * Returnerer [{ type:'vej_cvf', vejnavn, label, sampleProps }]
+ */
 async function searchCVFVejnavne(query, limit = 25) {
   const q = (query || "").trim();
   if (!q) return [];
 
-  // Korrekt feltnavn er BETEGNELSE. Encod hele CQL-udtrykket.
   const safe = q.replace(/'/g, "''");
   const cql = `BETEGNELSE ILIKE '%${safe}%'`;
+
   const url =
     `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
-    `&typeName=CVF:veje&outputFormat=application/json&count=${limit}` +
+    `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}` +   // korrekt lag
+    `&outputFormat=application/json&count=${limit}` +
     `&CQL_FILTER=${encodeURIComponent(cql)}`;
+
+  console.debug("[CVF søg] URL:", url);
 
   try {
     const r = await fetch(url);
-    if (!r.ok) return [];
+    if (!r.ok) {
+      console.warn("CVF søgefejl HTTP:", r.status, r.statusText);
+      return [];
+    }
     const gj = await r.json();
     if (!Array.isArray(gj.features)) return [];
 
-    // Unikke vejnavne (BETEGNELSE)
     const seen = new Set();
     const out = [];
     for (const f of gj.features) {
@@ -1606,4 +1615,5 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
