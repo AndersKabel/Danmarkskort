@@ -683,13 +683,11 @@ async function searchCVFVejnavne(query, limit = 25) {
   const q = (query || "").trim();
   if (!q) return [];
 
-  // CQL: brug korrekt feltnavn BETEGNELSE og encod HELE udtrykket
-  const safe = q.replace(/'/g, "''");
-  const cql = `BETEGNELSE ILIKE '%${safe}%'`;
+  // CQL_FILTER: case-insensitive match hvor vi tillader mellemrum/ord imellem
+  const cql = `VEJNAVN ILIKE '%25${encodeURIComponent(q).replace(/%20/g, "%25")}%25'`;
   const url =
     `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
-    `&typeName=CVF:veje&outputFormat=application/json&count=${limit}` +
-    `&CQL_FILTER=${encodeURIComponent(cql)}`;
+    `&typeName=CVF:veje&outputFormat=application/json&count=${limit}&CQL_FILTER=${cql}`;
 
   try {
     const r = await fetch(url);
@@ -697,12 +695,12 @@ async function searchCVFVejnavne(query, limit = 25) {
     const gj = await r.json();
     if (!Array.isArray(gj.features)) return [];
 
-    // Unikke vejnavne (BETEGNELSE)
+    // Unikke vejnavne
     const seen = new Set();
     const out = [];
     for (const f of gj.features) {
       const props = f.properties || {};
-      const name = (props.BETEGNELSE || props.betegnelse || "").toString().trim();
+      const name = (props.VEJNAVN || props.betegnelse || "").toString().trim();
       if (!name) continue;
       const key = name.toLowerCase();
       if (seen.has(key)) continue;
@@ -727,16 +725,14 @@ async function searchCVFVejnavne(query, limit = 25) {
 
 /**
  * Hent geometri for et bestemt vejnavn fra CVF (GeoJSON FeatureCollection)
- * i EPSG:25832 så Turf kan arbejde i plan koord.sæt (samme som DAR-linjer).
  */
 async function getCVFGeometryForRoadName(vejnavn) {
-  const safe = (vejnavn || "").replace(/'/g, "''");
-  const cql = `UPPER(BETEGNELSE) = UPPER('${safe}')`;
+  // Stram filter: præcis lighed (case-insensitive) via UPPER()
+  const safe = vejnavn.replace(/'/g, "''");
+  const cql = `UPPER(VEJNAVN) = UPPER('${encodeURIComponent(safe)}')`;
   const url =
     `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
-    `&typeName=CVF:veje&outputFormat=application/json` +
-    `&srsName=EPSG:25832` +                      // <-- vigtigt
-    `&CQL_FILTER=${encodeURIComponent(cql)}`;
+    `&typeName=CVF:veje&outputFormat=application/json&CQL_FILTER=${cql}`;
 
   try {
     const r = await fetch(url);
@@ -1549,6 +1545,3 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
-
-
-
