@@ -683,11 +683,13 @@ async function searchCVFVejnavne(query, limit = 25) {
   const q = (query || "").trim();
   if (!q) return [];
 
-  // CQL_FILTER: case-insensitive match hvor vi tillader mellemrum/ord imellem
-  const cql = `VEJNAVN ILIKE '%25${encodeURIComponent(q).replace(/%20/g, "%25")}%25'`;
+  // CQL: brug korrekt feltnavn BETEGNELSE og encod HELE udtrykket
+  const safe = q.replace(/'/g, "''");
+  const cql = `BETEGNELSE ILIKE '%${safe}%'`;
   const url =
     `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
-    `&typeName=CVF:veje&outputFormat=application/json&count=${limit}&CQL_FILTER=${cql}`;
+    `&typeName=CVF:veje&outputFormat=application/json&count=${limit}` +
+    `&CQL_FILTER=${encodeURIComponent(cql)}`;
 
   try {
     const r = await fetch(url);
@@ -695,12 +697,12 @@ async function searchCVFVejnavne(query, limit = 25) {
     const gj = await r.json();
     if (!Array.isArray(gj.features)) return [];
 
-    // Unikke vejnavne
+    // Unikke vejnavne (BETEGNELSE)
     const seen = new Set();
     const out = [];
     for (const f of gj.features) {
       const props = f.properties || {};
-      const name = (props.VEJNAVN || props.betegnelse || "").toString().trim();
+      const name = (props.BETEGNELSE || props.betegnelse || "").toString().trim();
       if (!name) continue;
       const key = name.toLowerCase();
       if (seen.has(key)) continue;
@@ -1545,3 +1547,4 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
