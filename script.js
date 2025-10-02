@@ -504,21 +504,63 @@ async function searchCVFVejnavne(query, limit = 25) {
  * Hent geometri for et bestemt vejnavn fra CVF (GeoJSON FeatureCollection)
  * i EPSG:25832 så Turf kan arbejde i samme koord.sæt som DAR-linjer.
  */
+/**
+ * Hent geometri for et bestemt vejnavn fra CVF (GeoJSON FeatureCollection)
+ * i EPSG:25832. Forsøger først exact match, ellers fallback til ILIKE '%…%'.
+ */
 async function getCVFGeometryForRoadName(vejnavn) {
   const safe = (vejnavn || "").replace(/'/g, "''");
-  const cql = `UPPER(BETEGNELSE) = UPPER('${safe}')`;
-  const url =
+
+  // 1) exact match (hurtigst og mest præcis)
+  let cql = `UPPER(BETEGNELSE) = UPPER('${safe}')`;
+  let url =
     `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
-    `&typeName=CVF:veje&outputFormat=application/json` +
+    `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}` +   // korrekt lag
+    `&outputFormat=application/json` +
     `&srsName=EPSG:25832` +
     `&CQL_FILTER=${encodeURIComponent(cql)}`;
 
+  console.debug("[CVF geom exact] URL:", url);
+
+  try {
+    let r = await fetch(url);
+    if (r.ok) {
+      const gj = await r.json();
+      if (gj.features && gj.features.length > 0) return gj;
+    } else {
+      console.warn("CVF exact HTTP:", r.status, r.statusText);
+    }
+  } catch (e) {
+    console.warn("CVF exact exception:", e);
+  }
+
+  // 2) fallback: ILIKE '%…%' og filtrér clientside til bedst match
+  cql = `BETEGNELSE ILIKE '%${safe}%'`;
+  url =
+    `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
+    `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}` +
+    `&outputFormat=application/json` +
+    `&srsName=EPSG:25832` +
+    `&CQL_FILTER=${encodeURIComponent(cql)}`;
+
+  console.debug("[CVF geom ilike] URL:", url);
+
   try {
     const r = await fetch(url);
-    if (!r.ok) return null;
+    if (!r.ok) {
+      console.error("CVF ILIKE HTTP:", r.status, r.statusText);
+      return null;
+    }
     const gj = await r.json();
     if (!gj.features || gj.features.length === 0) return null;
-    return gj;
+
+    // Prioritér features hvor navnet matcher bedst
+    const wanted = (gj.features || []).filter(f => {
+      const nm = (f.properties?.BETEGNELSE || "").toString();
+      return nm.toLowerCase().includes(safe.toLowerCase());
+    });
+
+    return { type: "FeatureCollection", features: (wanted.length ? wanted : gj.features) };
   } catch (e) {
     console.error("CVF geometri-fejl:", e);
     return null;
@@ -1615,5 +1657,6 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
