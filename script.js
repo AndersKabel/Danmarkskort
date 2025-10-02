@@ -144,10 +144,6 @@ var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/o
 
 /**
  * Rutenummereret vejnet (VD Geocloud WMS)
- * Dette lag viser rutenumre på det overordnede vejnet. Det blev fjernet i en
- * senere version, men genindføres her for at give mulighed for at slå
- * rutenumre til og fra via lagkontrollen. Laget hentes som et WMS-billede
- * fra Vejdirektoratets Geocloud.
  */
 var rutenummerLayer = L.tileLayer.wms("https://geocloud.vd.dk/VM/wms", {
   layers: "rutenummereret-vejnet",
@@ -159,7 +155,6 @@ var rutenummerLayer = L.tileLayer.wms("https://geocloud.vd.dk/VM/wms", {
 
 /***************************************************
  * NYT: Opret nyt Falck Ass-lag (GeoJSON)
- * Henter data fra filen "FalckStationer_data.json"
  ***************************************************/
 var falckAssLayer = L.geoJSON(null, {
   onEachFeature: function(feature, layer) {
@@ -203,13 +198,10 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
 /***************************************************
  * Tilføj lagkontrol
  ***************************************************/
-// Lag til DB SMS kort (åbner dvc.nsf/kort) og DB Journal
 var dbSmsLayer        = L.layerGroup();
 var dbJournalLayer    = L.layerGroup();
-// 25 km grænse – et tomt layer, vi vil tegne en forskudt grænse på
-var border25Layer = L.layerGroup();
-// Ladestandere-lag (Open Charge Map)
-var chargeMapLayer = L.layerGroup();
+var border25Layer     = L.layerGroup();
+var chargeMapLayer    = L.layerGroup();
 
 // Hent grænser og forskyd dem
 var originalBorderCoords = [];
@@ -260,7 +252,6 @@ const overlayMaps = {
   "DB Journal":        dbJournalLayer,
   "25 km grænse": border25Layer,
   "Ladestandere": chargeMapLayer,
-  // Overordnede rutenumre på vejnettet
   "Rutenummereret vejnet": rutenummerLayer
 };
 
@@ -308,7 +299,7 @@ map.on('overlayadd', function(e) {
             fillColor: 'yellow',
             fillOpacity: 1
           })
-          .bindPopup(/* din popup-kode her */)
+          .bindPopup(/* popup for ladestander */)
           .addTo(chargeMapLayer);
         }
       });
@@ -405,7 +396,6 @@ map.on("overlayadd", function(event) {
   if (event.name === "Strandposter") {
     console.log("Strandposter laget er tilføjet.");
 
-    // Hent altid data ved første aktivering, eller hvis der ikke er nogen gemt endnu
     if (allStrandposter.length === 0) {
       console.log("Henter strandposter-data første gang...");
       fetchAllStrandposter();
@@ -445,10 +435,6 @@ const CVF_TYPENAMES = "CVF:veje"; // <- korrekt lag-navn (med kolon)
  * Find vejnavne i CVF der matcher query (unik liste af navne).
  * Returnerer [{ type:'vej_cvf', vejnavn, label, sampleProps }]
  */
-/**
- * Find vejnavne i CVF der matcher query (unik liste af navne).
- * Returnerer [{ type:'vej_cvf', vejnavn, label, sampleProps }]
- */
 async function searchCVFVejnavne(query, limit = 25) {
   const q = (query || "").trim();
   if (!q) return [];
@@ -458,7 +444,7 @@ async function searchCVFVejnavne(query, limit = 25) {
 
   const url =
     `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
-    `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}` +   // korrekt lag
+    `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}` +
     `&outputFormat=application/json&count=${limit}` +
     `&CQL_FILTER=${encodeURIComponent(cql)}`;
 
@@ -502,20 +488,16 @@ async function searchCVFVejnavne(query, limit = 25) {
 
 /**
  * Hent geometri for et bestemt vejnavn fra CVF (GeoJSON FeatureCollection)
- * i EPSG:25832 så Turf kan arbejde i samme koord.sæt som DAR-linjer.
- */
-/**
- * Hent geometri for et bestemt vejnavn fra CVF (GeoJSON FeatureCollection)
  * i EPSG:25832. Forsøger først exact match, ellers fallback til ILIKE '%…%'.
  */
 async function getCVFGeometryForRoadName(vejnavn) {
   const safe = (vejnavn || "").replace(/'/g, "''");
 
-  // 1) exact match (hurtigst og mest præcis)
+  // 1) exact match
   let cql = `UPPER(BETEGNELSE) = UPPER('${safe}')`;
   let url =
     `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
-    `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}` +   // korrekt lag
+    `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}` +
     `&outputFormat=application/json` +
     `&srsName=EPSG:25832` +
     `&CQL_FILTER=${encodeURIComponent(cql)}`;
@@ -534,7 +516,7 @@ async function getCVFGeometryForRoadName(vejnavn) {
     console.warn("CVF exact exception:", e);
   }
 
-  // 2) fallback: ILIKE '%…%' og filtrér clientside til bedst match
+  // 2) fallback: ILIKE '%…%' og vælg bedste match (robust på bindestreger/mellemrum)
   cql = `BETEGNELSE ILIKE '%${safe}%'`;
   url =
     `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
@@ -554,13 +536,15 @@ async function getCVFGeometryForRoadName(vejnavn) {
     const gj = await r.json();
     if (!gj.features || gj.features.length === 0) return null;
 
-    // Prioritér features hvor navnet matcher bedst
-    const wanted = (gj.features || []).filter(f => {
-      const nm = (f.properties?.BETEGNELSE || "").toString();
-      return nm.toLowerCase().includes(safe.toLowerCase());
-    });
-
-    return { type: "FeatureCollection", features: (wanted.length ? wanted : gj.features) };
+    const want = normalizeRoadName(vejnavn);
+    // 1) exact-normaliseret match
+    let best = (gj.features || []).filter(f => normalizeRoadName(f.properties?.BETEGNELSE) === want);
+    // 2) ellers inkluderende match
+    if (best.length === 0) {
+      best = (gj.features || []).filter(f => normalizeRoadName(f.properties?.BETEGNELSE).includes(want));
+    }
+    const chosen = best.length ? best : gj.features;
+    return { type: "FeatureCollection", features: chosen };
   } catch (e) {
     console.error("CVF geometri-fejl:", e);
     return null;
@@ -602,11 +586,28 @@ function centerWGS84From25832(gj) {
   return [lat, lon];
 }
 
+/** Normaliser vejnavn (bindestreger/mellemrum) */
+function normalizeRoadName(s) {
+  return (s || "")
+    .toString()
+    .normalize("NFKD")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+/** Pak til Turf-venlig MultiLineString uanset LineString/MultiLineString */
+function toMultiLineForTurf(geojson) {
+  if (!geojson || !geojson.type || !geojson.coordinates) return null;
+  if (geojson.type === "MultiLineString") return geojson;
+  if (geojson.type === "LineString") return { type: "MultiLineString", coordinates: [geojson.coordinates] };
+  return null;
+}
+
 /***************************************************
  * updateInfoBox
- * Viser fuld adresse, Eva.Net/Notes-links i infobox,
- * Viser kommunekode/vejkode i overlay
- * NYT: kan modtage cvfMeta {vejstatus, vejmyndighed} for direkte visning.
+ * (Nu med CVF vejstatus/vejmyndighed direkte i boksen)
  ***************************************************/
 async function updateInfoBox(data, lat, lon, cvfMeta = null) {
   const streetviewLink = document.getElementById("streetviewLink");
@@ -644,7 +645,7 @@ async function updateInfoBox(data, lat, lon, cvfMeta = null) {
 
   // nulstil og genopbyg extraInfoEl
   extraInfoEl.innerHTML = "";
-  // Tilføj Eva.Net/Notes-links
+  // Eva.Net/Notes
   extraInfoEl.insertAdjacentHTML(
     "beforeend",
     `
@@ -653,7 +654,7 @@ async function updateInfoBox(data, lat, lon, cvfMeta = null) {
     <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>`
   );
   
-  // NYT: vis CVF vejstatus/vejmyndighed når vi har dem
+  // (CVF) vejstatus/vejmyndighed direkte i boksen
   if (cvfMeta && (cvfMeta.vejstatus || cvfMeta.vejmyndighed)) {
     const vs = cvfMeta.vejstatus ? String(cvfMeta.vejstatus) : "Ukendt";
     const vm = cvfMeta.vejmyndighed ? String(cvfMeta.vejmyndighed) : "Ukendt";
@@ -694,7 +695,6 @@ async function updateInfoBox(data, lat, lon, cvfMeta = null) {
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
 
-  // Udtræk felter med både store og små bogstaver
   const admNr       = statsvejData?.ADM_NR       ?? statsvejData?.adm_nr       ?? null;
   const forgrening  = statsvejData?.FORGRENING   ?? statsvejData?.forgrening   ?? null;
   const betegnelse  = statsvejData?.BETEGNELSE   ?? statsvejData?.betegnelse   ?? null;
@@ -703,7 +703,6 @@ async function updateInfoBox(data, lat, lon, cvfMeta = null) {
   const vejstatus   = statsvejData?.VEJSTATUS    ?? statsvejData?.vejstatus    ?? statsvejData?.VEJ_STATUS ?? statsvejData?.status ?? null;
   const vejmynd     = statsvejData?.VEJMYNDIGHED ?? statsvejData?.vejmyndighed ?? statsvejData?.VEJMYND     ?? statsvejData?.vejmynd ?? null;
   
-  // afgør om vi har en statsvej
   const hasStatsvej = admNr != null || forgrening != null || (betegnelse && String(betegnelse).trim() !== "") || (vejtype && String(vejtype).trim() !== "");
   const showStatsBox = hasStatsvej || vejstatus || vejmynd;
 
@@ -737,7 +736,7 @@ async function updateInfoBox(data, lat, lon, cvfMeta = null) {
   }
   document.getElementById("infoBox").style.display = "block";
   
-  // Hent kommuneinfo
+  // Kommuneinfo
   if (kommunekode !== "?") {
     try {
       let komUrl = `https://api.dataforsyningen.dk/kommuner/${kommunekode}`;
@@ -762,7 +761,7 @@ async function updateInfoBox(data, lat, lon, cvfMeta = null) {
     }
   }
   
-  // Politikkreds – tilføjes hvis tilgængelig
+  // Politikkreds
   const politikredsNavn = data.politikredsnavn
     ?? data.adgangsadresse?.politikredsnavn
     ?? null;
@@ -774,7 +773,7 @@ async function updateInfoBox(data, lat, lon, cvfMeta = null) {
     extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Politikreds: ${polititekst}</span>`;
   }
 
-  // Juster placeringen af statsvej-boksen
+  // Justér placering af statsvej-boks
   try {
     const infoBoxEl = document.getElementById("infoBox");
     const statsBoxEl = document.getElementById("statsvejInfoBox");
@@ -1034,8 +1033,7 @@ var selectedRoad1 = null;
 var selectedRoad2 = null;
 
 /***************************************************
- * doSearchRoad => bruges af vej1/vej2
- * (NU med CVF-vejnavne som supplement)
+ * doSearchRoad => bruges af vej1/vej2 (DAWA + CVF)
  ***************************************************/
 function doSearchRoad(query, listElement, inputField, which) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`;
@@ -1087,8 +1085,22 @@ function doSearchRoad(query, listElement, inputField, which) {
               vejkode: detailData.vejkode,
               husnummerId: detailData.id
             };
-            let geometry = await getNavngivenvejKommunedelGeometry(detailData.id); // EPSG:25832
-            roadSelection.geometry = geometry;
+
+            // DAR geometri
+            let geometry = await getNavngivenvejKommunedelGeometry(detailData.id); // typisk EPSG:25832
+            // Fallback til CVF hvis DAR ikke leverer (veje uden adresser mv.)
+            if (!geometry) {
+              try {
+                const gj = await getCVFGeometryForRoadName(vejnavn); // EPSG:25832 FeatureCollection
+                if (gj) geometry = multiLineFromCVF25832(gj);
+              } catch (e) {
+                console.warn("CVF fallback kunne ikke hente geometri for", vejnavn, e);
+              }
+            }
+
+            roadSelection.geometry = geometry || null;
+            console.log(`[${which}] valgt '${vejnavn}' — geometri:`, !!roadSelection.geometry, roadSelection.geometry?.type);
+
             if (inputField.id === "vej1") {
               selectedRoad1 = roadSelection;
             } else if (inputField.id === "vej2") {
@@ -1135,6 +1147,7 @@ function doSearchRoad(query, listElement, inputField, which) {
           if (inputField.id === "vej1") selectedRoad1 = roadSelection;
           else if (inputField.id === "vej2") selectedRoad2 = roadSelection;
 
+          console.log(`[${which}] valgt (CVF) '${vejnavn}' — geometri:`, !!roadSelection.geometry, roadSelection.geometry?.type);
         } catch (e) {
           console.error("CVF vejvalg fejl:", e);
         }
@@ -1193,7 +1206,7 @@ function doSearchStrandposter(query) {
 }
 
 /***************************************************
- * doSearch => kombinerer adresser, stednavne, strandposter og CVF-vejnavne
+ * doSearch => kombinerer adresser, stednavne, strandposter og CVF
  ***************************************************/
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
@@ -1379,7 +1392,7 @@ function doSearch(query, listElement) {
 }
 
 /***************************************************
- * getNavngivenvejKommunedelGeometry
+ * getNavngivenvejKommunedelGeometry (DAR)
  ***************************************************/
 async function getNavngivenvejKommunedelGeometry(husnummerId) {
   let url = `https://services.dataforsyningen.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
@@ -1550,59 +1563,86 @@ infoCloseBtn.addEventListener("click", function() {
 });
 
 /***************************************************
- * "Find X"-knap => find intersection med Turf.js
- * (Virker nu også med CVF-veje, da geometri er i EPSG:25832)
+ * "Find X" – robust kryds-finder (DAWA + CVF geometri)
  ***************************************************/
 document.getElementById("findKrydsBtn").addEventListener("click", async function() {
-  if (!selectedRoad1 || !selectedRoad2) {
-    alert("Vælg venligst to veje først.");
-    return;
+  // Hjælper: sørg for at et selectedRoad-objekt har MultiLineString geometri (med CVF-fallback)
+  async function ensureGeometryFromSelection(sel, inputElLabel) {
+    if (!sel) return null;
+    let g = sel.geometry || null;
+
+    if (g) {
+      const m = toMultiLineForTurf(g);
+      if (m) return { ...sel, geometry: m };
+    }
+
+    if (sel.vejnavn) {
+      console.info(`[Find X] Mangler geometri for '${sel.vejnavn}', forsøger CVF-fallback…`);
+      try {
+        const gj = await getCVFGeometryForRoadName(sel.vejnavn);
+        if (gj) {
+          const ml = multiLineFromCVF25832(gj);
+          if (ml) return { ...sel, geometry: ml };
+        }
+      } catch (e) {
+        console.warn(`[Find X] CVF-fallback fejlede for '${sel.vejnavn}'`, e);
+      }
+    }
+
+    console.warn(`[Find X] Ingen geometri for ${inputElLabel} ('${sel.vejnavn || "ukendt"}')`);
+    return null;
   }
-  if (!selectedRoad1.geometry || !selectedRoad2.geometry) {
+
+  const r1 = await ensureGeometryFromSelection(selectedRoad1, "vej1");
+  const r2 = await ensureGeometryFromSelection(selectedRoad2, "vej2");
+
+  if (!r1 || !r1.geometry || !r2 || !r2.geometry) {
     alert("Geometri ikke tilgængelig for en eller begge veje.");
     return;
   }
-  let line1 = turf.multiLineString(selectedRoad1.geometry.coordinates);
-  let line2 = turf.multiLineString(selectedRoad2.geometry.coordinates);
-  let intersection = turf.lineIntersect(line1, line2);
-  if (intersection.features.length === 0) {
+
+  const line1 = turf.multiLineString(r1.geometry.coordinates);
+  const line2 = turf.multiLineString(r2.geometry.coordinates);
+
+  const intersection = turf.lineIntersect(line1, line2);
+
+  if (!intersection || intersection.features.length === 0) {
     alert("De valgte veje krydser ikke hinanden.");
-  } else {
-    let latLngs = [];
-    for (let i = 0; i < intersection.features.length; i++) {
-      let feat = intersection.features[i];
-      let coords = feat.geometry.coordinates;
-      let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
-      latLngs.push([wgsLat, wgsLon]);
-      let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
-      let marker = L.marker([wgsLat, wgsLon]).addTo(map);
-      try {
-        let resp = await fetch(revUrl);
-        let revData = await resp.json();
-        let addressStr = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
-        let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
-        let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}, ${revData.postnr || ""} ${revData.postnrnavn || ""}`;
-        marker.bindPopup(`
-          ${addressStr}<br>
-          <a href="#" title="Kopier til Eva.net" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
-          &nbsp;
-          <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
-        `).openPopup();
-      } catch (err) {
-        console.error("Reverse geocoding fejl ved vejkryds:", err);
-        marker.bindPopup(`(${wgsLat.toFixed(6)}, ${wgsLon.toFixed(6)})<br>Reverse geocoding fejlede.`).openPopup();
-      }
-      setCoordinateBox(wgsLat, wgsLon);
-      marker.on("popupclose", function() {
-        map.removeLayer(marker);
-      });
-    }
-    if (latLngs.length === 1) {
-      map.setView(latLngs[0], 16);
-    } else {
-      map.fitBounds(latLngs);
-    }
+    return;
   }
+
+  let latLngs = [];
+  for (const feat of intersection.features) {
+    const [x25832, y25832] = feat.geometry.coordinates;
+    const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [x25832, y25832]);
+    latLngs.push([lat, lon]);
+
+    const revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+    const marker = L.marker([lat, lon]).addTo(map);
+
+    try {
+      const resp = await fetch(revUrl);
+      const rev = await resp.json();
+      const adr = `${rev.vejnavn || "Ukendt"} ${rev.husnr || ""}, ${rev.postnr || "?"} ${rev.postnrnavn || ""}`;
+      const eva = `${rev.vejnavn || ""},${rev.husnr || ""},${rev.postnr || ""}`;
+      const notes = `${rev.vejnavn || ""} ${rev.husnr || ""}, ${rev.postnr || ""} ${rev.postnrnavn || ""}`;
+      marker.bindPopup(`
+        ${adr}<br>
+        <a href="#" title="Kopier til Eva.net" onclick="(function(el){ el.style.color='red'; copyToClipboard('${eva}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
+        &nbsp;
+        <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notes}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
+      `).openPopup();
+    } catch (e) {
+      console.error("Reverse geocoding fejl ved vejkryds:", e);
+      marker.bindPopup(`(${lat.toFixed(6)}, ${lon.toFixed(6)})<br>Reverse geocoding fejlede.`).openPopup();
+    }
+
+    setCoordinateBox(lat, lon);
+    marker.on("popupclose", () => map.removeLayer(marker));
+  }
+
+  if (latLngs.length === 1) map.setView(latLngs[0], 16);
+  else map.fitBounds(latLngs);
 });
 
 /***************************************************
@@ -1657,6 +1697,3 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
-
-
-
