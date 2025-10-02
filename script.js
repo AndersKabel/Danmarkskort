@@ -481,60 +481,38 @@ async function searchCVFVejnavne(query, limit = 25) {
 async function getCVFGeometryForRoadName(vejnavn) {
   const safe = (vejnavn || "").replace(/'/g, "''");
 
-  // 1) exact match
+  // 1) exact match på BETEGNELSE
   let cql = `UPPER(BETEGNELSE) = UPPER('${safe}')`;
-  let url =
-    `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
-    `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}` +
-    `&outputFormat=application/json` +
-    `&srsName=EPSG:25832` +
-    `&CQL_FILTER=${encodeURIComponent(cql)}`;
-
-  console.debug("[CVF geom exact] URL:", url);
-
+  let url = `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature`
+    + `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}`
+    + `&outputFormat=application/json&srsName=EPSG:25832`
+    + `&CQL_FILTER=${encodeURIComponent(cql)}`;
   try {
     let r = await fetch(url);
     if (r.ok) {
       const gj = await r.json();
-      if (gj.features && gj.features.length > 0) return gj;
-    } else {
-      console.warn("CVF exact HTTP:", r.status, r.statusText);
+      if (gj.features?.length) return gj;
     }
-  } catch (e) {
-    console.warn("CVF exact exception:", e);
-  }
+  } catch {}
 
-  // 2) fallback: ILIKE '%…%' og vælg bedste match (robust på bindestreger/mellemrum)
+  // 2) fallback: ILIKE på BETEGNELSE
   cql = `BETEGNELSE ILIKE '%${safe}%'`;
-  url =
-    `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
-    `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}` +
-    `&outputFormat=application/json` +
-    `&srsName=EPSG:25832` +
-    `&CQL_FILTER=${encodeURIComponent(cql)}`;
-
-  console.debug("[CVF geom ilike] URL:", url);
-
+  url = `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature`
+    + `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}`
+    + `&outputFormat=application/json&srsName=EPSG:25832`
+    + `&CQL_FILTER=${encodeURIComponent(cql)}`;
   try {
     const r = await fetch(url);
-    if (!r.ok) {
-      console.error("CVF ILIKE HTTP:", r.status, r.statusText);
-      return null;
-    }
+    if (!r.ok) return null;
     const gj = await r.json();
-    if (!gj.features || gj.features.length === 0) return null;
+    if (!gj.features?.length) return null;
 
+    // vælg bedste match
     const want = normalizeRoadName(vejnavn);
-    // 1) exact-normaliseret match
-    let best = (gj.features || []).filter(f => normalizeRoadName(f.properties?.BETEGNELSE) === want);
-    // 2) ellers inkluderende match
-    if (best.length === 0) {
-      best = (gj.features || []).filter(f => normalizeRoadName(f.properties?.BETEGNELSE).includes(want));
-    }
-    const chosen = best.length ? best : gj.features;
-    return { type: "FeatureCollection", features: chosen };
-  } catch (e) {
-    console.error("CVF geometri-fejl:", e);
+    let best = gj.features.filter(f => normalizeRoadName(f.properties?.BETEGNELSE) === want);
+    if (!best.length) best = gj.features.filter(f => normalizeRoadName(f.properties?.BETEGNELSE).includes(want));
+    return { type: "FeatureCollection", features: best.length ? best : gj.features };
+  } catch {
     return null;
   }
 }
@@ -1685,4 +1663,5 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
