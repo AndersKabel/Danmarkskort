@@ -438,50 +438,38 @@ const CVF_TYPENAMES = "CVF:veje"; // <- korrekt lag-navn (med kolon)
 async function searchCVFVejnavne(query, limit = 25) {
   const q = (query || "").trim();
   if (!q) return [];
-
   const safe = q.replace(/'/g, "''");
+  // VIGTIGT: brug BETEGNELSE (ikke VEJNAVN)
   const cql = `BETEGNELSE ILIKE '%${safe}%'`;
 
-  const url =
-    `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
-    `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}` +
-    `&outputFormat=application/json&count=${limit}` +
-    `&CQL_FILTER=${encodeURIComponent(cql)}`;
-
-  console.debug("[CVF søg] URL:", url);
+  const url = `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature`
+    + `&typeNames=${encodeURIComponent(CVF_TYPENAMES)}`
+    + `&outputFormat=application/json&count=${limit}`
+    + `&CQL_FILTER=${encodeURIComponent(cql)}`;
 
   try {
     const r = await fetch(url);
-    if (!r.ok) {
-      console.warn("CVF søgefejl HTTP:", r.status, r.statusText);
-      return [];
-    }
+    if (!r.ok) return [];
     const gj = await r.json();
-    if (!Array.isArray(gj.features)) return [];
-
-    const seen = new Set();
-    const out = [];
-    for (const f of gj.features) {
+    const seen = new Set(), out = [];
+    (gj.features || []).forEach(f => {
       const props = f.properties || {};
-      const name = (props.BETEGNELSE || props.betegnelse || "").toString().trim();
-      if (!name) continue;
+      const name = (props.BETEGNELSE || "").toString().trim();
+      if (!name) return;
       const key = name.toLowerCase();
-      if (seen.has(key)) continue;
+      if (seen.has(key)) return;
       seen.add(key);
-
-      const mynd = props.VEJMYNDIGHED || props.vejmyndighed || null;
-      const status = props.VEJSTATUS || props.vejstatus || null;
-
+      const mynd = props.VEJMYNDIGHED || null;
+      const status = props.VEJSTATUS || null;
       out.push({
         type: "vej_cvf",
         vejnavn: name,
         label: mynd ? `${name} — ${mynd} (CVF)` : `${name} (CVF)`,
         sampleProps: { mynd, status }
       });
-    }
+    });
     return out;
-  } catch (e) {
-    console.error("CVF WFS søgefejl:", e);
+  } catch {
     return [];
   }
 }
@@ -1697,3 +1685,4 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
