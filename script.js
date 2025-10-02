@@ -727,14 +727,15 @@ async function searchCVFVejnavne(query, limit = 25) {
 
 /**
  * Hent geometri for et bestemt vejnavn fra CVF (GeoJSON FeatureCollection)
+ * i EPSG:25832 så Turf kan arbejde i plan koord.sæt (samme som DAR-linjer).
  */
 async function getCVFGeometryForRoadName(vejnavn) {
-  // Brug korrekt feltnavn BETEGNELSE og encod HELE CQL-udtrykket
   const safe = (vejnavn || "").replace(/'/g, "''");
   const cql = `UPPER(BETEGNELSE) = UPPER('${safe}')`;
   const url =
     `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
     `&typeName=CVF:veje&outputFormat=application/json` +
+    `&srsName=EPSG:25832` +                      // <-- vigtigt
     `&CQL_FILTER=${encodeURIComponent(cql)}`;
 
   try {
@@ -1548,5 +1549,6 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
 
