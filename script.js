@@ -64,6 +64,8 @@ function getSortPriority(item, query) {
     text = item.navn || "";
   } else if (item.type === "strandpost") {
     text = item.tekst || "";
+  } else if (item.type === "vej_cvf") {
+    text = item.vejnavn || item.label || "";
   }
   const lowerText = text.toLowerCase();
   const lowerQuery = query.toLowerCase();
@@ -668,6 +670,103 @@ var vej2Items = [];
 var vej2CurrentIndex = -1;
 
 /***************************************************
+ * CVF-søgning (VD Geocloud WFS) – NYT
+ * Finder vejnavne der ikke nødvendigvis er i DAR/DAWA
+ ***************************************************/
+const CVF_WFS_BASE = "https://geocloud.vd.dk/CVF/wfs";
+
+/**
+ * Find vejnavne i CVF der matcher query (unik liste af navne).
+ * Returnerer [{ type:'vej_cvf', vejnavn, label, sampleProps }]
+ */
+async function searchCVFVejnavne(query, limit = 25) {
+  const q = (query || "").trim();
+  if (!q) return [];
+
+  // CQL_FILTER: case-insensitive match hvor vi tillader mellemrum/ord imellem
+  const cql = `VEJNAVN ILIKE '%25${encodeURIComponent(q).replace(/%20/g, "%25")}%25'`;
+  const url =
+    `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
+    `&typeName=CVF:veje&outputFormat=application/json&count=${limit}&CQL_FILTER=${cql}`;
+
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const gj = await r.json();
+    if (!Array.isArray(gj.features)) return [];
+
+    // Unikke vejnavne
+    const seen = new Set();
+    const out = [];
+    for (const f of gj.features) {
+      const props = f.properties || {};
+      const name = (props.VEJNAVN || props.betegnelse || "").toString().trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const mynd = props.VEJMYNDIGHED || props.vejmyndighed || null;
+      const status = props.VEJSTATUS || props.vejstatus || null;
+
+      out.push({
+        type: "vej_cvf",
+        vejnavn: name,
+        label: mynd ? `${name} — ${mynd} (CVF)` : `${name} (CVF)`,
+        sampleProps: { mynd, status }
+      });
+    }
+    return out;
+  } catch (e) {
+    console.error("CVF WFS søgefejl:", e);
+    return [];
+  }
+}
+
+/**
+ * Hent geometri for et bestemt vejnavn fra CVF (GeoJSON FeatureCollection)
+ */
+async function getCVFGeometryForRoadName(vejnavn) {
+  // Stram filter: præcis lighed (case-insensitive) via UPPER()
+  const safe = vejnavn.replace(/'/g, "''");
+  const cql = `UPPER(VEJNAVN) = UPPER('${encodeURIComponent(safe)}')`;
+  const url =
+    `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
+    `&typeName=CVF:veje&outputFormat=application/json&CQL_FILTER=${cql}`;
+
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const gj = await r.json();
+    if (!gj.features || gj.features.length === 0) return null;
+    return gj;
+  } catch (e) {
+    console.error("CVF geometri-fejl:", e);
+    return null;
+  }
+}
+
+/**
+ * Zoom til GeoJSON-geometri (FeatureCollection/Feature/Geometry)
+ * Returnerer center [lat, lon] hvis muligt.
+ */
+function zoomToGeoJSON(geojson) {
+  try {
+    const tmp = L.geoJSON(geojson);
+    const bounds = tmp.getBounds();
+    tmp.remove(); // ikke tilføje til kortet permanent
+    if (bounds && bounds.isValid()) {
+      map.fitBounds(bounds, { maxZoom: 17 });
+      const center = bounds.getCenter();
+      return [center.lat, center.lng];
+    }
+  } catch (e) {
+    console.warn("zoomToGeoJSON fejl:", e);
+  }
+  return null;
+}
+
+/***************************************************
  * #search => doSearch
  * Vigtigt: detail-kald hver gang
  ***************************************************/
@@ -980,7 +1079,7 @@ function doSearchStrandposter(query) {
 }
 
 /***************************************************
- * doSearch => kombinerer adresser, stednavne og strandposter
+ * doSearch => kombinerer adresser, stednavne, strandposter og (NYT) CVF-vejnavne
  ***************************************************/
 function doSearch(query, listElement) {
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}`;
@@ -989,20 +1088,27 @@ function doSearch(query, listElement) {
   let strandPromise = (map.hasLayer(redningsnrLayer) && strandposterReady)
     ? doSearchStrandposter(query)
     : Promise.resolve([]);
+
+  // NYT: CVF-vejnavne (VD Geocloud WFS, ingen login)
+  let cvfPromise = searchCVFVejnavne(query, 30);
+
   Promise.all([
     fetch(addrUrl).then(r => r.json()).catch(err => { console.error("Adresser fejl:", err); return []; }),
     fetch(stedUrl).then(r => r.json()).catch(err => { console.error("Stednavne fejl:", err); return {}; }),
-    strandPromise
+    strandPromise,
+    cvfPromise
   ])
-  .then(([addrData, stedData, strandData]) => {
+  .then(([addrData, stedData, strandData, cvfData]) => {
     listElement.innerHTML = "";
     searchItems = [];
     searchCurrentIndex = -1;
+
     let addrResults = (addrData || []).map(item => ({
       type: "adresse",
       tekst: item.tekst,
       adgangsadresse: item.adgangsadresse
     }));
+
     let stedResults = [];
     if (stedData) {
       if (Array.isArray(stedData.results)) {
@@ -1021,16 +1127,24 @@ function doSearch(query, listElement) {
         }));
       }
     }
-    let combined = [...addrResults, ...stedResults, ...strandData];
+
+    // NYT: CVF-vejnavne
+    let cvfResults = (cvfData || []).map(row => ({
+      type: "vej_cvf",
+      vejnavn: row.vejnavn,
+      label: row.label || row.vejnavn,
+      sampleProps: row.sampleProps || {}
+    }));
+
+    let combined = [...addrResults, ...stedResults, ...cvfResults, ...strandData];
+
+    // Sortér – stednavne før adresser som før; CVF får samme prioritet som stednavn mht. matchlogik
     combined.sort((a, b) => {
-      if (a.type === "stednavn" && b.type === "adresse") {
-        return -1;
-      }
-      if (a.type === "adresse" && b.type === "stednavn") {
-        return 1;
-      }
+      if (a.type === "stednavn" && b.type === "adresse") return -1;
+      if (a.type === "adresse" && b.type === "stednavn") return 1;
       return getSortPriority(a, query) - getSortPriority(b, query);
     });
+
     combined.forEach(obj => {
       let li = document.createElement("li");
       if (obj.type === "strandpost") {
@@ -1039,8 +1153,11 @@ function doSearch(query, listElement) {
         li.innerHTML = `🏠 ${obj.tekst}`;
       } else if (obj.type === "stednavn") {
         li.innerHTML = `📍 ${obj.navn}`;
+      } else if (obj.type === "vej_cvf") {
+        li.innerHTML = `🛣️ ${obj.label}`;
       }
-      li.addEventListener("click", function() {
+
+      li.addEventListener("click", async function() {
         if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
           fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
             .then(r => r.json())
@@ -1073,6 +1190,33 @@ function doSearch(query, listElement) {
           placeMarkerAndZoom(coordsArr, obj.navn);
           listElement.innerHTML = "";
           listElement.style.display = "none"; 
+        } else if (obj.type === "vej_cvf") {
+          // Hent geometri for vejnavnet fra CVF og zoom dertil
+          try {
+            const gj = await getCVFGeometryForRoadName(obj.vejnavn);
+            if (gj) {
+              const center = zoomToGeoJSON(gj);
+              listElement.innerHTML = "";
+              listElement.style.display = "none";
+
+              // Sæt marker i center (hvis muligt) og lav reverse for at få infoboks
+              if (center) {
+                const [lat, lon] = center;
+                if (currentMarker) map.removeLayer(currentMarker);
+                currentMarker = L.marker(center).addTo(map);
+                setCoordinateBox(lat, lon);
+                const revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+                fetch(revUrl)
+                  .then(r => r.json())
+                  .then(data => updateInfoBox(data, lat, lon))
+                  .catch(err => console.error("Reverse geocoding fejl (CVF vej):", err));
+              }
+            } else {
+              alert("Kunne ikke hente geometri for vejnavnet i CVF.");
+            }
+          } catch (e) {
+            console.error("CVF klik-fejl:", e);
+          }
         } else if (obj.type === "strandpost") {
           setCoordinateBox(obj.lat, obj.lon);
           placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
@@ -1112,9 +1256,11 @@ function doSearch(query, listElement) {
             });
         }
       });
+
       listElement.appendChild(li);
       searchItems.push(li);
     });
+
     listElement.style.display = combined.length > 0 ? "block" : "none";
   })
   .catch(err => console.error("Fejl i doSearch:", err));
@@ -1124,7 +1270,7 @@ function doSearch(query, listElement) {
  * getNavngivenvejKommunedelGeometry
  ***************************************************/
 async function getNavngivenvejKommunedelGeometry(husnummerId) {
-  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
+  let url = `https://services.dataforsyningen.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
   try {
     let r = await fetch(url);
     let data = await r.json();
@@ -1169,7 +1315,20 @@ async function checkForStatsvej(lat, lon) {
   let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
   let buffer = 100;
   let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
-  let url = `https://geocloud.vd.dk/CVF/wms?\nSERVICE=WMS&\nVERSION=1.1.1&\nREQUEST=GetFeatureInfo&\nINFO_FORMAT=application/json&\nTRANSPARENT=true&\nLAYERS=CVF:veje&\nQUERY_LAYERS=CVF:veje&\nSRS=EPSG:25832&\nWIDTH=101&\nHEIGHT=101&\nBBOX=${bbox}&\nX=50&\nY=50`;
+  let url = `https://geocloud.vd.dk/CVF/wms?
+SERVICE=WMS&
+VERSION=1.1.1&
+REQUEST=GetFeatureInfo&
+INFO_FORMAT=application/json&
+TRANSPARENT=true&
+LAYERS=CVF:veje&
+QUERY_LAYERS=CVF:veje&
+SRS=EPSG:25832&
+WIDTH=101&
+HEIGHT=101&
+BBOX=${bbox}&
+X=50&
+Y=50`;
   try {
     let response = await fetch(url);
     let textData = await response.text();
