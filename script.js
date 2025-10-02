@@ -729,12 +729,13 @@ async function searchCVFVejnavne(query, limit = 25) {
  * Hent geometri for et bestemt vejnavn fra CVF (GeoJSON FeatureCollection)
  */
 async function getCVFGeometryForRoadName(vejnavn) {
-  // Stram filter: præcis lighed (case-insensitive) via UPPER()
-  const safe = vejnavn.replace(/'/g, "''");
-  const cql = `UPPER(VEJNAVN) = UPPER('${encodeURIComponent(safe)}')`;
+  // Brug korrekt feltnavn BETEGNELSE og encod HELE CQL-udtrykket
+  const safe = (vejnavn || "").replace(/'/g, "''");
+  const cql = `UPPER(BETEGNELSE) = UPPER('${safe}')`;
   const url =
     `${CVF_WFS_BASE}?service=WFS&version=2.0.0&request=GetFeature` +
-    `&typeName=CVF:veje&outputFormat=application/json&CQL_FILTER=${cql}`;
+    `&typeName=CVF:veje&outputFormat=application/json` +
+    `&CQL_FILTER=${encodeURIComponent(cql)}`;
 
   try {
     const r = await fetch(url);
@@ -1547,4 +1548,5 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("search").focus();
 });
+
 
