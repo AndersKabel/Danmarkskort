@@ -27,30 +27,98 @@
 
   <div id="coordinateBox">Klik på kortet for at se koordinater</div>
     
-  <div id="search-container">
-    <div class="search-wrapper">
-      <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
-      <span class="clear-button" id="clearSearch">&times;</span>
-    </div>
-    <ul id="results"></ul>
+  <div id="sidebar">
+    <div id="search-container">
+      <!-- ØVERSTE LINJE: Hoved-søg + Rute-knap -->
+      <div class="flex-row">
+        <div class="search-wrapper">
+          <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
+          <span class="clear-button" id="clearSearch">&times;</span>
+        </div>
+        <button id="routeToggleBtn" style="width:80px; height:40px; font-size:14px; cursor:pointer;">
+          Rute
+        </button>
+      </div>
+      <ul id="results"></ul>
 
-    <div class="flex-row">
-      <div class="search-wrapper">
-        <input type="text" id="vej1" placeholder="Første vejnavn...">
-        <ul id="results-vej1" class="autocomplete-list"></ul>
+      <!-- RUTE-PANEL: Fra / Til / Via + Start/Ryd + indstillinger -->
+      <div id="routePanel" class="hidden">
+        <div class="flex-row">
+          <div class="search-wrapper">
+            <input type="text" id="routeFrom" placeholder="Fra adresse...">
+            <ul id="results-route-from" class="autocomplete-list"></ul>
+          </div>
+          <div class="search-wrapper">
+            <input type="text" id="routeTo" placeholder="Til adresse...">
+            <ul id="results-route-to" class="autocomplete-list"></ul>
+          </div>
+        </div>
+
+        <div class="flex-row">
+          <div class="search-wrapper">
+            <input type="text" id="routeVia" placeholder="Via (valgfri)...">
+            <ul id="results-route-via" class="autocomplete-list"></ul>
+          </div>
+
+          <!-- Start + Ryd deler den samme plads -->
+          <div class="route-button-group">
+            <button id="planRouteBtn" class="route-btn">
+              Start
+            </button>
+            <button id="clearRouteBtn" class="route-btn">
+              Ryd
+            </button>
+          </div>
+        </div>
+
+        <!-- Rute-indstillinger (forenklet: kun profil + præference) -->
+        <div class="route-options">
+          <div class="route-options-row">
+            <label>
+              Profil:
+              <select id="routeProfile">
+                <option value="driving-car">Bil (personbil)</option>
+                <option value="driving-hgv">Lastbil</option>
+                <option value="cycling-regular">Cykel</option>
+                <option value="foot-walking">Gang</option>
+              </select>
+            </label>
+            <label>
+              Præference:
+              <select id="routePreference">
+                <option value="fastest">Hurtigste</option>
+                <option value="shortest">Korteste</option>
+                <option value="recommended" selected>Anbefalet</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div id="routeSummary" class="route-summary"></div>
       </div>
-      <div class="search-wrapper">
-        <input type="text" id="vej2" placeholder="Andet vejnavn...">
-        <ul id="results-vej2" class="autocomplete-list"></ul>
+
+      <!-- VEJ 1 / VEJ 2 / FIND X -->
+      <div class="flex-row">
+        <div class="search-wrapper">
+          <input type="text" id="vej1" placeholder="Første vejnavn...">
+          <ul id="results-vej1" class="autocomplete-list"></ul>
+        </div>
+        <div class="search-wrapper">
+          <input type="text" id="vej2" placeholder="Andet vejnavn...">
+          <ul id="results-vej2" class="autocomplete-list"></ul>
+        </div>
+        <!-- "Find X" -->
+        <button id="findKrydsBtn" style="width:80px; height:40px; font-size:14px; cursor:pointer;">
+          Find X
+        </button>
       </div>
-      <!-- NY KNAP: "Find X" -->
-      <button id="findKrydsBtn" style="width:80px; height:40px; font-size:14px; cursor:pointer;">
-        Find X
-      </button>
+      
+      <div id="kildeangivelse"></div>
     </div>
-    
+
+    <!-- InfoContainer nu inden i sidebar for at stakke under søgeboksen -->
     <div id="infoContainer">
-      <!-- Én samlet infobox – alle oplysninger kommer her -->
+      <!-- Én samlet infoboks – alle oplysninger kommer her -->
       <div id="infoBox">
         <div class="info-upper-box">
           <a id="streetviewLink" href="#" target="_blank">Åbn i Google Street View</a>
@@ -62,20 +130,17 @@
         </div>
         <span id="infoCloseBtn" class="close-button">&times;</span>
       </div>
-    </div>
-
-    <div id="statsvejInfoBox" class="hidden">
-      <div class="info-upper-box"></div>
-      <div class="info-lower-box">
-        <p id="statsvejInfo"></p>
+      <div id="statsvejInfoBox" class="hidden">
+        <div class="info-upper-box"></div>
+        <div class="info-lower-box">
+          <p id="statsvejInfo"></p>
+        </div>
+        <span id="statsvejCloseBtn" class="close-button">&times;</span>
       </div>
-      <span id="statsvejCloseBtn" class="close-button">&times;</span> 
     </div>
-      
-    <div id="kildeangivelse"></div>
   </div>
-
-  <!-- NYT: Distance Options med knapper -->
+      
+  <!-- Distance Options med knapper -->
   <div id="distanceOptions" class="distance-options">
     <button id="btn10" class="distance-btn">10 km</button>
     <button id="btn25" class="distance-btn">25 km</button>
