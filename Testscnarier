@@ -4,6 +4,7 @@ Søgefelt (adresse):
 * Tast adresse Oksenbjergevej 28, 7323
   - Tjek at autocomplete virker
   - Tjek at stednavn kommer øverst i result list (når der er tastet Oksenbjerge)
+  - Tjek at vejen "Oksenbjergevej" kommer som et vej resultat
   - Tjek at piletasterne virker (highlighter result list)
   - Tjek at man kan vælge adresse med Enter
   - Tjek at place marker and zoom virker
@@ -17,6 +18,7 @@ Søgefelt (adresse):
 * Tjek ved klik på Eva.Net at der kopieres i formatet: Oksenbjergevej,28,7323 
 * Tjek ved klik på Notes, at der kopieres i formatet: Oksenbjergevej 28, 7323 Give
 * Tjek at der vises kommune navn samt info omkring døde dyr og gader og veje.
+* Tjek at der vises politikreds
 * Tjek at ved valg af radius 10 km at der sættes en ring på en radius af 10 km centreret fra valgte adresse 
   - Tjek det samme for 50 og 100 km. 
   - Tjek at cirklen forsvinder igen når man klikker på den igen.
@@ -36,6 +38,7 @@ Søgefelt (adresse):
 * Tjek ved klik på Eva.Net at der kopieres i formatet: Oksenbjergevej,28,7323 
 * Tjek ved klik på Notes, at der kopieres i formatet: Oksenbjergevej 28, 7323 Give
 * Tjek at der vises kommune navn samt info omkring døde dyr og gader og veje.
+* Tjek at der vises politikreds.
 * Tjek at ved valg af radius 10 km at der sættes en ring på en radius af 10 km centreret fra valgte adresse 
   - Tjek det samme for 50 og 100 km. 
   - Tjek at cirklen forsvinder igen når man klikker på den igen.
