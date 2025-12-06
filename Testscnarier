@@ -1,6 +1,6 @@
 1. Tjek af kortet loader som det skal
 
-Søgefelt (adresse):
+2. Søgefelt (adresse):
 * Tast adresse Oksenbjergevej 28, 7323
   - Tjek at autocomplete virker
   - Tjek at stednavn kommer øverst i result list (når der er tastet Oksenbjerge)
@@ -27,7 +27,7 @@ Søgefelt (adresse):
 * Tjek at info-boksen, marker, kommunekode og vejkode slettes, når man trykker på kryds i info-boksen
   - Tjek det samme ved klik på kryds i search feltet
 
-2. Klik på kort:
+3. Klik på kort:
 * Tjek at google streetview link virker
   - Åbner op i ny fane og på valgte adresse
 * Tjek at Skråfoto link virker
@@ -47,7 +47,7 @@ Søgefelt (adresse):
 * Tjek at info-boksen og marker slettes, når man trykker på kryds i info-boksen
   - Tjek det samme ved klik på kryds i search feltet
 
-3. Find statsvej funktionen:
+4. Find statsvej funktionen:
 * Tjek ved klik på kortet (ikke på en vej), tjek at der ikke vises nogen ekstra boks med info (kun infoboksen skal dukke op)
 * Tjek ved klik på kortet (på en vej), tjek at der kommer en ekstra boks op der fortæller:
  - Administrativt nummer
@@ -63,7 +63,7 @@ Søgefelt (adresse):
  - Vejtype
 * Tjek at begge infobokse forsvinder ved klik på kryds i en af boksene.
 
-4. Find vejkryds funktionen: 
+5. Find vejkryds funktionen: 
 * Tjek at autocomplete virker i både vej1 og vej2 felterne
 * Tjek at der vises adresse + by + postnummer i parentes i begge felter
 * Tjek at piletasterne virker 
@@ -74,10 +74,12 @@ Søgefelt (adresse):
 * Tjek at popup boks forsvinder ved klik på kryds
 * Tjek at klik på kryds i vej1 eller vej2 felterne kun sletter vejnavnet for den pågældende boks.
 
-5. Layer funktionen: 
-* Tjek at hvert lag kaldes og fjernes igen når det vælges fra. 
+6. Layer funktionen: 
+* Tjek at hvert lag kaldes og fjernes igen når det vælges fra.
+* Tjek at "Ladestander" layer beder om radius, før den kan vise noget
+* Tjek at "Behold markører" sætter flere markører og de fjernes igen, når layer fravælges.
 
-6. Strandposter
+7. Strandposter
 * Tjek at når strandposter laget er kaldt, at man så kan søge på strandposter (f.eks. C031).
   - Tjek at piletaster virker og man kan vælge Redningsnummer med Enter
   - Tjek at når Strandpost vælges, at der så zommes til Strandpost og pop-up vindue vises samt marker placeres.
@@ -85,134 +87,19 @@ Søgefelt (adresse):
   - Tjek kopiformatet på Eva.Net (Oksenbjergevej,28,7323) og Notes (Oksenbjergevej 28, 7323 Give) er korrekte
   - Tjek at pop-up vinduet og marker forsvinder når man trykker på krydset i vinduet og/eller kryds i search feltet.
 
-# Testscenarie: Statsvej/kommunevej/privatvej + km/vejstatus
+8. Koordinat funktionen
+* Klik på kortet
+  - Tjek at der sættes koordinater i koordinatboksen
+  - Tjek at "nærmeste valide adresse" sættes i info box
+  - Tjek at kommune, samt GEMS info og politikreds sætttes
+* Indsæt test koordinater: 56.416940,9.574585
+  - Tjek at "nærmeste valide adresse" sættes i info box
+  - Tjek at kommune, samt GEMS info og politikreds sætttes
 
-## Forberedelse
-- Hard refresh (Ctrl+F5).
-- Åbn DevTools → Network (Preserve log + Disable cache).
 
----
 
-## 1) Statsvej (motorvej) – km skal vises
-**Trin**
-1. Søg på en adresse tæt ved en motorvej (fx E45 ved Horsens) eller klik direkte på kørebanen.
-2. Tjek infoboksen “Statsvej”.
 
-**Forventet**
-- Boksen vises.
-- Felter udfyldt (ADM_NR, FORGRENING, BETEGNELSE, BESTYRER, VEJTYPE).
-- **Km** vises som ét tal i format **`NN/MMMM`** (fx `134/0257`).
-- I Network: et **Geocloud GetFeatureInfo**-kald + ét **/reference?geometry=POINT(...)** via din VD-proxy.
 
----
 
-## 2) Kommunevej – vis vejstatus/vejmyndighed (ingen km)
-**Trin**
-1. Klik på en kommunal vej (udenfor statsvej).
-2. Tjek infoboksen.
-
-**Forventet**
-- Boksen vises **kun** hvis der findes **Vejstatus** og/eller **Vejmyndighed**.
-- Ingen km-linje (km beregnes kun for statsveje).
-- Network: **intet** VD-proxy-kald til `/reference`.
-
----
-
-## 3) Privat vej / privat fællesvej – vis status (ingen km)
-**Trin**
-1. Klik på en vej markeret privat/privat fælles i “Hvem ejer vejen”.
-2. Tjek infoboksen.
-
-**Forventet**
-- **Vejstatus** (fx “Privat fælles”) vises.
-- **Vejmyndighed** vises, hvis feltet findes.
-- **Ingen km**.
-- **Ingen** `/reference`-kald.
-
----
-
-## 4) Ikke-vej / ingen data – ingen boks
-**Trin**
-1. Klik i natur/mark/vand eller på områder uden vej.
-
-**Forventet**
-- **Ingen** statsvej/vejstatus-boks vises.
-
----
-
-## 5) Ryd/fokus – regression
-**Trin**
-1. Tryk **X** i søgefeltet, eller clear-knapperne ved Vej1/Vej2.
-2. Luk **×** i begge infobokse.
-
-**Forventet**
-- Bokse skjules, marker fjernes, koordinatboks nulstilles.
-- Overlay “Kommunekode | Vejkode” skjules.
-- Ingen JS-fejl i Console.
-
----
-
-## 6) Strandpost-popup – regression
-**Trin**
-1. Tænd “Strandposter”.
-2. Søg på et redningsnummer, klik resultatet.
-
-**Forventet**
-- Popup med adresse + **Eva.Net**/**Notes** links fungerer.
-- Ved lukning fjernes markør og bokse.
-- Ingen ændringer i km/vejstatus-logik trigges.
-
----
-
-## 7) Cirkler/ladestandere – regression
-**Trin**
-1. Sæt en markør, vælg 25 km.
-2. Tænd “Ladestandere”.
-
-**Forventet**
-- Cirklen tegnes/kan toggles.
-- Ladestandere hentes og vises inden for radius.
-- Km/vejstatus-boksen opfører sig uændret.
-
----
-
-## 8) Fejlhåndtering – proxy/Geocloud nede
-**Trin**
-1. (Simulér offline i DevTools eller midlertidigt ændr VD_PROXY til forkert værdi lokalt).
-2. Klik på statsvej.
-
-**Forventet**
-- Statsvej-felter kan stadig vises (fra Geocloud).
-- Km-linje **udelades**.
-- Console log viser fejl, men UI crasher ikke.
-
----
-
-## 9) Koordinat-input i søgning
-**Trin**
-1. Indtast `55.617253, 9.577836` (eller andre).
-2. Enter.
-
-**Forventet**
-- Markør sættes, infobokse og overlay fungerer som ved klik.
-- Km/vejstatus opfører sig som i punkterne 1–4.
-
----
-
-## 10) Performance/duplikatkald
-**Trin**
-1. Klik 3–5 steder hurtigt efter hinanden.
-2. Kig i Network.
-
-**Forventet**
-- Ét sæt relevante kald pr. klik (Geocloud, og kun `/reference` når statsvej).
-- Ingen eksploderende antal kald eller hæng.
-
----
-
-## Kendte testpunkter
-- **Statsvej**: E45 syd for Horsens.  
-- **Kommunevej**: lokal boligvej i Vejle.  
-- **Privat fælles**: vej markeret som “Privat fælles” i CVF.  
 
 
