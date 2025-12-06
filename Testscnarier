@@ -96,6 +96,37 @@
   - Tjek at "nærmeste valide adresse" sættes i info box
   - Tjek at kommune, samt GEMS info og politikreds sætttes
 
+9. Udlands søgning
+* Søg Berlin i search feltet
+  - Tjek at der kun kommer danske adresser frem i resultlisten.
+* Marker i boksen "Udland"
+  - Tjek at der kommer en lille infoboks med beskrivelse af funktionen.
+* Søg igen på Berlin i search feltet
+  - Tjek at der kun kommer udenlandske adresser i searchfeltet
+  - Tjek at tælleren viser hvor mange søgninger der er tilbage (1000 om dagen)
+  - Vælg adressen og tjek at der zoomes til adressen og info boksen sættes rigtigt.
+* Klik på kortet
+  - Tjek at infoboksen sættes rigtigt med "Nærmeste valide adresse" og "Åbn i google street view"
+  - Tjek at "kopier til" Eva.Net og Notes gemmer de rigtige formater
+  - Tjek at tælleren skifter til tæller for klik på kortet (1000 om dagen)
+
+10. Rute funktionen
+* Aktiver "Rute"
+  - Tjek at Search boksen udvides og felterne: Fra, Til og Via samt Profil og Præference vises
+  - Tjek at når der indsættes adresser i felter, at Resutlist så står pænt og bredt, så man kan læse adresserne der foreslåes.
+  - Tjek at Stednavne virker på søgning i alle felter
+  - Tjek at rute beregnes når der trykkes på Start og tæller aktiveres (vises under "Start")
+  - Tjek at den viser beregnet længde og tid
+  - Tjek at der indsættes adresse i "første tomme" felt (Fra, Til, Via) hvis der er et, ved klik på kortet.
+  - Tjek at den genberegner ruten vis der tilføjes et Via punkt og der trykkes Start.
+  - Tjek at den automatisk genberegner ruten hvis der ændres i indstillingerne i enten Profil eller Præference
+  - Tjek at alt fjernes ved klik på Ryd knappen
+  - Tjek at felterne foldes sammen igen, ved klik på Rute knappen
+
+
+
+
+  
 
 
 
