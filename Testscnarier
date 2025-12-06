@@ -1,4 +1,4 @@
-1. Tjek af kortet loader som det skal
+1. Tjek at kortet loader som det skal
 
 2. Søgefelt (adresse):
 * Tast adresse Oksenbjergevej 28, 7323
@@ -122,6 +122,14 @@
   - Tjek at den automatisk genberegner ruten hvis der ændres i indstillingerne i enten Profil eller Præference
   - Tjek at alt fjernes ved klik på Ryd knappen
   - Tjek at felterne foldes sammen igen, ved klik på Rute knappen
+
+11. Radius knapperne
+* Aktiver de forskellige radiusser
+  - Tjek at der kommer en lille infobox hvis der ikke er valgt et punkt/adresse
+  - Tjek at der sættes en radiusring der svarer til valget
+  - Tjek at radiusringen forsvinder igen ved deaktivering
+
+
 
 
 
