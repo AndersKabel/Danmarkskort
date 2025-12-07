@@ -556,16 +556,39 @@ function convertToWGS84(x, y) {
   console.log("convertToWGS84 output:", result);
   return [result[1], result[0]];
 }
-
 /***************************************************
  * Custom Places
  ***************************************************/
-var customPlaces = [
-  {
-    navn: "Tellerup Bjerge",
-    coords: [55.38627, 9.92760]
-  }
-];
+var customPlaces = [];
+
+// Hent custom places fra ekstern fil "CustomPlaces"
+// Første objekt i filen kan bruges som skabelon
+// og markeres med "template": true – det bliver filtreret fra.
+fetch("CustomPlaces")
+  .then(function(response) {
+    return response.json();
+  })
+  .then(function(data) {
+    if (!Array.isArray(data)) {
+      console.error("CustomPlaces indeholder ikke et array:", data);
+      return;
+    }
+    customPlaces = data
+      .filter(function(p) {
+        return !p.template && !p.isTemplate;
+      })
+      .map(function(p) {
+        // Sørg for at coords stadig findes, så eksisterende logik virker
+        if (typeof p.lat === "number" && typeof p.lon === "number") {
+          p.coords = [p.lat, p.lon];
+        }
+        return p;
+      });
+    console.log("Custom places indlæst:", customPlaces);
+  })
+  .catch(function(err) {
+    console.error("Fejl ved hentning af CustomPlaces:", err);
+  });
 
 /***************************************************
  * Hjælpefunktion til at kopiere tekst til clipboard
@@ -1383,25 +1406,57 @@ function addClearButton(inputElement, listElement) {
   btn.innerHTML = "&times;";
   btn.classList.add("clear-button");
   inputElement.parentElement.appendChild(btn);
+
+  // Vis/skjul krydset afhængigt af om der står noget i feltet
   inputElement.addEventListener("input", function () {
     btn.style.display = inputElement.value.length > 0 ? "inline" : "none";
   });
+
+  // Klik på kryds = ryd felt, resultatliste, bokse og markør
   btn.addEventListener("click", function () {
     inputElement.value = "";
     listElement.innerHTML = "";
     listElement.style.display = "none";
     btn.style.display = "none";
     resetCoordinateBox();
-  });
-  inputElement.addEventListener("keydown", function (e) {
-    if (e.key === "Backspace" && inputElement.value.length === 0) {
-      listElement.innerHTML = "";
-      listElement.style.display = "none";
-      resetCoordinateBox();
+
+    // Skjul info-bokse og kommune-overlay
+    document.getElementById("infoBox").style.display = "none";
+    document.getElementById("statsvejInfoBox").style.display = "none";
+    document.getElementById("kommuneOverlay").style.display = "none";
+
+    // Fjern markør – med respekt for "Behold markører"
+    if (!keepMarkersEnabled && currentMarker) {
+      map.removeLayer(currentMarker);
+      currentMarker = null;
     }
   });
+
+  // Backspace: når feltet er ved at blive tomt (0 tegn efter tast),
+  // rydder vi resultater, bokse og markør – uden ekstra tryk
+  inputElement.addEventListener("keydown", function (e) {
+    if (e.key === "Backspace") {
+      const currentLength = inputElement.value.length; // længde før tegnet slettes
+      if (currentLength <= 1) {
+        listElement.innerHTML = "";
+        listElement.style.display = "none";
+        resetCoordinateBox();
+
+        document.getElementById("infoBox").style.display = "none";
+        document.getElementById("statsvejInfoBox").style.display = "none";
+        document.getElementById("kommuneOverlay").style.display = "none";
+
+        if (!keepMarkersEnabled && currentMarker) {
+          map.removeLayer(currentMarker);
+          currentMarker = null;
+        }
+      }
+    }
+  });
+
   btn.style.display = "none";
 }
+
 addClearButton(vej1Input, vej1List);
 addClearButton(vej2Input, vej2List);
 // Clear-knapper til rute-felter
@@ -2094,15 +2149,25 @@ function doSearch(query, listElement) {
   let strandPromiseBase = (map.hasLayer(redningsnrLayer) && strandposterReady)
     ? doSearchStrandposter(query)
     : Promise.resolve([]);
-
+  
   // Evt. egne special-steder
+  let lowerQuery = query.toLowerCase();
   let customResults = customPlaces
-    .filter(p => p.navn.toLowerCase().includes(query.toLowerCase()))
-    .map(p => ({
-      type: "custom",
-      navn: p.navn,
-      coords: p.coords
-    }));
+    .filter(function(p) {
+      let navnMatch     = p.navn && p.navn.toLowerCase().includes(lowerQuery);
+      let adresseMatch  = p.adresse && p.adresse.toLowerCase().includes(lowerQuery);
+      let kortnavnMatch = p.kortnavn && p.kortnavn.toLowerCase().includes(lowerQuery);
+      return navnMatch || adresseMatch || kortnavnMatch;
+    })
+    .map(function(p) {
+      return {
+        type: "custom",
+        navn: p.navn || "",
+        adresse: p.adresse || "",
+        coords: p.coords,
+        data: p
+      };
+    });
 
   // Udlands-tilstand styres af checkboxen (Udland)
   const foreignToggleEl =
@@ -2230,14 +2295,17 @@ function doSearch(query, listElement) {
     // Byg liste-elementer
     combined.forEach(obj => {
       let li = document.createElement("li");
-      if (obj.type === "strandpost") {
+            if (obj.type === "strandpost") {
         li.innerHTML = `🛟 ${obj.tekst}`;
       } else if (obj.type === "adresse") {
         li.innerHTML = `🏠 ${obj.tekst}`;
       } else if (obj.type === "navngivenvej") {
         li.innerHTML = `🛣️ ${obj.navn}`;
-      } else if (obj.type === "stednavn" || obj.type === "custom") {
+      } else if (obj.type === "stednavn") {
         li.innerHTML = `📍 ${obj.navn}`;
+      } else if (obj.type === "custom") {
+        let extra = obj.adresse ? " – " + obj.adresse : "";
+        li.innerHTML = `⭐ ${obj.navn}${extra}`;
       } else if (obj.type === "ors_foreign") {
         li.innerHTML = `🌍 ${obj.label}`;
       }
