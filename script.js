@@ -1240,7 +1240,7 @@ async function updateInfoBox(data, lat, lon) {
     statsvejInfoEl.innerHTML = html;
 
     if (hasStatsvej) {
-      const kmText = await getKmAtPoint(lat, lon);
+      const kmText = await getKmAtPoint(lat, lon, statsvejData);
       if (kmText) {
         statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
       }
