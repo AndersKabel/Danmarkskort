@@ -2311,25 +2311,32 @@ function doSearch(query, listElement) {
       }
 
       li.addEventListener("click", function() {
-        if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
+                if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
           fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
             .then(r => r.json())
             .then(addressData => {
               let [lon, lat] = addressData.adgangspunkt.koordinater;
               setCoordinateBox(lat, lon);
               placeMarkerAndZoom([lat, lon], obj.tekst);
+
               let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
               fetch(revUrl)
                 .then(r => r.json())
                 .then(reverseData => {
                   updateInfoBox(reverseData, lat, lon);
+                  resultsList.innerHTML = "";
+                  resultsList.style.display = "none";
+                  vej1List.innerHTML = "";
+                  vej2List.innerHTML = "";
                 })
-                .catch(err => console.error("Reverse geocoding fejl:", err));
-              updateInfoBox(addressData, lat, lon);
-              resultsList.innerHTML = "";
-              resultsList.style.display = "none";
-              vej1List.innerHTML = "";
-              vej2List.innerHTML = "";
+                .catch(err => {
+                  console.error("Reverse geocoding fejl:", err);
+                  updateInfoBox(addressData, lat, lon);
+                  resultsList.innerHTML = "";
+                  resultsList.style.display = "none";
+                  vej1List.innerHTML = "";
+                  vej2List.innerHTML = "";
+                });
             })
             .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
         } else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
