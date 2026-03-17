@@ -2512,14 +2512,18 @@ function parseTextResponse(text) {
 
 /***************************************************
  * getKmAtPoint – henter km via Cloudflare-worker
+ * Genbruger allerede hentede statsvej-data, hvis de er sendt med
  ***************************************************/
-async function getKmAtPoint(lat, lon) {
+async function getKmAtPoint(lat, lon, statsvejData = null) {
   try {
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const stats = await checkForStatsvej(lat, lon);
-    const roadNumber = stats.ADM_NR ?? stats.adm_nr ?? null;
-    const roadPart   = stats.FORGRENING ?? stats.forgrening ?? 0;
+
+    const stats = statsvejData || await checkForStatsvej(lat, lon);
+    const roadNumber = stats?.ADM_NR ?? stats?.adm_nr ?? null;
+    const roadPart   = stats?.FORGRENING ?? stats?.forgrening ?? 0;
+
     if (!roadNumber) return "";
+
     const url =
       `${VD_PROXY}/reference` +
       `?geometry=POINT(${x}%20${y})` +
@@ -2527,30 +2531,38 @@ async function getKmAtPoint(lat, lon) {
       `&roadNumber=${roadNumber}` +
       `&roadPart=${roadPart}` +
       `&format=json`;
+
     const resp = await fetch(url, { cache: "no-store" });
     if (!resp.ok) {
       return "";
     }
+
     const data = await resp.json();
     const props =
       data?.properties ??
       data?.feature?.properties ??
       data?.features?.[0]?.properties ??
       data;
+
     const from = props?.from ?? props?.FROM ?? props?.fra ?? props?.at ?? null;
     const to   = props?.to   ?? props?.TO   ?? props?.til ?? null;
+
     const kmtText =
       from?.kmtText ?? from?.KMTTEXT ??
       to?.kmtText   ?? to?.KMTTEXT   ??
       props?.kmtText ?? props?.KMTEKST ?? props?.kmtekst ??
       props?.KM_TEXT ?? props?.km_text ?? props?.kmtegn ??
       null;
+
     if (kmtText) return String(kmtText);
+
     const km = (from?.km ?? props?.km ?? props?.KM ?? null);
     const m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
+
     if (km != null && m != null) {
       return `${km}/${String(m).padStart(4, "0")}`;
     }
+
     return "";
   } catch (e) {
     console.error("getKmAtPoint fejl:", e);
