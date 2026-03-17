@@ -2467,25 +2467,28 @@ function placeMarkerAndZoom(coords, displayText) {
  * checkForStatsvej
  ***************************************************/
 async function checkForStatsvej(lat, lon) {
-  const testOffsets = [
-    { dx: 0, dy: 0 },
-    { dx: -15, dy: 0 },
-    { dx: 15, dy: 0 },
-    { dx: 0, dy: -15 },
-    { dx: 0, dy: 15 },
-    { dx: -25, dy: -25 },
-    { dx: 25, dy: -25 },
-    { dx: -25, dy: 25 },
-    { dx: 25, dy: 25 }
-  ];
+  let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+  let buffer = 100;
+  let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
-  async function fetchStatsvejAtPoint(testLat, testLon) {
-    let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [testLon, testLat]);
-    let buffer = 100;
-    let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
+  let url =
+    `https://geocloud.vd.dk/CVF/wms?` +
+    `SERVICE=WMS&` +
+    `VERSION=1.1.1&` +
+    `REQUEST=GetFeatureInfo&` +
+    `INFO_FORMAT=application/json&` +
+    `FEATURE_COUNT=200&` +
+    `TRANSPARENT=true&` +
+    `LAYERS=CVF:3Aveje&` +
+    `QUERY_LAYERS=CVF:3Aveje&` +
+    `SRS=EPSG:25832&` +
+    `WIDTH=101&` +
+    `HEIGHT=101&` +
+    `BBOX=${bbox}&` +
+    `X=50&` +
+    `Y=50`;
 
-    let url = `https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&INFO_FORMAT=application/json&TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&SRS=EPSG:25832&WIDTH=101&HEIGHT=101&BBOX=${bbox}&X=50&Y=50`;
-
+  try {
     let response = await fetch(url);
     let textData = await response.text();
 
@@ -2495,38 +2498,9 @@ async function checkForStatsvej(lat, lon) {
     }
 
     let jsonData = JSON.parse(textData);
+
     if (jsonData.features && jsonData.features.length > 0) {
       return jsonData.features[0].properties;
-    }
-
-    return {};
-  }
-
-  try {
-    for (const offset of testOffsets) {
-      const offsetLat = lat + (offset.dy / 111320);
-      const offsetLon = lon + (offset.dx / (111320 * Math.max(Math.cos((lat * Math.PI) / 180), 0.1)));
-
-      const result = await fetchStatsvejAtPoint(offsetLat, offsetLon);
-
-      const admNr = result?.ADM_NR ?? result?.adm_nr ?? null;
-      const forgrening = result?.FORGRENING ?? result?.forgrening ?? null;
-      const betegnelse = result?.BETEGNELSE ?? result?.betegnelse ?? null;
-      const vejtype = result?.VEJTYPE ?? result?.vejtype ?? null;
-      const vejstatus = result?.VEJSTATUS ?? result?.vejstatus ?? result?.VEJ_STATUS ?? result?.status ?? null;
-      const vejmynd = result?.VEJMYNDIGHED ?? result?.vejmyndighed ?? result?.VEJMYND ?? result?.vejmynd ?? null;
-
-      const hasStatsvej =
-        admNr != null ||
-        forgrening != null ||
-        (betegnelse && String(betegnelse).trim() !== "") ||
-        (vejtype && String(vejtype).trim() !== "") ||
-        (vejstatus && String(vejstatus).trim() !== "") ||
-        (vejmynd && String(vejmynd).trim() !== "");
-
-      if (hasStatsvej) {
-        return result;
-      }
     }
 
     return {};
