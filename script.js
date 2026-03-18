@@ -2472,21 +2472,21 @@ async function checkForStatsvej(lat, lon) {
   let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
   let url =
-    `https://geocloud.vd.dk/CVF/wms?` +
-    `SERVICE=WMS&` +
-    `VERSION=1.1.1&` +
-    `REQUEST=GetFeatureInfo&` +
-    `INFO_FORMAT=application/json&` +
-    `FEATURE_COUNT=200&` +
-    `TRANSPARENT=true&` +
-    `LAYERS=CVF:3Aveje&` +
-    `QUERY_LAYERS=CVF:3Aveje&` +
-    `SRS=EPSG:25832&` +
-    `WIDTH=101&` +
-    `HEIGHT=101&` +
-    `BBOX=${bbox}&` +
-    `X=50&` +
-    `Y=50`;
+  'https://geocloud.vd.dk/CVF/wms?' +
+  'SERVICE=WMS&' +
+  'VERSION=1.1.1&' +
+  'REQUEST=GetFeatureInfo&' +
+  'INFO_FORMAT=application/json&' +
+  'FEATURE_COUNT=200&' +
+  'TRANSPARENT=true&' +
+  'LAYERS=CVF:veje&' +
+  'QUERY_LAYERS=CVF:veje&' +
+  'SRS=EPSG:25832&' +
+  'WIDTH=101&' +
+  'HEIGHT=101&' +
+  `BBOX=${bbox}&` +
+  'X=50&' +
+  'Y=50';
 
   try {
     let response = await fetch(url);
