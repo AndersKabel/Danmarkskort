@@ -2462,33 +2462,55 @@ function placeMarkerAndZoom(coords, displayText) {
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   document.getElementById("infoBox").style.display = "block";
 }
-
 /***************************************************
  * checkForStatsvej
  ***************************************************/
 async function checkForStatsvej(lat, lon) {
-  let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-  let buffer = 100;
-  let bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
+  const testOffsets = [
+    { dx: 0,  dy: 0 },
+    { dx: -3, dy: 0 },
+    { dx: 3,  dy: 0 },
+    { dx: 0,  dy: -3 },
+    { dx: 0,  dy: 3 },
+    { dx: -6, dy: 0 },
+    { dx: 6,  dy: 0 },
+    { dx: 0,  dy: -6 },
+    { dx: 0,  dy: 6 },
+    { dx: -3, dy: -3 },
+    { dx: 3,  dy: -3 },
+    { dx: -3, dy: 3 },
+    { dx: 3,  dy: 3 },
+    { dx: -10, dy: 0 },
+    { dx: 10,  dy: 0 },
+    { dx: 0,  dy: -10 },
+    { dx: 0,  dy: 10 },
+    { dx: -6, dy: -6 },
+    { dx: 6,  dy: -6 },
+    { dx: -6, dy: 6 },
+    { dx: 6,  dy: 6 }
+  ];
 
-  let url =
-  'https://geocloud.vd.dk/CVF/wms?' +
-  'SERVICE=WMS&' +
-  'VERSION=1.1.1&' +
-  'REQUEST=GetFeatureInfo&' +
-  'INFO_FORMAT=application/json&' +
-  'FEATURE_COUNT=200&' +
-  'TRANSPARENT=true&' +
-  'LAYERS=CVF:veje&' +
-  'QUERY_LAYERS=CVF:veje&' +
-  'SRS=EPSG:25832&' +
-  'WIDTH=101&' +
-  'HEIGHT=101&' +
-  `BBOX=${bbox}&` +
-  'X=50&' +
-  'Y=50';
+  async function fetchStatsvejAtUtm(testUtmX, testUtmY) {
+    let buffer = 100;
+    let bbox = `${testUtmX - buffer},${testUtmY - buffer},${testUtmX + buffer},${testUtmY + buffer}`;
 
-  try {
+    let url =
+      'https://geocloud.vd.dk/CVF/wms?' +
+      'SERVICE=WMS&' +
+      'VERSION=1.1.1&' +
+      'REQUEST=GetFeatureInfo&' +
+      'INFO_FORMAT=application/json&' +
+      'FEATURE_COUNT=200&' +
+      'TRANSPARENT=true&' +
+      'LAYERS=CVF:veje&' +
+      'QUERY_LAYERS=CVF:veje&' +
+      'SRS=EPSG:25832&' +
+      'WIDTH=101&' +
+      'HEIGHT=101&' +
+      `BBOX=${bbox}&` +
+      'X=50&' +
+      'Y=50';
+
     let response = await fetch(url);
     let textData = await response.text();
 
@@ -2504,11 +2526,41 @@ async function checkForStatsvej(lat, lon) {
     }
 
     return {};
+  }
+
+  try {
+    let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+
+    for (const offset of testOffsets) {
+      const result = await fetchStatsvejAtUtm(utmX + offset.dx, utmY + offset.dy);
+
+      const admNr = result?.ADM_NR ?? result?.adm_nr ?? null;
+      const forgrening = result?.FORGRENING ?? result?.forgrening ?? null;
+      const betegnelse = result?.BETEGNELSE ?? result?.betegnelse ?? null;
+      const vejtype = result?.VEJTYPE ?? result?.vejtype ?? null;
+      const vejstatus = result?.VEJSTATUS ?? result?.vejstatus ?? result?.VEJ_STATUS ?? result?.status ?? null;
+      const vejmynd = result?.VEJMYNDIGHED ?? result?.vejmyndighed ?? result?.VEJMYND ?? result?.vejmynd ?? null;
+
+      const hasStatsvej =
+        admNr != null ||
+        forgrening != null ||
+        (betegnelse && String(betegnelse).trim() !== "") ||
+        (vejtype && String(vejtype).trim() !== "") ||
+        (vejstatus && String(vejstatus).trim() !== "") ||
+        (vejmynd && String(vejmynd).trim() !== "");
+
+      if (hasStatsvej) {
+        return result;
+      }
+    }
+
+    return {};
   } catch (error) {
     console.error("Fejl ved hentning af vejdata:", error);
     return {};
   }
 }
+
 
 function parseTextResponse(text) {
   let lines = text.split("\n");
