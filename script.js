@@ -2462,6 +2462,7 @@ function placeMarkerAndZoom(coords, displayText) {
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   document.getElementById("infoBox").style.display = "block";
 }
+
 /***************************************************
  * checkForStatsvej
  ***************************************************/
@@ -2481,7 +2482,7 @@ async function checkForStatsvej(lat, lon) {
     { dx: -3, dy: 3 },
     { dx: 3,  dy: 3 },
     { dx: -10, dy: 0 },
-    { dx: 10,  dy: 0 },
+    { dx: 10, dy: 0 },
     { dx: 0,  dy: -10 },
     { dx: 0,  dy: 10 },
     { dx: -6, dy: -6 },
@@ -2490,7 +2491,47 @@ async function checkForStatsvej(lat, lon) {
     { dx: 6,  dy: 6 }
   ];
 
-  async function fetchStatsvejAtUtm(testUtmX, testUtmY) {
+  function normalizeStatsvejProps(props) {
+    if (!props || typeof props !== "object") return {};
+
+    return {
+      ...props,
+      ADM_NR: props.ADM_NR ?? props.adm_nr ?? null,
+      FORGRENING: props.FORGRENING ?? props.forgrening ?? null,
+      BETEGNELSE: props.BETEGNELSE ?? props.betegnelse ?? null,
+      BESTYRER: props.BESTYRER ?? props.bestyrer ?? null,
+      VEJTYPE: props.VEJTYPE ?? props.vejtype ?? null,
+      BESKRIVELSE: props.BESKRIVELSE ?? props.beskrivelse ?? null,
+      VEJSTATUS: props.VEJSTATUS ?? props.vejstatus ?? props.VEJ_STATUS ?? props.status ?? null,
+      VEJMYNDIGHED: props.VEJMYNDIGHED ?? props.vejmyndighed ?? props.VEJMYND ?? props.vejmynd ?? null
+    };
+  }
+
+  function isNonEmpty(value) {
+    return value != null && String(value).trim() !== "";
+  }
+
+  function scoreStatsvejCandidate(props) {
+    const p = normalizeStatsvejProps(props);
+    let score = 0;
+
+    if (isNonEmpty(p.ADM_NR)) score += 100;
+    if (isNonEmpty(p.FORGRENING)) score += 40;
+    if (isNonEmpty(p.BETEGNELSE)) score += 20;
+    if (isNonEmpty(p.BESTYRER)) score += 10;
+    if (isNonEmpty(p.VEJTYPE)) score += 10;
+    if (isNonEmpty(p.VEJSTATUS)) score += 5;
+    if (isNonEmpty(p.VEJMYNDIGHED)) score += 5;
+
+    return score;
+  }
+
+  function hasUsableStatsvejData(props) {
+    const p = normalizeStatsvejProps(props);
+    return scoreStatsvejCandidate(p) >= 100;
+  }
+
+  async function fetchStatsvejCandidatesAtUtm(testUtmX, testUtmY) {
     let buffer = 100;
     let bbox = `${testUtmX - buffer},${testUtmY - buffer},${testUtmX + buffer},${testUtmY + buffer}`;
 
@@ -2511,56 +2552,65 @@ async function checkForStatsvej(lat, lon) {
       'X=50&' +
       'Y=50';
 
-    let response = await fetch(url);
+    let response = await fetch(url, { cache: "no-store" });
     let textData = await response.text();
+
+    if (!textData || !textData.trim()) {
+      return [];
+    }
 
     if (textData.startsWith("Results")) {
       let extractedData = parseTextResponse(textData);
-      return extractedData;
+      return extractedData && Object.keys(extractedData).length > 0
+        ? [normalizeStatsvejProps(extractedData)]
+        : [];
     }
 
-    let jsonData = JSON.parse(textData);
-
-    if (jsonData.features && jsonData.features.length > 0) {
-      return jsonData.features[0].properties;
+    let jsonData;
+    try {
+      jsonData = JSON.parse(textData);
+    } catch (parseError) {
+      console.warn("Kunne ikke parse statsvej-svar som JSON:", parseError, textData);
+      return [];
     }
 
-    return {};
+    if (jsonData.features && Array.isArray(jsonData.features) && jsonData.features.length > 0) {
+      return jsonData.features
+        .map(feature => normalizeStatsvejProps(feature?.properties || {}))
+        .filter(props => Object.keys(props).length > 0);
+    }
+
+    return [];
   }
 
   try {
     let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+    let bestCandidate = null;
+    let bestScore = -1;
 
     for (const offset of testOffsets) {
-      const result = await fetchStatsvejAtUtm(utmX + offset.dx, utmY + offset.dy);
+      const candidates = await fetchStatsvejCandidatesAtUtm(utmX + offset.dx, utmY + offset.dy);
 
-      const admNr = result?.ADM_NR ?? result?.adm_nr ?? null;
-      const forgrening = result?.FORGRENING ?? result?.forgrening ?? null;
-      const betegnelse = result?.BETEGNELSE ?? result?.betegnelse ?? null;
-      const vejtype = result?.VEJTYPE ?? result?.vejtype ?? null;
-      const vejstatus = result?.VEJSTATUS ?? result?.vejstatus ?? result?.VEJ_STATUS ?? result?.status ?? null;
-      const vejmynd = result?.VEJMYNDIGHED ?? result?.vejmyndighed ?? result?.VEJMYND ?? result?.vejmynd ?? null;
+      for (const candidate of candidates) {
+        const score = scoreStatsvejCandidate(candidate);
 
-      const hasStatsvej =
-        admNr != null ||
-        forgrening != null ||
-        (betegnelse && String(betegnelse).trim() !== "") ||
-        (vejtype && String(vejtype).trim() !== "") ||
-        (vejstatus && String(vejstatus).trim() !== "") ||
-        (vejmynd && String(vejmynd).trim() !== "");
+        if (score > bestScore) {
+          bestScore = score;
+          bestCandidate = candidate;
+        }
+      }
 
-      if (hasStatsvej) {
-        return result;
+      if (bestCandidate && hasUsableStatsvejData(bestCandidate)) {
+        return bestCandidate;
       }
     }
 
-    return {};
+    return bestCandidate || {};
   } catch (error) {
     console.error("Fejl ved hentning af vejdata:", error);
     return {};
   }
 }
-
 
 function parseTextResponse(text) {
   let lines = text.split("\n");
