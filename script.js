@@ -2310,7 +2310,8 @@ function doSearch(query, listElement) {
       } else if (obj.type === "adresse") {
         li.innerHTML = `🏠 ${obj.tekst}`;
       } else if (obj.type === "navngivenvej") {
-        li.innerHTML = `🛣️ ${obj.navn}`;
+        const pnrTekst = (obj.postnumre || []).map(p => p.nr + " " + p.navn).join(" · ");
+        li.innerHTML = `🛣️ ${obj.navn}${pnrTekst ? ` <span style="color:#888;font-size:11px">(${pnrTekst})</span>` : ""}`;
       } else if (obj.type === "stednavn") {
         li.innerHTML = `📍 ${obj.navn}`;
       } else if (obj.type === "custom") {
