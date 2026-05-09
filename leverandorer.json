@@ -1,0 +1,91 @@
+{
+  "leverandoerer": [
+    {
+      "id": "lev-001",
+      "navn": "Jensen Bjergning ApS",
+      "farve": "#e74c3c",
+      "aktiv": true,
+      "kontakt": {
+        "navn": "Per Jensen",
+        "tlf": "70123456",
+        "email": "per@jensenbjergning.dk"
+      },
+      "fakturaAdresse": {
+        "vej": "Industrivej 12",
+        "postnr": "8000",
+        "by": "Aarhus C"
+      },
+      "arbejdsAdresser": [
+        {
+          "id": "adr-001",
+          "label": "Hoved-depot Aarhus",
+          "vej": "Industrivej 12",
+          "postnr": "8000",
+          "by": "Aarhus C",
+          "lat": 56.1629,
+          "lon": 10.2039
+        },
+        {
+          "id": "adr-002",
+          "label": "Nord-depot Randers",
+          "vej": "Havnevej 3",
+          "postnr": "8900",
+          "by": "Randers",
+          "lat": 56.4607,
+          "lon": 10.0368
+        }
+      ],
+      "vogne": [
+        {
+          "id": "vogn-001",
+          "reg": "AB 12 345",
+          "beskrivelse": "Stor kranvogn – løftekapacitet 20t, kran 12m rækkevidde",
+          "billede": null
+        },
+        {
+          "id": "vogn-002",
+          "reg": "CD 67 890",
+          "beskrivelse": "Bjergningsvogn – personbiler og varevogne op til 3,5t",
+          "billede": null
+        }
+      ],
+      "prioritetsPostnumre": ["8000","8200","8210","8220","8230","8240","8250","8260","8270","8900","8930","8940","8960","8961","8963","8970"]
+    },
+    {
+      "id": "lev-002",
+      "navn": "Andersen Assistance A/S",
+      "farve": "#27ae60",
+      "aktiv": true,
+      "kontakt": {
+        "navn": "Lise Andersen",
+        "tlf": "70234567",
+        "email": "lise@andersenassistance.dk"
+      },
+      "fakturaAdresse": {
+        "vej": "Motorvejscentret 5",
+        "postnr": "5220",
+        "by": "Odense SØ"
+      },
+      "arbejdsAdresser": [
+        {
+          "id": "adr-003",
+          "label": "Odense depot",
+          "vej": "Motorvejscentret 5",
+          "postnr": "5220",
+          "by": "Odense SØ",
+          "lat": 55.3784,
+          "lon": 10.4396
+        }
+      ],
+      "vogne": [
+        {
+          "id": "vogn-003",
+          "reg": "EF 11 223",
+          "beskrivelse": "Åben bjergningsvogn med slæb – max 3,5t",
+          "billede": null
+        }
+      ],
+      "prioritetsPostnumre": ["5000","5210","5220","5230","5240","5250","5260","5270","5700","5750","5800","5900"]
+    }
+  ]
+}
