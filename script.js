@@ -904,8 +904,6 @@ if (weatherTempLayer) {
 if (weatherRainLayer) {
   overlayMaps["Regn (OWM)"] = weatherRainLayer;
 }
-overlayMaps["🚛 Leverandøroversigt"]    = leverandoerLayer;
-overlayMaps["✏️ Rediger leverandører"] = redigerLeverandoerLayer;
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 
 map.on('overlayadd', function(e) {
