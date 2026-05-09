@@ -906,6 +906,12 @@ if (weatherRainLayer) {
 }
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 
+// Separat lagvælger til leverandøroversigt (Disponering)
+L.control.layers({}, {
+  "🚛 Leverandøroversigt":    leverandoerLayer,
+  "✏️ Rediger leverandører": redigerLeverandoerLayer
+}, { position: 'topright', collapsed: true }).addTo(map);
+
 map.on('overlayadd', function(e) {
   if (e.layer === dbSmsLayer) {
     window.open('https://kort.dyrenesbeskyttelse.dk/db/dvc.nsf/kort', '_blank');
