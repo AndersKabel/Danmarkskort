@@ -962,6 +962,9 @@ map.on('overlayadd', function(e) {
       }
       keepMarkersLayer.addLayer(currentMarker);
     }
+  } else if (e.layer === redigerLeverandoerLayer) {
+    map.removeLayer(redigerLeverandoerLayer);
+    openLeverandoerAdmin();
   }
 });
 
