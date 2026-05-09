@@ -1,39 +1,120 @@
 /* ================================================================
    leverandoer-modul.js  –  Leverandøroversigt til Danmarkskort
    ================================================================
+   Gemmer/henter data i SharePoint via Cloudflare Worker.
    Afhænger af globale variabler fra script.js:
      • map            (Leaflet map-instans)
      • kommuneGeoJSON (hentet fra Dataforsyningen)
    ================================================================ */
 
-// ── KONFIGURATION ─────────────────────────────────────────────────
-const LEV_ADMIN_PIN    = "1234";          // Skift til din ønskede PIN
-const LEV_DATA_URL     = "leverandorer.json";
-const LEV_BILLEDER_STI = "billeder/";     // Mappe til billeder på GitHub
+// ── KONFIGURATION ────────────────────────────────────────────────
+const LEV_SP_WORKER = "https://danmarkskort-sp.anderskabel8.workers.dev";
 
-// ── INTERN STATE ──────────────────────────────────────────────────
-let _levData          = { leverandoerer: [] };
+const LEV_KATEGORIER = [
+  { id: "u3500",      navn: "Autoleverandør u. 3500 kg.",  ikon: "🚗" },
+  { id: "o3500",      navn: "Autoleverandør o. 3500 kg.",  ikon: "🚛" },
+  { id: "tma",        navn: "TMA og tavlevognstrailere",   ikon: "🚧" },
+  { id: "dyr",        navn: "Dyreredning",                 ikon: "🐾" },
+  { id: "drift_hjem", navn: "Drift fra hjem",              ikon: "🏠" },
+  { id: "mors",       navn: "Mors biler",                  ikon: "🚌" },
+  { id: "liggende",   navn: "Liggende / forflytninger",    ikon: "🛏️" },
+  { id: "vejrenser",  navn: "Vejrenser",                   ikon: "🧹" },
+];
+
+// ── LEAFLET LAG ──────────────────────────────────────────────────
+// Ét lag per kategori – erklæret globalt så script.js ikke behøver dem
+const _levKatLag = {};
+LEV_KATEGORIER.forEach(k => { _levKatLag[k.id] = L.layerGroup(); });
+var redigerLeverandoerLayer = L.layerGroup();
+
+// ── STATE ────────────────────────────────────────────────────────
+let _levData          = [];
 let _levPostnrMap     = {};
 let _levHighlights    = [];
-let _levAdminUnlocked = false;
+let _levLoginProgress = false;
+let _levLoaded        = false;
 
-
-// ── BOOT ──────────────────────────────────────────────────────────
+// ── BOOT ─────────────────────────────────────────────────────────
 async function initLeverandoerModul() {
-  await _levLoadData();
   _levLoadPostnrMap();
-  _levBuildMarkers();
+  _levBuildControl();
   _levBuildUI();
 }
 
-// ── DATA ──────────────────────────────────────────────────────────
-async function _levLoadData() {
+// ── LEAFLET LAYER CONTROL ────────────────────────────────────────
+function _levBuildControl() {
+  const overlays = {};
+  LEV_KATEGORIER.forEach(k => {
+    overlays[`${k.ikon} ${k.navn}`] = _levKatLag[k.id];
+  });
+  overlays["✏️ Rediger leverandører"] = redigerLeverandoerLayer;
+
+  L.control.layers({}, overlays, { position: "topright", collapsed: true }).addTo(map);
+
+  map.on("overlayadd", async function (e) {
+    // Rediger-laget åbner admin-panelet
+    if (e.layer === redigerLeverandoerLayer) {
+      map.removeLayer(redigerLeverandoerLayer);
+      await _levOpenAdmin();
+      return;
+    }
+    // Et kategori-lag tændes → load data første gang
+    const erKat = LEV_KATEGORIER.some(k => _levKatLag[k.id] === e.layer);
+    if (erKat && !_levLoaded) {
+      await _levLoad();
+    }
+  });
+}
+
+// ── SP AUTH ──────────────────────────────────────────────────────
+async function _levSpFetch(path, options) {
+  const url  = LEV_SP_WORKER + path;
+  const opts = Object.assign({}, options || {});
+  opts.credentials = "include";
+  if (!opts.headers) opts.headers = {};
+
+  let resp = await fetch(url, opts);
+  if (resp.status === 401) {
+    const ok = await _levEnsureLogin();
+    if (!ok) return resp;
+    resp = await fetch(url, opts);
+  }
+  return resp;
+}
+
+async function _levEnsureLogin() {
+  if (_levLoginProgress) return false;
+  _levLoginProgress = true;
   try {
-    const r = await fetch(LEV_DATA_URL + "?_=" + Date.now());
-    if (r.ok) _levData = await r.json();
-    else _levData = { leverandoerer: [] };
-  } catch {
-    _levData = { leverandoerer: [] };
+    const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: "include" });
+    if (me.ok) return true;
+
+    const code = prompt("Indtast adgangskoden til leverandørstyring:");
+    if (!code?.trim()) return false;
+
+    const login = await fetch(`${LEV_SP_WORKER}/auth/login`, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: code.trim() })
+    });
+    if (!login.ok) { alert("Forkert kode – prøv igen."); return false; }
+    return true;
+  } finally {
+    _levLoginProgress = false;
+  }
+}
+
+// ── DATA LOADING ─────────────────────────────────────────────────
+async function _levLoad() {
+  try {
+    const resp = await _levSpFetch("/leverandoerer");
+    if (!resp.ok) { console.warn("Leverandørdata fejlede:", resp.status); return; }
+    const data = await resp.json();
+    _levData   = data.leverandoerer || [];
+    _levLoaded = true;
+    _levBuildMarkers();
+  } catch (e) {
+    console.warn("Leverandørmodul: load fejlede", e);
   }
 }
 
@@ -42,47 +123,38 @@ async function _levLoadPostnrMap() {
     const r    = await fetch("https://api.dataforsyningen.dk/postnumre?format=json");
     const data = await r.json();
     _levPostnrMap = {};
-    data.forEach(p => {
-      _levPostnrMap[p.nr] = (p.kommuner || []).map(k => k.kode);
-    });
-  } catch (e) {
-    console.warn("Leverandørmodul: postnr-kort fejlede", e);
-  }
+    data.forEach(p => { _levPostnrMap[p.nr] = (p.kommuner || []).map(k => k.kode); });
+  } catch (e) { console.warn("Leverandørmodul: postnr-kort fejlede", e); }
 }
 
-// ── MARKØRER ──────────────────────────────────────────────────────
+// ── MARKØRER ─────────────────────────────────────────────────────
 function _levBuildMarkers() {
-  leverandoerLayer.clearLayers();
-  (_levData.leverandoerer || [])
-    .filter(l => l.aktiv !== false)
-    .forEach(lev => {
-      (lev.arbejdsAdresser || []).forEach(adr => {
-        if (!adr.lat || !adr.lon) return;
-        const marker = L.marker([adr.lat, adr.lon], { icon: _levIcon(lev) })
-          .bindPopup(_levPopupHTML(lev, adr), { maxWidth: 340, className: "lev-leaflet-popup" })
-          .on("mouseover", function() { this.openPopup(); _levHighlight(lev); })
-          .on("mouseout",  function() { _levClearHighlights(); });
-        leverandoerLayer.addLayer(marker);
-      });
+  LEV_KATEGORIER.forEach(k => _levKatLag[k.id].clearLayers());
+
+  (_levData || []).filter(l => l.aktiv !== false).forEach(lev => {
+    const katLag = _levKatLag[lev.kategori];
+    if (!katLag) return;
+
+    (lev.arbejdsAdresser || []).forEach(adr => {
+      if (!adr.lat || !adr.lon) return;
+      const marker = L.marker([adr.lat, adr.lon], { icon: _levIcon(lev) })
+        .bindPopup(_levPopupHTML(lev, adr), { maxWidth: 360, className: "lev-leaflet-popup" })
+        .on("mouseover", function () { this.openPopup(); _levHighlight(lev); })
+        .on("mouseout",  function () { _levClearHighlights(); });
+      katLag.addLayer(marker);
     });
+  });
 }
 
 function _levIcon(lev) {
-  const initial = (lev.navn || "?")[0].toUpperCase();
+  const kat    = LEV_KATEGORIER.find(k => k.id === lev.kategori);
+  const initial = kat ? kat.ikon : (lev.navn || "?")[0].toUpperCase();
   const color   = lev.farve || "#3498db";
   return L.divIcon({
     className:   "",
     html:        `<div class="lev-marker-icon" style="background:${color}">${initial}</div>`,
-    iconSize:    [36, 36],
-    iconAnchor:  [18, 18],
-    popupAnchor: [0, -22]
+    iconSize:    [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -22]
   });
-}
-
-function _levBilledeSrc(billede) {
-  if (!billede) return "";
-  if (billede.startsWith("data:") || billede.startsWith("http") || billede.startsWith("/")) return billede;
-  return LEV_BILLEDER_STI + billede;
 }
 
 function _levPopupHTML(lev, adr) {
@@ -94,8 +166,16 @@ function _levPopupHTML(lev, adr) {
     </div>
     <div class="lev-popup-row">📍 ${_esc(adr.vej)}, ${_esc(adr.postnr)} ${_esc(adr.by)}</div>`;
 
-  if (lev.kontakt?.tlf)
-    h += `<div class="lev-popup-row">📞 <a href="tel:${_esc(lev.kontakt.tlf)}">${_esc(lev.kontakt.tlf)}</a></div>`;
+  const tlf = lev.kontakt?.telefonnumre || [];
+  if (tlf.length) {
+    h += `<hr class="lev-hr"><div class="lev-popup-section-hdr">📞 Telefon</div>`;
+    tlf.forEach(t => {
+      h += `<div class="lev-popup-row lev-popup-tlf">
+        <span class="lev-popup-tlf-label">${_esc(t.label)}</span>
+        <a href="tel:${_esc(t.tlf)}">${_esc(t.tlf)}</a>
+      </div>`;
+    });
+  }
   if (lev.kontakt?.email)
     h += `<div class="lev-popup-row">✉️ <a href="mailto:${_esc(lev.kontakt.email)}">${_esc(lev.kontakt.email)}</a></div>`;
 
@@ -104,9 +184,10 @@ function _levPopupHTML(lev, adr) {
     h += `<hr class="lev-hr"><div class="lev-popup-section-hdr">🚗 Vogne (${vogne.length})</div>`;
     vogne.forEach(v => {
       h += `<div class="lev-popup-vogn">`;
-      if (v.billede) h += `<img src="${_levBilledeSrc(v.billede)}" class="lev-popup-vogn-img" alt="${_esc(v.reg)}" onerror="this.style.display='none'">`;
+      if (v.billede) h += `<img src="${_esc(v.billede)}" class="lev-popup-vogn-img" alt="" onerror="this.style.display='none'">`;
       h += `<div>`;
-      if (v.reg) h += `<b>${_esc(v.reg)}</b>`;
+      if (v.reg)        h += `<b>${_esc(v.reg)}</b>`;
+      if (v.vognnummer) h += ` <span class="lev-popup-vognr">– Vogn ${_esc(v.vognnummer)}</span>`;
       if (v.beskrivelse) h += `<br><span class="lev-popup-vogn-besk">${_esc(v.beskrivelse)}</span>`;
       h += `</div></div>`;
     });
@@ -122,7 +203,7 @@ function _levPopupHTML(lev, adr) {
   return h;
 }
 
-// ── HIGHLIGHT KOMMUNER ────────────────────────────────────────────
+// ── HIGHLIGHT KOMMUNER ───────────────────────────────────────────
 function _levHighlight(lev) {
   _levClearHighlights();
   if (!kommuneGeoJSON?.features || !lev.prioritetsPostnumre?.length) return;
@@ -146,22 +227,8 @@ function _levClearHighlights() {
   _levHighlights = [];
 }
 
-// ── ADMIN UI ──────────────────────────────────────────────────────
+// ── ADMIN UI ─────────────────────────────────────────────────────
 function _levBuildUI() {
-  document.body.insertAdjacentHTML("beforeend", `
-    <div id="levPinModal" class="lev-modal-overlay" style="display:none">
-      <div class="lev-modal-box">
-        <div class="lev-modal-title">🔒 Leverandørstyring</div>
-        <p class="lev-modal-desc">Indtast PIN-kode for at redigere leverandørdata</p>
-        <input type="password" id="levPinInput" placeholder="PIN-kode" maxlength="20" autocomplete="off">
-        <div id="levPinErr" class="lev-pin-err"></div>
-        <div class="lev-modal-footer">
-          <button id="levPinOk"  class="lev-btn-primary">Bekræft</button>
-          <button id="levPinAfl" class="lev-btn-ghost">Annuller</button>
-        </div>
-      </div>
-    </div>`);
-
   document.body.insertAdjacentHTML("beforeend", `
     <div id="levAdminPanel" class="lev-panel">
       <div class="lev-panel-hdr">
@@ -170,40 +237,13 @@ function _levBuildUI() {
       </div>
       <div id="levPanelBody" class="lev-panel-body"></div>
     </div>`);
-
-  document.getElementById("levPinOk") .addEventListener("click", _levCheckPin);
-  document.getElementById("levPinAfl").addEventListener("click", () =>
-    document.getElementById("levPinModal").style.display = "none");
-  document.getElementById("levPinInput").addEventListener("keydown", e => {
-    if (e.key === "Enter") _levCheckPin();
-    document.getElementById("levPinErr").textContent = "";
-  });
   document.getElementById("levPanelLuk").addEventListener("click", _levClosePanel);
 }
 
-function openLeverandoerAdmin() {
-  if (_levAdminUnlocked) { _levOpenPanel(); return; }
-  document.getElementById("levPinModal").style.display = "flex";
-  setTimeout(() => document.getElementById("levPinInput")?.focus(), 60);
-}
-
-function _levCheckPin() {
-  const val = document.getElementById("levPinInput").value;
-  if (val === LEV_ADMIN_PIN) {
-    _levAdminUnlocked = true;
-    document.getElementById("levPinModal").style.display = "none";
-    document.getElementById("levPinInput").value = "";
-    _levOpenPanel();
-  } else {
-    const err = document.getElementById("levPinErr");
-    err.textContent = "Forkert PIN – prøv igen";
-    document.getElementById("levPinInput").value = "";
-    document.getElementById("levPinInput").focus();
-    setTimeout(() => err.textContent = "", 3000);
-  }
-}
-
-function _levOpenPanel() {
+async function _levOpenAdmin() {
+  const ok = await _levEnsureLogin();
+  if (!ok) return;
+  if (!_levLoaded) await _levLoad();
   document.getElementById("levAdminPanel").classList.add("lev-panel-open");
   _levShowListe();
 }
@@ -212,58 +252,55 @@ function _levClosePanel() {
   document.getElementById("levAdminPanel").classList.remove("lev-panel-open");
 }
 
-// ── LISTE ─────────────────────────────────────────────────────────
+// ── LISTE ────────────────────────────────────────────────────────
 function _levShowListe() {
   document.getElementById("levPanelTitle").textContent = "🚛 Leverandørstyring";
   const body = document.getElementById("levPanelBody");
 
-  const lister = (_levData.leverandoerer || []).map(lev => `
-    <div class="lev-list-row" data-id="${lev.id}">
-      <span class="lev-list-dot" style="background:${lev.farve || '#aaa'}"></span>
-      <div class="lev-list-info">
-        <span class="lev-list-navn">${_esc(lev.navn || "Navnløs")}</span>
-        <span class="lev-list-meta">
-          ${(lev.arbejdsAdresser || []).length} adresser · ${(lev.vogne || []).length} vogne
-          ${lev.aktiv === false ? " · <em style='color:#e74c3c'>inaktiv</em>" : ""}
-        </span>
-      </div>
-      <span class="lev-list-arrow">›</span>
-    </div>`).join("") ||
-    `<p class="lev-empty">Ingen leverandører endnu.<br>Klik "+ Ny leverandør" for at starte.</p>`;
+  const lister = (_levData || []).map(lev => {
+    const kat = LEV_KATEGORIER.find(k => k.id === lev.kategori);
+    return `
+      <div class="lev-list-row" data-id="${lev.id}">
+        <span class="lev-list-dot" style="background:${lev.farve || '#aaa'}"></span>
+        <div class="lev-list-info">
+          <span class="lev-list-navn">${_esc(lev.navn || "Navnløs")}</span>
+          <span class="lev-list-meta">
+            ${kat ? kat.ikon + " " + kat.navn : "Ingen kategori"} ·
+            ${(lev.arbejdsAdresser || []).length} adr. ·
+            ${(lev.vogne || []).length} vogne
+            ${lev.aktiv === false ? " · <em style='color:#e74c3c'>inaktiv</em>" : ""}
+          </span>
+        </div>
+        <span class="lev-list-arrow">›</span>
+      </div>`;
+  }).join("") || `<p class="lev-empty">Ingen leverandører endnu.<br>Klik "+ Ny leverandør" for at starte.</p>`;
 
   body.innerHTML = `
     <div class="lev-list-toolbar">
-      <button id="levNyBtn" class="lev-btn-primary">+ Ny leverandør</button>
+      <button id="levNyBtn"      class="lev-btn-primary">+ Ny leverandør</button>
+      <button id="levRefreshBtn" class="lev-btn-secondary">↻ Opdater</button>
     </div>
-    <div class="lev-list-container">${lister}</div>
-    <div class="lev-panel-footer">
-      <button id="levDlBtn" class="lev-btn-secondary">💾 Download JSON</button>
-      <label class="lev-btn-secondary lev-file-label">
-        📂 Indlæs JSON
-        <input type="file" id="levUploadInput" accept=".json" style="display:none">
-      </label>
-      <p class="lev-footer-hint">
-        "Gem" downloader <b>leverandorer.json</b> – upload til GitHub-rod.<br>
-        Billeder uploades til mappen <b>billeder/</b> på GitHub.
-      </p>
-    </div>`;
+    <div class="lev-list-container">${lister}</div>`;
 
   document.getElementById("levNyBtn").addEventListener("click", () => _levShowForm(null));
-  document.getElementById("levDlBtn").addEventListener("click", _levDownload);
-  document.getElementById("levUploadInput").addEventListener("change", _levIndlaes);
+  document.getElementById("levRefreshBtn").addEventListener("click", async () => {
+    _levLoaded = false;
+    await _levLoad();
+    _levShowListe();
+  });
   body.querySelectorAll(".lev-list-row").forEach(row =>
     row.addEventListener("click", () => _levShowForm(row.dataset.id))
   );
 }
 
-// ── FORMULAR ──────────────────────────────────────────────────────
+// ── FORMULAR ─────────────────────────────────────────────────────
 function _levShowForm(id) {
-  let lev = id ? (_levData.leverandoerer || []).find(l => l.id === id) : null;
+  let lev  = id ? (_levData || []).find(l => l.id === id) : null;
   const isNy = !lev;
   if (isNy) {
     lev = {
-      id: "lev-" + Date.now(), navn: "", farve: "#3498db", aktiv: true,
-      kontakt: { navn: "", tlf: "", email: "" },
+      id: "lev-" + Date.now(), navn: "", farve: "#3498db", kategori: "", aktiv: true,
+      kontakt: { navn: "", email: "", telefonnumre: [] },
       fakturaAdresse: { vej: "", postnr: "", by: "" },
       arbejdsAdresser: [], vogne: [], prioritetsPostnumre: []
     };
@@ -271,6 +308,11 @@ function _levShowForm(id) {
 
   document.getElementById("levPanelTitle").textContent = isNy ? "Ny leverandør" : _esc(lev.navn) || "Rediger";
   const body = document.getElementById("levPanelBody");
+
+  const katOptions = LEV_KATEGORIER.map(k =>
+    `<option value="${k.id}" ${lev.kategori === k.id ? "selected" : ""}>${k.ikon} ${k.navn}</option>`
+  ).join("");
+
   body.innerHTML = `
     <div class="lev-form">
       <button class="lev-tilbage-btn" id="levTilbage">← Tilbage til liste</button>
@@ -278,17 +320,25 @@ function _levShowForm(id) {
       <fieldset class="lev-fs">
         <legend>📋 Basisoplysninger</legend>
         <label>Firmanavn <input type="text" id="lf-navn" value="${_esc(lev.navn)}" placeholder="Firma ApS"></label>
+        <label>Kategori
+          <select id="lf-kategori">
+            <option value="">-- Vælg kategori --</option>
+            ${katOptions}
+          </select>
+        </label>
         <div class="lev-row lev-row-color">
-          <label>Farve på kortet <input type="color" id="lf-farve" value="${_esc(lev.farve || '#3498db')}"></label>
+          <label>Farve <input type="color" id="lf-farve" value="${_esc(lev.farve || '#3498db')}"></label>
           <label class="lev-check-label"><input type="checkbox" id="lf-aktiv" ${lev.aktiv !== false ? "checked" : ""}> Aktiv</label>
         </div>
       </fieldset>
 
       <fieldset class="lev-fs">
-        <legend>👤 Kontaktperson</legend>
-        <label>Navn <input type="text" id="lf-knavn" value="${_esc(lev.kontakt?.navn)}"></label>
-        <label>Telefon <input type="tel" id="lf-ktlf" value="${_esc(lev.kontakt?.tlf)}" placeholder="70 xx xx xx"></label>
+        <legend>👤 Kontakt</legend>
+        <label>Kontaktperson <input type="text" id="lf-knavn" value="${_esc(lev.kontakt?.navn)}"></label>
         <label>Email <input type="email" id="lf-kemail" value="${_esc(lev.kontakt?.email)}" placeholder="kontakt@firma.dk"></label>
+        <div class="lev-section-sub">📞 Telefonnumre (øverst = højst prioritet)</div>
+        <div id="lf-telefoner"></div>
+        <button type="button" id="levAddTlf" class="lev-btn-add">+ Tilføj telefonnummer</button>
       </fieldset>
 
       <fieldset class="lev-fs">
@@ -316,38 +366,54 @@ function _levShowForm(id) {
       <fieldset class="lev-fs">
         <legend>📮 Prioritetspostnumre</legend>
         <p class="lev-hint">Kommaseparerede 4-cifrede postnumre. Kommunerne fremhæves på kortet ved hover.</p>
-        <textarea id="lf-pnr" rows="3" class="lev-textarea" placeholder="8000, 8200, 8210, 8220...">${(lev.prioritetsPostnumre || []).join(", ")}</textarea>
+        <textarea id="lf-pnr" rows="3" class="lev-textarea" placeholder="8000, 8200, 8210...">${(lev.prioritetsPostnumre || []).join(", ")}</textarea>
       </fieldset>
 
       <div class="lev-form-footer">
-        <button id="levGemBtn" class="lev-btn-primary">💾 Gem leverandør</button>
+        <button id="levGemBtn"  class="lev-btn-primary">💾 Gem</button>
         ${!isNy ? `<button id="levSletBtn" class="lev-btn-danger">🗑️ Slet</button>` : ""}
       </div>
     </div>`;
 
+  // Fyld dynamiske sektioner
+  const tlfDiv  = document.getElementById("lf-telefoner");
   const adrDiv  = document.getElementById("lf-adresser");
   const vognDiv = document.getElementById("lf-vogne");
-  (lev.arbejdsAdresser || []).forEach(a => _levAppendAdrRow(adrDiv,  a));
+  (lev.kontakt?.telefonnumre || []).forEach(t => _levAppendTlfRow(tlfDiv, t));
+  (lev.arbejdsAdresser || []).forEach(a => _levAppendAdrRow(adrDiv, a));
   (lev.vogne || []).forEach(v => _levAppendVognRow(vognDiv, v));
 
-  document.getElementById("levTilbage") .addEventListener("click", _levShowListe);
-  document.getElementById("levAddAdr")  .addEventListener("click", () => _levAppendAdrRow(adrDiv,  {}));
-  document.getElementById("levAddVogn") .addEventListener("click", () => _levAppendVognRow(vognDiv, {}));
-  document.getElementById("levGemBtn")  .addEventListener("click", () => _levGem(lev));
+  document.getElementById("levTilbage").addEventListener("click", _levShowListe);
+  document.getElementById("levAddTlf") .addEventListener("click", () => _levAppendTlfRow(tlfDiv, {}));
+  document.getElementById("levAddAdr") .addEventListener("click", () => _levAppendAdrRow(adrDiv, {}));
+  document.getElementById("levAddVogn").addEventListener("click", () => _levAppendVognRow(vognDiv, {}));
+  document.getElementById("levGemBtn") .addEventListener("click", () => _levGem(lev));
   document.getElementById("levSletBtn")?.addEventListener("click", () => _levSlet(lev.id));
 }
 
-// ── ADRESSE-RÆKKE ─────────────────────────────────────────────────
+// ── TELEFON-RÆKKER ───────────────────────────────────────────────
+function _levAppendTlfRow(container, t = {}) {
+  const div = document.createElement("div");
+  div.className = "lev-tlf-row";
+  div.innerHTML = `
+    <div class="lev-row lev-tlf-inputs">
+      <input type="text" class="t-label" value="${_esc(t.label)}" placeholder="Label (Primær, Vagt...)">
+      <input type="tel"  class="t-tlf"   value="${_esc(t.tlf)}"   placeholder="Telefonnummer">
+      <button type="button" class="lev-slet-row-btn" title="Fjern">✕</button>
+    </div>`;
+  container.appendChild(div);
+  div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
+}
+
+// ── ADRESSE-RÆKKER ───────────────────────────────────────────────
 function _levAppendAdrRow(container, a = {}) {
   const div = document.createElement("div");
   div.className = "lev-adr-row";
   div.dataset.id = a.id || "adr-" + Date.now();
   div.innerHTML = `
     <div class="lev-row lev-row-header">
-      <label class="lev-label-grow">Navn/label
-        <input type="text" class="a-label" value="${_esc(a.label)}" placeholder="f.eks. Nord-depot">
-      </label>
-      <button type="button" class="lev-slet-row-btn" title="Fjern adresse">✕</button>
+      <label class="lev-label-grow">Navn/label <input type="text" class="a-label" value="${_esc(a.label)}" placeholder="f.eks. Nord-depot"></label>
+      <button type="button" class="lev-slet-row-btn">✕</button>
     </div>
     <label>Vejnavn + nr. <input type="text" class="a-vej" value="${_esc(a.vej)}"></label>
     <div class="lev-row">
@@ -355,11 +421,10 @@ function _levAppendAdrRow(container, a = {}) {
       <label class="lev-label-by">By <input type="text" class="a-by" value="${_esc(a.by)}"></label>
     </div>
     <div class="lev-row lev-coord-row">
-      <label class="lev-label-coord">Bredde (lat) <input type="text" class="a-lat" value="${a.lat || ""}" placeholder="56.xxxx"></label>
-      <label class="lev-label-coord">Længde (lon) <input type="text" class="a-lon" value="${a.lon || ""}" placeholder="10.xxxx"></label>
+      <label class="lev-label-coord">Lat. <input type="text" class="a-lat" value="${a.lat || ""}" placeholder="56.xxxx"></label>
+      <label class="lev-label-coord">Lon. <input type="text" class="a-lon" value="${a.lon || ""}" placeholder="10.xxxx"></label>
       <button type="button" class="lev-geocode-btn">📍 Geocode</button>
     </div>`;
-
   container.appendChild(div);
   div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
   div.querySelector(".lev-geocode-btn").addEventListener("click", async (e) => {
@@ -379,166 +444,201 @@ function _levAppendAdrRow(container, a = {}) {
     } else {
       btn.textContent = "❌ Fejl";
       setTimeout(() => btn.textContent = "📍 Geocode", 2500);
-      alert("Adressen blev ikke fundet – tjek vejnavn og postnr.");
+      alert("Adressen ikke fundet – tjek vejnavn og postnr.");
     }
   });
 }
 
-// ── VOGN-RÆKKE (GitHub-billeder) ──────────────────────────────────
+// ── VOGN-RÆKKER ──────────────────────────────────────────────────
 function _levAppendVognRow(container, v = {}) {
   const div = document.createElement("div");
   div.className = "lev-vogn-row";
-  div.dataset.id = v.id || "vogn-" + Date.now();
-
-  // Gem billedets filnavn (uden sti-præfix)
-  const gemtFilnavn = v.billede && !v.billede.startsWith("data:") ? v.billede : "";
-
+  div.dataset.id      = v.id      || "vogn-" + Date.now();
+  div.dataset.billedUrl = v.billede || "";
+  const harFoto = !!v.billede;
   div.innerHTML = `
     <div class="lev-row lev-row-header">
-      <label class="lev-label-grow">Reg.nr.
-        <input type="text" class="v-reg" value="${_esc(v.reg)}" placeholder="AB 12 345">
-      </label>
-      <button type="button" class="lev-slet-row-btn" title="Fjern vogn">✕</button>
+      <label class="lev-label-grow">Reg.nr. <input type="text" class="v-reg" value="${_esc(v.reg)}" placeholder="AB 12 345"></label>
+      <button type="button" class="lev-slet-row-btn">✕</button>
     </div>
-    <label>Beskrivelse
-      <input type="text" class="v-besk" value="${_esc(v.beskrivelse)}" placeholder="Kranvogn – 20t løftekapacitet">
-    </label>
-    <div class="lev-billede-sektion">
-      <div class="lev-billede-hdr">📷 Billede fra GitHub</div>
-      <div class="lev-billede-preview-wrap">
-        <div class="lev-vogn-nofoto" id="nofoto-${div.dataset.id}">Intet billede endnu</div>
-        ${gemtFilnavn ? `<img class="lev-vogn-thumb" id="thumb-${div.dataset.id}" src="${_levBilledeSrc(gemtFilnavn)}" alt="" onerror="this.style.display='none'">` : ""}
+    <label>Beskrivelse <input type="text" class="v-besk" value="${_esc(v.beskrivelse)}" placeholder="Kranvogn – 20t løftekapacitet"></label>
+    <label>Vognnummer <input type="text" class="v-vognr" value="${_esc(v.vognnummer)}" placeholder="f.eks. 8696"></label>
+    <div class="lev-vogn-foto-wrap">
+      ${harFoto
+        ? `<img class="lev-vogn-thumb" src="${_esc(v.billede)}" alt="" onerror="this.style.display='none'">`
+        : `<div class="lev-vogn-nofoto">Intet foto</div>`}
+      <div class="lev-vogn-foto-btns">
+        <label class="lev-btn-add lev-file-label" style="cursor:pointer">
+          📷 Upload foto <input type="file" class="v-foto" accept="image/*" style="display:none">
+        </label>
+        ${harFoto ? `<button type="button" class="lev-btn-fjern-foto">✕ Fjern foto</button>` : ""}
       </div>
-      <label class="lev-hint" style="margin-top:6px; font-weight:600; color:#3a4a5a">
-        Filnavn på billedet
-        <input type="text" class="v-filnavn" value="${_esc(gemtFilnavn)}" placeholder="vogn-ab12345.jpg">
-      </label>
-      <p class="lev-hint">
-        Upload billedet til <b>billeder/</b>-mappen på GitHub, skriv derefter filnavnet ovenfor og klik "Vis preview".
-      </p>
-      <button type="button" class="lev-preview-btn">👁️ Vis preview</button>
     </div>`;
-
   container.appendChild(div);
-
-  // Auto-foreslå filnavn fra reg.nr når fokus forlader feltet
-  div.querySelector(".v-reg").addEventListener("blur", (e) => {
-    const fil = div.querySelector(".v-filnavn");
-    if (!fil.value && e.target.value.trim()) {
-      fil.value = "vogn-" + e.target.value.trim().toLowerCase().replace(/\s+/g, "") + ".jpg";
-    }
-  });
 
   div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
 
-  // Preview-knap
-  div.querySelector(".lev-preview-btn").addEventListener("click", () => {
-    const filnavn = div.querySelector(".v-filnavn").value.trim();
-    if (!filnavn) { alert("Skriv et filnavn først"); return; }
-    const src    = _levBilledeSrc(filnavn) + "?_=" + Date.now();
-    const nofoto = div.querySelector(".lev-vogn-nofoto");
-    let   thumb  = div.querySelector(".lev-vogn-thumb");
+  div.querySelector(".v-foto").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const statusEl = div.querySelector(".lev-vogn-nofoto") || div.querySelector(".lev-vogn-thumb");
+    try {
+      const b64      = await _levResizeB64(file);
+      const reg      = div.querySelector(".v-reg").value.trim();
+      const filename = "vogn-" + (reg || Date.now()).toString().toLowerCase().replace(/\s+/g, "") + ".jpg";
 
-    if (!thumb) {
-      thumb = document.createElement("img");
-      thumb.className = "lev-vogn-thumb";
-      div.querySelector(".lev-billede-preview-wrap").appendChild(thumb);
+      const resp = await _levSpFetch("/leverandoerer/billeder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename, base64: b64 })
+      });
+      const data = await resp.json();
+
+      if (data.ok && data.url) {
+        div.dataset.billedUrl = data.url;
+        let thumb = div.querySelector(".lev-vogn-thumb");
+        if (!thumb) {
+          thumb = Object.assign(document.createElement("img"), { className: "lev-vogn-thumb", alt: "" });
+          const nofoto = div.querySelector(".lev-vogn-nofoto");
+          if (nofoto) nofoto.replaceWith(thumb);
+          else div.querySelector(".lev-vogn-foto-wrap").prepend(thumb);
+        }
+        thumb.src = data.url;
+        // Tilføj fjern-knap
+        if (!div.querySelector(".lev-btn-fjern-foto")) {
+          const fjernBtn = Object.assign(document.createElement("button"), {
+            type: "button", className: "lev-btn-fjern-foto", textContent: "✕ Fjern foto"
+          });
+          fjernBtn.addEventListener("click", () => _levFjernFoto(div));
+          div.querySelector(".lev-vogn-foto-btns").appendChild(fjernBtn);
+        }
+      } else {
+        alert("Billedupload fejlede – prøv igen");
+      }
+    } catch (err) {
+      console.error("Billedupload fejl:", err);
+      alert("Billedupload fejlede");
     }
-    thumb.style.display = "";
-    thumb.src = src;
-    thumb.onerror = () => {
-      thumb.style.display = "none";
-      if (nofoto) nofoto.style.display = "flex";
-      alert(`Billedet "${filnavn}" blev ikke fundet i mappen "billeder/" på GitHub.\nHusk at uploade billedet til GitHub først.`);
-    };
-    thumb.onload = () => {
-      if (nofoto) nofoto.style.display = "none";
-    };
   });
+
+  div.querySelector(".lev-btn-fjern-foto")?.addEventListener("click", () => _levFjernFoto(div));
 }
 
-// ── GEM ───────────────────────────────────────────────────────────
-function _levGem(template) {
+function _levFjernFoto(div) {
+  const thumb = div.querySelector(".lev-vogn-thumb");
+  if (thumb) {
+    const nofoto = Object.assign(document.createElement("div"), { className: "lev-vogn-nofoto", textContent: "Intet foto" });
+    thumb.replaceWith(nofoto);
+  }
+  div.querySelector(".lev-btn-fjern-foto")?.remove();
+  div.dataset.billedUrl = "";
+}
+
+// ── GEM ──────────────────────────────────────────────────────────
+async function _levGem(template) {
   const navn = document.getElementById("lf-navn").value.trim();
   if (!navn) { alert("Firmanavn er påkrævet"); return; }
 
-  const lev = {
-    id: template.id, navn,
-    farve: document.getElementById("lf-farve").value,
-    aktiv: document.getElementById("lf-aktiv").checked,
-    kontakt: {
-      navn:  document.getElementById("lf-knavn").value.trim(),
-      tlf:   document.getElementById("lf-ktlf").value.trim(),
-      email: document.getElementById("lf-kemail").value.trim()
-    },
-    fakturaAdresse: {
-      vej:    document.getElementById("lf-fvej").value.trim(),
-      postnr: document.getElementById("lf-fpostnr").value.trim(),
-      by:     document.getElementById("lf-fby").value.trim()
-    },
-    arbejdsAdresser: [], vogne: [], prioritetsPostnumre: []
-  };
+  const btn = document.getElementById("levGemBtn");
+  btn.textContent = "⏳ Gemmer..."; btn.disabled = true;
 
-  document.querySelectorAll("#lf-adresser .lev-adr-row").forEach(row => {
-    lev.arbejdsAdresser.push({
-      id: row.dataset.id,
-      label:  row.querySelector(".a-label").value.trim(),
-      vej:    row.querySelector(".a-vej").value.trim(),
-      postnr: row.querySelector(".a-postnr").value.trim(),
-      by:     row.querySelector(".a-by").value.trim(),
-      lat:    parseFloat(row.querySelector(".a-lat").value) || null,
-      lon:    parseFloat(row.querySelector(".a-lon").value) || null
+  try {
+    const lev = {
+      id:       template.id,
+      navn,
+      farve:    document.getElementById("lf-farve").value,
+      kategori: document.getElementById("lf-kategori").value,
+      aktiv:    document.getElementById("lf-aktiv").checked,
+      kontakt: {
+        navn:         document.getElementById("lf-knavn").value.trim(),
+        email:        document.getElementById("lf-kemail").value.trim(),
+        telefonnumre: []
+      },
+      fakturaAdresse: {
+        vej:    document.getElementById("lf-fvej").value.trim(),
+        postnr: document.getElementById("lf-fpostnr").value.trim(),
+        by:     document.getElementById("lf-fby").value.trim()
+      },
+      arbejdsAdresser: [],
+      vogne: [],
+      prioritetsPostnumre: []
+    };
+
+    // Telefonnumre
+    document.querySelectorAll("#lf-telefoner .lev-tlf-row").forEach((row, i) => {
+      const tlf = row.querySelector(".t-tlf").value.trim();
+      if (tlf) lev.kontakt.telefonnumre.push({
+        label: row.querySelector(".t-label").value.trim() || `Telefon ${i + 1}`,
+        tlf, prioritet: i + 1
+      });
     });
-  });
 
-  document.querySelectorAll("#lf-vogne .lev-vogn-row").forEach(row => {
-    lev.vogne.push({
-      id:          row.dataset.id,
-      reg:         row.querySelector(".v-reg").value.trim(),
-      beskrivelse: row.querySelector(".v-besk").value.trim(),
-      billede:     row.querySelector(".v-filnavn").value.trim() || null
+    // Adresser
+    document.querySelectorAll("#lf-adresser .lev-adr-row").forEach(row => {
+      lev.arbejdsAdresser.push({
+        id:     row.dataset.id,
+        label:  row.querySelector(".a-label").value.trim(),
+        vej:    row.querySelector(".a-vej").value.trim(),
+        postnr: row.querySelector(".a-postnr").value.trim(),
+        by:     row.querySelector(".a-by").value.trim(),
+        lat:    parseFloat(row.querySelector(".a-lat").value) || null,
+        lon:    parseFloat(row.querySelector(".a-lon").value) || null
+      });
     });
-  });
 
-  lev.prioritetsPostnumre = document.getElementById("lf-pnr").value
-    .split(/[\s,;]+/).map(s => s.trim()).filter(s => /^\d{4}$/.test(s));
+    // Vogne
+    document.querySelectorAll("#lf-vogne .lev-vogn-row").forEach(row => {
+      const thumb = row.querySelector(".lev-vogn-thumb");
+      lev.vogne.push({
+        id:          row.dataset.id,
+        reg:         row.querySelector(".v-reg").value.trim(),
+        beskrivelse: row.querySelector(".v-besk").value.trim(),
+        vognnummer:  row.querySelector(".v-vognr").value.trim(),
+        billede:     row.dataset.billedUrl || (thumb?.src?.startsWith("http") ? thumb.src : null)
+      });
+    });
 
-  if (!_levData.leverandoerer) _levData.leverandoerer = [];
-  const idx = _levData.leverandoerer.findIndex(l => l.id === lev.id);
-  if (idx >= 0) _levData.leverandoerer[idx] = lev;
-  else          _levData.leverandoerer.push(lev);
+    // Postnumre
+    lev.prioritetsPostnumre = document.getElementById("lf-pnr").value
+      .split(/[\s,;]+/).map(s => s.trim()).filter(s => /^\d{4}$/.test(s));
 
-  _levBuildMarkers();
-  _levShowListe();
-  _levDownload();
+    const resp = await _levSpFetch("/leverandoerer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leverandoer: lev })
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+
+    // Opdater lokal state
+    if (!_levData) _levData = [];
+    const idx = _levData.findIndex(l => l.id === lev.id);
+    if (idx >= 0) _levData[idx] = lev;
+    else          _levData.push(lev);
+
+    _levBuildMarkers();
+    _levShowListe();
+  } catch (e) {
+    console.error("Gem leverandør fejlede:", e);
+    alert("Gem fejlede – tjek konsollen (F12)");
+    btn.textContent = "💾 Gem"; btn.disabled = false;
+  }
 }
 
-function _levSlet(id) {
-  if (!confirm("Er du sikker på at du vil slette denne leverandør?\nHandlingen kan ikke fortrydes.")) return;
-  _levData.leverandoerer = (_levData.leverandoerer || []).filter(l => l.id !== id);
-  _levBuildMarkers();
-  _levShowListe();
-  _levDownload();
+async function _levSlet(id) {
+  if (!confirm("Er du sikker på at du vil slette denne leverandør?\nAlle adresser og vogne slettes også.")) return;
+  try {
+    const resp = await _levSpFetch(`/leverandoerer/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!resp.ok) throw new Error(await resp.text());
+    _levData = (_levData || []).filter(l => l.id !== id);
+    _levBuildMarkers();
+    _levShowListe();
+  } catch (e) {
+    console.error("Slet fejlede:", e);
+    alert("Slet fejlede – tjek konsollen (F12)");
+  }
 }
 
-function _levDownload() {
-  const json = JSON.stringify(_levData, null, 2);
-  const url  = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-  Object.assign(document.createElement("a"), { href: url, download: "leverandorer.json" }).click();
-  URL.revokeObjectURL(url);
-}
-
-function _levIndlaes(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try { _levData = JSON.parse(ev.target.result); _levBuildMarkers(); _levShowListe(); }
-    catch { alert("Ugyldig JSON-fil – filen kunne ikke indlæses"); }
-  };
-  reader.readAsText(file);
-}
-
+// ── GEOCODING ────────────────────────────────────────────────────
 async function _levGeocode(query) {
   try {
     const url  = `https://api.dataforsyningen.dk/adresser?q=${encodeURIComponent(query)}&per_side=1&format=json`;
@@ -551,8 +651,32 @@ async function _levGeocode(query) {
   return null;
 }
 
+// ── BILLEDE RESIZE ───────────────────────────────────────────────
+function _levResizeB64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX   = 800;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const c = Object.assign(document.createElement("canvas"), { width: w, height: h });
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL("image/jpeg", 0.78));
+      };
+      img.onerror = reject;
+      img.src = ev.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── HJÆLPER ──────────────────────────────────────────────────────
 function _esc(s) {
   return (s || "").toString()
-    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
