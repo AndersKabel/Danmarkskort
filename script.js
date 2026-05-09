@@ -2267,7 +2267,8 @@ function doSearch(query, listElement) {
       navn: item.navn || item.adresseringsnavn || "",
       id: item.id,
       visualCenter: item.visueltcenter,
-      bbox: item.bbox
+      bbox: item.bbox,
+      postnumre: item.postnumre || []
     }));
 
     // Udenlandske adresser fra ORS
