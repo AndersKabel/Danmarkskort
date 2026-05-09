@@ -17,9 +17,6 @@ let _levPostnrMap     = {};
 let _levHighlights    = [];
 let _levAdminUnlocked = false;
 
-// ── LEAFLET LAG (globalt tilgængeligt) ────────────────────────────
-var leverandoerLayer        = L.layerGroup();
-var redigerLeverandoerLayer = L.layerGroup();
 
 // ── BOOT ──────────────────────────────────────────────────────────
 async function initLeverandoerModul() {
