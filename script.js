@@ -960,6 +960,7 @@ map.on('overlayadd', function(e) {
         map.removeLayer(currentMarker);
       }
       keepMarkersLayer.addLayer(currentMarker);
+     }
     }
 });
 
