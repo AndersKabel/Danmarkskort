@@ -122,10 +122,31 @@ async function _levLoadPostnrMap() {
   try {
     const r    = await fetch("https://api.dataforsyningen.dk/postnumre?format=json");
     const data = await r.json();
+
+    // Vent på at kommuneGeoJSON er klar (loadet af script.js) – maks 8 sek
+    let tries = 0;
+    while (!kommuneGeoJSON?.features?.length && tries++ < 80) {
+      await new Promise(res => setTimeout(res, 100));
+    }
+
+    // Byg navn→kode opslag fra kommuneGeoJSON: "Ringsted" → "0329"
+    const navnTilKode = {};
+    (kommuneGeoJSON?.features || []).forEach(f => {
+      const navn = f.properties?.navn;
+      const kode = f.properties?.kode;
+      if (navn && kode) navnTilKode[navn.toLowerCase()] = kode;
+    });
+
     _levPostnrMap = {};
-    // slice(0, 1): kun den PRIMÆRE kommune per postnummer (sorteret efter overlap-areal af API'et)
     data.forEach(p => {
-      _levPostnrMap[p.nr] = (p.kommuner || []).slice(0, 1).map(k => k.kode);
+      // Primær strategi: match postnummerets bynavn mod kommunenavn ("4100 Ringsted" → Ringsted Kommune)
+      const kodeByNavn = navnTilKode[p.navn?.toLowerCase()];
+      if (kodeByNavn) {
+        _levPostnrMap[p.nr] = [kodeByNavn];
+      } else {
+        // Fallback: første kommune i API-arrayet (størst geometrisk overlap)
+        _levPostnrMap[p.nr] = (p.kommuner || []).slice(0, 1).map(k => k.kode);
+      }
     });
   } catch (e) { console.warn("Leverandørmodul: postnr-kort fejlede", e); }
 }
@@ -140,10 +161,36 @@ function _levBuildMarkers() {
 
     (lev.arbejdsAdresser || []).forEach(adr => {
       if (!adr.lat || !adr.lon) return;
+      let closeTimer = null;
+
       const marker = L.marker([adr.lat, adr.lon], { icon: _levIcon(lev) })
         .bindPopup(_levPopupHTML(lev, adr), { maxWidth: 360, className: "lev-leaflet-popup" })
-        .on("mouseover", function () { this.openPopup(); _levHighlight(lev, adr); })
-        .on("mouseout",  function () { _levClearHighlights(); });
+        .on("mouseover", function () {
+          clearTimeout(closeTimer);
+          this.openPopup();
+          _levHighlight(lev, adr);
+        })
+        .on("mouseout", function () {
+          const self = this;
+          closeTimer = setTimeout(() => {
+            self.closePopup();
+            _levClearHighlights();
+          }, 250);
+        })
+        .on("popupopen", function () {
+          // Annuller luk-timeren hvis musen går ind i popup'en
+          const el = this.getPopup().getElement();
+          if (!el) return;
+          el.addEventListener("mouseenter", () => clearTimeout(closeTimer));
+          el.addEventListener("mouseleave", () => {
+            const self = this;
+            closeTimer = setTimeout(() => {
+              self.closePopup();
+              _levClearHighlights();
+            }, 250);
+          });
+        });
+
       katLag.addLayer(marker);
     });
   });
