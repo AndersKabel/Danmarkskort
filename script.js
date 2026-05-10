@@ -961,7 +961,6 @@ map.on('overlayadd', function(e) {
       }
       keepMarkersLayer.addLayer(currentMarker);
     }
-  }
 });
 
 // Når overlayet "Behold markører" slås FRA, rydder vi alle ekstra markører
@@ -1205,6 +1204,11 @@ async function updateInfoBox(data, lat, lon) {
   if (vej1List)    vej1List.innerHTML    = "";
   if (vej2List)    vej2List.innerHTML    = "";
 
+  // Start kommuneinfo-fetch parallelt med statsvej-kald (kommunekode kendes allerede)
+  const komFetchPromise = kommunekode !== "?"
+    ? fetch(`https://api.dataforsyningen.dk/kommuner/${kommunekode}`).catch(() => null)
+    : Promise.resolve(null);
+
   // Statsvej-data
   let statsvejData = await checkForStatsvej(lat, lon);
   const statsvejInfoEl = document.getElementById("statsvejInfo");
@@ -1252,12 +1256,11 @@ async function updateInfoBox(data, lat, lon) {
   }
   document.getElementById("infoBox").style.display = "block";
   
-  // Kommuneinfo
+  // Kommuneinfo – bruger komFetchPromise som allerede er startet parallelt med statsvej-kaldet
   if (kommunekode !== "?") {
     try {
-      let komUrl = `https://api.dataforsyningen.dk/kommuner/${kommunekode}`;
-      let komResp = await fetch(komUrl);
-      if (komResp.ok) {
+      let komResp = await komFetchPromise;
+      if (komResp && komResp.ok) {
         let komData = await komResp.json();
         let kommunenavn = komData.navn || "";
         if (kommunenavn && kommuneInfo[kommunenavn]) {
@@ -2554,7 +2557,7 @@ async function checkForStatsvej(lat, lon) {
       'X=50&' +
       'Y=50';
 
-    let response = await fetch(url, { cache: "no-store" });
+    let response = await fetch(url);
     let textData = await response.text();
 
     if (!textData || !textData.trim()) {
@@ -2587,23 +2590,25 @@ async function checkForStatsvej(lat, lon) {
 
   try {
     let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+
+    // Kør alle offsets parallelt i stedet for sekventielt
+    const allResults = await Promise.all(
+      testOffsets.map(offset =>
+        fetchStatsvejCandidatesAtUtm(utmX + offset.dx, utmY + offset.dy)
+          .catch(() => [])
+      )
+    );
+
+    const allCandidates = allResults.flat();
+
     let bestCandidate = null;
     let bestScore = -1;
 
-    for (const offset of testOffsets) {
-      const candidates = await fetchStatsvejCandidatesAtUtm(utmX + offset.dx, utmY + offset.dy);
-
-      for (const candidate of candidates) {
-        const score = scoreStatsvejCandidate(candidate);
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestCandidate = candidate;
-        }
-      }
-
-      if (bestCandidate && hasUsableStatsvejData(bestCandidate)) {
-        return bestCandidate;
+    for (const candidate of allCandidates) {
+      const score = scoreStatsvejCandidate(candidate);
+      if (score > bestScore) {
+        bestScore = score;
+        bestCandidate = candidate;
       }
     }
 
