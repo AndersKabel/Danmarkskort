@@ -961,6 +961,7 @@ map.on('overlayadd', function(e) {
       }
       keepMarkersLayer.addLayer(currentMarker);
     }
+  }
 });
 
 // Når overlayet "Behold markører" slås FRA, rydder vi alle ekstra markører
