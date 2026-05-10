@@ -1,0 +1,22 @@
+[
+  {
+    "id": "SKABELON_EKSEMPEL",
+    "kategori": "",
+    "navn": "",
+    "kortnavn": "",
+    "lat": 0.0,
+    "lon": 0.0,
+    "adresse": "",
+    "template": true
+  },
+
+  {
+    "id": "solhjulet",
+    "kategori": "sted",
+    "navn": "Solhjulet",
+    "kortnavn": "Solhjulet",
+    "lat": 55.863062,
+    "lon": 9.253179,
+    "adresse": "Vejlevej 210, 7323 Give"
+  }
+]
