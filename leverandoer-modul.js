@@ -139,7 +139,7 @@ function _levBuildMarkers() {
       if (!adr.lat || !adr.lon) return;
       const marker = L.marker([adr.lat, adr.lon], { icon: _levIcon(lev) })
         .bindPopup(_levPopupHTML(lev, adr), { maxWidth: 360, className: "lev-leaflet-popup" })
-        .on("mouseover", function () { this.openPopup(); _levHighlight(lev); })
+        .on("mouseover", function () { this.openPopup(); _levHighlight(lev, adr); })
         .on("mouseout",  function () { _levClearHighlights(); });
       katLag.addLayer(marker);
     });
@@ -193,7 +193,9 @@ function _levPopupHTML(lev, adr) {
     });
   }
 
-  const pnr = lev.prioritetsPostnumre || [];
+  const pnr = (adr?.prioritetsPostnumre?.length)
+    ? adr.prioritetsPostnumre
+    : (lev.prioritetsPostnumre || []);
   if (pnr.length) {
     const vis    = pnr.slice(0, 10).join(", ");
     const ekstra = pnr.length > 10 ? ` +${pnr.length - 10} mere` : "";
@@ -204,11 +206,15 @@ function _levPopupHTML(lev, adr) {
 }
 
 // ── HIGHLIGHT KOMMUNER ───────────────────────────────────────────
-function _levHighlight(lev) {
+function _levHighlight(lev, adr) {
   _levClearHighlights();
-  if (!kommuneGeoJSON?.features || !lev.prioritetsPostnumre?.length) return;
+  // Brug adresse-specifikke prioriteter, eller fald tilbage til globale (bagudkompatibilitet)
+  const pnr = (adr?.prioritetsPostnumre?.length)
+    ? adr.prioritetsPostnumre
+    : (lev.prioritetsPostnumre || []);
+  if (!kommuneGeoJSON?.features || !pnr.length) return;
   const koder = new Set(
-    (lev.prioritetsPostnumre || []).flatMap(pnr => _levPostnrMap[String(pnr).trim()] || [])
+    pnr.flatMap(p => _levPostnrMap[String(p).trim()] || [])
   );
   if (!koder.size) return;
   kommuneGeoJSON.features.forEach(feat => {
@@ -363,12 +369,6 @@ function _levShowForm(id) {
         <button type="button" id="levAddVogn" class="lev-btn-add">+ Tilføj vogn</button>
       </fieldset>
 
-      <fieldset class="lev-fs">
-        <legend>📮 Prioritetspostnumre</legend>
-        <p class="lev-hint">Kommaseparerede 4-cifrede postnumre. Kommunerne fremhæves på kortet ved hover.</p>
-        <textarea id="lf-pnr" rows="3" class="lev-textarea" placeholder="8000, 8200, 8210...">${(lev.prioritetsPostnumre || []).join(", ")}</textarea>
-      </fieldset>
-
       <div class="lev-form-footer">
         <button id="levGemBtn"  class="lev-btn-primary">💾 Gem</button>
         ${!isNy ? `<button id="levSletBtn" class="lev-btn-danger">🗑️ Slet</button>` : ""}
@@ -410,6 +410,7 @@ function _levAppendAdrRow(container, a = {}) {
   const div = document.createElement("div");
   div.className = "lev-adr-row";
   div.dataset.id = a.id || "adr-" + Date.now();
+  const adrPnr = (a.prioritetsPostnumre || []).join(", ");
   div.innerHTML = `
     <div class="lev-row lev-row-header">
       <label class="lev-label-grow">Navn/label <input type="text" class="a-label" value="${_esc(a.label)}" placeholder="f.eks. Nord-depot"></label>
@@ -424,7 +425,10 @@ function _levAppendAdrRow(container, a = {}) {
       <label class="lev-label-coord">Lat. <input type="text" class="a-lat" value="${a.lat || ""}" placeholder="56.xxxx"></label>
       <label class="lev-label-coord">Lon. <input type="text" class="a-lon" value="${a.lon || ""}" placeholder="10.xxxx"></label>
       <button type="button" class="lev-geocode-btn">📍 Geocode</button>
-    </div>`;
+    </div>
+    <label class="lev-label-pnr">📮 Prioritetspostnumre for denne adresse
+      <textarea class="a-pnr lev-textarea lev-textarea-sm" rows="2" placeholder="5000, 5200, 5210...">${_esc(adrPnr)}</textarea>
+    </label>`;
   container.appendChild(div);
   div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
   div.querySelector(".lev-geocode-btn").addEventListener("click", async (e) => {
@@ -573,16 +577,18 @@ async function _levGem(template) {
       });
     });
 
-    // Adresser
+    // Adresser (inkl. per-adresse prioritetspostnumre)
     document.querySelectorAll("#lf-adresser .lev-adr-row").forEach(row => {
       lev.arbejdsAdresser.push({
-        id:     row.dataset.id,
-        label:  row.querySelector(".a-label").value.trim(),
-        vej:    row.querySelector(".a-vej").value.trim(),
-        postnr: row.querySelector(".a-postnr").value.trim(),
-        by:     row.querySelector(".a-by").value.trim(),
-        lat:    parseFloat(row.querySelector(".a-lat").value) || null,
-        lon:    parseFloat(row.querySelector(".a-lon").value) || null
+        id:                  row.dataset.id,
+        label:               row.querySelector(".a-label").value.trim(),
+        vej:                 row.querySelector(".a-vej").value.trim(),
+        postnr:              row.querySelector(".a-postnr").value.trim(),
+        by:                  row.querySelector(".a-by").value.trim(),
+        lat:                 parseFloat(row.querySelector(".a-lat").value) || null,
+        lon:                 parseFloat(row.querySelector(".a-lon").value) || null,
+        prioritetsPostnumre: (row.querySelector(".a-pnr")?.value || "")
+                               .split(/[\s,;]+/).map(s => s.trim()).filter(s => /^\d{4}$/.test(s))
       });
     });
 
@@ -598,9 +604,9 @@ async function _levGem(template) {
       });
     });
 
-    // Postnumre
-    lev.prioritetsPostnumre = document.getElementById("lf-pnr").value
-      .split(/[\s,;]+/).map(s => s.trim()).filter(s => /^\d{4}$/.test(s));
+    // prioritetsPostnumre på rod-niveau bevares som tomt array (bagudkompatibilitet)
+    // Prioriteter gemmes nu per arbejdsAdresse (se ovenfor)
+    lev.prioritetsPostnumre = [];
 
     const resp = await _levSpFetch("/leverandoerer", {
       method: "POST",
