@@ -29,14 +29,12 @@ var redigerLeverandoerLayer = L.layerGroup();
 
 // ── STATE ────────────────────────────────────────────────────────
 let _levData          = [];
-let _levPostnrMap     = {};
 let _levHighlights    = [];
 let _levLoginProgress = false;
 let _levLoaded        = false;
 
 // ── BOOT ─────────────────────────────────────────────────────────
 async function initLeverandoerModul() {
-  _levLoadPostnrMap();
   _levBuildControl();
   _levBuildUI();
 }
@@ -118,15 +116,6 @@ async function _levLoad() {
   }
 }
 
-async function _levLoadPostnrMap() {
-  try {
-    const r    = await fetch("https://api.dataforsyningen.dk/postnumre?format=json");
-    const data = await r.json();
-    _levPostnrMap = {};
-    data.forEach(p => { _levPostnrMap[p.nr] = (p.kommuner || []).map(k => k.kode); });
-  } catch (e) { console.warn("Leverandørmodul: postnr-kort fejlede", e); }
-}
-
 // ── MARKØRER ─────────────────────────────────────────────────────
 function _levBuildMarkers() {
   LEV_KATEGORIER.forEach(k => _levKatLag[k.id].clearLayers());
@@ -205,26 +194,30 @@ function _levPopupHTML(lev, adr) {
   return h;
 }
 
-// ── HIGHLIGHT KOMMUNER ───────────────────────────────────────────
+// ── HIGHLIGHT POSTNUMRE ──────────────────────────────────────────
 function _levHighlight(lev, adr) {
   _levClearHighlights();
   // Brug adresse-specifikke prioriteter, eller fald tilbage til globale (bagudkompatibilitet)
   const pnr = (adr?.prioritetsPostnumre?.length)
     ? adr.prioritetsPostnumre
     : (lev.prioritetsPostnumre || []);
-  if (!kommuneGeoJSON?.features || !pnr.length) return;
-  const koder = new Set(
-    pnr.flatMap(p => _levPostnrMap[String(p).trim()] || [])
-  );
-  if (!koder.size) return;
-  kommuneGeoJSON.features.forEach(feat => {
-    const kode = feat.properties?.kode;
-    if (!kode || !koder.has(kode)) return;
-    const lay = L.geoJSON(feat, {
-      style: { color: lev.farve || "#3498db", weight: 2, fillColor: lev.farve || "#3498db", fillOpacity: 0.22 },
-      interactive: false
-    }).addTo(map);
-    _levHighlights.push(lay);
+  if (!pnr.length) return;
+
+  const farve = lev.farve || "#3498db";
+
+  // Hent og vis postnummer-fladerne direkte fra Dataforsyningen (præcist – følger ikke kommunegrænser)
+  pnr.forEach(async (nr) => {
+    try {
+      const url  = `https://api.dataforsyningen.dk/postnumre/${encodeURIComponent(nr)}?format=geojson`;
+      const resp = await fetch(url);
+      if (!resp.ok) return;
+      const geojson = await resp.json();
+      const lay = L.geoJSON(geojson, {
+        style: { color: farve, weight: 2, fillColor: farve, fillOpacity: 0.28 },
+        interactive: false
+      }).addTo(map);
+      _levHighlights.push(lay);
+    } catch (e) { /* ignorer netværksfejl */ }
   });
 }
 
