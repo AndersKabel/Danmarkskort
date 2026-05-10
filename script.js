@@ -833,10 +833,6 @@ var chargeMapLayer = L.layerGroup();
 var keepMarkersLayer   = L.layerGroup();
 var keepMarkersEnabled = false;
 
-// Leverandøroversigt-lag
-var leverandoerLayer        = L.layerGroup();
-var redigerLeverandoerLayer = L.layerGroup();
-
 // Global reference til "seneste" markør (bruges bl.a. til radius)
 var currentMarker;
 
