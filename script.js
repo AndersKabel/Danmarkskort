@@ -556,45 +556,74 @@ function convertToWGS84(x, y) {
   console.log("convertToWGS84 output:", result);
   return [result[1], result[0]];
 }
-/***************************************************
- * Custom Places
- ***************************************************/
+// ── Custom Places ─────────────────────────────────────────────────
+// Indlæses fra repo-filen "CustomPlaces.json" (hvis den findes)
+// + lokalt gemte steder i localStorage
 var customPlaces = [];
 
-// Hent custom places fra ekstern fil "CustomPlaces"
-// Første objekt i filen kan bruges som skabelon
-// og markeres med "template": true – det bliver filtreret fra.
-fetch("CustomPlaces")
-  .then(function(response) {
-    if (!response.ok) {
-      // Filen findes ikke – det er OK, custom places bruges bare ikke
-      return null;
-    }
+function _cpLoadLocal() {
+  try {
+    const raw = localStorage.getItem("customPlaces");
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function _cpSaveLocal(places) {
+  localStorage.setItem("customPlaces", JSON.stringify(places));
+}
+
+// Tilføj et custom place (kaldes fra søgeresultat-UI)
+function addCustomPlace(place) {
+  const local = _cpLoadLocal();
+  // Undgå dubletter på koordinater
+  const exists = local.some(p => Math.abs(p.lat - place.lat) < 0.0001 && Math.abs(p.lon - place.lon) < 0.0001);
+  if (exists) { alert("Stedet er allerede gemt."); return; }
+  local.push(place);
+  _cpSaveLocal(local);
+  customPlaces = [...customPlaces, place];
+  alert(`✅ "${place.navn}" gemt lokalt.\n\nBrug "Eksportér custom places" for at tilføje til repo-filen.`);
+}
+
+// Eksportér alle gemte steder som JSON (download)
+function exportCustomPlaces() {
+  const all = [...customPlaces];
+  const local = _cpLoadLocal();
+  // Merge: tilføj lokale der ikke allerede er i all
+  local.forEach(lp => {
+    if (!all.some(p => p.lat === lp.lat && p.lon === lp.lon)) all.push(lp);
+  });
+  const json = JSON.stringify(all, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "CustomPlaces.json";
+  a.click();
+}
+
+// Hent fra repo-fil (hvis den findes) og merge med lokale
+fetch("CustomPlaces.json")
+  .then(response => {
+    if (!response.ok) return null;   // Filen findes ikke — det er OK
     return response.json();
   })
-  .then(function(data) {
-    if (!data) return;           // 404 eller anden fejl – afslut stille
-    if (!Array.isArray(data)) {
-      console.error("CustomPlaces indeholder ikke et array:", data);
+  .then(data => {
+    if (!data) {
+      // Ingen repo-fil — brug kun lokale
+      customPlaces = _cpLoadLocal();
       return;
     }
-    customPlaces = data
-      .filter(function(p) {
-        return !p.template && !p.isTemplate;
-      })
-      .map(function(p) {
-        // Sørg for at coords stadig findes, så eksisterende logik virker
-        if (typeof p.lat === "number" && typeof p.lon === "number") {
-          p.coords = [p.lat, p.lon];
-        }
-        return p;
-      });
-    console.log("Custom places indlæst:", customPlaces);
+    if (!Array.isArray(data)) { console.error("CustomPlaces.json indeholder ikke et array"); return; }
+    const fromFile = data.filter(p => !p.template && !p.isTemplate).map(p => {
+      if (typeof p.lat === "number" && typeof p.lon === "number") p.coords = [p.lat, p.lon];
+      return p;
+    });
+    // Merge: fil-steder + lokale steder der ikke er i filen
+    const local = _cpLoadLocal();
+    const extra = local.filter(lp => !fromFile.some(fp => fp.lat === lp.lat && fp.lon === lp.lon));
+    customPlaces = [...fromFile, ...extra];
+    console.log(`Custom places: ${fromFile.length} fra fil, ${extra.length} lokale`);
   })
-  .catch(function(err) {
-    // Netværksfejl (ikke 404 – det håndteres ovenfor)
-    console.warn("CustomPlaces: kunne ikke hentes:", err.message);
-  });
+  .catch(err => console.warn("CustomPlaces: netværksfejl:", err.message));
 
 /***************************************************
  * Hjælpefunktion til at kopiere tekst til clipboard
@@ -2306,23 +2335,62 @@ function doSearch(query, listElement) {
     // Byg liste-elementer
     combined.forEach(obj => {
       let li = document.createElement("li");
-            if (obj.type === "strandpost") {
-        li.innerHTML = `🛟 ${obj.tekst}`;
+      li.style.display = "flex";
+      li.style.alignItems = "center";
+      li.style.justifyContent = "space-between";
+      li.style.gap = "6px";
+
+      let labelSpan = document.createElement("span");
+      labelSpan.style.flex = "1";
+
+      if (obj.type === "strandpost") {
+        labelSpan.innerHTML = `🛟 ${obj.tekst}`;
       } else if (obj.type === "adresse") {
-        li.innerHTML = `🏠 ${obj.tekst}`;
+        labelSpan.innerHTML = `🏠 ${obj.tekst}`;
       } else if (obj.type === "navngivenvej") {
         const pnrTekst = (obj.postnumre || []).map(p => p.nr + " " + p.navn).join(" · ");
-        li.innerHTML = `🛣️ ${obj.navn}${pnrTekst ? ` <span style="color:#888;font-size:11px">(${pnrTekst})</span>` : ""}`;
+        labelSpan.innerHTML = `🛣️ ${obj.navn}${pnrTekst ? ` <span style="color:#888;font-size:11px">(${pnrTekst})</span>` : ""}`;
       } else if (obj.type === "stednavn") {
-        li.innerHTML = `📍 ${obj.navn}`;
+        labelSpan.innerHTML = `📍 ${obj.navn}`;
       } else if (obj.type === "custom") {
         let extra = obj.adresse ? " – " + obj.adresse : "";
-        li.innerHTML = `⭐ ${obj.navn}${extra}`;
+        labelSpan.innerHTML = `⭐ ${obj.navn}${extra}`;
       } else if (obj.type === "ors_foreign") {
-        li.innerHTML = `🌍 ${obj.label}`;
+        labelSpan.innerHTML = `🌍 ${obj.label}`;
+      }
+      li.appendChild(labelSpan);
+
+      // ⭐ Gem-knap på adresser og stednavne (ikke custom, strandpost, vej)
+      if (obj.type === "adresse" || obj.type === "stednavn") {
+        const gemBtn = document.createElement("button");
+        gemBtn.title = "Gem som custom place";
+        gemBtn.innerHTML = "⭐";
+        gemBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0;opacity:0.5;";
+        gemBtn.addEventListener("mouseenter", () => gemBtn.style.opacity = "1");
+        gemBtn.addEventListener("mouseleave", () => gemBtn.style.opacity = "0.5");
+        gemBtn.addEventListener("click", async function(e) {
+          e.stopPropagation();
+          const navn = prompt("Navn til custom place:", obj.tekst || obj.navn || "");
+          if (!navn) return;
+          let lat = null, lon = null, adresse = "";
+          if (obj.type === "adresse" && obj.adgangsadresse?.id) {
+            try {
+              const d = await fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`).then(r => r.json());
+              [lon, lat] = d.adgangspunkt.koordinater;
+              adresse = obj.tekst || "";
+            } catch {}
+          } else if (obj.type === "stednavn" && obj.geometry?.coordinates) {
+            const coords = obj.geometry.coordinates;
+            if (Array.isArray(coords) && coords.length === 2) { lon = coords[0]; lat = coords[1]; }
+            adresse = "";
+          }
+          if (!lat || !lon) { alert("Kunne ikke hente koordinater."); return; }
+          addCustomPlace({ navn, adresse, lat, lon });
+        });
+        li.appendChild(gemBtn);
       }
 
-      li.addEventListener("click", function() {
+      labelSpan.addEventListener("click", function() {
                 if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
           fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
             .then(r => r.json())
@@ -2475,10 +2543,23 @@ function placeMarkerAndZoom(coords, displayText) {
   document.getElementById("infoBox").style.display = "block";
 }
 
+// ── Statsvej-cache og abort-controller ───────────────────────────
+const _statsvejCache     = new Map();
+let   _statsvejAbortCtrl = null;
+
 /***************************************************
  * checkForStatsvej
  ***************************************************/
 async function checkForStatsvej(lat, lon) {
+  // 1. Cache-opslag — samme ~100m-område returnerer øjeblikkeligt
+  const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  if (_statsvejCache.has(cacheKey)) return _statsvejCache.get(cacheKey);
+
+  // 2. Afbryd evt. igangværende kald (gentagne klik)
+  if (_statsvejAbortCtrl) _statsvejAbortCtrl.abort();
+  _statsvejAbortCtrl = new AbortController();
+  const signal = _statsvejAbortCtrl.signal;
+
   const testOffsets = [
     { dx: 0,  dy: 0 },
     { dx: -3, dy: 0 },
@@ -2564,7 +2645,7 @@ async function checkForStatsvej(lat, lon) {
       'X=50&' +
       'Y=50';
 
-    let response = await fetch(url);
+    let response = await fetch(url, { signal });
     let textData = await response.text();
 
     if (!textData || !textData.trim()) {
@@ -2598,28 +2679,33 @@ async function checkForStatsvej(lat, lon) {
   try {
     let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
 
-    // Kør alle offsets parallelt i stedet for sekventielt
-    const allResults = await Promise.all(
-      testOffsets.map(offset =>
+    // 3. Tidlig exit: returner så snart vi har et brugbart svar — vent ikke på alle 21
+    const result = await new Promise((resolve) => {
+      let bestCandidate = null;
+      let bestScore     = -1;
+      let remaining     = testOffsets.length;
+
+      testOffsets.forEach(offset => {
         fetchStatsvejCandidatesAtUtm(utmX + offset.dx, utmY + offset.dy)
-          .catch(() => [])
-      )
-    );
+          .then(candidates => {
+            if (signal.aborted) return;
+            for (const c of candidates) {
+              const score = scoreStatsvejCandidate(c);
+              if (score > bestScore) { bestScore = score; bestCandidate = c; }
+            }
+            if (bestCandidate && hasUsableStatsvejData(bestCandidate)) resolve(bestCandidate);
+          })
+          .catch(() => {})
+          .finally(() => { if (--remaining === 0) resolve(bestCandidate || {}); });
+      });
+    });
 
-    const allCandidates = allResults.flat();
-
-    let bestCandidate = null;
-    let bestScore = -1;
-
-    for (const candidate of allCandidates) {
-      const score = scoreStatsvejCandidate(candidate);
-      if (score > bestScore) {
-        bestScore = score;
-        bestCandidate = candidate;
-      }
+    // 4. Gem i cache (udløber efter 5 min)
+    if (!signal.aborted) {
+      _statsvejCache.set(cacheKey, result);
+      setTimeout(() => _statsvejCache.delete(cacheKey), 5 * 60 * 1000);
     }
-
-    return bestCandidate || {};
+    return result;
   } catch (error) {
     console.error("Fejl ved hentning af vejdata:", error);
     return {};
