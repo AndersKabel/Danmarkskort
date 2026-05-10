@@ -566,9 +566,14 @@ var customPlaces = [];
 // og markeres med "template": true – det bliver filtreret fra.
 fetch("CustomPlaces")
   .then(function(response) {
+    if (!response.ok) {
+      // Filen findes ikke – det er OK, custom places bruges bare ikke
+      return null;
+    }
     return response.json();
   })
   .then(function(data) {
+    if (!data) return;           // 404 eller anden fejl – afslut stille
     if (!Array.isArray(data)) {
       console.error("CustomPlaces indeholder ikke et array:", data);
       return;
@@ -587,7 +592,8 @@ fetch("CustomPlaces")
     console.log("Custom places indlæst:", customPlaces);
   })
   .catch(function(err) {
-    console.error("Fejl ved hentning af CustomPlaces:", err);
+    // Netværksfejl (ikke 404 – det håndteres ovenfor)
+    console.warn("CustomPlaces: kunne ikke hentes:", err.message);
   });
 
 /***************************************************
