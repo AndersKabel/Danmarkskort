@@ -3108,18 +3108,7 @@ document.getElementById("btn100").addEventListener("click", function() {
 document.addEventListener("DOMContentLoaded", function() {
   const s = document.getElementById("search");
 
-  // Readonly-trick: forhindrer Chrome autofill-dropdown
-  // Chrome viser aldrig forslag på readonly-felter
-  s.addEventListener("focus", function() {
-    this.removeAttribute("readonly");
-  });
-  s.addEventListener("blur", function() {
-    const el = this;
-    setTimeout(() => { if (document.activeElement !== el) el.setAttribute("readonly", true); }, 150);
-  });
-
   // Auto-fokus ved sideload
-  s.removeAttribute("readonly");
   s.focus();
 
   const planBtn = document.getElementById("planRouteBtn");
