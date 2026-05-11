@@ -573,15 +573,99 @@ function _cpSaveLocal(places) {
 }
 
 // Tilføj et custom place (kaldes fra søgeresultat-UI)
+// ── Custom Places: gem direkte til GitHub ────────────────────────
+// Repo-info udledes automatisk fra URL (f.eks. anderskabel.github.io/Danmarkskort/)
+const _cpOwner = window.location.hostname.split(".")[0];
+const _cpRepo  = window.location.pathname.split("/").filter(Boolean)[0] || "Danmarkskort";
+const _cpFile  = "CustomPlaces.json";
+const _cpApi   = `https://api.github.com/repos/${_cpOwner}/${_cpRepo}/contents/${_cpFile}`;
+
+function _cpGetToken() {
+  let t = localStorage.getItem("gh_cp_token");
+  if (!t) {
+    t = prompt(
+      "Første gang: indtast et GitHub Personal Access Token\n" +
+      "(github.com → Settings → Developer settings → Fine-grained tokens\n" +
+      " → Contents: Read and write på " + _cpRepo + ")"
+    );
+    if (t) localStorage.setItem("gh_cp_token", t.trim());
+  }
+  return t ? t.trim() : null;
+}
+
+async function _cpSaveToRepo(place) {
+  const token = _cpGetToken();
+  if (!token) return false;
+
+  const headers = {
+    "Authorization": "token " + token,
+    "Accept": "application/vnd.github.v3+json",
+    "Content-Type": "application/json"
+  };
+
+  try {
+    // Hent nuværende fil + SHA
+    const getResp = await fetch(_cpApi, { headers });
+    let sha = null;
+    let existing = [];
+
+    if (getResp.ok) {
+      const info = await getResp.json();
+      sha = info.sha;
+      // GitHub returnerer base64 – decode korrekt (UTF-8)
+      const bytes = Uint8Array.from(atob(info.content.replace(/\n/g, "")), c => c.charCodeAt(0));
+      existing = JSON.parse(new TextDecoder().decode(bytes));
+    } else if (getResp.status === 401) {
+      localStorage.removeItem("gh_cp_token");
+      alert("Ugyldigt token — prøv igen.");
+      return false;
+    }
+
+    // Tjek for dubletter på navn
+    if (existing.some(p => p.navn?.toLowerCase() === place.navn?.toLowerCase())) {
+      alert(`"${place.navn}" findes allerede i CustomPlaces.json.`);
+      return false;
+    }
+
+    // Tilføj nyt sted (bevar template-poster)
+    existing.push(place);
+
+    // Encode til base64 (UTF-8 sikker)
+    const json    = JSON.stringify(existing, null, 2);
+    const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(json)));
+
+    const putResp = await fetch(_cpApi, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({
+        message: `Tilføj sted: ${place.navn}`,
+        content: encoded,
+        ...(sha ? { sha } : {})
+      })
+    });
+
+    if (!putResp.ok) {
+      const err = await putResp.json();
+      if (putResp.status === 401) localStorage.removeItem("gh_cp_token");
+      alert("Fejl ved gem: " + (err.message || putResp.status));
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    console.error("GitHub API fejl:", e);
+    alert("Netværksfejl — stedet blev ikke gemt.");
+    return false;
+  }
+}
+
 function addCustomPlace(place) {
-  const local = _cpLoadLocal();
-  // Undgå dubletter på koordinater
-  const exists = local.some(p => Math.abs(p.lat - place.lat) < 0.0001 && Math.abs(p.lon - place.lon) < 0.0001);
-  if (exists) { alert("Stedet er allerede gemt."); return; }
-  local.push(place);
-  _cpSaveLocal(local);
-  customPlaces = [...customPlaces, place];
-  console.log(`✅ Custom place gemt: "${place.navn}"`);
+  // Bruges nu kun som fallback / in-memory opdatering
+  customPlaces = customPlaces.filter(p => p.navn !== place.navn);
+  customPlaces.push(place);
+  // Ryd localStorage (vi bruger ikke det til steder længere)
+  localStorage.removeItem("customPlaces");
+  console.log(`✅ Custom place tilføjet i hukommelse: "${place.navn}"`);
 }
 
 // Eksportér alle gemte steder som JSON (download)
@@ -617,9 +701,12 @@ fetch("CustomPlaces.json")
       if (typeof p.lat === "number" && typeof p.lon === "number") p.coords = [p.lat, p.lon];
       return p;
     });
-    // Merge: fil-steder + lokale steder der ikke er i filen
+    // Merge: lokale steder der IKKE allerede er i filen (på navn eller koordinater)
     const local = _cpLoadLocal();
-    const extra = local.filter(lp => !fromFile.some(fp => fp.lat === lp.lat && fp.lon === lp.lon));
+    const extra = local.filter(lp => !fromFile.some(fp =>
+      fp.navn?.toLowerCase() === lp.navn?.toLowerCase() ||
+      (Math.abs(fp.lat - lp.lat) < 0.001 && Math.abs(fp.lon - lp.lon) < 0.001)
+    ));
     customPlaces = [...fromFile, ...extra];
     console.log(`Custom places: ${fromFile.length} fra fil, ${extra.length} lokale`);
   })
@@ -987,7 +1074,7 @@ map.on("click", function(e) {
 });
 
 // Gem sted
-document.getElementById("cpGem").addEventListener("click", function() {
+document.getElementById("cpGem").addEventListener("click", async function() {
   const navn     = document.getElementById("cpNavn").value.trim();
   const kategori = document.getElementById("cpKategori").value;
   const lat      = parseFloat(document.getElementById("cpLat").value);
@@ -1002,16 +1089,29 @@ document.getElementById("cpGem").addEventListener("click", function() {
     id: navn.toLowerCase().replace(/[^a-z0-9æøå]/g, "_") + "_" + Date.now(),
     kategori, navn, kortnavn: navn, lat, lon, adresse: ""
   };
-  addCustomPlace(place);
-  exportCustomPlaces(); // Auto-download opdateret JSON
 
-  ["cpNavn","cpLat","cpLon"].forEach(id => document.getElementById(id).value = "");
-  document.getElementById("cpKategori").value = "sevaerdighed";
-  _cpCloseModal();
+  const gemBtn = document.getElementById("cpGem");
+  gemBtn.textContent = "⏳ Gemmer…";
+  gemBtn.disabled = true;
+
+  const ok = await _cpSaveToRepo(place);
+  gemBtn.textContent = "⭐ Gem sted";
+  gemBtn.disabled = false;
+
+  if (ok) {
+    addCustomPlace(place);
+    ["cpNavn","cpLat","cpLon"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("cpKategori").value = "sevaerdighed";
+    _cpCloseModal();
+    const toast = document.createElement("div");
+    toast.textContent = `✅ "${place.navn}" er gemt i repo'et`;
+    toast.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#27ae60;color:#fff;padding:10px 22px;border-radius:8px;z-index:9999;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.2);";
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+  }
 });
 
-// Eksportér
-const _cpExportEl = document.getElementById("cpExport"); if (_cpExportEl) _cpExportEl.addEventListener("click", exportCustomPlaces);
+
 
 map.on('overlayadd', function(e) {
   if (e.layer === dbSmsLayer) {
