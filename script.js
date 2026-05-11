@@ -902,13 +902,151 @@ initRainViewer();
 // OWM temperatur (stadig nyttig som supplement)
 const OWM_API_KEY = "71886b99dfc71fdd19c9825cf0b995c1";
 var weatherTempLayer = null;
-var weatherPrecipLayer = null;  // beholdes for kompatibilitet
-var weatherRainLayer = null;    // beholdes for kompatibilitet
+var weatherPrecipLayer = null;
+var weatherRainLayer = null;
 if (OWM_API_KEY && OWM_API_KEY.trim() !== "") {
   weatherTempLayer = L.tileLayer(
     `https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`,
     { opacity: 0.5, attribution: "Temperatur © OpenWeatherMap" }
   );
+}
+
+// ── DMI Temperatur ───────────────────────────────────────────────
+// Nyt DMI API (dec 2025) — ingen API-nøgle nødvendig!
+// Gammelt endpoint (dmigw.govcloud.dk) pensioneres 30. juni 2026
+
+var dmiTempLayer    = L.layerGroup();
+var dmiTempInterval = null;
+
+async function loadDmiTemperatur() {
+  try {
+    // Nyt gratis endpoint uden API-nøgle
+    const url = "https://opendataapi.dmi.dk/v2/metObs/collections/observation/items" +
+      "?parameterId=temp_dry&period=latest-hour&limit=300";
+    const resp = await fetch(url);
+    if (!resp.ok) { console.warn("DMI API fejlede:", resp.status); return; }
+    const data = await resp.json();
+
+    dmiTempLayer.clearLayers();
+    (data.features || []).forEach(f => {
+      const temp = f.properties?.value;
+      if (temp == null) return;
+      const [lon, lat] = f.geometry.coordinates;
+      const t = Math.round(temp * 10) / 10;
+      const color = t < 0   ? "#6fb3f7" :
+                    t < 5   ? "#a8d8ea" :
+                    t < 10  ? "#b8e4a1" :
+                    t < 15  ? "#f7e27a" :
+                    t < 20  ? "#f4a147" : "#e84040";
+
+      L.circleMarker([lat, lon], {
+        radius: 14, color: "#fff", weight: 1.5,
+        fillColor: color, fillOpacity: 0.9
+      })
+      .bindTooltip(`${t > 0 ? "+" : ""}${t}°C`, {
+        permanent: true, direction: "center",
+        className: "dmi-temp-label"
+      })
+      .addTo(dmiTempLayer);
+    });
+    console.log(`✅ DMI temperatur opdateret: ${(data.features||[]).length} stationer`);
+  } catch(e) {
+    console.warn("DMI temperatur fejl:", e.message);
+  }
+}
+
+// ── VD Trafikhændelser ────────────────────────────────────────────
+var vdTrafikLayer    = L.layerGroup();
+var vdTrafikInterval = null;
+
+const VD_TRAFIK_IKONER = {
+  "Accident":         { ikon: "🚨", label: "Uheld" },
+  "RoadWorks":        { ikon: "🚧", label: "Vejarbejde" },
+  "ObstructionOnRoad":{ ikon: "⚠️", label: "Forhindring" },
+  "Congestion":       { ikon: "🚗", label: "Kø" },
+  "BrokenDownVehicle":{ ikon: "🔧", label: "Afbrudt køretøj" },
+  "Abnormality":      { ikon: "⚠️", label: "Unormalitet" },
+};
+
+async function loadVdTrafik() {
+  try {
+    // Vejdirektoratets åbne trafikhændelser (gratis, ingen nøgle)
+    const url = "https://api.vejdirektoratet.dk/v2/trafikinfo" +
+      "?api_key=gratis&format=json&type=incidents&roadtype=state&lang=da";
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const data = await resp.json();
+
+    vdTrafikLayer.clearLayers();
+    const items = Array.isArray(data) ? data : (data.incidents || data.features || []);
+    items.forEach(item => {
+      // Støtter GeoJSON-format og VD-nativ format
+      let lat, lon, type, desc, road;
+      if (item.geometry?.coordinates) {
+        [lon, lat] = Array.isArray(item.geometry.coordinates[0])
+          ? item.geometry.coordinates[0] : item.geometry.coordinates;
+        type = item.properties?.eventType || item.properties?.type || "Abnormality";
+        desc = item.properties?.description || item.properties?.titel || "";
+        road = item.properties?.road || item.properties?.vej || "";
+      } else if (item.location?.coordinates) {
+        lat = item.location.coordinates.lat;
+        lon = item.location.coordinates.lon;
+        type = item.eventType || "Abnormality";
+        desc = item.description || item.titel || "";
+        road = item.road || "";
+      } else return;
+
+      if (!lat || !lon) return;
+      const { ikon, label } = VD_TRAFIK_IKONER[type] || { ikon: "⚠️", label: type };
+
+      const marker = L.marker([lat, lon], {
+        icon: L.divIcon({
+          html: `<div class="vd-trafik-ikon" title="${label}">${ikon}</div>`,
+          className: "", iconSize: [28, 28], iconAnchor: [14, 14]
+        })
+      });
+      marker.bindPopup(`<strong>${ikon} ${label}</strong>${road ? "<br>📍 " + road : ""}${desc ? "<br>" + desc : ""}`);
+      marker.addTo(vdTrafikLayer);
+    });
+    console.log(`✅ VD Trafik opdateret: ${items.length} hændelser`);
+  } catch(e) {
+    console.warn("VD Trafik fejl:", e.message);
+    // Forsøg med alternativ URL (XML-feed konverteret)
+    _loadVdTrafikFallback();
+  }
+}
+
+async function _loadVdTrafikFallback() {
+  try {
+    // VD's åbne GeoJSON-feed (statsveje)
+    const url = "https://wms.geocloud.vd.dk/TrafficEvents/wfs?service=WFS&version=2.0.0" +
+      "&request=GetFeature&typeName=TrafficEvents&outputFormat=application/json&count=200";
+    const resp = await fetch(url);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    vdTrafikLayer.clearLayers();
+    L.geoJSON(data, {
+      pointToLayer: (f, latlng) => {
+        const type = f.properties?.EventCode || "Abnormality";
+        const { ikon } = VD_TRAFIK_IKONER[type] || { ikon: "⚠️" };
+        return L.marker(latlng, {
+          icon: L.divIcon({ html: `<div class="vd-trafik-ikon">${ikon}</div>`,
+            className: "", iconSize: [28, 28], iconAnchor: [14, 14] })
+        }).bindPopup(`${f.properties?.Description || ""}`);
+      }
+    }).addTo(vdTrafikLayer);
+    console.log("✅ VD Trafik (fallback) opdateret");
+  } catch(e) { console.warn("VD Trafik fallback fejl:", e.message); }
+}
+
+// Start lag-indlæsning ved overlayadd
+function _startDmiInterval() {
+  loadDmiTemperatur();
+  if (!dmiTempInterval) dmiTempInterval = setInterval(loadDmiTemperatur, 10 * 60 * 1000);
+}
+function _startVdInterval() {
+  loadVdTrafik();
+  if (!vdTrafikInterval) vdTrafikInterval = setInterval(loadVdTrafik, 5 * 60 * 1000);
 }
 
 var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/ows", {
@@ -1043,18 +1181,14 @@ const overlayMaps = {
 };
 // Tilføj vejrlag, hvis API-nøgle er sat
 // RainViewer tilføjes når det er loadet (async)
-// overlayMaps["Nedbørsradar (RainViewer)"] sættes dynamisk nedenfor
-if (weatherTempLayer) {
-  overlayMaps["Temperatur (OWM)"] = weatherTempLayer;
-}
+if (weatherTempLayer) overlayMaps["Temperatur (OWM)"] = weatherTempLayer;
+overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
+overlayMaps["🚦 Trafikhændelser (VD)"] = vdTrafikLayer;
 
-// Tilføj RainViewer til lag-kontrollen når det er klar
 const _rvInterval = setInterval(() => {
   if (rainViewerLayer) {
     clearInterval(_rvInterval);
     overlayMaps["🌧 Nedbørsradar"] = rainViewerLayer;
-    // Genbyg lag-kontrollen med det nye lag
-    // (simpelt: tilføj direkte hvis map allerede viser kontrol)
     if (typeof layerControl !== "undefined") {
       layerControl.addOverlay(rainViewerLayer, "🌧 Nedbørsradar");
     }
@@ -1161,6 +1295,10 @@ map.on('overlayadd', function(e) {
     setTimeout(() => map.removeLayer(dbJournalLayer), 50);
   } else if (e.name === "Strandposter" || e.layer === redningsnrLayer) {
     if (allStrandposter.length === 0) fetchAllStrandposter();
+  } else if (e.layer === dmiTempLayer) {
+    _startDmiInterval();
+  } else if (e.layer === vdTrafikLayer) {
+    _startVdInterval();
   } else if (e.layer === chargeMapLayer) {
     if (!selectedRadius) {
       alert("Vælg radius først");
@@ -1225,6 +1363,12 @@ map.on('overlayremove', function(e) {
       map.removeLayer(currentMarker);
     }
     currentMarker = null;
+  } else if (e.layer === dmiTempLayer) {
+    if (dmiTempInterval) { clearInterval(dmiTempInterval); dmiTempInterval = null; }
+    dmiTempLayer.clearLayers();
+  } else if (e.layer === vdTrafikLayer) {
+    if (vdTrafikInterval) { clearInterval(vdTrafikInterval); vdTrafikInterval = null; }
+    vdTrafikLayer.clearLayers();
   }
 });
 
