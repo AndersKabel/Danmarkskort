@@ -660,10 +660,12 @@ async function _cpSaveToRepo(place) {
 }
 
 function addCustomPlace(place) {
-  // Bruges nu kun som fallback / in-memory opdatering
+  // Sæt coords så placeMarkerAndZoom virker ved søgning
+  if (!place.coords && place.lat && place.lon) {
+    place.coords = [place.lat, place.lon];
+  }
   customPlaces = customPlaces.filter(p => p.navn !== place.navn);
   customPlaces.push(place);
-  // Ryd localStorage (vi bruger ikke det til steder længere)
   localStorage.removeItem("customPlaces");
   console.log(`✅ Custom place tilføjet i hukommelse: "${place.navn}"`);
 }
@@ -1818,8 +1820,12 @@ searchInput.addEventListener("keydown", function(e) {
   } else if (e.key === "Enter") {
     if (searchItems.length === 0) return;
     e.preventDefault();
-    if (searchCurrentIndex >= 0) {
-      searchItems[searchCurrentIndex].click();
+    const idx = searchCurrentIndex >= 0 ? searchCurrentIndex : 0;
+    const target = searchItems[idx];
+    if (target) {
+      // Click handler sidder på span (labelSpan) inde i li'en
+      const span = target.querySelector("span");
+      if (span) span.click(); else target.click();
     }
   } else if (e.key === "Backspace") {
     // Når feltet bliver tømt med backspace, skal resultatliste, markør og infobokse væk
