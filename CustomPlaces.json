@@ -4,12 +4,11 @@
     "kategori": "",
     "navn": "",
     "kortnavn": "",
-    "lat": 0.0,
-    "lon": 0.0,
+    "lat": 0,
+    "lon": 0,
     "adresse": "",
     "template": true
   },
-
   {
     "id": "solhjulet",
     "kategori": "sted",
@@ -18,5 +17,14 @@
     "lat": 55.863062,
     "lon": 9.253179,
     "adresse": "Vejlevej 210, 7323 Give"
+  },
+  {
+    "id": "test_1_1778482652978",
+    "kategori": "sevaerdighed",
+    "navn": "test 1",
+    "kortnavn": "test 1",
+    "lat": 55.858936,
+    "lon": 9.266453,
+    "adresse": ""
   }
 ]
