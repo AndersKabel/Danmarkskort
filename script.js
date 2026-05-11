@@ -950,14 +950,20 @@ function _cpOpenModal() {
 }
 
 document.getElementById("cpModalClose").addEventListener("click", _cpCloseModal);
-document.getElementById("cpModalClose2").addEventListener("click", _cpCloseModal);
+const _cpClose2 = document.getElementById("cpModalClose2");
+if (_cpClose2) _cpClose2.addEventListener("click", _cpCloseModal);
+const _cpHintCancel = document.getElementById("cpMapHintCancel");
+if (_cpHintCancel) _cpHintCancel.addEventListener("click", function() { _cpSetPickMode(false); });
 document.getElementById("cpModal").addEventListener("click", function(e) {
   if (e.target === this) _cpCloseModal();
 });
 
 function _cpCloseModal() {
-  _cpSetPickMode(false);
-  document.getElementById("cpModal").style.display = "none";
+  _cpPickMode = false;
+  document.getElementById("cpModal").style.display    = "none";
+  const hint = document.getElementById("cpMapHint");
+  if (hint) hint.style.display = "none";
+  map.getContainer().style.cursor = "";
 }
 
 // Klik-på-kort til koordinater
@@ -967,19 +973,20 @@ document.getElementById("cpPickBtn").addEventListener("click", function() {
 
 function _cpSetPickMode(on) {
   _cpPickMode = on;
-  document.getElementById("cpModal").style.display    = on ? "none"  : "flex";
-  document.getElementById("cpMapHint").style.display  = on ? "flex"  : "none";
-  map.getContainer().style.cursor                     = on ? "crosshair" : "";
+  document.getElementById("cpModal").style.display = on ? "none" : "flex";
+  const hint = document.getElementById("cpMapHint");
+  if (hint) hint.style.display = on ? "block" : "none";
+  map.getContainer().style.cursor = on ? "crosshair" : "";
 }
 
 map.on("click", function(e) {
   if (!_cpPickMode) return;
   document.getElementById("cpLat").value = e.latlng.lat.toFixed(6);
   document.getElementById("cpLon").value = e.latlng.lng.toFixed(6);
-  _cpSetPickMode(false);
+  _cpSetPickMode(false); // Viser modal + skjuler hint
 });
 
-// Gem sted + download JSON automatisk
+// Gem sted
 document.getElementById("cpGem").addEventListener("click", function() {
   const navn     = document.getElementById("cpNavn").value.trim();
   const kategori = document.getElementById("cpKategori").value;
@@ -996,7 +1003,7 @@ document.getElementById("cpGem").addEventListener("click", function() {
     kategori, navn, kortnavn: navn, lat, lon, adresse: ""
   };
   addCustomPlace(place);
-  exportCustomPlaces(); // Download opdateret JSON automatisk
+  exportCustomPlaces(); // Auto-download opdateret JSON
 
   ["cpNavn","cpLat","cpLon"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("cpKategori").value = "sevaerdighed";
@@ -1004,7 +1011,7 @@ document.getElementById("cpGem").addEventListener("click", function() {
 });
 
 // Eksportér
-
+const _cpExportEl = document.getElementById("cpExport"); if (_cpExportEl) _cpExportEl.addEventListener("click", exportCustomPlaces);
 
 map.on('overlayadd', function(e) {
   if (e.layer === dbSmsLayer) {
@@ -1194,6 +1201,7 @@ map.on("overlayadd", function(event) {
  * Klik på kort => reverse geocoding
  ***************************************************/
 map.on('click', function(e) {
+  if (_cpPickMode) return; // Koordinat-valg aktiv
   let lat = e.latlng.lat;
   let lon = e.latlng.lng;
 
@@ -2429,6 +2437,35 @@ function doSearch(query, listElement) {
       }
       li.appendChild(labelSpan);
 
+      // ⭐ Gem-knap på adresser og stednavne (ikke custom, strandpost, vej)
+      if (obj.type === "adresse" || obj.type === "stednavn") {
+        const gemBtn = document.createElement("button");
+        gemBtn.title = "Gem som custom place";
+        gemBtn.innerHTML = "⭐";
+        gemBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0;opacity:0.5;";
+        gemBtn.addEventListener("mouseenter", () => gemBtn.style.opacity = "1");
+        gemBtn.addEventListener("mouseleave", () => gemBtn.style.opacity = "0.5");
+        gemBtn.addEventListener("click", async function(e) {
+          e.stopPropagation();
+          const navn = prompt("Navn til custom place:", obj.tekst || obj.navn || "");
+          if (!navn) return;
+          let lat = null, lon = null, adresse = "";
+          if (obj.type === "adresse" && obj.adgangsadresse?.id) {
+            try {
+              const d = await fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`).then(r => r.json());
+              [lon, lat] = d.adgangspunkt.koordinater;
+              adresse = obj.tekst || "";
+            } catch {}
+          } else if (obj.type === "stednavn" && obj.geometry?.coordinates) {
+            const coords = obj.geometry.coordinates;
+            if (Array.isArray(coords) && coords.length === 2) { lon = coords[0]; lat = coords[1]; }
+            adresse = "";
+          }
+          if (!lat || !lon) { alert("Kunne ikke hente koordinater."); return; }
+          addCustomPlace({ navn, adresse, lat, lon });
+        });
+        li.appendChild(gemBtn);
+      }
 
       labelSpan.addEventListener("click", function() {
                 if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
