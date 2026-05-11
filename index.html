@@ -178,5 +178,49 @@
   
   <!-- Overlay til kommunekode og vejkode (gennemsigtigt designet i CSS) -->
   <div id="kommuneOverlay"></div>
+
+  <!-- Custom Place modal -->
+  <div id="cpModal" class="cp-modal-overlay" style="display:none;">
+    <div class="cp-modal">
+      <div class="cp-modal-header">
+        <span>⭐ Nyt custom place</span>
+        <button id="cpModalClose" class="cp-modal-close">✕</button>
+      </div>
+      <div class="cp-modal-body">
+        <label>Navn <span class="cp-req">*</span>
+          <input type="text" id="cpNavn" placeholder="Solhjulet" autocomplete="off">
+        </label>
+        <label>Kortnavn
+          <input type="text" id="cpKortnavn" placeholder="Solhjulet (vises på markør)">
+        </label>
+        <label>Adresse
+          <input type="text" id="cpAdresse" placeholder="Vejlevej 210, 7323 Give">
+        </label>
+        <label>Kategori
+          <select id="cpKategori">
+            <option value="sted">sted</option>
+            <option value="virksomhed">virksomhed</option>
+            <option value="institution">institution</option>
+            <option value="andet">andet</option>
+          </select>
+        </label>
+        <div class="cp-coord-row">
+          <label>Lat
+            <input type="number" id="cpLat" step="any" placeholder="55.863062">
+          </label>
+          <label>Lon
+            <input type="number" id="cpLon" step="any" placeholder="9.253179">
+          </label>
+          <button id="cpPickBtn" title="Klik på kortet for at hente koordinater">📍 Klik på kort</button>
+        </div>
+        <p id="cpPickHint" class="cp-hint" style="display:none;">Klik nu på kortet for at sætte koordinaterne…</p>
+        <p id="cpError" class="cp-error" style="display:none;"></p>
+      </div>
+      <div class="cp-modal-footer">
+        <button id="cpGem" class="cp-btn-primary">⭐ Gem sted</button>
+        <button id="cpExport" class="cp-btn-secondary">⬇ Eksportér JSON</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
