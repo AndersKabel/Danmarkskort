@@ -581,7 +581,7 @@ function addCustomPlace(place) {
   local.push(place);
   _cpSaveLocal(local);
   customPlaces = [...customPlaces, place];
-  alert(`✅ "${place.navn}" gemt lokalt.\n\nBrug "Eksportér custom places" for at tilføje til repo-filen.`);
+  console.log(`✅ Custom place gemt: "${place.navn}"`);
 }
 
 // Eksportér alle gemte steder som JSON (download)
@@ -936,6 +936,95 @@ if (weatherRainLayer) {
   overlayMaps["Regn (OWM)"] = weatherRainLayer;
 }
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+
+// ── Custom Place Leaflet-kontrolknap ─────────────────────────────
+(function() {
+  const CpControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd: function() {
+      const btn = L.DomUtil.create('button', 'cp-leaflet-btn');
+      btn.title = "Tilføj custom place";
+      btn.innerHTML = "⭐";
+      L.DomEvent.disableClickPropagation(btn);
+      L.DomEvent.on(btn, 'click', _cpOpenModal);
+      return btn;
+    }
+  });
+  new CpControl().addTo(map);
+})();
+
+// ── Custom Place modal-logik ──────────────────────────────────────
+let _cpPickMode = false;
+
+function _cpOpenModal() {
+  document.getElementById("cpModal").style.display = "flex";
+  document.getElementById("cpError").style.display = "none";
+  document.getElementById("cpPickHint").style.display = "none";
+}
+
+document.getElementById("cpModalClose").addEventListener("click", _cpCloseModal);
+document.getElementById("cpModal").addEventListener("click", function(e) {
+  if (e.target === this) _cpCloseModal();
+});
+
+function _cpCloseModal() {
+  _cpSetPickMode(false);
+  document.getElementById("cpModal").style.display = "none";
+}
+
+// Klik-på-kort til koordinater
+document.getElementById("cpPickBtn").addEventListener("click", function() {
+  _cpSetPickMode(!_cpPickMode);
+});
+
+function _cpSetPickMode(on) {
+  _cpPickMode = on;
+  const btn  = document.getElementById("cpPickBtn");
+  const hint = document.getElementById("cpPickHint");
+  btn.classList.toggle("active", on);
+  btn.textContent = on ? "✕ Annullér" : "📍 Klik på kort";
+  hint.style.display = on ? "block" : "none";
+  map.getContainer().style.cursor = on ? "crosshair" : "";
+}
+
+map.on("click", function(e) {
+  if (!_cpPickMode) return;
+  document.getElementById("cpLat").value = e.latlng.lat.toFixed(6);
+  document.getElementById("cpLon").value = e.latlng.lng.toFixed(6);
+  _cpSetPickMode(false);
+  document.getElementById("cpModal").style.display = "flex"; // ensure modal stays open
+});
+
+// Gem sted
+document.getElementById("cpGem").addEventListener("click", function() {
+  const navn     = document.getElementById("cpNavn").value.trim();
+  const kortnavn = document.getElementById("cpKortnavn").value.trim();
+  const adresse  = document.getElementById("cpAdresse").value.trim();
+  const kategori = document.getElementById("cpKategori").value;
+  const lat      = parseFloat(document.getElementById("cpLat").value);
+  const lon      = parseFloat(document.getElementById("cpLon").value);
+  const errEl    = document.getElementById("cpError");
+
+  if (!navn) { errEl.textContent = "Navn er påkrævet."; errEl.style.display = "block"; return; }
+  if (isNaN(lat) || isNaN(lon)) { errEl.textContent = "Koordinater mangler — brug 📍 Klik på kort."; errEl.style.display = "block"; return; }
+  errEl.style.display = "none";
+
+  const place = {
+    id:       navn.toLowerCase().replace(/[^a-z0-9]/g, "_") + "_" + Date.now(),
+    kategori, navn,
+    kortnavn: kortnavn || navn,
+    lat, lon, adresse
+  };
+  addCustomPlace(place);
+
+  // Nulstil form
+  ["cpNavn","cpKortnavn","cpAdresse","cpLat","cpLon"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("cpKategori").value = "sted";
+  _cpCloseModal();
+});
+
+// Eksportér
+document.getElementById("cpExport").addEventListener("click", exportCustomPlaces);
 
 map.on('overlayadd', function(e) {
   if (e.layer === dbSmsLayer) {
