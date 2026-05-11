@@ -552,14 +552,3 @@
   border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 13px;
 }
 .cp-btn-secondary:hover { background: #dce1e4; }
-
-/* ── Custom Place Leaflet-knap ─────────────────────────────────── */
-.cp-leaflet-btn {
-  background: white; border-radius: 4px;
-  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-  width: 30px; height: 30px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 16px; border: none;
-  transition: background 0.15s;
-}
-.cp-leaflet-btn:hover { background: #f4f4f4; }
