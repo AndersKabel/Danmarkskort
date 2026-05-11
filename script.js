@@ -689,30 +689,37 @@ function exportCustomPlaces() {
 // Hent fra repo-fil (hvis den findes) og merge med lokale
 fetch("CustomPlaces.json")
   .then(response => {
-    if (!response.ok) return null;   // Filen findes ikke — det er OK
-    return response.json();
+    if (!response.ok) {
+      console.warn("CustomPlaces.json ikke fundet (HTTP " + response.status + ")");
+      return null;
+    }
+    return response.text(); // Hent som tekst først så vi kan fange parse-fejl
   })
-  .then(data => {
-    if (!data) {
-      // Ingen repo-fil — brug kun lokale
+  .then(text => {
+    if (!text) { customPlaces = _cpLoadLocal(); return; }
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch(parseErr) {
+      console.error("❌ CustomPlaces.json er ugyldig JSON:", parseErr.message);
+      console.error("Fil-indhold (første 200 tegn):", text.slice(0, 200));
       customPlaces = _cpLoadLocal();
       return;
     }
-    if (!Array.isArray(data)) { console.error("CustomPlaces.json indeholder ikke et array"); return; }
+    if (!Array.isArray(data)) { console.error("CustomPlaces.json er ikke et array:", typeof data); return; }
     const fromFile = data.filter(p => !p.template && !p.isTemplate).map(p => {
       if (typeof p.lat === "number" && typeof p.lon === "number") p.coords = [p.lat, p.lon];
       return p;
     });
-    // Merge: lokale steder der IKKE allerede er i filen (på navn eller koordinater)
     const local = _cpLoadLocal();
     const extra = local.filter(lp => !fromFile.some(fp =>
       fp.navn?.toLowerCase() === lp.navn?.toLowerCase() ||
       (Math.abs(fp.lat - lp.lat) < 0.001 && Math.abs(fp.lon - lp.lon) < 0.001)
     ));
     customPlaces = [...fromFile, ...extra];
-    console.log(`Custom places: ${fromFile.length} fra fil, ${extra.length} lokale`);
+    console.log("✅ Custom places loadet:", customPlaces.map(p => p.navn));
   })
-  .catch(err => console.warn("CustomPlaces: netværksfejl:", err.message));
+  .catch(err => console.warn("CustomPlaces netværksfejl:", err.message));
 
 /***************************************************
  * Hjælpefunktion til at kopiere tekst til clipboard
@@ -828,7 +835,7 @@ var osmLayer = L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
     maxZoom: 19,
-    attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur,© CVR API"
+    attribution: '© <a href="https://bykabel.dk" target="_blank">ByKabel</a> | © OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur, © CVR API'
   }
 ).addTo(map);
 
@@ -847,40 +854,60 @@ var ortofotoLayer = L.tileLayer.wms(
  * Vejrlag – OpenWeatherMap tiles
  * Kræver egen API-nøgle fra https://openweathermap.org/api
  ***************************************************/
-const OWM_API_KEY = "71886b99dfc71fdd19c9825cf0b995c1"; // <-- indsæt din nøgle her som STRING
+// ── Vejrlag ──────────────────────────────────────────────────────
+// RainViewer: gratis nedbørsradar, ingen API-nøgle, opdateret hvert 10. min
+var rainViewerLayer = null;
+var rainViewerTimestamp = null;
 
-// Nedbør, temperatur og (valgfrit) kraftig regn
-var weatherPrecipLayer = null;   // nedbør (som du har nu)
-var weatherTempLayer   = null;   // temperatur
-var weatherRainLayer   = null;   // mere "radar-agtig" regn (valgfri)
+async function initRainViewer() {
+  try {
+    const resp = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+    const data = await resp.json();
+    const frames = data.radar?.past || [];
+    if (!frames.length) return;
+    const latest = frames[frames.length - 1];
+    rainViewerTimestamp = latest.time;
+    rainViewerLayer = L.tileLayer(
+      `https://tilecache.rainviewer.com${latest.path}/512/{z}/{x}/{y}/4/1_1.png`,
+      { opacity: 0.7, attribution: "Nedbørsradar © RainViewer", tileSize: 512, zoomOffset: -1 }
+    );
+    // Opdater hvert 10. min automatisk
+    setInterval(async () => {
+      try {
+        const r2 = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+        const d2 = await r2.json();
+        const f2 = d2.radar?.past || [];
+        if (!f2.length) return;
+        const last = f2[f2.length - 1];
+        if (last.time === rainViewerTimestamp) return;
+        rainViewerTimestamp = last.time;
+        if (map.hasLayer(rainViewerLayer)) {
+          const newLayer = L.tileLayer(
+            `https://tilecache.rainviewer.com${last.path}/512/{z}/{x}/{y}/4/1_1.png`,
+            { opacity: 0.7, attribution: "Nedbørsradar © RainViewer", tileSize: 512, zoomOffset: -1 }
+          );
+          map.addLayer(newLayer);
+          map.removeLayer(rainViewerLayer);
+          rainViewerLayer = newLayer;
+        }
+      } catch(e) {}
+    }, 10 * 60 * 1000);
+    console.log("✅ RainViewer nedbørsradar klar");
+  } catch(err) {
+    console.warn("RainViewer kunne ikke initialiseres:", err.message);
+  }
+}
+initRainViewer();
 
-// Opret vejrlag hvis der faktisk står en nøgle
+// OWM temperatur (stadig nyttig som supplement)
+const OWM_API_KEY = "71886b99dfc71fdd19c9825cf0b995c1";
+var weatherTempLayer = null;
+var weatherPrecipLayer = null;  // beholdes for kompatibilitet
+var weatherRainLayer = null;    // beholdes for kompatibilitet
 if (OWM_API_KEY && OWM_API_KEY.trim() !== "") {
-  // Nedbør (modelbaseret nedbør / skyer)
-  weatherPrecipLayer = L.tileLayer(
-    `https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`,
-    {
-      opacity: 0.7,
-      attribution: "Vejrdata © OpenWeatherMap"
-    }
-  );
-
-  // Temperatur – farvekort over temperatur i overfladen
   weatherTempLayer = L.tileLayer(
     `https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`,
-    {
-      opacity: 0.7,
-      attribution: "Vejrdata © OpenWeatherMap"
-    }
-  );
-
-  // Kraftigere regn (valgfri) – kan kommenteres ud hvis du ikke vil have den
-  weatherRainLayer = L.tileLayer(
-    `https://tile.openweathermap.org/map/rain_new/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`,
-    {
-      opacity: 0.7,
-      attribution: "Vejrdata © OpenWeatherMap"
-    }
+    { opacity: 0.5, attribution: "Temperatur © OpenWeatherMap" }
   );
 }
 
@@ -1015,16 +1042,25 @@ const overlayMaps = {
   "Behold markører": keepMarkersLayer
 };
 // Tilføj vejrlag, hvis API-nøgle er sat
-if (weatherPrecipLayer) {
-  overlayMaps["Nedbør (OWM)"] = weatherPrecipLayer;
-}
+// RainViewer tilføjes når det er loadet (async)
+// overlayMaps["Nedbørsradar (RainViewer)"] sættes dynamisk nedenfor
 if (weatherTempLayer) {
   overlayMaps["Temperatur (OWM)"] = weatherTempLayer;
 }
-if (weatherRainLayer) {
-  overlayMaps["Regn (OWM)"] = weatherRainLayer;
-}
-L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+
+// Tilføj RainViewer til lag-kontrollen når det er klar
+const _rvInterval = setInterval(() => {
+  if (rainViewerLayer) {
+    clearInterval(_rvInterval);
+    overlayMaps["🌧 Nedbørsradar"] = rainViewerLayer;
+    // Genbyg lag-kontrollen med det nye lag
+    // (simpelt: tilføj direkte hvis map allerede viser kontrol)
+    if (typeof layerControl !== "undefined") {
+      layerControl.addOverlay(rainViewerLayer, "🌧 Nedbørsradar");
+    }
+  }
+}, 500);
+const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 
 // ── Custom Place knap ────────────────────────────────────────────
 document.getElementById("cpOpenBtn").addEventListener("click", _cpOpenModal);
@@ -1118,10 +1154,13 @@ document.getElementById("cpGem").addEventListener("click", async function() {
 map.on('overlayadd', function(e) {
   if (e.layer === dbSmsLayer) {
     window.open('https://kort.dyrenesbeskyttelse.dk/db/dvc.nsf/kort', '_blank');
-    map.removeLayer(dbSmsLayer);
+    // setTimeout: undgår Leaflet bug hvor sync removeLayer forstyrrer layer control state
+    setTimeout(() => map.removeLayer(dbSmsLayer), 50);
   } else if (e.layer === dbJournalLayer) {
     window.open('https://dvc.dyrenesbeskyttelse.dk/db/dvc.nsf/Efter%20journalnr?OpenView', '_blank');
-    map.removeLayer(dbJournalLayer);
+    setTimeout(() => map.removeLayer(dbJournalLayer), 50);
+  } else if (e.name === "Strandposter" || e.layer === redningsnrLayer) {
+    if (allStrandposter.length === 0) fetchAllStrandposter();
   } else if (e.layer === chargeMapLayer) {
     if (!selectedRadius) {
       alert("Vælg radius først");
@@ -1287,17 +1326,7 @@ function fetchAllStrandposter() {
       console.error("Fejl ved hentning af lokal strandposter-fil:", err);
     });
 }
-map.on("overlayadd", function(event) {
-  if (event.name === "Strandposter") {
-    console.log("Strandposter laget er tilføjet.");
-    if (allStrandposter.length === 0) {
-      console.log("Henter strandposter-data første gang...");
-      fetchAllStrandposter();
-    } else {
-      console.log("Strandposter-data allerede hentet.");
-    }
-  }
-});
+// Strandposter-logik håndteres i overlayadd-handleren ovenfor
 
 /***************************************************
  * Klik på kort => reverse geocoding
@@ -2362,6 +2391,7 @@ function quickStrandSearch(query) {
  * navngivne veje, strandposter og udenlandske ORS-adresser
  ***************************************************/
 function doSearch(query, listElement) {
+  console.log("doSearch:", JSON.stringify(query), "| customPlaces:", customPlaces.length, customPlaces.map(p=>p.navn));
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=50`;
   let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=50&token=a63a88838c24fc85d47f32cde0ec0144`;
   const queryWithWildcard = query.trim().split(/\s+/).map(w => w + "*").join(" ");
@@ -2390,6 +2420,34 @@ function doSearch(query, listElement) {
         data: p
       };
     });
+
+  // Vis custom places ØJEBLIKKELIGT (inden DAWA svarer)
+  if (customResults.length > 0) {
+    listElement.innerHTML = "";
+    searchItems = [];
+    customResults.forEach(function(obj) {
+      let li = document.createElement("li");
+      li.style.cssText = "display:flex;align-items:center;gap:6px;";
+      let labelSpan = document.createElement("span");
+      labelSpan.style.flex = "1";
+      let extra = obj.adresse ? " – " + obj.adresse : "";
+      labelSpan.innerHTML = `⭐ ${obj.navn}${extra}`;
+      labelSpan.addEventListener("click", function() {
+        searchInput.value = obj.navn;
+        listElement.innerHTML = "";
+        listElement.style.display = "none";
+        searchItems = [];
+        if (obj.coords) {
+          let [lat, lon] = obj.coords;
+          placeMarkerAndZoom([lat, lon], obj.navn);
+        }
+      });
+      li.appendChild(labelSpan);
+      listElement.appendChild(li);
+      searchItems.push(li);
+    });
+    listElement.style.display = "block";
+  }
 
   // Udlands-tilstand styres af checkboxen (Udland)
   const foreignToggleEl =
@@ -3107,6 +3165,14 @@ document.getElementById("btn100").addEventListener("click", function() {
  ***************************************************/
 document.addEventListener("DOMContentLoaded", function() {
   const s = document.getElementById("search");
+
+  // Sæt tilfældig autocomplete-værdi på ALLE søgefelter ved hvert sideload.
+  // Chrome kan ikke opbygge historik for et felt der hedder noget nyt hver gang.
+  const rnd = () => "x-" + Math.random().toString(36).slice(2);
+  ["search","routeFrom","routeTo","routeVia","vej1","vej2"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute("autocomplete", rnd());
+  });
 
   // Auto-fokus ved sideload
   s.focus();
