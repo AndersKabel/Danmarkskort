@@ -26,5 +26,14 @@
     "lat": 55.858936,
     "lon": 9.266453,
     "adresse": ""
+  },
+  {
+    "id": "test_2_1778482689525",
+    "kategori": "sevaerdighed",
+    "navn": "test 2",
+    "kortnavn": "test 2",
+    "lat": 55.86568,
+    "lon": 9.306278,
+    "adresse": ""
   }
 ]
