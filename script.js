@@ -937,21 +937,8 @@ if (weatherRainLayer) {
 }
 L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 
-// ── Custom Place Leaflet-kontrolknap ─────────────────────────────
-(function() {
-  const CpControl = L.Control.extend({
-    options: { position: 'topright' },
-    onAdd: function() {
-      const btn = L.DomUtil.create('button', 'cp-leaflet-btn');
-      btn.title = "Tilføj custom place";
-      btn.innerHTML = "⭐";
-      L.DomEvent.disableClickPropagation(btn);
-      L.DomEvent.on(btn, 'click', _cpOpenModal);
-      return btn;
-    }
-  });
-  new CpControl().addTo(map);
-})();
+// ── Custom Place knap ────────────────────────────────────────────
+document.getElementById("cpOpenBtn").addEventListener("click", _cpOpenModal);
 
 // ── Custom Place modal-logik ──────────────────────────────────────
 let _cpPickMode = false;
