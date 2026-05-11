@@ -40,7 +40,7 @@
       <!-- ØVERSTE LINJE: Hoved-søg + Rute-knap -->
       <div class="flex-row">
   <div class="search-wrapper">
-    <input type="text" id="search" placeholder="Søg efter adresse eller sted..." autocomplete="off">
+    <input type="text" id="search" placeholder="Søg efter adresse eller sted...">
     <span class="clear-button" id="clearSearch">&times;</span>
   </div>
   <button id="routeToggleBtn" style="width:80px; height:40px; font-size:14px; cursor:pointer;">
@@ -170,15 +170,6 @@
     <button id="btn100" class="distance-btn">100 km</button>
   </div>
 
-  <!-- Proj4js til koordinat-transformation -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
-
-  <!-- Din egen script-fil -->
-  <script src="script.js"></script>
-  <script src="leverandoer-modul.js"></script>
-  
-  <!-- Overlay til kommunekode og vejkode (gennemsigtigt designet i CSS) -->
-  <div id="kommuneOverlay"></div>
 
   <!-- Custom Place modal -->
   <div id="cpModal" class="cp-modal-overlay" style="display:none;">
@@ -223,5 +214,15 @@
       </div>
     </div>
   </div>
+
+  <!-- Proj4js til koordinat-transformation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
+
+  <!-- Din egen script-fil -->
+  <script src="script.js"></script>
+  <script src="leverandoer-modul.js"></script>
+  
+  <!-- Overlay til kommunekode og vejkode (gennemsigtigt designet i CSS) -->
+  <div id="kommuneOverlay"></div>
 </body>
 </html>
