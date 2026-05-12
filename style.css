@@ -564,3 +564,32 @@
 /* Skjul Chrome's native search-cancel-knap (vi har vores egen) */
 input[type="search"]::-webkit-search-cancel-button,
 input[type="search"]::-webkit-search-decoration { display: none; }
+
+/* Søgefelt: undgå grå farve når readonly (Chrome autofill-trick) */
+#search[readonly] { background: #fff; color: inherit; cursor: text; }
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration { display: none; }
+
+/* ── DMI temperatur labels ───────────────────────────────────────── */
+.dmi-temp-label {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1a1a;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+  white-space: nowrap;
+}
+
+/* ── VD trafik ikoner ───────────────────────────────────────────── */
+.vd-trafik-ikon {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 50%;
+  border: 2px solid #c0392b;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  cursor: pointer;
+}
