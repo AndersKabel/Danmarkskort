@@ -1615,12 +1615,22 @@ async function updateInfoBox(data, lat, lon) {
     statsvejInfoEl.innerHTML = html;
 
     if (hasStatsvej) {
-      const kmText = await getKmAtPoint(lat, lon, statsvejData);
-      if (kmText) {
-        statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
+      // Vis FRAKMT øjeblikkeligt som foreløbig km (fra WMS-data)
+      const fraKmt = statsvejData?.FRAKMT ?? statsvejData?.frakmt;
+      if (fraKmt) {
+        statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> <span id="kmSpan">~${fraKmt}</span>`;
+      } else {
+        statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> <span id="kmSpan">henter...</span>`;
       }
+      document.getElementById("statsvejInfoBox").style.display = "block";
+
+      // Hent præcis km fra proxy asynkront og opdater
+      getKmAtPoint(lat, lon, statsvejData).then(kmText => {
+        const kmSpan = document.getElementById("kmSpan");
+        if (kmSpan && kmText) kmSpan.textContent = kmText;
+        else if (kmSpan && !kmText && fraKmt) kmSpan.textContent = fraKmt;
+      });
     }
-    document.getElementById("statsvejInfoBox").style.display = "block";
   } else {
     statsvejInfoEl.innerHTML = "";
     document.getElementById("statsvejInfoBox").style.display = "none";
@@ -3103,61 +3113,36 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
     const stats = statsvejData || await checkForStatsvej(lat, lon);
     if (!stats) return "";
 
-    // FRAKMT og TILKMT kommer direkte fra WMS-svaret — ingen proxy nødvendig!
-    const frakmt = stats?.FRAKMT ?? stats?.frakmt ?? stats?.FraKmt;
-    if (frakmt) return String(frakmt);
-
-    const tilkmt = stats?.TILKMT ?? stats?.tilkmt ?? stats?.TilKmt;
-    if (tilkmt) return String(tilkmt);
-
-    // Fallback: beregn via proxy hvis WMS ikke gav km-data
-    const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const roadNumber = stats?.ADM_NR ?? stats?.adm_nr ?? null;
+    const roadNumber = stats?.ADM_NR   ?? stats?.adm_nr   ?? null;
     const roadPart   = stats?.FORGRENING ?? stats?.forgrening ?? 0;
-
     if (!roadNumber) return "";
 
-    const url =
-      `${VD_PROXY}/reference` +
+    const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+
+    // Kald search.vd.dk direkte — præcis som CVF (hvem ejer vejen) gør
+    const url = `https://search.vd.dk/search/referencing/reference` +
       `?geometry=POINT(${x}%20${y})` +
-      `&srs=EPSG:25832` +
       `&roadNumber=${roadNumber}` +
-      `&roadPart=${roadPart}` +
-      `&format=json`;
+      `&roadPart=${roadPart}`;
 
     const resp = await fetch(url, { cache: "no-store" });
-    if (!resp.ok) return "";
+    if (!resp.ok) return stats?.FRAKMT ?? "";
 
     const data = await resp.json();
-    console.log("🔍 VD reference svar:", JSON.stringify(data).slice(0, 500));
-    const props =
-      data?.properties ??
-      data?.feature?.properties ??
-      data?.features?.[0]?.properties ??
-      data;
 
-    const from = props?.from ?? props?.FROM ?? props?.fra ?? props?.at ?? null;
-    const to   = props?.to   ?? props?.TO   ?? props?.til ?? null;
-
-    const kmtText =
-      from?.kmtText ?? from?.KMTTEXT ?? from?.Kmt ?? from?.KMT ?? from?.kmt ??
-      to?.kmtText   ?? to?.KMTTEXT   ?? to?.Kmt   ?? to?.TilKmt ?? to?.TILKMT ??
-      props?.kmtText ?? props?.KMTEKST ?? props?.kmtekst ??
-      props?.KM_TEXT ?? props?.km_text ?? props?.kmtegn ??
-      props?.Kmt ?? props?.KMT ?? props?.kmt ??
-      props?.FRAKMT ?? props?.frakmt ??
-      null;
-
+    // Præcis km fra response (fra.kmtText = "74/0718")
+    const kmtText = data?.from?.kmtText ?? data?.to?.kmtText ?? null;
     if (kmtText) return String(kmtText);
 
-    const km = (from?.km ?? props?.km ?? props?.KM ?? null);
-    const m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
+    // Beregn fra km + m hvis kmtText mangler
+    const km = data?.from?.km ?? null;
+    const m  = data?.from?.m  ?? null;
     if (km != null && m != null) return `${km}/${String(m).padStart(4, "0")}`;
 
-    return "";
+    return stats?.FRAKMT ?? "";
   } catch (e) {
     console.error("getKmAtPoint fejl:", e);
-    return "";
+    return statsvejData?.FRAKMT ?? "";
   }
 }
 
