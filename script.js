@@ -1083,7 +1083,7 @@ var kommunegrænserLayer = L.geoJSON(null, {
 });
 var kommuneGeoJSON = null;
 
-fetch("https://api.dataforsyningen.dk/kommuner?format=geojson")
+fetch("https://ors-owm-proxy.anderskabel8.workers.dev/kommuner")
   .then(response => response.json())
   .then(data => {
     kommunegrænserLayer.addData(data);
@@ -1615,20 +1615,12 @@ async function updateInfoBox(data, lat, lon) {
     statsvejInfoEl.innerHTML = html;
 
     if (hasStatsvej) {
-      // Vis FRAKMT øjeblikkeligt som foreløbig km (fra WMS-data)
-      const fraKmt = statsvejData?.FRAKMT ?? statsvejData?.frakmt;
-      if (fraKmt) {
-        statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> <span id="kmSpan">~${fraKmt}</span>`;
-      } else {
-        statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> <span id="kmSpan">henter...</span>`;
-      }
+      // Hent præcis km fra proxy — vis kun når vi har det eksakte svar
       document.getElementById("statsvejInfoBox").style.display = "block";
-
-      // Hent præcis km fra proxy asynkront og opdater
       getKmAtPoint(lat, lon, statsvejData).then(kmText => {
-        const kmSpan = document.getElementById("kmSpan");
-        if (kmSpan && kmText) kmSpan.textContent = kmText;
-        else if (kmSpan && !kmText && fraKmt) kmSpan.textContent = fraKmt;
+        if (kmText) {
+          statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
+        }
       });
     }
   } else {
