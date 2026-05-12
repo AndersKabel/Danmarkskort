@@ -689,37 +689,30 @@ function exportCustomPlaces() {
 // Hent fra repo-fil (hvis den findes) og merge med lokale
 fetch("CustomPlaces.json")
   .then(response => {
-    if (!response.ok) {
-      console.warn("CustomPlaces.json ikke fundet (HTTP " + response.status + ")");
-      return null;
-    }
-    return response.text(); // Hent som tekst først så vi kan fange parse-fejl
+    if (!response.ok) return null;   // Filen findes ikke — det er OK
+    return response.json();
   })
-  .then(text => {
-    if (!text) { customPlaces = _cpLoadLocal(); return; }
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch(parseErr) {
-      console.error("❌ CustomPlaces.json er ugyldig JSON:", parseErr.message);
-      console.error("Fil-indhold (første 200 tegn):", text.slice(0, 200));
+  .then(data => {
+    if (!data) {
+      // Ingen repo-fil — brug kun lokale
       customPlaces = _cpLoadLocal();
       return;
     }
-    if (!Array.isArray(data)) { console.error("CustomPlaces.json er ikke et array:", typeof data); return; }
+    if (!Array.isArray(data)) { console.error("CustomPlaces.json indeholder ikke et array"); return; }
     const fromFile = data.filter(p => !p.template && !p.isTemplate).map(p => {
       if (typeof p.lat === "number" && typeof p.lon === "number") p.coords = [p.lat, p.lon];
       return p;
     });
+    // Merge: lokale steder der IKKE allerede er i filen (på navn eller koordinater)
     const local = _cpLoadLocal();
     const extra = local.filter(lp => !fromFile.some(fp =>
       fp.navn?.toLowerCase() === lp.navn?.toLowerCase() ||
       (Math.abs(fp.lat - lp.lat) < 0.001 && Math.abs(fp.lon - lp.lon) < 0.001)
     ));
     customPlaces = [...fromFile, ...extra];
-    console.log("✅ Custom places loadet:", customPlaces.map(p => p.navn));
+    console.log(`Custom places: ${fromFile.length} fra fil, ${extra.length} lokale`);
   })
-  .catch(err => console.warn("CustomPlaces netværksfejl:", err.message));
+  .catch(err => console.warn("CustomPlaces: netværksfejl:", err.message));
 
 /***************************************************
  * Hjælpefunktion til at kopiere tekst til clipboard
@@ -835,7 +828,7 @@ var osmLayer = L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
     maxZoom: 19,
-    attribution: '© <a href="https://bykabel.dk" target="_blank">ByKabel</a> | © OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur, © CVR API'
+    attribution: "© OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur,© CVR API"
   }
 ).addTo(map);
 
@@ -854,182 +847,41 @@ var ortofotoLayer = L.tileLayer.wms(
  * Vejrlag – OpenWeatherMap tiles
  * Kræver egen API-nøgle fra https://openweathermap.org/api
  ***************************************************/
-// ── Vejrlag ──────────────────────────────────────────────────────
-// RainViewer: gratis nedbørsradar, ingen API-nøgle, opdateret hvert 10. min
-var rainViewerLayer = null;
-var rainViewerTimestamp = null;
+const OWM_API_KEY = "71886b99dfc71fdd19c9825cf0b995c1"; // <-- indsæt din nøgle her som STRING
 
-async function initRainViewer() {
-  try {
-    const resp = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-    const data = await resp.json();
-    const frames = data.radar?.past || [];
-    if (!frames.length) return;
-    const latest = frames[frames.length - 1];
-    rainViewerTimestamp = latest.time;
-    rainViewerLayer = L.tileLayer(
-      `https://tilecache.rainviewer.com${latest.path}/512/{z}/{x}/{y}/4/1_1.png`,
-      { opacity: 0.7, attribution: "Nedbørsradar © RainViewer", tileSize: 512, zoomOffset: -1 }
-    );
-    // Opdater hvert 10. min automatisk
-    setInterval(async () => {
-      try {
-        const r2 = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-        const d2 = await r2.json();
-        const f2 = d2.radar?.past || [];
-        if (!f2.length) return;
-        const last = f2[f2.length - 1];
-        if (last.time === rainViewerTimestamp) return;
-        rainViewerTimestamp = last.time;
-        if (map.hasLayer(rainViewerLayer)) {
-          const newLayer = L.tileLayer(
-            `https://tilecache.rainviewer.com${last.path}/512/{z}/{x}/{y}/4/1_1.png`,
-            { opacity: 0.7, attribution: "Nedbørsradar © RainViewer", tileSize: 512, zoomOffset: -1 }
-          );
-          map.addLayer(newLayer);
-          map.removeLayer(rainViewerLayer);
-          rainViewerLayer = newLayer;
-        }
-      } catch(e) {}
-    }, 10 * 60 * 1000);
-    console.log("✅ RainViewer nedbørsradar klar");
-  } catch(err) {
-    console.warn("RainViewer kunne ikke initialiseres:", err.message);
-  }
-}
-initRainViewer();
+// Nedbør, temperatur og (valgfrit) kraftig regn
+var weatherPrecipLayer = null;   // nedbør (som du har nu)
+var weatherTempLayer   = null;   // temperatur
+var weatherRainLayer   = null;   // mere "radar-agtig" regn (valgfri)
 
-// OWM temperatur (stadig nyttig som supplement)
-const OWM_API_KEY = "71886b99dfc71fdd19c9825cf0b995c1";
-var weatherTempLayer = null;
-var weatherPrecipLayer = null;
-var weatherRainLayer = null;
+// Opret vejrlag hvis der faktisk står en nøgle
 if (OWM_API_KEY && OWM_API_KEY.trim() !== "") {
+  // Nedbør (modelbaseret nedbør / skyer)
+  weatherPrecipLayer = L.tileLayer(
+    `https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`,
+    {
+      opacity: 0.7,
+      attribution: "Vejrdata © OpenWeatherMap"
+    }
+  );
+
+  // Temperatur – farvekort over temperatur i overfladen
   weatherTempLayer = L.tileLayer(
     `https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`,
-    { opacity: 0.5, attribution: "Temperatur © OpenWeatherMap" }
-  );
-}
-
-// ── DMI Temperatur ───────────────────────────────────────────────
-// Nyt DMI API (dec 2025) — ingen API-nøgle nødvendig!
-// Gammelt endpoint (dmigw.govcloud.dk) pensioneres 30. juni 2026
-
-var dmiTempLayer    = L.layerGroup();
-var dmiTempInterval = null;
-
-async function loadDmiTemperatur() {
-  try {
-    // Nyt gratis endpoint uden API-nøgle
-    const url = "https://opendataapi.dmi.dk/v2/metObs/collections/observation/items" +
-      "?parameterId=temp_dry&period=latest-hour&limit=300";
-    const resp = await fetch(url);
-    if (!resp.ok) { console.warn("DMI API fejlede:", resp.status); return; }
-    const data = await resp.json();
-
-    dmiTempLayer.clearLayers();
-    (data.features || []).forEach(f => {
-      const temp = f.properties?.value;
-      if (temp == null) return;
-      const [lon, lat] = f.geometry.coordinates;
-      const t = Math.round(temp * 10) / 10;
-      const color = t < 0   ? "#6fb3f7" :
-                    t < 5   ? "#a8d8ea" :
-                    t < 10  ? "#b8e4a1" :
-                    t < 15  ? "#f7e27a" :
-                    t < 20  ? "#f4a147" : "#e84040";
-
-      L.circleMarker([lat, lon], {
-        radius: 14, color: "#fff", weight: 1.5,
-        fillColor: color, fillOpacity: 0.9
-      })
-      .bindTooltip(`${t > 0 ? "+" : ""}${t}°C`, {
-        permanent: true, direction: "center",
-        className: "dmi-temp-label"
-      })
-      .addTo(dmiTempLayer);
-    });
-    console.log(`✅ DMI temperatur opdateret: ${(data.features||[]).length} stationer`);
-  } catch(e) {
-    console.warn("DMI temperatur fejl:", e.message);
-  }
-}
-
-// ── Live Trafik (VD GeoJSON) ─────────────────────────────────────
-// Data hentes fra VDs eget trafikkort via vd-proxy (CORS fix)
-// Ingen API-nøgle nødvendig — samme data som trafikkort.vejdirektoratet.dk
-var vdTrafikLayer    = L.layerGroup();
-var vdTrafikInterval = null;
-var _vdGeoJsonLayers = [];
-
-const VD_TRAFIK_FILER = [
-  // Aktuelle hændelser
-  { file: "current-blocking-roadwork.line.json", ikon: "🚫", label: "Spærring (linje)",    color: "#c0392b", weight: 5 },
-  { file: "current-blocking-roadwork.area.json", ikon: "🚫", label: "Spærring (område)",   color: "#c0392b", weight: 3 },
-  { file: "current-roadwork.line.json",          ikon: "🚧", label: "Vejarbejde",          color: "#e67e22", weight: 4 },
-  { file: "current-queue.line.json",             ikon: "🚗", label: "Kø/Trængsel",         color: "#e74c3c", weight: 5 },
-  // Kommende
-  { file: "future-blocking-roadwork.line.json",  ikon: "📅", label: "Kommende spærring",   color: "#8e44ad", weight: 4 },
-  { file: "future-roadwork.line.json",           ikon: "📅", label: "Kommende vejarbejde", color: "#9b59b6", weight: 3 },
-  // Advarsler
-  { file: "dmi-warnings.json",                   ikon: "⚠️", label: "DMI Advarsel",        color: "#2980b9", weight: 3 },
-];
-
-async function _fetchVdFil(file) {
-  const resp = await fetch(`${VD_PROXY}/trafik/${file}`);
-  if (!resp.ok) throw new Error(`${file}: HTTP ${resp.status}`);
-  return resp.json();
-}
-
-async function loadVdTrafik() {
-  vdTrafikLayer.clearLayers();
-  _vdGeoJsonLayers = [];
-
-  let total = 0;
-  for (const { file, ikon, label, color } of VD_TRAFIK_FILER) {
-    try {
-      const data = await _fetchVdFil(file);
-      if (!data?.features?.length) continue;
-
-      const layer = L.geoJSON(data, {
-        style: { color, weight: 4, opacity: 0.8 },
-        pointToLayer: (f, latlng) => L.circleMarker(latlng, {
-          radius: 8, color, fillColor: color,
-          fillOpacity: 0.9, weight: 2
-        }),
-        onEachFeature: (f, lyr) => {
-          const p = f.properties || {};
-          const titel  = p.title  || p.Title  || p.name || label;
-          const vej    = p.road   || p.Road   || p.vejnavn || "";
-          const fra    = p.startDate || p.StartDate || "";
-          const til    = p.endDate   || p.EndDate   || "";
-          const tekst  = p.description || p.Description || p.text || "";
-          lyr.bindPopup(
-            `<strong>${ikon} ${titel}</strong>` +
-            (vej  ? `<br>📍 ${vej}` : "") +
-            (fra  ? `<br>📅 ${fra.slice(0,10)} → ${til.slice(0,10)}` : "") +
-            (tekst? `<br>${tekst.slice(0,200)}` : "")
-          );
-        }
-      });
-      layer.addTo(vdTrafikLayer);
-      _vdGeoJsonLayers.push(layer);
-      total += data.features.length;
-    } catch(e) {
-      console.warn(`VD Trafik ${file}:`, e.message);
+    {
+      opacity: 0.7,
+      attribution: "Vejrdata © OpenWeatherMap"
     }
-  }
-  console.log(`✅ VD Trafik: ${total} elementer`);
-}
+  );
 
-// Start lag-indlæsning ved overlayadd
-function _startDmiInterval() {
-  loadDmiTemperatur();
-  if (!dmiTempInterval) dmiTempInterval = setInterval(loadDmiTemperatur, 10 * 60 * 1000);
-}
-function _startVdInterval() {
-  loadVdTrafik();
-  if (!vdTrafikInterval) vdTrafikInterval = setInterval(loadVdTrafik, 5 * 60 * 1000);
+  // Kraftigere regn (valgfri) – kan kommenteres ud hvis du ikke vil have den
+  weatherRainLayer = L.tileLayer(
+    `https://tile.openweathermap.org/map/rain_new/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`,
+    {
+      opacity: 0.7,
+      attribution: "Vejrdata © OpenWeatherMap"
+    }
+  );
 }
 
 var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/ows", {
@@ -1163,21 +1015,16 @@ const overlayMaps = {
   "Behold markører": keepMarkersLayer
 };
 // Tilføj vejrlag, hvis API-nøgle er sat
-// RainViewer tilføjes når det er loadet (async)
-if (weatherTempLayer) overlayMaps["Temperatur (OWM)"] = weatherTempLayer;
-overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
-overlayMaps["🚦 Live Trafik (VD)"] = vdTrafikLayer;
-
-const _rvInterval = setInterval(() => {
-  if (rainViewerLayer) {
-    clearInterval(_rvInterval);
-    overlayMaps["🌧 Nedbørsradar"] = rainViewerLayer;
-    if (typeof layerControl !== "undefined") {
-      layerControl.addOverlay(rainViewerLayer, "🌧 Nedbørsradar");
-    }
-  }
-}, 500);
-const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+if (weatherPrecipLayer) {
+  overlayMaps["Nedbør (OWM)"] = weatherPrecipLayer;
+}
+if (weatherTempLayer) {
+  overlayMaps["Temperatur (OWM)"] = weatherTempLayer;
+}
+if (weatherRainLayer) {
+  overlayMaps["Regn (OWM)"] = weatherRainLayer;
+}
+L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 
 // ── Custom Place knap ────────────────────────────────────────────
 document.getElementById("cpOpenBtn").addEventListener("click", _cpOpenModal);
@@ -1271,17 +1118,10 @@ document.getElementById("cpGem").addEventListener("click", async function() {
 map.on('overlayadd', function(e) {
   if (e.layer === dbSmsLayer) {
     window.open('https://kort.dyrenesbeskyttelse.dk/db/dvc.nsf/kort', '_blank');
-    // setTimeout: undgår Leaflet bug hvor sync removeLayer forstyrrer layer control state
-    setTimeout(() => map.removeLayer(dbSmsLayer), 50);
+    map.removeLayer(dbSmsLayer);
   } else if (e.layer === dbJournalLayer) {
     window.open('https://dvc.dyrenesbeskyttelse.dk/db/dvc.nsf/Efter%20journalnr?OpenView', '_blank');
-    setTimeout(() => map.removeLayer(dbJournalLayer), 50);
-  } else if (e.name === "Strandposter" || e.layer === redningsnrLayer) {
-    if (allStrandposter.length === 0) fetchAllStrandposter();
-  } else if (e.layer === dmiTempLayer) {
-    _startDmiInterval();
-  } else if (e.layer === vdTrafikLayer) {
-    _startVdInterval();
+    map.removeLayer(dbJournalLayer);
   } else if (e.layer === chargeMapLayer) {
     if (!selectedRadius) {
       alert("Vælg radius først");
@@ -1346,12 +1186,6 @@ map.on('overlayremove', function(e) {
       map.removeLayer(currentMarker);
     }
     currentMarker = null;
-  } else if (e.layer === dmiTempLayer) {
-    if (dmiTempInterval) { clearInterval(dmiTempInterval); dmiTempInterval = null; }
-    dmiTempLayer.clearLayers();
-  } else if (e.layer === vdTrafikLayer) {
-    if (vdTrafikInterval) { clearInterval(vdTrafikInterval); vdTrafikInterval = null; }
-    vdTrafikLayer.clearLayers();
   }
 });
 
@@ -1453,7 +1287,17 @@ function fetchAllStrandposter() {
       console.error("Fejl ved hentning af lokal strandposter-fil:", err);
     });
 }
-// Strandposter-logik håndteres i overlayadd-handleren ovenfor
+map.on("overlayadd", function(event) {
+  if (event.name === "Strandposter") {
+    console.log("Strandposter laget er tilføjet.");
+    if (allStrandposter.length === 0) {
+      console.log("Henter strandposter-data første gang...");
+      fetchAllStrandposter();
+    } else {
+      console.log("Strandposter-data allerede hentet.");
+    }
+  }
+});
 
 /***************************************************
  * Klik på kort => reverse geocoding
@@ -2518,7 +2362,6 @@ function quickStrandSearch(query) {
  * navngivne veje, strandposter og udenlandske ORS-adresser
  ***************************************************/
 function doSearch(query, listElement) {
-  console.log("doSearch:", JSON.stringify(query), "| customPlaces:", customPlaces.length, customPlaces.map(p=>p.navn));
   let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=50`;
   let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=50&token=a63a88838c24fc85d47f32cde0ec0144`;
   const queryWithWildcard = query.trim().split(/\s+/).map(w => w + "*").join(" ");
@@ -2547,34 +2390,6 @@ function doSearch(query, listElement) {
         data: p
       };
     });
-
-  // Vis custom places ØJEBLIKKELIGT (inden DAWA svarer)
-  if (customResults.length > 0) {
-    listElement.innerHTML = "";
-    searchItems = [];
-    customResults.forEach(function(obj) {
-      let li = document.createElement("li");
-      li.style.cssText = "display:flex;align-items:center;gap:6px;";
-      let labelSpan = document.createElement("span");
-      labelSpan.style.flex = "1";
-      let extra = obj.adresse ? " – " + obj.adresse : "";
-      labelSpan.innerHTML = `⭐ ${obj.navn}${extra}`;
-      labelSpan.addEventListener("click", function() {
-        searchInput.value = obj.navn;
-        listElement.innerHTML = "";
-        listElement.style.display = "none";
-        searchItems = [];
-        if (obj.coords) {
-          let [lat, lon] = obj.coords;
-          placeMarkerAndZoom([lat, lon], obj.navn);
-        }
-      });
-      li.appendChild(labelSpan);
-      listElement.appendChild(li);
-      searchItems.push(li);
-    });
-    listElement.style.display = "block";
-  }
 
   // Udlands-tilstand styres af checkboxen (Udland)
   const foreignToggleEl =
@@ -3291,18 +3106,7 @@ document.getElementById("btn100").addEventListener("click", function() {
  * DOMContentLoaded
  ***************************************************/
 document.addEventListener("DOMContentLoaded", function() {
-  const s = document.getElementById("search");
-
-  // Sæt tilfældig autocomplete-værdi på ALLE søgefelter ved hvert sideload.
-  // Chrome kan ikke opbygge historik for et felt der hedder noget nyt hver gang.
-  const rnd = () => "x-" + Math.random().toString(36).slice(2);
-  ["search","routeFrom","routeTo","routeVia","vej1","vej2"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.setAttribute("autocomplete", rnd());
-  });
-
-  // Auto-fokus ved sideload
-  s.focus();
+  document.getElementById("search").focus();
 
   const planBtn = document.getElementById("planRouteBtn");
   if (planBtn) {
