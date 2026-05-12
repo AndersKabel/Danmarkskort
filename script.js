@@ -1083,7 +1083,7 @@ var kommunegrænserLayer = L.geoJSON(null, {
 });
 var kommuneGeoJSON = null;
 
-fetch("https://ors-owm-proxy.anderskabel8.workers.dev/kommuner")
+fetch("https://api.dataforsyningen.dk/kommuner?format=geojson&token=a63a88838c24fc85d47f32cde0ec0144")
   .then(response => response.json())
   .then(data => {
     kommunegrænserLayer.addData(data);
