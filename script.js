@@ -3119,8 +3119,8 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
 
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
 
-    // Kald search.vd.dk direkte — præcis som CVF (hvem ejer vejen) gør
-    const url = `https://search.vd.dk/search/referencing/reference` +
+    // Via proxy — præcis samme URL-format som CVF bruger
+    const url = `${VD_PROXY}/reference` +
       `?geometry=POINT(${x}%20${y})` +
       `&roadNumber=${roadNumber}` +
       `&roadPart=${roadPart}`;
@@ -3130,11 +3130,10 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
 
     const data = await resp.json();
 
-    // Præcis km fra response (fra.kmtText = "74/0718")
+    // data.from.kmtText = "74/0718" — præcist som CVF viser
     const kmtText = data?.from?.kmtText ?? data?.to?.kmtText ?? null;
     if (kmtText) return String(kmtText);
 
-    // Beregn fra km + m hvis kmtText mangler
     const km = data?.from?.km ?? null;
     const m  = data?.from?.m  ?? null;
     if (km != null && m != null) return `${km}/${String(m).padStart(4, "0")}`;
