@@ -4,8 +4,7 @@
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m +no_defs");
 
 // Cloudflare proxy til VD-reference
-const VD_PROXY = "https://ors-owm-proxy.anderskabel8.workers.dev"; // VD kald rutet via ORS-proxy
-const ORS_PROXY = VD_PROXY; // Samme proxy, to navne for læselighed
+const VD_PROXY = "https://vd-proxy.anderskabel8.workers.dev";
 
 /*
  * OpenRouteService integration
@@ -977,7 +976,7 @@ const VD_TRAFIK_FILER = [
 ];
 
 async function _fetchVdFil(file) {
-  const resp = await fetch(`${VD_PROXY}/vd/trafik/${file}`);
+  const resp = await fetch(`${VD_PROXY}/trafik/${file}`);
   if (!resp.ok) throw new Error(`${file}: HTTP ${resp.status}`);
   return resp.json();
 }
@@ -3110,7 +3109,7 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
     if (!roadNumber) return "";
 
     const url =
-      `${VD_PROXY}/vd/reference` +
+      `${VD_PROXY}/reference` +
       `?geometry=POINT(${x}%20${y})` +
       `&srs=EPSG:25832` +
       `&roadNumber=${roadNumber}` +
@@ -3123,6 +3122,7 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
     }
 
     const data = await resp.json();
+    console.log("🔍 VD reference svar:", JSON.stringify(data).slice(0, 500));
     const props =
       data?.properties ??
       data?.feature?.properties ??
