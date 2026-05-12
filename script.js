@@ -963,10 +963,16 @@ var vdTrafikInterval = null;
 var _vdGeoJsonLayers = [];
 
 const VD_TRAFIK_FILER = [
-  { file: "current-blocking-roadwork.line.json", ikon: "🚫", label: "Spærring",    color: "#c0392b" },
-  { file: "current-roadwork.line.json",          ikon: "🚧", label: "Vejarbejde",  color: "#e67e22" },
-  { file: "future-roadwork.line.json",           ikon: "📅", label: "Kommende",    color: "#8e44ad" },
-  { file: "dmi-warnings.json",                   ikon: "⚠️", label: "DMI Advarsel",color: "#2980b9" },
+  // Aktuelle hændelser
+  { file: "current-blocking-roadwork.line.json", ikon: "🚫", label: "Spærring (linje)",    color: "#c0392b", weight: 5 },
+  { file: "current-blocking-roadwork.area.json", ikon: "🚫", label: "Spærring (område)",   color: "#c0392b", weight: 3 },
+  { file: "current-roadwork.line.json",          ikon: "🚧", label: "Vejarbejde",          color: "#e67e22", weight: 4 },
+  { file: "current-queue.line.json",             ikon: "🚗", label: "Kø/Trængsel",         color: "#e74c3c", weight: 5 },
+  // Kommende
+  { file: "future-blocking-roadwork.line.json",  ikon: "📅", label: "Kommende spærring",   color: "#8e44ad", weight: 4 },
+  { file: "future-roadwork.line.json",           ikon: "📅", label: "Kommende vejarbejde", color: "#9b59b6", weight: 3 },
+  // Advarsler
+  { file: "dmi-warnings.json",                   ikon: "⚠️", label: "DMI Advarsel",        color: "#2980b9", weight: 3 },
 ];
 
 async function _fetchVdFil(file) {
