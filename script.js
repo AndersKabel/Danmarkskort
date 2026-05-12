@@ -3100,9 +3100,18 @@ function parseTextResponse(text) {
  ***************************************************/
 async function getKmAtPoint(lat, lon, statsvejData = null) {
   try {
-    const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-
     const stats = statsvejData || await checkForStatsvej(lat, lon);
+    if (!stats) return "";
+
+    // FRAKMT og TILKMT kommer direkte fra WMS-svaret — ingen proxy nødvendig!
+    const frakmt = stats?.FRAKMT ?? stats?.frakmt ?? stats?.FraKmt;
+    if (frakmt) return String(frakmt);
+
+    const tilkmt = stats?.TILKMT ?? stats?.tilkmt ?? stats?.TilKmt;
+    if (tilkmt) return String(tilkmt);
+
+    // Fallback: beregn via proxy hvis WMS ikke gav km-data
+    const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
     const roadNumber = stats?.ADM_NR ?? stats?.adm_nr ?? null;
     const roadPart   = stats?.FORGRENING ?? stats?.forgrening ?? 0;
 
@@ -3117,9 +3126,7 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
       `&format=json`;
 
     const resp = await fetch(url, { cache: "no-store" });
-    if (!resp.ok) {
-      return "";
-    }
+    if (!resp.ok) return "";
 
     const data = await resp.json();
     console.log("🔍 VD reference svar:", JSON.stringify(data).slice(0, 500));
@@ -3138,17 +3145,14 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
       props?.kmtText ?? props?.KMTEKST ?? props?.kmtekst ??
       props?.KM_TEXT ?? props?.km_text ?? props?.kmtegn ??
       props?.Kmt ?? props?.KMT ?? props?.kmt ??
-      props?.TilKmt ?? props?.TILKMT ??
+      props?.FRAKMT ?? props?.frakmt ??
       null;
 
     if (kmtText) return String(kmtText);
 
     const km = (from?.km ?? props?.km ?? props?.KM ?? null);
     const m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
-
-    if (km != null && m != null) {
-      return `${km}/${String(m).padStart(4, "0")}`;
-    }
+    if (km != null && m != null) return `${km}/${String(m).padStart(4, "0")}`;
 
     return "";
   } catch (e) {
