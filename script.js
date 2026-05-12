@@ -955,88 +955,65 @@ async function loadDmiTemperatur() {
   }
 }
 
-// ── VD Trafikhændelser ────────────────────────────────────────────
+// ── Live Trafik (VD GeoJSON) ─────────────────────────────────────
+// Data hentes fra VDs eget trafikkort via vd-proxy (CORS fix)
+// Ingen API-nøgle nødvendig — samme data som trafikkort.vejdirektoratet.dk
 var vdTrafikLayer    = L.layerGroup();
 var vdTrafikInterval = null;
+var _vdGeoJsonLayers = [];
 
-const VD_TRAFIK_IKONER = {
-  "Accident":         { ikon: "🚨", label: "Uheld" },
-  "RoadWorks":        { ikon: "🚧", label: "Vejarbejde" },
-  "ObstructionOnRoad":{ ikon: "⚠️", label: "Forhindring" },
-  "Congestion":       { ikon: "🚗", label: "Kø" },
-  "BrokenDownVehicle":{ ikon: "🔧", label: "Afbrudt køretøj" },
-  "Abnormality":      { ikon: "⚠️", label: "Unormalitet" },
-};
+const VD_TRAFIK_FILER = [
+  { file: "current-blocking-roadwork.line.json", ikon: "🚫", label: "Spærring",    color: "#c0392b" },
+  { file: "current-roadwork.line.json",          ikon: "🚧", label: "Vejarbejde",  color: "#e67e22" },
+  { file: "future-roadwork.line.json",           ikon: "📅", label: "Kommende",    color: "#8e44ad" },
+  { file: "dmi-warnings.json",                   ikon: "⚠️", label: "DMI Advarsel",color: "#2980b9" },
+];
 
-async function loadVdTrafik() {
-  try {
-    // Vejdirektoratets åbne trafikhændelser (gratis, ingen nøgle)
-    const url = "https://api.vejdirektoratet.dk/v2/trafikinfo" +
-      "?api_key=gratis&format=json&type=incidents&roadtype=state&lang=da";
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
-    const data = await resp.json();
-
-    vdTrafikLayer.clearLayers();
-    const items = Array.isArray(data) ? data : (data.incidents || data.features || []);
-    items.forEach(item => {
-      // Støtter GeoJSON-format og VD-nativ format
-      let lat, lon, type, desc, road;
-      if (item.geometry?.coordinates) {
-        [lon, lat] = Array.isArray(item.geometry.coordinates[0])
-          ? item.geometry.coordinates[0] : item.geometry.coordinates;
-        type = item.properties?.eventType || item.properties?.type || "Abnormality";
-        desc = item.properties?.description || item.properties?.titel || "";
-        road = item.properties?.road || item.properties?.vej || "";
-      } else if (item.location?.coordinates) {
-        lat = item.location.coordinates.lat;
-        lon = item.location.coordinates.lon;
-        type = item.eventType || "Abnormality";
-        desc = item.description || item.titel || "";
-        road = item.road || "";
-      } else return;
-
-      if (!lat || !lon) return;
-      const { ikon, label } = VD_TRAFIK_IKONER[type] || { ikon: "⚠️", label: type };
-
-      const marker = L.marker([lat, lon], {
-        icon: L.divIcon({
-          html: `<div class="vd-trafik-ikon" title="${label}">${ikon}</div>`,
-          className: "", iconSize: [28, 28], iconAnchor: [14, 14]
-        })
-      });
-      marker.bindPopup(`<strong>${ikon} ${label}</strong>${road ? "<br>📍 " + road : ""}${desc ? "<br>" + desc : ""}`);
-      marker.addTo(vdTrafikLayer);
-    });
-    console.log(`✅ VD Trafik opdateret: ${items.length} hændelser`);
-  } catch(e) {
-    console.warn("VD Trafik fejl:", e.message);
-    // Forsøg med alternativ URL (XML-feed konverteret)
-    _loadVdTrafikFallback();
-  }
+async function _fetchVdFil(file) {
+  const resp = await fetch(`${VD_PROXY}/trafik/${file}`);
+  if (!resp.ok) throw new Error(`${file}: HTTP ${resp.status}`);
+  return resp.json();
 }
 
-async function _loadVdTrafikFallback() {
-  try {
-    // VD's åbne GeoJSON-feed (statsveje)
-    const url = "https://wms.geocloud.vd.dk/TrafficEvents/wfs?service=WFS&version=2.0.0" +
-      "&request=GetFeature&typeName=TrafficEvents&outputFormat=application/json&count=200";
-    const resp = await fetch(url);
-    if (!resp.ok) return;
-    const data = await resp.json();
-    vdTrafikLayer.clearLayers();
-    L.geoJSON(data, {
-      pointToLayer: (f, latlng) => {
-        const type = f.properties?.EventCode || "Abnormality";
-        const { ikon } = VD_TRAFIK_IKONER[type] || { ikon: "⚠️" };
-        return L.marker(latlng, {
-          icon: L.divIcon({ html: `<div class="vd-trafik-ikon">${ikon}</div>`,
-            className: "", iconSize: [28, 28], iconAnchor: [14, 14] })
-        }).bindPopup(`${f.properties?.Description || ""}`);
-      }
-    }).addTo(vdTrafikLayer);
-    console.log("✅ VD Trafik (fallback) opdateret");
-  } catch(e) { console.warn("VD Trafik fallback fejl:", e.message); }
+async function loadVdTrafik() {
+  vdTrafikLayer.clearLayers();
+  _vdGeoJsonLayers = [];
+
+  let total = 0;
+  for (const { file, ikon, label, color } of VD_TRAFIK_FILER) {
+    try {
+      const data = await _fetchVdFil(file);
+      if (!data?.features?.length) continue;
+
+      const layer = L.geoJSON(data, {
+        style: { color, weight: 4, opacity: 0.8 },
+        pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+          radius: 8, color, fillColor: color,
+          fillOpacity: 0.9, weight: 2
+        }),
+        onEachFeature: (f, lyr) => {
+          const p = f.properties || {};
+          const titel  = p.title  || p.Title  || p.name || label;
+          const vej    = p.road   || p.Road   || p.vejnavn || "";
+          const fra    = p.startDate || p.StartDate || "";
+          const til    = p.endDate   || p.EndDate   || "";
+          const tekst  = p.description || p.Description || p.text || "";
+          lyr.bindPopup(
+            `<strong>${ikon} ${titel}</strong>` +
+            (vej  ? `<br>📍 ${vej}` : "") +
+            (fra  ? `<br>📅 ${fra.slice(0,10)} → ${til.slice(0,10)}` : "") +
+            (tekst? `<br>${tekst.slice(0,200)}` : "")
+          );
+        }
+      });
+      layer.addTo(vdTrafikLayer);
+      _vdGeoJsonLayers.push(layer);
+      total += data.features.length;
+    } catch(e) {
+      console.warn(`VD Trafik ${file}:`, e.message);
+    }
+  }
+  console.log(`✅ VD Trafik: ${total} elementer`);
 }
 
 // Start lag-indlæsning ved overlayadd
@@ -1183,7 +1160,7 @@ const overlayMaps = {
 // RainViewer tilføjes når det er loadet (async)
 if (weatherTempLayer) overlayMaps["Temperatur (OWM)"] = weatherTempLayer;
 overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
-overlayMaps["🚦 Trafikhændelser (VD)"] = vdTrafikLayer;
+overlayMaps["🚦 Live Trafik (VD)"] = vdTrafikLayer;
 
 const _rvInterval = setInterval(() => {
   if (rainViewerLayer) {
