@@ -3049,10 +3049,11 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
 
     const data = await resp.json();
 
-    // kmtText findes på toplevel (data.from.kmtText) — bekræftet via direkte proxy-test
+    // kmtText kan ligge på flere steder afhængig af vejtype/forgrening
     const kmtText =
-      data?.from?.kmtText ??
-      data?.features?.[0]?.properties?.from?.kmtText ??
+      data?.from?.kmtText ??                            // toplevel (vej 13, forgrening 0)
+      data?.properties?.from?.kmtText ??               // toplevel properties (vej 60, forgrening 6)
+      data?.features?.[0]?.properties?.from?.kmtText ?? // inde i features-array
       data?.features?.[0]?.from?.kmtText ??
       null;
     if (kmtText) return String(kmtText);
