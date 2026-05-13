@@ -992,9 +992,9 @@ async function _fetchVdFil(file) {
   return resp.json();
 }
 
-function _buildVdGeoJSON(data, ikon, label, color, targetLayer) {
+function _buildVdGeoJSON(data, ikon, label, color, targetLayer, needs25832 = false) {
   if (!data?.features?.length) return 0;
-  L.geoJSON(data, {
+  const geoOptions = {
     style: { color, weight: 4, opacity: 0.8 },
     pointToLayer: (f, latlng) => L.circleMarker(latlng, {
       radius: 8, color, fillColor: color, fillOpacity: 0.9, weight: 2
@@ -1014,7 +1014,15 @@ function _buildVdGeoJSON(data, ikon, label, color, targetLayer) {
         (tekst? `<br><small>${tekst}</small>` : "")
       );
     }
-  }).addTo(targetLayer);
+  };
+  // Filer i /25832/-mappen har koordinater i EPSG:25832 — transformer til WGS84
+  if (needs25832) {
+    geoOptions.coordsToLatLng = function(coords) {
+      const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
+      return L.latLng(lat, lon);
+    };
+  }
+  L.geoJSON(data, geoOptions).addTo(targetLayer);
   return data.features.length;
 }
 
@@ -1036,7 +1044,7 @@ async function loadVdAdvarsler() {
   for (const { file, ikon, label, color } of VD_ADVARSEL_FILER) {
     try {
       const data = await _fetchVdFil(file);
-      total += _buildVdGeoJSON(data, ikon, label, color, vdAdvarselLayer);
+      total += _buildVdGeoJSON(data, ikon, label, color, vdAdvarselLayer, file.startsWith("25832/"));
     } catch(e) { console.warn(`VD Advarsel ${file}:`, e.message); }
   }
   console.log(`✅ VD Advarsler: ${total} elementer`);
