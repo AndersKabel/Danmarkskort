@@ -958,21 +958,32 @@ async function loadDmiTemperatur() {
 // ── Live Trafik (VD GeoJSON) ─────────────────────────────────────
 // Data hentes fra VDs eget trafikkort via vd-proxy (CORS fix)
 // Ingen API-nøgle nødvendig — samme data som trafikkort.vejdirektoratet.dk
+// ── VD Vejarbejder ───────────────────────────────────────────────
 var vdTrafikLayer    = L.layerGroup();
 var vdTrafikInterval = null;
-var _vdGeoJsonLayers = [];
 
-const VD_TRAFIK_FILER = [
-  // Aktuelle hændelser
-  { file: "current-blocking-roadwork.line.json", ikon: "🚫", label: "Spærring (linje)",    color: "#c0392b", weight: 5 },
+const VD_VEJARBEJDE_FILER = [
+  { file: "current-blocking-roadwork.line.json", ikon: "🚫", label: "Spærring",            color: "#c0392b", weight: 5 },
   { file: "current-blocking-roadwork.area.json", ikon: "🚫", label: "Spærring (område)",   color: "#c0392b", weight: 3 },
   { file: "current-roadwork.line.json",          ikon: "🚧", label: "Vejarbejde",          color: "#e67e22", weight: 4 },
   { file: "current-queue.line.json",             ikon: "🚗", label: "Kø/Trængsel",         color: "#e74c3c", weight: 5 },
-  // Kommende
   { file: "future-blocking-roadwork.line.json",  ikon: "📅", label: "Kommende spærring",   color: "#8e44ad", weight: 4 },
   { file: "future-roadwork.line.json",           ikon: "📅", label: "Kommende vejarbejde", color: "#9b59b6", weight: 3 },
-  // Advarsler
-  { file: "dmi-warnings.json",                   ikon: "⚠️", label: "DMI Advarsel",        color: "#2980b9", weight: 3 },
+];
+
+// ── VD Advarsler ─────────────────────────────────────────────────
+var vdAdvarselLayer    = L.layerGroup();
+var vdAdvarselInterval = null;
+
+const VD_ADVARSEL_FILER = [
+  // Hændelser (uheld, kø, vejforhold) — point-filer i 25832/ undermappe
+  { file: "25832/current-other-traffic-announcements.point.json", ikon: "⚠️", label: "Hændelse",      color: "#e74c3c" },
+  { file: "25832/current-events.point.json",                      ikon: "🔔", label: "Begivenhed",    color: "#e67e22" },
+  { file: "25832/current-blocking-events.point.json",             ikon: "🚫", label: "Blokering",     color: "#c0392b" },
+  { file: "25832/current-slippery-road.point.json",               ikon: "🧊", label: "Glat vej",      color: "#3498db" },
+  { file: "25832/current-ice-snow.point.json",                    ikon: "❄️", label: "Is/sne",        color: "#2980b9" },
+  // DMI advarsler — i /geojson/ rodmappen
+  { file: "dmi-warnings.json",                                    ikon: "🌩", label: "DMI Advarsel",  color: "#8e44ad" },
 ];
 
 async function _fetchVdFil(file) {
@@ -981,45 +992,54 @@ async function _fetchVdFil(file) {
   return resp.json();
 }
 
+function _buildVdGeoJSON(data, ikon, label, color, targetLayer) {
+  if (!data?.features?.length) return 0;
+  L.geoJSON(data, {
+    style: { color, weight: 4, opacity: 0.8 },
+    pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+      radius: 8, color, fillColor: color, fillOpacity: 0.9, weight: 2
+    }),
+    onEachFeature: (f, lyr) => {
+      const p = f.properties || {};
+      const titel = p.title  || p.Title  || p.name || label;
+      const hoved = p.header || "";
+      const vej   = p.road   || p.Road   || p.vejnavn || "";
+      const fra   = p.startDate || p.StartDate || p.beginPeriod || "";
+      const tekst = (p.description || p.Description || p.text || "").replace(/<[^>]*>/g, "").slice(0, 300);
+      lyr.bindPopup(
+        `<strong>${ikon} ${titel}</strong>` +
+        (hoved && hoved !== titel ? `<br>${hoved.slice(0, 150)}` : "") +
+        (vej  ? `<br>📍 ${vej}` : "") +
+        (fra  ? `<br>⏰ ${fra}` : "") +
+        (tekst? `<br><small>${tekst}</small>` : "")
+      );
+    }
+  }).addTo(targetLayer);
+  return data.features.length;
+}
+
 async function loadVdTrafik() {
   vdTrafikLayer.clearLayers();
-  _vdGeoJsonLayers = [];
-
   let total = 0;
-  for (const { file, ikon, label, color } of VD_TRAFIK_FILER) {
+  for (const { file, ikon, label, color } of VD_VEJARBEJDE_FILER) {
     try {
       const data = await _fetchVdFil(file);
-      if (!data?.features?.length) continue;
-
-      const layer = L.geoJSON(data, {
-        style: { color, weight: 4, opacity: 0.8 },
-        pointToLayer: (f, latlng) => L.circleMarker(latlng, {
-          radius: 8, color, fillColor: color,
-          fillOpacity: 0.9, weight: 2
-        }),
-        onEachFeature: (f, lyr) => {
-          const p = f.properties || {};
-          const titel  = p.title  || p.Title  || p.name || label;
-          const vej    = p.road   || p.Road   || p.vejnavn || "";
-          const fra    = p.startDate || p.StartDate || "";
-          const til    = p.endDate   || p.EndDate   || "";
-          const tekst  = p.description || p.Description || p.text || "";
-          lyr.bindPopup(
-            `<strong>${ikon} ${titel}</strong>` +
-            (vej  ? `<br>📍 ${vej}` : "") +
-            (fra  ? `<br>📅 ${fra.slice(0,10)} → ${til.slice(0,10)}` : "") +
-            (tekst? `<br>${tekst.slice(0,200)}` : "")
-          );
-        }
-      });
-      layer.addTo(vdTrafikLayer);
-      _vdGeoJsonLayers.push(layer);
-      total += data.features.length;
-    } catch(e) {
-      console.warn(`VD Trafik ${file}:`, e.message);
-    }
+      total += _buildVdGeoJSON(data, ikon, label, color, vdTrafikLayer);
+    } catch(e) { console.warn(`VD Vejarbejde ${file}:`, e.message); }
   }
-  console.log(`✅ VD Trafik: ${total} elementer`);
+  console.log(`✅ VD Vejarbejder: ${total} elementer`);
+}
+
+async function loadVdAdvarsler() {
+  vdAdvarselLayer.clearLayers();
+  let total = 0;
+  for (const { file, ikon, label, color } of VD_ADVARSEL_FILER) {
+    try {
+      const data = await _fetchVdFil(file);
+      total += _buildVdGeoJSON(data, ikon, label, color, vdAdvarselLayer);
+    } catch(e) { console.warn(`VD Advarsel ${file}:`, e.message); }
+  }
+  console.log(`✅ VD Advarsler: ${total} elementer`);
 }
 
 // Start lag-indlæsning ved overlayadd
@@ -1030,6 +1050,10 @@ function _startDmiInterval() {
 function _startVdInterval() {
   loadVdTrafik();
   if (!vdTrafikInterval) vdTrafikInterval = setInterval(loadVdTrafik, 5 * 60 * 1000);
+}
+function _startVdAdvarselInterval() {
+  loadVdAdvarsler();
+  if (!vdAdvarselInterval) vdAdvarselInterval = setInterval(loadVdAdvarsler, 5 * 60 * 1000);
 }
 
 var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/ows", {
@@ -1089,7 +1113,6 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson&token=a63a88838c24
     kommunegrænserLayer.addData(data);
     kommuneGeoJSON = data;
     console.log("Kommunegrænser hentet:", data);
-    initLeverandoerModul();
   })
   .catch(err => console.error("Fejl ved hentning af kommunegrænser:", err));
 
@@ -1166,7 +1189,8 @@ const overlayMaps = {
 // RainViewer tilføjes når det er loadet (async)
 if (weatherTempLayer) overlayMaps["Temperatur (OWM)"] = weatherTempLayer;
 overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
-overlayMaps["🚦 Live Trafik (VD)"] = vdTrafikLayer;
+overlayMaps["🚧 Vejarbejder (VD)"] = vdTrafikLayer;
+overlayMaps["⚠️ Advarsler (VD)"] = vdAdvarselLayer;
 
 const _rvInterval = setInterval(() => {
   if (rainViewerLayer) {
@@ -1178,6 +1202,9 @@ const _rvInterval = setInterval(() => {
   }
 }, 500);
 const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+
+// Leverandørmodul bygger sin lag-kontrol på samme tidspunkt som hoved-lagkontrollen
+initLeverandoerModul();
 
 // ── Custom Place knap ────────────────────────────────────────────
 document.getElementById("cpOpenBtn").addEventListener("click", _cpOpenModal);
@@ -1282,6 +1309,8 @@ map.on('overlayadd', function(e) {
     _startDmiInterval();
   } else if (e.layer === vdTrafikLayer) {
     _startVdInterval();
+  } else if (e.layer === vdAdvarselLayer) {
+    _startVdAdvarselInterval();
   } else if (e.layer === chargeMapLayer) {
     if (!selectedRadius) {
       alert("Vælg radius først");
@@ -1352,6 +1381,9 @@ map.on('overlayremove', function(e) {
   } else if (e.layer === vdTrafikLayer) {
     if (vdTrafikInterval) { clearInterval(vdTrafikInterval); vdTrafikInterval = null; }
     vdTrafikLayer.clearLayers();
+  } else if (e.layer === vdAdvarselLayer) {
+    if (vdAdvarselInterval) { clearInterval(vdAdvarselInterval); vdAdvarselInterval = null; }
+    vdAdvarselLayer.clearLayers();
   }
 });
 
