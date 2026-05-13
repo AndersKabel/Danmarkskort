@@ -1089,7 +1089,6 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson&token=a63a88838c24
     kommunegrænserLayer.addData(data);
     kommuneGeoJSON = data;
     console.log("Kommunegrænser hentet:", data);
-    initLeverandoerModul();
   })
   .catch(err => console.error("Fejl ved hentning af kommunegrænser:", err));
 
@@ -1178,6 +1177,9 @@ const _rvInterval = setInterval(() => {
   }
 }, 500);
 const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+
+// Leverandørmodul bygger sin lag-kontrol på samme tidspunkt som hoved-lagkontrollen
+initLeverandoerModul();
 
 // ── Custom Place knap ────────────────────────────────────────────
 document.getElementById("cpOpenBtn").addEventListener("click", _cpOpenModal);
