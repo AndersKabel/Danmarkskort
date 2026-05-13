@@ -3111,26 +3111,38 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
 
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
 
-    // Via proxy — præcis samme URL-format som CVF bruger
+    // Via proxy — med srs og format=json præcis som sandkasse-versionen der virkede
     const url = `${VD_PROXY}/reference` +
       `?geometry=POINT(${x}%20${y})` +
+      `&srs=EPSG:25832` +
       `&roadNumber=${roadNumber}` +
-      `&roadPart=${roadPart}`;
+      `&roadPart=${roadPart}` +
+      `&format=json`;
 
     const resp = await fetch(url, { cache: "no-store" });
     if (!resp.ok) return stats?.FRAKMT ?? "";
 
     const data = await resp.json();
 
-    // data.from.kmtText = "74/0718" — præcist som CVF viser
-    const kmtText = data?.from?.kmtText ?? data?.to?.kmtText ?? null;
+    // Parse præcis som sandkasse-versionen
+    const props =
+      data?.properties ??
+      data?.feature?.properties ??
+      data?.features?.[0]?.properties ??
+      data;
+    const from = props?.from ?? props?.FROM ?? props?.fra ?? props?.at ?? null;
+    const to   = props?.to   ?? props?.TO   ?? props?.til ?? null;
+    const kmtText =
+      from?.kmtText ?? from?.KMTTEXT ??
+      to?.kmtText   ?? to?.KMTTEXT   ??
+      props?.kmtText ?? props?.KMTEKST ?? props?.kmtekst ??
+      props?.KM_TEXT ?? props?.km_text ?? props?.kmtegn ??
+      null;
     if (kmtText) return String(kmtText);
-
-    const km = data?.from?.km ?? null;
-    const m  = data?.from?.m  ?? null;
+    const km = (from?.km ?? props?.km ?? props?.KM ?? null);
+    const m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
     if (km != null && m != null) return `${km}/${String(m).padStart(4, "0")}`;
-
-    return stats?.FRAKMT ?? "";
+    return "";
   } catch (e) {
     console.error("getKmAtPoint fejl:", e);
     return statsvejData?.FRAKMT ?? "";
