@@ -2950,167 +2950,65 @@ let   _statsvejAbortCtrl = null;
  * checkForStatsvej
  ***************************************************/
 async function checkForStatsvej(lat, lon) {
-  // 1. Cache-opslag — samme ~100m-område returnerer øjeblikkeligt
+  // Cache — samme ~100m-område returnerer øjeblikkeligt
   const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)}`;
   if (_statsvejCache.has(cacheKey)) return _statsvejCache.get(cacheKey);
 
-  // 2. Afbryd evt. igangværende kald (gentagne klik)
+  // Afbryd evt. igangværende kald ved gentagne klik
   if (_statsvejAbortCtrl) _statsvejAbortCtrl.abort();
   _statsvejAbortCtrl = new AbortController();
   const signal = _statsvejAbortCtrl.signal;
 
-  const testOffsets = [
-    { dx: 0,  dy: 0 },
-    { dx: -3, dy: 0 },
-    { dx: 3,  dy: 0 },
-    { dx: 0,  dy: -3 },
-    { dx: 0,  dy: 3 },
-    { dx: -6, dy: 0 },
-    { dx: 6,  dy: 0 },
-    { dx: 0,  dy: -6 },
-    { dx: 0,  dy: 6 },
-    { dx: -3, dy: -3 },
-    { dx: 3,  dy: -3 },
-    { dx: -3, dy: 3 },
-    { dx: 3,  dy: 3 },
-    { dx: -10, dy: 0 },
-    { dx: 10, dy: 0 },
-    { dx: 0,  dy: -10 },
-    { dx: 0,  dy: 10 },
-    { dx: -6, dy: -6 },
-    { dx: 6,  dy: -6 },
-    { dx: -6, dy: 6 },
-    { dx: 6,  dy: 6 }
-  ];
-
-  function normalizeStatsvejProps(props) {
-    if (!props || typeof props !== "object") return {};
-
-    return {
-      ...props,
-      ADM_NR: props.ADM_NR ?? props.adm_nr ?? null,
-      FORGRENING: props.FORGRENING ?? props.forgrening ?? null,
-      BETEGNELSE: props.BETEGNELSE ?? props.betegnelse ?? null,
-      BESTYRER: props.BESTYRER ?? props.bestyrer ?? null,
-      VEJTYPE: props.VEJTYPE ?? props.vejtype ?? null,
-      BESKRIVELSE: props.BESKRIVELSE ?? props.beskrivelse ?? null,
-      VEJSTATUS: props.VEJSTATUS ?? props.vejstatus ?? props.VEJ_STATUS ?? props.status ?? null,
-      VEJMYNDIGHED: props.VEJMYNDIGHED ?? props.vejmyndighed ?? props.VEJMYND ?? props.vejmynd ?? null
-    };
-  }
-
-  function isNonEmpty(value) {
-    return value != null && String(value).trim() !== "";
-  }
-
-  function scoreStatsvejCandidate(props) {
-    const p = normalizeStatsvejProps(props);
-    let score = 0;
-
-    if (isNonEmpty(p.ADM_NR)) score += 100;
-    if (isNonEmpty(p.FORGRENING)) score += 40;
-    if (isNonEmpty(p.BETEGNELSE)) score += 20;
-    if (isNonEmpty(p.BESTYRER)) score += 10;
-    if (isNonEmpty(p.VEJTYPE)) score += 10;
-    if (isNonEmpty(p.VEJSTATUS)) score += 5;
-    if (isNonEmpty(p.VEJMYNDIGHED)) score += 5;
-
-    return score;
-  }
-
-  function hasUsableStatsvejData(props) {
-    const p = normalizeStatsvejProps(props);
-    return scoreStatsvejCandidate(p) >= 100;
-  }
-
-  async function fetchStatsvejCandidatesAtUtm(testUtmX, testUtmY) {
-    let buffer = 100;
-    let bbox = `${testUtmX - buffer},${testUtmY - buffer},${testUtmX + buffer},${testUtmY + buffer}`;
-
-    let url =
-      'https://geocloud.vd.dk/CVF/wms?' +
-      'SERVICE=WMS&' +
-      'VERSION=1.1.1&' +
-      'REQUEST=GetFeatureInfo&' +
-      'INFO_FORMAT=application/json&' +
-      'FEATURE_COUNT=200&' +
-      'TRANSPARENT=true&' +
-      'LAYERS=CVF:veje&' +
-      'QUERY_LAYERS=CVF:veje&' +
-      'SRS=EPSG:25832&' +
-      'WIDTH=101&' +
-      'HEIGHT=101&' +
-      `BBOX=${bbox}&` +
-      'X=50&' +
-      'Y=50';
-
-    let response = await fetch(url, { signal });
-    let textData = await response.text();
-
-    if (!textData || !textData.trim()) {
-      return [];
-    }
-
-    if (textData.startsWith("Results")) {
-      let extractedData = parseTextResponse(textData);
-      return extractedData && Object.keys(extractedData).length > 0
-        ? [normalizeStatsvejProps(extractedData)]
-        : [];
-    }
-
-    let jsonData;
-    try {
-      jsonData = JSON.parse(textData);
-    } catch (parseError) {
-      console.warn("Kunne ikke parse statsvej-svar som JSON:", parseError, textData);
-      return [];
-    }
-
-    if (jsonData.features && Array.isArray(jsonData.features) && jsonData.features.length > 0) {
-      return jsonData.features
-        .map(feature => normalizeStatsvejProps(feature?.properties || {}))
-        .filter(props => Object.keys(props).length > 0);
-    }
-
-    return [];
-  }
-
   try {
-    let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+    const [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+    const buffer = 100;
+    const bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
-    // 3. Tidlig exit: returner så snart vi har et brugbart svar — vent ikke på alle 21
-    const result = await new Promise((resolve) => {
-      let bestCandidate = null;
-      let bestScore     = -1;
-      let remaining     = testOffsets.length;
+    // Ét WMS-kald — samme tilgang som CVF/sandkassen
+    const url =
+      'https://geocloud.vd.dk/CVF/wms?' +
+      'SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&' +
+      'INFO_FORMAT=application/json&FEATURE_COUNT=5&' +
+      'TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&' +
+      'SRS=EPSG:25832&WIDTH=101&HEIGHT=101&' +
+      `BBOX=${bbox}&X=50&Y=50`;
 
-      testOffsets.forEach(offset => {
-        fetchStatsvejCandidatesAtUtm(utmX + offset.dx, utmY + offset.dy)
-          .then(candidates => {
-            if (signal.aborted) return;
-            for (const c of candidates) {
-              const score = scoreStatsvejCandidate(c);
-              if (score > bestScore) { bestScore = score; bestCandidate = c; }
-            }
-            if (bestCandidate && hasUsableStatsvejData(bestCandidate)) resolve(bestCandidate);
-          })
-          .catch(() => {})
-          .finally(() => { if (--remaining === 0) resolve(bestCandidate || {}); });
-      });
-    });
+    const response = await fetch(url, { signal });
+    const textData = await response.text();
 
-    // 4. Gem i cache (udløber efter 5 min)
-    if (!signal.aborted) {
-      _statsvejCache.set(cacheKey, result);
-      setTimeout(() => _statsvejCache.delete(cacheKey), 5 * 60 * 1000);
+    if (!textData || !textData.trim()) return {};
+
+    // Gammelt tekstformat (fallback)
+    if (textData.startsWith("Results")) {
+      return parseTextResponse(textData);
     }
-    return result;
+
+    const jsonData = JSON.parse(textData);
+    if (jsonData.features?.length > 0) {
+      const props = jsonData.features[0].properties || {};
+      const result = {
+        ...props,
+        ADM_NR:       props.ADM_NR       ?? props.adm_nr       ?? null,
+        FORGRENING:   props.FORGRENING   ?? props.forgrening   ?? null,
+        BETEGNELSE:   props.BETEGNELSE   ?? props.betegnelse   ?? null,
+        BESTYRER:     props.BESTYRER     ?? props.bestyrer     ?? null,
+        VEJTYPE:      props.VEJTYPE      ?? props.vejtype      ?? null,
+        BESKRIVELSE:  props.BESKRIVELSE  ?? props.beskrivelse  ?? null,
+        VEJSTATUS:    props.VEJSTATUS    ?? props.vejstatus    ?? props.VEJ_STATUS ?? props.status ?? null,
+        VEJMYNDIGHED: props.VEJMYNDIGHED ?? props.vejmyndighed ?? props.VEJMYND   ?? props.vejmynd ?? null,
+      };
+      if (!signal.aborted) {
+        _statsvejCache.set(cacheKey, result);
+        setTimeout(() => _statsvejCache.delete(cacheKey), 5 * 60 * 1000);
+      }
+      return result;
+    }
+    return {};
   } catch (error) {
-    console.error("Fejl ved hentning af vejdata:", error);
+    if (error.name !== "AbortError") console.error("Fejl ved hentning af vejdata:", error);
     return {};
   }
 }
-
 function parseTextResponse(text) {
   let lines = text.split("\n");
   let data = {};
@@ -3140,41 +3038,34 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
 
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
 
-    // Via proxy — med srs og format=json præcis som sandkasse-versionen der virkede
+    // Via proxy — præcis som CVF (ingen srs/format parametre nødvendige)
     const url = `${VD_PROXY}/reference` +
       `?geometry=POINT(${x}%20${y})` +
-      `&srs=EPSG:25832` +
       `&roadNumber=${roadNumber}` +
-      `&roadPart=${roadPart}` +
-      `&format=json`;
+      `&roadPart=${roadPart}`;
 
     const resp = await fetch(url, { cache: "no-store" });
-    if (!resp.ok) return stats?.FRAKMT ?? "";
+    if (!resp.ok) return "";
 
     const data = await resp.json();
 
-    // Parse præcis som sandkasse-versionen
-    const props =
-      data?.properties ??
-      data?.feature?.properties ??
-      data?.features?.[0]?.properties ??
-      data;
-    const from = props?.from ?? props?.FROM ?? props?.fra ?? props?.at ?? null;
-    const to   = props?.to   ?? props?.TO   ?? props?.til ?? null;
+    // kmtText findes på toplevel (data.from.kmtText) — bekræftet via direkte proxy-test
     const kmtText =
-      from?.kmtText ?? from?.KMTTEXT ??
-      to?.kmtText   ?? to?.KMTTEXT   ??
-      props?.kmtText ?? props?.KMTEKST ?? props?.kmtekst ??
-      props?.KM_TEXT ?? props?.km_text ?? props?.kmtegn ??
+      data?.from?.kmtText ??
+      data?.features?.[0]?.properties?.from?.kmtText ??
+      data?.features?.[0]?.from?.kmtText ??
       null;
     if (kmtText) return String(kmtText);
-    const km = (from?.km ?? props?.km ?? props?.KM ?? null);
-    const m  = (from?.m  ?? props?.m  ?? props?.M  ?? props?.km_meter ?? null);
-    if (km != null && m != null) return `${km}/${String(m).padStart(4, "0")}`;
+
+    // Beregn fra km + m hvis kmtText mod forventning mangler
+    const from = data?.from ?? data?.features?.[0]?.properties?.from ?? null;
+    if (from?.km != null && from?.m != null) {
+      return `${from.km}/${String(from.m).padStart(4, "0")}`;
+    }
     return "";
   } catch (e) {
     console.error("getKmAtPoint fejl:", e);
-    return statsvejData?.FRAKMT ?? "";
+    return "";
   }
 }
 
