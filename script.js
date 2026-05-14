@@ -2767,36 +2767,6 @@ function doSearch(query, listElement) {
       }
       li.appendChild(labelSpan);
 
-      // ⭐ Gem-knap på adresser og stednavne (ikke custom, strandpost, vej)
-      if (obj.type === "adresse" || obj.type === "stednavn") {
-        const gemBtn = document.createElement("button");
-        gemBtn.title = "Gem som custom place";
-        gemBtn.innerHTML = "⭐";
-        gemBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0;opacity:0.5;";
-        gemBtn.addEventListener("mouseenter", () => gemBtn.style.opacity = "1");
-        gemBtn.addEventListener("mouseleave", () => gemBtn.style.opacity = "0.5");
-        gemBtn.addEventListener("click", async function(e) {
-          e.stopPropagation();
-          const navn = prompt("Navn til custom place:", obj.tekst || obj.navn || "");
-          if (!navn) return;
-          let lat = null, lon = null, adresse = "";
-          if (obj.type === "adresse" && obj.adgangsadresse?.id) {
-            try {
-              const d = await fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`).then(r => r.json());
-              [lon, lat] = d.adgangspunkt.koordinater;
-              adresse = obj.tekst || "";
-            } catch {}
-          } else if (obj.type === "stednavn" && obj.geometry?.coordinates) {
-            const coords = obj.geometry.coordinates;
-            if (Array.isArray(coords) && coords.length === 2) { lon = coords[0]; lat = coords[1]; }
-            adresse = "";
-          }
-          if (!lat || !lon) { alert("Kunne ikke hente koordinater."); return; }
-          addCustomPlace({ navn, adresse, lat, lon });
-        });
-        li.appendChild(gemBtn);
-      }
-
       labelSpan.addEventListener("click", function() {
                 if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
           fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
