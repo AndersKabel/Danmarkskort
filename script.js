@@ -1343,17 +1343,73 @@ map.on('overlayadd', function(e) {
       data.forEach(point => {
         const lat = point.AddressInfo?.Latitude;
         const lon = point.AddressInfo?.Longitude;
-        if (lat && lon && currentMarker &&
-            map.distance(currentMarker.getLatLng(), L.latLng(lat, lon)) <= selectedRadius) {
-          L.circleMarker([lat, lon], {
-            radius: 8,
-            color: 'yellow',
-            fillColor: 'yellow',
-            fillOpacity: 1
+        if (!lat || !lon || !currentMarker) return;
+        if (map.distance(currentMarker.getLatLng(), L.latLng(lat, lon)) > selectedRadius) return;
+
+        // ── Farve baseret på driftsstatus ───────────────────────
+        const erOperationel = point.StatusType?.IsOperational;
+        const markerFarve = erOperationel === true  ? "#27ae60"   // grøn
+                          : erOperationel === false ? "#e74c3c"   // rød
+                          :                           "#7f8c8d";  // grå (ukendt)
+
+        // ── Størrelse baseret på max kW ─────────────────────────
+        const maxKw = Math.max(0, ...(point.Connections || [])
+          .map(c => c.PowerKW || 0));
+        const radius = maxKw >= 100 ? 11
+                     : maxKw >= 50  ? 9
+                     : maxKw >= 22  ? 7
+                     :                6;
+
+        // ── Popup-indhold ────────────────────────────────────────
+        const navn     = point.AddressInfo?.Title || "Ladestation";
+        const adresse  = [point.AddressInfo?.AddressLine1, point.AddressInfo?.Town]
+                           .filter(Boolean).join(", ");
+        const operatør = point.OperatorInfo?.Title || "";
+        const status   = point.StatusType?.Title || "Ukendt status";
+        const antal    = point.NumberOfPoints;
+        const pris     = point.UsageCost || "";
+
+        // Stik-liste: gruppér per type
+        const stikLinjer = (point.Connections || [])
+          .filter(c => c.ConnectionType?.Title)
+          .map(c => {
+            const type  = c.ConnectionType.Title;
+            const kw    = c.PowerKW   ? `${c.PowerKW} kW`   : "";
+            const antal = c.Quantity  ? `× ${c.Quantity}`   : "";
+            const st    = c.StatusType?.Title || "";
+            const strøm = c.CurrentType?.Title?.includes("DC") ? "DC" : "AC";
+            return `<tr>
+              <td>⚡ ${type}</td>
+              <td style="padding:0 6px">${kw}</td>
+              <td style="padding:0 6px;color:#aaa">${strøm}</td>
+              <td style="padding:0 6px;color:#aaa">${antal}</td>
+              <td style="color:${st === 'Operational' ? '#27ae60' : st ? '#e74c3c' : '#aaa'}">${st || "–"}</td>
+            </tr>`;
           })
-          .bindPopup(/* din popup-kode her */)
-          .addTo(chargeMapLayer);
-        }
+          .join("");
+
+        const popupHtml =
+          `<div style="min-width:220px;font-size:13px">` +
+          `<strong style="font-size:14px">⚡ ${navn}</strong>` +
+          (adresse  ? `<br><span style="color:#666">📍 ${adresse}</span>`     : "") +
+          (operatør ? `<br><span style="color:#666">🏢 ${operatør}</span>`    : "") +
+          `<br><span style="color:${markerFarve}">● ${status}</span>` +
+          (antal    ? ` · <span style="color:#666">${antal} ladepunkt${antal > 1 ? "er" : ""}</span>` : "") +
+          (stikLinjer
+            ? `<hr style="margin:6px 0"><table style="border-collapse:collapse;width:100%">${stikLinjer}</table>`
+            : "") +
+          (pris     ? `<hr style="margin:6px 0"><span style="color:#888;font-size:11px">💰 ${pris.slice(0,120)}</span>` : "") +
+          `</div>`;
+
+        L.circleMarker([lat, lon], {
+          radius,
+          color: '#fff',
+          weight: 1.5,
+          fillColor: markerFarve,
+          fillOpacity: 0.9
+        })
+        .bindPopup(popupHtml, { maxWidth: 320 })
+        .addTo(chargeMapLayer);
       });
     })
     .catch(err => console.error('Fejl ved hentning af ladestandere:', err));
