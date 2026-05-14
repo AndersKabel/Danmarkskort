@@ -958,32 +958,27 @@ async function loadDmiTemperatur() {
 // ── Live Trafik (VD GeoJSON) ─────────────────────────────────────
 // Data hentes fra VDs eget trafikkort via vd-proxy (CORS fix)
 // Ingen API-nøgle nødvendig — samme data som trafikkort.vejdirektoratet.dk
-// ── VD Vejarbejder ───────────────────────────────────────────────
 var vdTrafikLayer    = L.layerGroup();
 var vdTrafikInterval = null;
+var _vdGeoJsonLayers = [];
 
-const VD_VEJARBEJDE_FILER = [
-  { file: "current-blocking-roadwork.line.json", ikon: "🚫", label: "Spærring",            color: "#c0392b", weight: 5 },
+// NYE VD-lag (EPSG:25832 punkt-data)
+var vdRastepladserLayer  = L.layerGroup();
+var vdSamkørselLayer     = L.layerGroup();
+var vdVejtemperaturLayer = L.layerGroup();
+var vdVinterdriftLayer   = L.layerGroup();
+
+const VD_TRAFIK_FILER = [
+  // Aktuelle hændelser
+  { file: "current-blocking-roadwork.line.json", ikon: "🚫", label: "Spærring (linje)",    color: "#c0392b", weight: 5 },
   { file: "current-blocking-roadwork.area.json", ikon: "🚫", label: "Spærring (område)",   color: "#c0392b", weight: 3 },
   { file: "current-roadwork.line.json",          ikon: "🚧", label: "Vejarbejde",          color: "#e67e22", weight: 4 },
   { file: "current-queue.line.json",             ikon: "🚗", label: "Kø/Trængsel",         color: "#e74c3c", weight: 5 },
+  // Kommende
   { file: "future-blocking-roadwork.line.json",  ikon: "📅", label: "Kommende spærring",   color: "#8e44ad", weight: 4 },
   { file: "future-roadwork.line.json",           ikon: "📅", label: "Kommende vejarbejde", color: "#9b59b6", weight: 3 },
-];
-
-// ── VD Advarsler ─────────────────────────────────────────────────
-var vdAdvarselLayer    = L.layerGroup();
-var vdAdvarselInterval = null;
-
-const VD_ADVARSEL_FILER = [
-  // Hændelser (uheld, kø, vejforhold) — point-filer i 25832/ undermappe
-  { file: "25832/current-other-traffic-announcements.point.json", ikon: "⚠️", label: "Hændelse",      color: "#e74c3c" },
-  { file: "25832/current-events.point.json",                      ikon: "🔔", label: "Begivenhed",    color: "#e67e22" },
-  { file: "25832/current-blocking-events.point.json",             ikon: "🚫", label: "Blokering",     color: "#c0392b" },
-  { file: "25832/current-slippery-road.point.json",               ikon: "🧊", label: "Glat vej",      color: "#3498db" },
-  { file: "25832/current-ice-snow.point.json",                    ikon: "❄️", label: "Is/sne",        color: "#2980b9" },
-  // DMI advarsler — i /geojson/ rodmappen
-  { file: "dmi-warnings.json",                                    ikon: "🌩", label: "DMI Advarsel",  color: "#8e44ad" },
+  // Advarsler
+  { file: "dmi-warnings.json",                   ikon: "⚠️", label: "DMI Advarsel",        color: "#2980b9", weight: 3 },
 ];
 
 async function _fetchVdFil(file) {
@@ -992,62 +987,45 @@ async function _fetchVdFil(file) {
   return resp.json();
 }
 
-function _buildVdGeoJSON(data, ikon, label, color, targetLayer, needs25832 = false) {
-  if (!data?.features?.length) return 0;
-  const geoOptions = {
-    style: { color, weight: 4, opacity: 0.8 },
-    pointToLayer: (f, latlng) => L.circleMarker(latlng, {
-      radius: 8, color, fillColor: color, fillOpacity: 0.9, weight: 2
-    }),
-    onEachFeature: (f, lyr) => {
-      const p = f.properties || {};
-      const titel = p.title  || p.Title  || p.name || label;
-      const hoved = p.header || "";
-      const vej   = p.road   || p.Road   || p.vejnavn || "";
-      const fra   = p.startDate || p.StartDate || p.beginPeriod || "";
-      const tekst = (p.description || p.Description || p.text || "").replace(/<[^>]*>/g, "").slice(0, 300);
-      lyr.bindPopup(
-        `<strong>${ikon} ${titel}</strong>` +
-        (hoved && hoved !== titel ? `<br>${hoved.slice(0, 150)}` : "") +
-        (vej  ? `<br>📍 ${vej}` : "") +
-        (fra  ? `<br>⏰ ${fra}` : "") +
-        (tekst? `<br><small>${tekst}</small>` : "")
-      );
-    }
-  };
-  // Filer i /25832/-mappen har koordinater i EPSG:25832 — transformer til WGS84
-  if (needs25832) {
-    geoOptions.coordsToLatLng = function(coords) {
-      const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
-      return L.latLng(lat, lon);
-    };
-  }
-  L.geoJSON(data, geoOptions).addTo(targetLayer);
-  return data.features.length;
-}
-
 async function loadVdTrafik() {
   vdTrafikLayer.clearLayers();
-  let total = 0;
-  for (const { file, ikon, label, color } of VD_VEJARBEJDE_FILER) {
-    try {
-      const data = await _fetchVdFil(file);
-      total += _buildVdGeoJSON(data, ikon, label, color, vdTrafikLayer);
-    } catch(e) { console.warn(`VD Vejarbejde ${file}:`, e.message); }
-  }
-  console.log(`✅ VD Vejarbejder: ${total} elementer`);
-}
+  _vdGeoJsonLayers = [];
 
-async function loadVdAdvarsler() {
-  vdAdvarselLayer.clearLayers();
   let total = 0;
-  for (const { file, ikon, label, color } of VD_ADVARSEL_FILER) {
+  for (const { file, ikon, label, color } of VD_TRAFIK_FILER) {
     try {
       const data = await _fetchVdFil(file);
-      total += _buildVdGeoJSON(data, ikon, label, color, vdAdvarselLayer, file.startsWith("25832/"));
-    } catch(e) { console.warn(`VD Advarsel ${file}:`, e.message); }
+      if (!data?.features?.length) continue;
+
+      const layer = L.geoJSON(data, {
+        style: { color, weight: 4, opacity: 0.8 },
+        pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+          radius: 8, color, fillColor: color,
+          fillOpacity: 0.9, weight: 2
+        }),
+        onEachFeature: (f, lyr) => {
+          const p = f.properties || {};
+          const titel  = p.title  || p.Title  || p.name || label;
+          const vej    = p.road   || p.Road   || p.vejnavn || "";
+          const fra    = p.startDate || p.StartDate || "";
+          const til    = p.endDate   || p.EndDate   || "";
+          const tekst  = p.description || p.Description || p.text || "";
+          lyr.bindPopup(
+            `<strong>${ikon} ${titel}</strong>` +
+            (vej  ? `<br>📍 ${vej}` : "") +
+            (fra  ? `<br>📅 ${fra.slice(0,10)} → ${til.slice(0,10)}` : "") +
+            (tekst? `<br>${tekst.slice(0,200)}` : "")
+          );
+        }
+      });
+      layer.addTo(vdTrafikLayer);
+      _vdGeoJsonLayers.push(layer);
+      total += data.features.length;
+    } catch(e) {
+      console.warn(`VD Trafik ${file}:`, e.message);
+    }
   }
-  console.log(`✅ VD Advarsler: ${total} elementer`);
+  console.log(`✅ VD Trafik: ${total} elementer`);
 }
 
 // Start lag-indlæsning ved overlayadd
@@ -1059,9 +1037,158 @@ function _startVdInterval() {
   loadVdTrafik();
   if (!vdTrafikInterval) vdTrafikInterval = setInterval(loadVdTrafik, 5 * 60 * 1000);
 }
-function _startVdAdvarselInterval() {
-  loadVdAdvarsler();
-  if (!vdAdvarselInterval) vdAdvarselInterval = setInterval(loadVdAdvarsler, 5 * 60 * 1000);
+
+// ── VD GeoJSON hjælper med 25832 → WGS84 koordinat-konvertering ──
+// Bruges af alle nye VD-lag med EPSG:25832 punkt-data.
+// popupFn(feature, layer) er valgfri — default viser titel + beskrivelse.
+function _buildVdGeoJSON(data, { ikon, label, color, weight = 3, popupFn } = {}) {
+  return L.geoJSON(data, {
+    coordsToLatLng: function(coords) {
+      const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
+      return L.latLng(lat, lon);
+    },
+    style: { color, weight, opacity: 0.85 },
+    pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+      radius: 7, color, fillColor: color, fillOpacity: 0.9, weight: 2
+    }),
+    onEachFeature: popupFn || ((f, lyr) => {
+      const p = f.properties || {};
+      const titel = p.title || p.Title || p.name || p.NAME || label;
+      const tekst = p.description || p.Description || p.text || "";
+      lyr.bindPopup(
+        `<strong>${ikon} ${titel}</strong>` +
+        (tekst ? `<br>${tekst.slice(0, 200)}` : "")
+      );
+    })
+  });
+}
+
+// ── VD Rastepladser ──────────────────────────────────────────────
+async function loadVdRastepladser() {
+  vdRastepladserLayer.clearLayers();
+  let total = 0;
+  for (const file of [
+    "25832/rest-and-service-areasA.point.json",
+    "25832/rest-and-service-areasB.point.json"
+  ]) {
+    try {
+      const data = await _fetchVdFil(file);
+      if (!data?.features?.length) continue;
+      const layer = _buildVdGeoJSON(data, {
+        ikon: "🅿️", label: "Rasteplads", color: "#27ae60",
+        popupFn: (f, lyr) => {
+          const p = f.properties || {};
+          const navn    = p.name || p.NAME || p.title || "Rasteplads";
+          const type    = p.type || p.TYPE || p.facilityType || p.FACILITY_TYPE || "";
+          const adresse = p.address || p.ADDRESS || p.vejnavn || "";
+          lyr.bindPopup(
+            `<strong>🅿️ ${navn}</strong>` +
+            (type    ? `<br>Type: ${type}`       : "") +
+            (adresse ? `<br>📍 ${adresse}`        : "")
+          );
+        }
+      });
+      layer.addTo(vdRastepladserLayer);
+      total += data.features.length;
+    } catch(e) {
+      console.warn(`VD Rastepladser ${file}:`, e.message);
+    }
+  }
+  console.log(`✅ VD Rastepladser: ${total} elementer`);
+}
+
+// ── VD Samkørselspladser ─────────────────────────────────────────
+async function loadVdSamkørsel() {
+  vdSamkørselLayer.clearLayers();
+  try {
+    const data = await _fetchVdFil("25832/car-pooling-lots.point.json");
+    if (!data?.features?.length) { console.warn("VD Samkørsel: ingen data"); return; }
+    const layer = _buildVdGeoJSON(data, {
+      ikon: "🚗", label: "Samkørsel", color: "#2980b9",
+      popupFn: (f, lyr) => {
+        const p       = f.properties || {};
+        const navn    = p.name || p.NAME || p.title || "Samkørsel";
+        const pladser = p.capacity || p.CAPACITY || p.spaces || p.SPACES || "";
+        const adresse = p.address || p.ADDRESS || p.vejnavn || "";
+        lyr.bindPopup(
+          `<strong>🚗 ${navn}</strong>` +
+          (pladser ? `<br>Pladser: ${pladser}` : "") +
+          (adresse ? `<br>📍 ${adresse}`        : "")
+        );
+      }
+    });
+    layer.addTo(vdSamkørselLayer);
+    console.log(`✅ VD Samkørsel: ${data.features.length} elementer`);
+  } catch(e) {
+    console.warn("VD Samkørsel:", e.message);
+  }
+}
+
+// ── VD Vejtemperatur ─────────────────────────────────────────────
+async function loadVdVejtemperatur() {
+  vdVejtemperaturLayer.clearLayers();
+  try {
+    const data = await _fetchVdFil("25832/temperatures.point.json");
+    if (!data?.features?.length) { console.warn("VD Vejtemperatur: ingen data"); return; }
+    const layer = _buildVdGeoJSON(data, {
+      ikon: "🌡", label: "Vejtemp", color: "#e74c3c",
+      popupFn: (f, lyr) => {
+        const p        = f.properties || {};
+        const navn     = p.name || p.NAME || p.stationName || p.STATION_NAME || p.station || "Station";
+        const vejTemp  = p.roadTemp    ?? p.roadTemperature    ?? p.ROAD_TEMP    ?? p.road_temp    ?? "";
+        const luftTemp = p.airTemp     ?? p.airTemperature     ?? p.AIR_TEMP     ?? p.air_temp     ?? "";
+        const tidspkt  = p.measuredAt  ?? p.MEASURED_AT        ?? p.timestamp    ?? "";
+        lyr.bindPopup(
+          `<strong>🌡 ${navn}</strong>` +
+          (vejTemp  !== "" ? `<br>Vejtemp: ${vejTemp}°C`    : "") +
+          (luftTemp !== "" ? `<br>Lufttemp: ${luftTemp}°C`  : "") +
+          (tidspkt        ? `<br>🕐 ${tidspkt.slice(0,16)}` : "")
+        );
+      }
+    });
+    layer.addTo(vdVejtemperaturLayer);
+    console.log(`✅ VD Vejtemperatur: ${data.features.length} elementer`);
+  } catch(e) {
+    console.warn("VD Vejtemperatur:", e.message);
+  }
+}
+
+// ── VD Vinterdrift ───────────────────────────────────────────────
+// OBS: Præcise filnavne verificeres ved test — A/B/C/D er sandsynlige.
+// Filer der ikke eksisterer på GCS håndteres gracefully (console.warn).
+async function loadVdVinterdrift() {
+  vdVinterdriftLayer.clearLayers();
+  let total = 0;
+  for (const file of [
+    "25832/winther-condition-A.point.json",
+    "25832/winther-condition-B.point.json",
+    "25832/winther-condition-C.point.json",
+    "25832/winther-condition-D.point.json",
+  ]) {
+    try {
+      const data = await _fetchVdFil(file);
+      if (!data?.features?.length) continue;
+      const layer = _buildVdGeoJSON(data, {
+        ikon: "❄️", label: "Vinterdrift", color: "#5dade2",
+        popupFn: (f, lyr) => {
+          const p        = f.properties || {};
+          const titel    = p.title || p.name || p.NAME || "Vinterdrift";
+          const tilstand = p.condition || p.CONDITION || p.status || p.STATUS || "";
+          const vej      = p.road || p.ROAD || p.roadName || p.vejnavn || "";
+          lyr.bindPopup(
+            `<strong>❄️ ${titel}</strong>` +
+            (vej      ? `<br>Vej: ${vej}`          : "") +
+            (tilstand ? `<br>Tilstand: ${tilstand}` : "")
+          );
+        }
+      });
+      layer.addTo(vdVinterdriftLayer);
+      total += data.features.length;
+    } catch(e) {
+      console.warn(`VD Vinterdrift ${file}:`, e.message);
+    }
+  }
+  console.log(`✅ VD Vinterdrift: ${total} elementer`);
 }
 
 var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/ows", {
@@ -1121,6 +1248,7 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson&token=a63a88838c24
     kommunegrænserLayer.addData(data);
     kommuneGeoJSON = data;
     console.log("Kommunegrænser hentet:", data);
+    initLeverandoerModul();
   })
   .catch(err => console.error("Fejl ved hentning af kommunegrænser:", err));
 
@@ -1197,8 +1325,11 @@ const overlayMaps = {
 // RainViewer tilføjes når det er loadet (async)
 if (weatherTempLayer) overlayMaps["Temperatur (OWM)"] = weatherTempLayer;
 overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
-overlayMaps["🚧 Vejarbejder (VD)"] = vdTrafikLayer;
-overlayMaps["⚠️ Advarsler (VD)"] = vdAdvarselLayer;
+overlayMaps["🚦 Live Trafik (VD)"] = vdTrafikLayer;
+overlayMaps["🅿️ Rastepladser (VD)"]     = vdRastepladserLayer;
+overlayMaps["🚗 Samkørselspladser (VD)"] = vdSamkørselLayer;
+overlayMaps["🌡 Vejtemp (VD)"]           = vdVejtemperaturLayer;
+overlayMaps["❄️ Vinterdrift (VD)"]       = vdVinterdriftLayer;
 
 const _rvInterval = setInterval(() => {
   if (rainViewerLayer) {
@@ -1314,8 +1445,14 @@ map.on('overlayadd', function(e) {
     _startDmiInterval();
   } else if (e.layer === vdTrafikLayer) {
     _startVdInterval();
-  } else if (e.layer === vdAdvarselLayer) {
-    _startVdAdvarselInterval();
+  } else if (e.layer === vdRastepladserLayer) {
+    loadVdRastepladser();
+  } else if (e.layer === vdSamkørselLayer) {
+    loadVdSamkørsel();
+  } else if (e.layer === vdVejtemperaturLayer) {
+    loadVdVejtemperatur();
+  } else if (e.layer === vdVinterdriftLayer) {
+    loadVdVinterdrift();
   } else if (e.layer === chargeMapLayer) {
     if (!selectedRadius) {
       alert("Vælg radius først");
@@ -1386,9 +1523,14 @@ map.on('overlayremove', function(e) {
   } else if (e.layer === vdTrafikLayer) {
     if (vdTrafikInterval) { clearInterval(vdTrafikInterval); vdTrafikInterval = null; }
     vdTrafikLayer.clearLayers();
-  } else if (e.layer === vdAdvarselLayer) {
-    if (vdAdvarselInterval) { clearInterval(vdAdvarselInterval); vdAdvarselInterval = null; }
-    vdAdvarselLayer.clearLayers();
+  } else if (e.layer === vdRastepladserLayer) {
+    vdRastepladserLayer.clearLayers();
+  } else if (e.layer === vdSamkørselLayer) {
+    vdSamkørselLayer.clearLayers();
+  } else if (e.layer === vdVejtemperaturLayer) {
+    vdVejtemperaturLayer.clearLayers();
+  } else if (e.layer === vdVinterdriftLayer) {
+    vdVinterdriftLayer.clearLayers();
   }
 });
 
@@ -2958,65 +3100,167 @@ let   _statsvejAbortCtrl = null;
  * checkForStatsvej
  ***************************************************/
 async function checkForStatsvej(lat, lon) {
-  // Cache — samme ~100m-område returnerer øjeblikkeligt
+  // 1. Cache-opslag — samme ~100m-område returnerer øjeblikkeligt
   const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)}`;
   if (_statsvejCache.has(cacheKey)) return _statsvejCache.get(cacheKey);
 
-  // Afbryd evt. igangværende kald ved gentagne klik
+  // 2. Afbryd evt. igangværende kald (gentagne klik)
   if (_statsvejAbortCtrl) _statsvejAbortCtrl.abort();
   _statsvejAbortCtrl = new AbortController();
   const signal = _statsvejAbortCtrl.signal;
 
-  try {
-    const [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const buffer = 100;
-    const bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
+  const testOffsets = [
+    { dx: 0,  dy: 0 },
+    { dx: -3, dy: 0 },
+    { dx: 3,  dy: 0 },
+    { dx: 0,  dy: -3 },
+    { dx: 0,  dy: 3 },
+    { dx: -6, dy: 0 },
+    { dx: 6,  dy: 0 },
+    { dx: 0,  dy: -6 },
+    { dx: 0,  dy: 6 },
+    { dx: -3, dy: -3 },
+    { dx: 3,  dy: -3 },
+    { dx: -3, dy: 3 },
+    { dx: 3,  dy: 3 },
+    { dx: -10, dy: 0 },
+    { dx: 10, dy: 0 },
+    { dx: 0,  dy: -10 },
+    { dx: 0,  dy: 10 },
+    { dx: -6, dy: -6 },
+    { dx: 6,  dy: -6 },
+    { dx: -6, dy: 6 },
+    { dx: 6,  dy: 6 }
+  ];
 
-    // Ét WMS-kald — samme tilgang som CVF/sandkassen
-    const url =
+  function normalizeStatsvejProps(props) {
+    if (!props || typeof props !== "object") return {};
+
+    return {
+      ...props,
+      ADM_NR: props.ADM_NR ?? props.adm_nr ?? null,
+      FORGRENING: props.FORGRENING ?? props.forgrening ?? null,
+      BETEGNELSE: props.BETEGNELSE ?? props.betegnelse ?? null,
+      BESTYRER: props.BESTYRER ?? props.bestyrer ?? null,
+      VEJTYPE: props.VEJTYPE ?? props.vejtype ?? null,
+      BESKRIVELSE: props.BESKRIVELSE ?? props.beskrivelse ?? null,
+      VEJSTATUS: props.VEJSTATUS ?? props.vejstatus ?? props.VEJ_STATUS ?? props.status ?? null,
+      VEJMYNDIGHED: props.VEJMYNDIGHED ?? props.vejmyndighed ?? props.VEJMYND ?? props.vejmynd ?? null
+    };
+  }
+
+  function isNonEmpty(value) {
+    return value != null && String(value).trim() !== "";
+  }
+
+  function scoreStatsvejCandidate(props) {
+    const p = normalizeStatsvejProps(props);
+    let score = 0;
+
+    if (isNonEmpty(p.ADM_NR)) score += 100;
+    if (isNonEmpty(p.FORGRENING)) score += 40;
+    if (isNonEmpty(p.BETEGNELSE)) score += 20;
+    if (isNonEmpty(p.BESTYRER)) score += 10;
+    if (isNonEmpty(p.VEJTYPE)) score += 10;
+    if (isNonEmpty(p.VEJSTATUS)) score += 5;
+    if (isNonEmpty(p.VEJMYNDIGHED)) score += 5;
+
+    return score;
+  }
+
+  function hasUsableStatsvejData(props) {
+    const p = normalizeStatsvejProps(props);
+    return scoreStatsvejCandidate(p) >= 100;
+  }
+
+  async function fetchStatsvejCandidatesAtUtm(testUtmX, testUtmY) {
+    let buffer = 100;
+    let bbox = `${testUtmX - buffer},${testUtmY - buffer},${testUtmX + buffer},${testUtmY + buffer}`;
+
+    let url =
       'https://geocloud.vd.dk/CVF/wms?' +
-      'SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&' +
-      'INFO_FORMAT=application/json&FEATURE_COUNT=5&' +
-      'TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&' +
-      'SRS=EPSG:25832&WIDTH=101&HEIGHT=101&' +
-      `BBOX=${bbox}&X=50&Y=50`;
+      'SERVICE=WMS&' +
+      'VERSION=1.1.1&' +
+      'REQUEST=GetFeatureInfo&' +
+      'INFO_FORMAT=application/json&' +
+      'FEATURE_COUNT=200&' +
+      'TRANSPARENT=true&' +
+      'LAYERS=CVF:veje&' +
+      'QUERY_LAYERS=CVF:veje&' +
+      'SRS=EPSG:25832&' +
+      'WIDTH=101&' +
+      'HEIGHT=101&' +
+      `BBOX=${bbox}&` +
+      'X=50&' +
+      'Y=50';
 
-    const response = await fetch(url, { signal });
-    const textData = await response.text();
+    let response = await fetch(url, { signal });
+    let textData = await response.text();
 
-    if (!textData || !textData.trim()) return {};
+    if (!textData || !textData.trim()) {
+      return [];
+    }
 
-    // Gammelt tekstformat (fallback)
     if (textData.startsWith("Results")) {
-      return parseTextResponse(textData);
+      let extractedData = parseTextResponse(textData);
+      return extractedData && Object.keys(extractedData).length > 0
+        ? [normalizeStatsvejProps(extractedData)]
+        : [];
     }
 
-    const jsonData = JSON.parse(textData);
-    if (jsonData.features?.length > 0) {
-      const props = jsonData.features[0].properties || {};
-      const result = {
-        ...props,
-        ADM_NR:       props.ADM_NR       ?? props.adm_nr       ?? null,
-        FORGRENING:   props.FORGRENING   ?? props.forgrening   ?? null,
-        BETEGNELSE:   props.BETEGNELSE   ?? props.betegnelse   ?? null,
-        BESTYRER:     props.BESTYRER     ?? props.bestyrer     ?? null,
-        VEJTYPE:      props.VEJTYPE      ?? props.vejtype      ?? null,
-        BESKRIVELSE:  props.BESKRIVELSE  ?? props.beskrivelse  ?? null,
-        VEJSTATUS:    props.VEJSTATUS    ?? props.vejstatus    ?? props.VEJ_STATUS ?? props.status ?? null,
-        VEJMYNDIGHED: props.VEJMYNDIGHED ?? props.vejmyndighed ?? props.VEJMYND   ?? props.vejmynd ?? null,
-      };
-      if (!signal.aborted) {
-        _statsvejCache.set(cacheKey, result);
-        setTimeout(() => _statsvejCache.delete(cacheKey), 5 * 60 * 1000);
-      }
-      return result;
+    let jsonData;
+    try {
+      jsonData = JSON.parse(textData);
+    } catch (parseError) {
+      console.warn("Kunne ikke parse statsvej-svar som JSON:", parseError, textData);
+      return [];
     }
-    return {};
+
+    if (jsonData.features && Array.isArray(jsonData.features) && jsonData.features.length > 0) {
+      return jsonData.features
+        .map(feature => normalizeStatsvejProps(feature?.properties || {}))
+        .filter(props => Object.keys(props).length > 0);
+    }
+
+    return [];
+  }
+
+  try {
+    let [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+
+    // 3. Tidlig exit: returner så snart vi har et brugbart svar — vent ikke på alle 21
+    const result = await new Promise((resolve) => {
+      let bestCandidate = null;
+      let bestScore     = -1;
+      let remaining     = testOffsets.length;
+
+      testOffsets.forEach(offset => {
+        fetchStatsvejCandidatesAtUtm(utmX + offset.dx, utmY + offset.dy)
+          .then(candidates => {
+            if (signal.aborted) return;
+            for (const c of candidates) {
+              const score = scoreStatsvejCandidate(c);
+              if (score > bestScore) { bestScore = score; bestCandidate = c; }
+            }
+            if (bestCandidate && hasUsableStatsvejData(bestCandidate)) resolve(bestCandidate);
+          })
+          .catch(() => {})
+          .finally(() => { if (--remaining === 0) resolve(bestCandidate || {}); });
+      });
+    });
+
+    // 4. Gem i cache (udløber efter 5 min)
+    if (!signal.aborted) {
+      _statsvejCache.set(cacheKey, result);
+      setTimeout(() => _statsvejCache.delete(cacheKey), 5 * 60 * 1000);
+    }
+    return result;
   } catch (error) {
-    if (error.name !== "AbortError") console.error("Fejl ved hentning af vejdata:", error);
+    console.error("Fejl ved hentning af vejdata:", error);
     return {};
   }
 }
+
 function parseTextResponse(text) {
   let lines = text.split("\n");
   let data = {};
@@ -3046,35 +3290,29 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
 
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
 
-    // Via proxy — præcis som CVF (ingen srs/format parametre nødvendige)
+    // Via proxy — præcis samme URL-format som CVF bruger
     const url = `${VD_PROXY}/reference` +
       `?geometry=POINT(${x}%20${y})` +
       `&roadNumber=${roadNumber}` +
       `&roadPart=${roadPart}`;
 
     const resp = await fetch(url, { cache: "no-store" });
-    if (!resp.ok) return "";
+    if (!resp.ok) return stats?.FRAKMT ?? "";
 
     const data = await resp.json();
 
-    // kmtText kan ligge på flere steder afhængig af vejtype/forgrening
-    const kmtText =
-      data?.from?.kmtText ??                            // toplevel (vej 13, forgrening 0)
-      data?.properties?.from?.kmtText ??               // toplevel properties (vej 60, forgrening 6)
-      data?.features?.[0]?.properties?.from?.kmtText ?? // inde i features-array
-      data?.features?.[0]?.from?.kmtText ??
-      null;
+    // data.from.kmtText = "74/0718" — præcist som CVF viser
+    const kmtText = data?.from?.kmtText ?? data?.to?.kmtText ?? null;
     if (kmtText) return String(kmtText);
 
-    // Beregn fra km + m hvis kmtText mod forventning mangler
-    const from = data?.from ?? data?.features?.[0]?.properties?.from ?? null;
-    if (from?.km != null && from?.m != null) {
-      return `${from.km}/${String(from.m).padStart(4, "0")}`;
-    }
-    return "";
+    const km = data?.from?.km ?? null;
+    const m  = data?.from?.m  ?? null;
+    if (km != null && m != null) return `${km}/${String(m).padStart(4, "0")}`;
+
+    return stats?.FRAKMT ?? "";
   } catch (e) {
     console.error("getKmAtPoint fejl:", e);
-    return "";
+    return statsvejData?.FRAKMT ?? "";
   }
 }
 
@@ -3303,13 +3541,5 @@ document.addEventListener("DOMContentLoaded", function() {
   }
   if (routePreferenceSel) {
     routePreferenceSel.addEventListener("change", autoRecalculateRoute);
-  }
-
-  // Leverandørmodul initialiseres her — DOMContentLoaded kører EFTER alle scripts er indlæst,
-  // også leverandoer-modul.js som er placeret efter script.js i HTML
-  if (typeof initLeverandoerModul === "function") {
-    initLeverandoerModul();
-  } else {
-    console.error("initLeverandoerModul ikke fundet — tjek at leverandoer-modul.js er indlæst");
   }
 });
