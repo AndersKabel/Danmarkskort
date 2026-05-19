@@ -961,6 +961,7 @@ async function loadDmiTemperatur() {
 // ── VD Vejarbejder ───────────────────────────────────────────────
 var vdTrafikLayer    = L.layerGroup();
 var vdTrafikInterval = null;
+var matrikelLayer    = L.layerGroup();
 
 const VD_VEJARBEJDE_FILER = [
   { file: "current-blocking-roadwork.line.json", ikon: "🚫", label: "Spærring",            color: "#c0392b", weight: 5 },
@@ -1199,6 +1200,7 @@ if (weatherTempLayer) overlayMaps["Temperatur (OWM)"] = weatherTempLayer;
 overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
 overlayMaps["🚧 Vejarbejder (VD)"] = vdTrafikLayer;
 overlayMaps["⚠️ Advarsler (VD)"] = vdAdvarselLayer;
+overlayMaps["📐 Matrikel"] = matrikelLayer;
 
 const _rvInterval = setInterval(() => {
   if (rainViewerLayer) {
@@ -1389,6 +1391,8 @@ map.on('overlayremove', function(e) {
   } else if (e.layer === vdAdvarselLayer) {
     if (vdAdvarselInterval) { clearInterval(vdAdvarselInterval); vdAdvarselInterval = null; }
     vdAdvarselLayer.clearLayers();
+  } else if (e.layer === matrikelLayer) {
+    matrikelLayer.clearLayers();
   }
 });
 
@@ -1504,6 +1508,37 @@ map.on('click', function(e) {
   createSelectionMarker(lat, lon);
 
   setCoordinateBox(lat, lon);
+
+  // ── Matrikel-opslag (kun hvis laget er aktivt) ───────────────
+  if (map.hasLayer(matrikelLayer)) {
+    matrikelLayer.clearLayers();
+    fetch(`https://api.dataforsyningen.dk/jordstykker?x=${lon}&y=${lat}&srid=4326&format=geojson`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data?.features?.length) return;
+        const f = data.features[0];
+        const p = f.properties || {};
+        const matrikelNr = p.matrikelnr || "?";
+        const ejerlav    = p.ejerlav?.navn || "?";
+        const areal      = p.arealberegningsmetode ? "" : "";
+        L.geoJSON(f, {
+          style: {
+            color: "#e67e22",
+            weight: 2.5,
+            fillColor: "#e67e22",
+            fillOpacity: 0.15
+          }
+        })
+        .bindPopup(
+          `<strong>📐 Matrikel</strong><br>` +
+          `Matrikelnr: <strong>${matrikelNr}</strong><br>` +
+          `Ejerlav: ${ejerlav}`
+        )
+        .addTo(matrikelLayer)
+        .openPopup();
+      })
+      .catch(err => console.warn("Matrikel lookup fejl:", err));
+  }
 
   if (isInDenmarkByPolygon(lat, lon)) {
     // DK: Dataforsyningen
@@ -3023,10 +3058,7 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
       `&roadPart=${roadPart}`;
 
     const resp = await fetch(url, { cache: "no-store" });
-    if (!resp.ok) {
-      if (resp.status === 502) return "⚠️ VD km data midlertidigt utilgængeligt";
-      return "";
-    }
+    if (!resp.ok) return "";
 
     const data = await resp.json();
 
