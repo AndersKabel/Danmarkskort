@@ -1512,38 +1512,59 @@ map.on('click', function(e) {
   // ── Matrikel-opslag (kun hvis laget er aktivt) ───────────────
   if (map.hasLayer(matrikelLayer)) {
     matrikelLayer.clearLayers();
-    fetch(`https://api.dataforsyningen.dk/jordstykker?x=${lon}&y=${lat}&srid=4326&format=geojson`)
-      .then(r => r.json())
-      .then(data => {
+    (async () => {
+      try {
+        const resp = await fetch(`https://api.dataforsyningen.dk/jordstykker?x=${lon}&y=${lat}&srid=4326&format=geojson`);
+        const data = await resp.json();
         if (!data?.features?.length) return;
         const f = data.features[0];
         const p = f.properties || {};
+
         const matrikelNr = p.matrikelnr   || "?";
         const ejerlav    = p.ejerlavnavn  || "?";
         const kommune    = p.kommunenavn  || "";
         const bfe        = p.bfenummer    || "";
-        const areal      = p.registreretareal ? `${Math.round(p.registreretareal).toLocaleString("da-DK")} m²` : "";
+        const areal      = p.registreretareal
+          ? `${Math.round(p.registreretareal).toLocaleString("da-DK")} m²` : "";
+        const featureid  = p.featureid    || "";
+
+        // Hent adresser registreret på matriklen
+        let adresseHtml = "";
+        if (featureid) {
+          try {
+            const adrResp = await fetch(
+              `https://api.dataforsyningen.dk/adgangsadresser?jordstykke=${featureid}&struktur=mini`
+            );
+            const adresser = await adrResp.json();
+            if (adresser?.length) {
+              const liste = adresser
+                .map(a => `${a.vejnavn} ${a.husnr}, ${a.postnr} ${a.postnrnavn}`)
+                .join("<br>");
+              adresseHtml = `<br>📬 ${liste}`;
+            }
+          } catch(e) {
+            console.warn("Matrikel adresse-opslag fejl:", e);
+          }
+        }
 
         L.geoJSON(f, {
-          style: {
-            color: "#e67e22",
-            weight: 2.5,
-            fillColor: "#e67e22",
-            fillOpacity: 0.15
-          }
+          style: { color: "#e67e22", weight: 2.5, fillColor: "#e67e22", fillOpacity: 0.15 }
         })
         .bindPopup(
           `<strong>📐 Matrikel</strong><br>` +
           `Matrikelnr: <strong>${matrikelNr}</strong><br>` +
           `Ejerlav: ${ejerlav}<br>` +
-          (kommune ? `Kommune: ${kommune}<br>` : "") +
-          (areal   ? `Areal: ${areal}<br>`    : "") +
-          (bfe     ? `<span style="color:#888;font-size:11px">BFE: ${bfe}</span>` : "")
+          (kommune     ? `Kommune: ${kommune}<br>`       : "") +
+          (areal       ? `Areal: ${areal}<br>`           : "") +
+          adresseHtml +
+          (bfe ? `<hr style="margin:4px 0"><span style="color:#888;font-size:11px">BFE: ${bfe}</span>` : "")
         )
         .addTo(matrikelLayer)
         .openPopup();
-      })
-      .catch(err => console.warn("Matrikel lookup fejl:", err));
+      } catch(e) {
+        console.warn("Matrikel lookup fejl:", e);
+      }
+    })();
   }
 
   if (isInDenmarkByPolygon(lat, lon)) {
