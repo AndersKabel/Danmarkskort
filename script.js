@@ -1528,39 +1528,39 @@ map.on('click', function(e) {
           ? `${Math.round(p.registreretareal).toLocaleString("da-DK")} m²` : "";
         const featureid  = p.featureid    || "";
 
-        // Hent adresser registreret på matriklen
-        let adresseHtml = "";
+        const bfeHtml = bfe
+          ? `<hr style="margin:4px 0"><span style="color:#888;font-size:11px">BFE: ${bfe}</span>` : "";
+
+        function popupIndhold(adresseHtml) {
+          return `<strong>📐 Matrikel</strong><br>` +
+            `Matrikelnr: <strong>${matrikelNr}</strong><br>` +
+            `Ejerlav: ${ejerlav}<br>` +
+            (kommune ? `Kommune: ${kommune}<br>` : "") +
+            (areal   ? `Areal: ${areal}<br>`    : "") +
+            adresseHtml + bfeHtml;
+        }
+
+        // ── Tegn polygon straks ──────────────────────────────
+        const geoLayer = L.geoJSON(f, {
+          style: { color: "#e67e22", weight: 2.5, fillColor: "#e67e22", fillOpacity: 0.15 }
+        })
+        .bindPopup(popupIndhold(""))
+        .addTo(matrikelLayer)
+        .openPopup();
+
+        // ── Hent adresser i baggrunden og opdater popup ──────
         if (featureid) {
-          try {
-            const adrResp = await fetch(
-              `https://api.dataforsyningen.dk/adgangsadresser?jordstykke=${featureid}&struktur=mini`
-            );
-            const adresser = await adrResp.json();
-            if (adresser?.length) {
+          fetch(`https://api.dataforsyningen.dk/adgangsadresser?jordstykke=${featureid}&struktur=mini`)
+            .then(r => r.json())
+            .then(adresser => {
+              if (!adresser?.length) return;
               const liste = adresser
                 .map(a => `${a.vejnavn} ${a.husnr}, ${a.postnr} ${a.postnrnavn}`)
                 .join("<br>");
-              adresseHtml = `<br>📬 ${liste}`;
-            }
-          } catch(e) {
-            console.warn("Matrikel adresse-opslag fejl:", e);
-          }
+              geoLayer.setPopupContent(popupIndhold(`<br>📬 ${liste}`));
+            })
+            .catch(e => console.warn("Adresse-opslag fejl:", e));
         }
-
-        L.geoJSON(f, {
-          style: { color: "#e67e22", weight: 2.5, fillColor: "#e67e22", fillOpacity: 0.15 }
-        })
-        .bindPopup(
-          `<strong>📐 Matrikel</strong><br>` +
-          `Matrikelnr: <strong>${matrikelNr}</strong><br>` +
-          `Ejerlav: ${ejerlav}<br>` +
-          (kommune     ? `Kommune: ${kommune}<br>`       : "") +
-          (areal       ? `Areal: ${areal}<br>`           : "") +
-          adresseHtml +
-          (bfe ? `<hr style="margin:4px 0"><span style="color:#888;font-size:11px">BFE: ${bfe}</span>` : "")
-        )
-        .addTo(matrikelLayer)
-        .openPopup();
       } catch(e) {
         console.warn("Matrikel lookup fejl:", e);
       }
