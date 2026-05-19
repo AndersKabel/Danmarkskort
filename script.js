@@ -1518,9 +1518,12 @@ map.on('click', function(e) {
         if (!data?.features?.length) return;
         const f = data.features[0];
         const p = f.properties || {};
-        const matrikelNr = p.matrikelnr || "?";
-        const ejerlav    = p.ejerlav?.navn || "?";
-        const areal      = p.arealberegningsmetode ? "" : "";
+        const matrikelNr = p.matrikelnr   || "?";
+        const ejerlav    = p.ejerlavnavn  || "?";
+        const kommune    = p.kommunenavn  || "";
+        const bfe        = p.bfenummer    || "";
+        const areal      = p.registreretareal ? `${Math.round(p.registreretareal).toLocaleString("da-DK")} m²` : "";
+
         L.geoJSON(f, {
           style: {
             color: "#e67e22",
@@ -1532,7 +1535,10 @@ map.on('click', function(e) {
         .bindPopup(
           `<strong>📐 Matrikel</strong><br>` +
           `Matrikelnr: <strong>${matrikelNr}</strong><br>` +
-          `Ejerlav: ${ejerlav}`
+          `Ejerlav: ${ejerlav}<br>` +
+          (kommune ? `Kommune: ${kommune}<br>` : "") +
+          (areal   ? `Areal: ${areal}<br>`    : "") +
+          (bfe     ? `<span style="color:#888;font-size:11px">BFE: ${bfe}</span>` : "")
         )
         .addTo(matrikelLayer)
         .openPopup();
