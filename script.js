@@ -1548,16 +1548,16 @@ map.on('click', function(e) {
         .addTo(matrikelLayer)
         .openPopup();
 
-        // ── Hent adresser i baggrunden og opdater popup ──────
-        if (featureid) {
-          fetch(`https://api.dataforsyningen.dk/adgangsadresser?jordstykke=${featureid}&struktur=mini`)
+        // ── Hent adresse via visuelt center (ét kald) ───────
+        const cx = p.visueltcenter_x || p.wgs84koordinat_længde || "";
+        const cy = p.visueltcenter_y || p.wgs84koordinat_bredde || "";
+        if (cx && cy) {
+          fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${cx}&y=${cy}&struktur=mini`)
             .then(r => r.json())
-            .then(adresser => {
-              if (!adresser?.length) return;
-              const liste = adresser
-                .map(a => `${a.vejnavn} ${a.husnr}, ${a.postnr} ${a.postnrnavn}`)
-                .join("<br>");
-              geoLayer.setPopupContent(popupIndhold(`<br>📬 ${liste}`));
+            .then(adr => {
+              if (!adr?.vejnavn) return;
+              const adresseStr = `${adr.vejnavn} ${adr.husnr}, ${adr.postnr} ${adr.postnrnavn}`;
+              geoLayer.setPopupContent(popupIndhold(`<br>📬 ${adresseStr}`));
             })
             .catch(e => console.warn("Adresse-opslag fejl:", e));
         }
