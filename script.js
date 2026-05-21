@@ -1548,19 +1548,47 @@ map.on('click', function(e) {
         .addTo(matrikelLayer)
         .openPopup();
 
-        // ── Hent adresse via visuelt center (ét kald) ───────
-        const cx = p.visueltcenter_x || p.wgs84koordinat_længde || "";
-        const cy = p.visueltcenter_y || p.wgs84koordinat_bredde || "";
-        if (cx && cy) {
-          fetch(`https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${cx}&y=${cy}&struktur=mini`)
-            .then(r => r.json())
-            .then(adr => {
-              if (!adr?.vejnavn) return;
-              const adresseStr = `${adr.vejnavn} ${adr.husnr}, ${adr.postnr} ${adr.postnrnavn}`;
-              geoLayer.setPopupContent(popupIndhold(`<br>📬 ${adresseStr}`));
-            })
-            .catch(e => console.warn("Adresse-opslag fejl:", e));
+        // ── Hent adresse via ejendomsregistrering ────────────
+        // Har matriklen bfenummer → den er selvstændig ejendom → brug eget centrum
+        // Har den ikke → følg moderjordstykke → brug modermatrikels centrum
+        const cx0 = p.visueltcenter_x || "";
+        const cy0 = p.visueltcenter_y || "";
+
+        async function hentAdresse(cx, cy) {
+          const r = await fetch(
+            `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${cx}&y=${cy}&struktur=mini`
+          );
+          const adr = await r.json();
+          if (!adr?.vejnavn) return null;
+          return `${adr.vejnavn} ${adr.husnr}, ${adr.postnr} ${adr.postnrnavn}`;
         }
+
+        (async () => {
+          try {
+            let adresseStr = null;
+
+            if (p.bfenummer && cx0 && cy0) {
+              // Selvstændig ejendom — brug eget centrum
+              adresseStr = await hentAdresse(cx0, cy0);
+            } else if (p.moderjordstykke) {
+              // Dattermatrikel — slå modermatrikel op og brug dens centrum
+              const mResp = await fetch(
+                `https://api.dataforsyningen.dk/jordstykker?featureid=${p.moderjordstykke}&srid=4326&format=geojson`
+              );
+              const mData = await mResp.json();
+              const mp = mData?.features?.[0]?.properties || {};
+              const mcx = mp.visueltcenter_x || "";
+              const mcy = mp.visueltcenter_y || "";
+              if (mcx && mcy) adresseStr = await hentAdresse(mcx, mcy);
+            }
+
+            if (adresseStr) {
+              geoLayer.setPopupContent(popupIndhold(`<br>📬 ${adresseStr}`));
+            }
+          } catch(e) {
+            console.warn("Adresse-opslag fejl:", e);
+          }
+        })();
       } catch(e) {
         console.warn("Matrikel lookup fejl:", e);
       }
