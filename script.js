@@ -1823,11 +1823,10 @@ function updateInfoBoxForeign(feature, lat, lon) {
     <a href="#" title="Kopier til Notes" onclick="(function(el){ el.style.color='red'; copyToClipboard('${notesFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Notes</a>
   `;
 
-  // Ingen skråfoto / kommune / statsvej i udlandet
+  // Ingen skråfoto / kommune i udlandet
+  // (statsvej håndteres af visStatsvejBox — også for broer over vand)
   skråfotoLink.style.display = "none";
   overlay.style.display = "none";
-  statsvejInfoEl.innerHTML = "";
-  statsvejBox.style.display = "none";
 
   document.getElementById("infoBox").style.display = "block";
 
