@@ -3053,6 +3053,27 @@ function visStatsvejBox(statsvejData, lat, lon) {
   }
 }
 
+// Manuelle vejstrækninger — bruges som fallback når CVF WMS returnerer tomt
+// (fx nye broer hvor CVF-geometrien endnu ikke dækker fuldt ud)
+// Koordinater i EPSG:25832 (UTM32N). Tilføj nye strækninger efter samme mønster.
+const MANUELLE_VEJSTRÆKNINGER = [
+  {
+    navn: "Den nye Storstrømsbro",
+    // Bounding box dækker hele broens længde + 200m margin
+    // Geometri fra CVF: fra (683312, 6092451) til (684781, 6098167)
+    bbox: { minX: 683112, maxX: 684981, minY: 6092251, maxY: 6098367 },
+    data: {
+      ADM_NR: 700, FORGRENING: 0,
+      BETEGNELSE: "Den nye Storstrømsbro",
+      BESTYRER: "Vejdirektoratet",
+      VEJTYPE: "Øvrige veje",
+      VEJSTATUS: "Offentlig",
+      VEJMYNDIGHED: "Vejdirektoratet"
+    }
+  }
+  // Tilføj flere strækninger her om nødvendigt
+];
+
 const _statsvejCache     = new Map();
 let   _statsvejAbortCtrl = null;
 
@@ -3071,7 +3092,7 @@ async function checkForStatsvej(lat, lon) {
 
   try {
     const [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const buffer = 200;
+    const buffer = 100;
     const bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
     // Ét WMS-kald — samme tilgang som CVF/sandkassen
@@ -3112,6 +3133,18 @@ async function checkForStatsvej(lat, lon) {
         setTimeout(() => _statsvejCache.delete(cacheKey), 5 * 60 * 1000);
       }
       return result;
+    }
+
+    // WMS returnerede tomt — tjek manuelle vejstrækninger som fallback
+    for (const vej of MANUELLE_VEJSTRÆKNINGER) {
+      const b = vej.bbox;
+      if (utmX >= b.minX && utmX <= b.maxX && utmY >= b.minY && utmY <= b.maxY) {
+        if (!signal.aborted) {
+          _statsvejCache.set(cacheKey, vej.data);
+          setTimeout(() => _statsvejCache.delete(cacheKey), 5 * 60 * 1000);
+        }
+        return vej.data;
+      }
     }
     return {};
   } catch (error) {
