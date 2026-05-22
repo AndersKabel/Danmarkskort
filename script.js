@@ -1642,7 +1642,7 @@ map.on('click', function(e) {
       })
       .catch(err => console.error("Reverse geocoding fejl:", err));
   } else {
-    // Udland: ORS reverse geocoding
+    // Udland ELLER vand/bro: ORS reverse geocoding
     reverseGeocodeORS(lat, lon)
       .then(feature => {
         if (!feature) return;
@@ -1659,6 +1659,10 @@ map.on('click', function(e) {
         fillRouteFieldsFromClick(norm, lat, lon);
       })
       .catch(err => console.error("ORS reverse geocoding fejl:", err));
+
+    // Tjek statsvej også her — dækker broer og küstnare over vand
+    // som isInDenmarkByPolygon() ikke genkender som DK
+    checkForStatsvej(lat, lon).then(sd => visStatsvejBox(sd, lat, lon));
   }
 });
 
@@ -1738,58 +1742,15 @@ async function updateInfoBox(data, lat, lon) {
   if (vej1List)    vej1List.innerHTML    = "";
   if (vej2List)    vej2List.innerHTML    = "";
 
-  // Start kommuneinfo-fetch parallelt med statsvej-kald (kommunekode kendes allerede)
+  // Start kommuneinfo-fetch parallelt (kommunekode kendes allerede)
   const komFetchPromise = kommunekode !== "?"
     ? fetch(`https://api.dataforsyningen.dk/kommuner/${kommunekode}`).catch(() => null)
     : Promise.resolve(null);
 
-  // Statsvej-data
-  let statsvejData = await checkForStatsvej(lat, lon);
-  const statsvejInfoEl = document.getElementById("statsvejInfo");
-
-  const admNr       = statsvejData?.ADM_NR       ?? statsvejData?.adm_nr       ?? null;
-  const forgrening  = statsvejData?.FORGRENING   ?? statsvejData?.forgrening   ?? null;
-  const betegnelse  = statsvejData?.BETEGNELSE   ?? statsvejData?.betegnelse   ?? null;
-  const bestyrer    = statsvejData?.BESTYRER     ?? statsvejData?.bestyrer     ?? null;
-  const vejtype     = statsvejData?.VEJTYPE      ?? statsvejData?.vejtype      ?? null;
-  const beskrivelse = statsvejData?.BESKRIVELSE  ?? statsvejData?.beskrivelse  ?? null;
-  const vejstatus   = statsvejData?.VEJSTATUS    ?? statsvejData?.vejstatus    ?? statsvejData?.VEJ_STATUS ?? statsvejData?.status ?? null;
-  const vejmynd     = statsvejData?.VEJMYNDIGHED ?? statsvejData?.vejmyndighed ?? statsvejData?.VEJMYND     ?? statsvejData?.vejmynd ?? null;
-  
-  const hasStatsvej = admNr != null || forgrening != null || (betegnelse && String(betegnelse).trim() !== "") || (vejtype && String(vejtype).trim() !== "");
-  const showStatsBox = hasStatsvej || vejstatus || vejmynd;
-
-  if (showStatsBox) {
-    let html = "";
-    if (hasStatsvej) {
-      html += `<strong>Administrativt nummer:</strong> ${admNr || "Ukendt"}<br>`;
-      html += `<strong>Forgrening:</strong> ${forgrening || "Ukendt"}<br>`;
-      html += `<strong>Vejnavn:</strong> ${betegnelse || "Ukendt"}<br>`;
-      html += `<strong>Bestyrer:</strong> ${bestyrer || "Ukendt"}<br>`;
-      html += `<strong>Vejtype:</strong> ${vejtype || "Ukendt"}`;
-    }
-
-    if (vejstatus) {
-      html += `<br><strong>Vejstatus:</strong> ${vejstatus}`;
-    }
-    if (vejmynd) {
-      html += `<br><strong>Vejmyndighed:</strong> ${vejmynd}`;
-    }
-    statsvejInfoEl.innerHTML = html;
-
-    if (hasStatsvej) {
-      // Hent præcis km fra proxy — vis kun når vi har det eksakte svar
-      document.getElementById("statsvejInfoBox").style.display = "block";
-      getKmAtPoint(lat, lon, statsvejData).then(kmText => {
-        if (kmText) {
-          statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
-        }
-      });
-    }
-  } else {
-    statsvejInfoEl.innerHTML = "";
-    document.getElementById("statsvejInfoBox").style.display = "none";
-  }
+  // Statsvej-data hentes og vises via fælles funktion
+  // (visStatsvejBox kaldes også fra click-handler for broer/vand uden dansk adresse)
+  const statsvejData = await checkForStatsvej(lat, lon);
+  visStatsvejBox(statsvejData, lat, lon);
   document.getElementById("infoBox").style.display = "block";
   
   // Kommuneinfo – bruger komFetchPromise som allerede er startet parallelt med statsvej-kaldet
@@ -3047,6 +3008,52 @@ function placeMarkerAndZoom(coords, displayText) {
 }
 
 // ── Statsvej-cache og abort-controller ───────────────────────────
+/***************************************************
+ * visStatsvejBox - vis statsvej-info-boksen
+ * Kaldes fra updateInfoBox (DK) OG fra map click-handler (broer over vand)
+ ***************************************************/
+function visStatsvejBox(statsvejData, lat, lon) {
+  const statsvejInfoEl = document.getElementById("statsvejInfo");
+  if (!statsvejInfoEl) return;
+
+  const admNr      = statsvejData?.ADM_NR       ?? statsvejData?.adm_nr       ?? null;
+  const forgrening = statsvejData?.FORGRENING   ?? statsvejData?.forgrening   ?? null;
+  const betegnelse = statsvejData?.BETEGNELSE   ?? statsvejData?.betegnelse   ?? null;
+  const bestyrer   = statsvejData?.BESTYRER     ?? statsvejData?.bestyrer     ?? null;
+  const vejtype    = statsvejData?.VEJTYPE      ?? statsvejData?.vejtype      ?? null;
+  const vejstatus  = statsvejData?.VEJSTATUS    ?? statsvejData?.vejstatus    ?? statsvejData?.VEJ_STATUS ?? statsvejData?.status ?? null;
+  const vejmynd    = statsvejData?.VEJMYNDIGHED ?? statsvejData?.vejmyndighed ?? statsvejData?.VEJMYND    ?? statsvejData?.vejmynd ?? null;
+
+  const hasStatsvej  = admNr != null || forgrening != null
+    || (betegnelse && String(betegnelse).trim() !== "")
+    || (vejtype    && String(vejtype).trim()    !== "");
+  const showStatsBox = hasStatsvej || vejstatus || vejmynd;
+
+  if (showStatsBox) {
+    let html = "";
+    if (hasStatsvej) {
+      html += `<strong>Administrativt nummer:</strong> ${admNr || "Ukendt"}<br>`;
+      html += `<strong>Forgrening:</strong> ${forgrening || "Ukendt"}<br>`;
+      html += `<strong>Vejnavn:</strong> ${betegnelse || "Ukendt"}<br>`;
+      html += `<strong>Bestyrer:</strong> ${bestyrer || "Ukendt"}<br>`;
+      html += `<strong>Vejtype:</strong> ${vejtype || "Ukendt"}`;
+    }
+    if (vejstatus) html += `<br><strong>Vejstatus:</strong> ${vejstatus}`;
+    if (vejmynd)   html += `<br><strong>Vejmyndighed:</strong> ${vejmynd}`;
+    statsvejInfoEl.innerHTML = html;
+
+    if (hasStatsvej) {
+      document.getElementById("statsvejInfoBox").style.display = "block";
+      getKmAtPoint(lat, lon, statsvejData).then(kmText => {
+        if (kmText) statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
+      });
+    }
+  } else {
+    statsvejInfoEl.innerHTML = "";
+    document.getElementById("statsvejInfoBox").style.display = "none";
+  }
+}
+
 const _statsvejCache     = new Map();
 let   _statsvejAbortCtrl = null;
 
