@@ -850,14 +850,12 @@ var cvfVejeLayer = L.tileLayer.wms("https://geocloud.vd.dk/CVF/wms", {
   attribution: "© Vejdirektoratet CVF"
 });
 
-var ortofotoLayer = L.tileLayer.wms(
-  "https://api.dataforsyningen.dk/orto_foraar_DAF?service=WMS&request=GetCapabilities&token=a63a88838c24fc85d47f32cde0ec0144",
+var ortofotoLayer = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
   {
-    layers: "orto_foraar",
-    format: "image/jpeg",
-    transparent: false,
-    version: "1.1.1",
-    attribution: "Ortofoto © Kortforsyningen"
+    maxZoom: 21,
+    maxNativeZoom: 19,
+    attribution: "Tiles &copy; Esri — Source: Esri, SDFI, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP"
   }
 );
 
