@@ -839,6 +839,17 @@ var osmLayer = L.tileLayer(
   }
 ).addTo(map);
 
+// CVF vejklassifikation — permanent lag ovenpå OSM
+// Viser vejkategorier med CVF's farver: rød = motorvej, orange = øvrige statsveje osv.
+var cvfVejeLayer = L.tileLayer.wms("https://geocloud.vd.dk/CVF/wms", {
+  layers: "CVF:veje",
+  format: "image/png",
+  transparent: true,
+  version: "1.1.1",
+  opacity: 0.7,
+  attribution: "© Vejdirektoratet CVF"
+}).addTo(map);
+
 var ortofotoLayer = L.tileLayer.wms(
   "https://api.dataforsyningen.dk/orto_foraar_DAF?service=WMS&request=GetCapabilities&token=a63a88838c24fc85d47f32cde0ec0144",
   {
