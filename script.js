@@ -1347,13 +1347,49 @@ map.on('overlayadd', function(e) {
         const lon = point.AddressInfo?.Longitude;
         if (lat && lon && currentMarker &&
             map.distance(currentMarker.getLatLng(), L.latLng(lat, lon)) <= selectedRadius) {
+          // Farve baseret på status
+          const isOp = point.StatusType?.IsOperational;
+          const markerColor = isOp === true ? '#22c55e' : isOp === false ? '#ef4444' : '#9ca3af';
+
+          // Størrelse baseret på max kW blandt stik
+          const maxKw = (point.Connections || []).reduce((mx, c) => Math.max(mx, c.PowerKW || 0), 0);
+          const markerRadius = maxKw >= 150 ? 13 : maxKw >= 50 ? 10 : maxKw >= 22 ? 8 : 6;
+
+          // Popup-indhold
+          const pNavn    = point.AddressInfo?.Title || 'Ukendt';
+          const pAdresse = [point.AddressInfo?.AddressLine1, point.AddressInfo?.Postcode, point.AddressInfo?.Town].filter(Boolean).join(', ');
+          const pOp      = point.OperatorInfo?.Title || 'Ukendt operatør';
+          const pStatus  = point.StatusType?.Title  || 'Ukendt';
+          const pFarve   = isOp === true ? 'green' : isOp === false ? 'red' : 'gray';
+          const pPris    = point.UsageCost || 'Ikke oplyst';
+          const pAdgang  = point.UsageType?.Title || '';
+
+          const stikLinjer = (point.Connections || []).map(c => {
+            const stikType   = c.ConnectionType?.Title?.trim() || '?';
+            const kw         = c.PowerKW != null ? `${c.PowerKW} kW` : '';
+            const stikIkon   = c.StatusType?.IsOperational === true ? '🟢' : c.StatusType?.IsOperational === false ? '🔴' : '⚪';
+            const antal      = c.Quantity && c.Quantity > 1 ? ` ×${c.Quantity}` : '';
+            return `${stikIkon} ${stikType}${antal}${kw ? ' – ' + kw : ''}`;
+          }).join('<br>');
+
+          const popupHtml = `
+            <strong>${pNavn}</strong><br>
+            ${pAdresse}<br>
+            <span style="color:${pFarve}">● ${pStatus}</span><br>
+            <strong>Operatør:</strong> ${pOp}<br>
+            ${stikLinjer ? '<strong>Stik:</strong><br>' + stikLinjer + '<br>' : ''}
+            <strong>Pris:</strong> ${pPris}<br>
+            ${pAdgang ? '<em>' + pAdgang + '</em>' : ''}
+          `.trim();
+
           L.circleMarker([lat, lon], {
-            radius: 8,
-            color: 'yellow',
-            fillColor: 'yellow',
-            fillOpacity: 1
+            radius: markerRadius,
+            color: markerColor,
+            fillColor: markerColor,
+            fillOpacity: 0.85,
+            weight: 1.5
           })
-          .bindPopup(/* din popup-kode her */)
+          .bindPopup(popupHtml)
           .addTo(chargeMapLayer);
         }
       });
