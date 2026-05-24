@@ -851,11 +851,11 @@ var cvfVejeLayer = L.tileLayer.wms("https://geocloud.vd.dk/CVF/wms", {
 });
 
 var ortofotoLayer = L.tileLayer(
-  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  "https://api.dataforsyningen.dk/orto_foraar_DAF?token=a63a88838c24fc85d47f32cde0ec0144&service=WMTS&request=GetTile&version=1.0.0&layer=orto_foraar&style=default&format=image/jpeg&TileMatrixSet=GoogleMapsCompatible&TileMatrix={z}&TileRow={y}&TileCol={x}",
   {
     maxZoom: 21,
-    maxNativeZoom: 19,
-    attribution: "Tiles &copy; Esri — Source: Esri, SDFI, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP"
+    maxNativeZoom: 20,
+    attribution: "Ortofoto © Styrelsen for Dataforsyning og Infrastruktur"
   }
 );
 
