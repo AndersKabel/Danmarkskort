@@ -352,7 +352,6 @@
   padding-top: 14px; border-top: 1px solid #eaecf0;
 }
 /* ── DISP LAYER CONTROL KNAP ─────────────────────────────────── */
-/* Placér til venstre for km-boksene (som sidder på right:60px + ~250px bredde) */
 .lev-disp-ctrl {
   position: absolute !important;
   top: 10px !important;
@@ -360,18 +359,27 @@
   margin: 0 !important;
   z-index: 900 !important;
 }
-
-/* Erstat lag-ikon med teksten "Disp" */
 .lev-disp-ctrl .leaflet-control-layers-toggle {
   background-image: none !important;
-  width: 44px !important;
-  font-size: 12px !important;
-  font-weight: 800 !important;
-  color: #1a1a2e !important;
-  letter-spacing: 0.5px !important;
-  line-height: 36px !important;
+  width: 62px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #333 !important;
   text-align: center !important;
+  letter-spacing: 0.3px !important;
+  display: block !important;
 }
 .lev-disp-ctrl .leaflet-control-layers-toggle::before {
-  content: "Disp";
+  content: "⊞ Disp";
+}
+/* Bredere panel så teksten ikke brækkker */
+.lev-disp-ctrl .leaflet-control-layers-list {
+  min-width: 220px !important;
+}
+.lev-disp-ctrl .leaflet-control-layers-overlays label {
+  white-space: nowrap !important;
+  font-size: 13px !important;
+  padding: 3px 0 !important;
 }
