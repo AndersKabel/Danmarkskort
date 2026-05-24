@@ -355,29 +355,28 @@
 .lev-disp-ctrl {
   position: absolute !important;
   top: 10px !important;
-  right: 320px !important;
+  right: 355px !important;
   margin: 0 !important;
   z-index: 900 !important;
 }
 .lev-disp-ctrl .leaflet-control-layers-toggle {
-  width: 44px !important;
-  height: 48px !important;
-  background-position: center 8px !important;
-  background-size: 20px 20px !important;
+  width: 54px !important;
+  height: 34px !important;
+  background-position: 7px center !important;
+  background-size: 16px 16px !important;
   position: relative !important;
   display: block !important;
 }
 .lev-disp-ctrl .leaflet-control-layers-toggle::after {
   content: "Disp";
   position: absolute;
-  bottom: 5px;
-  left: 0; right: 0;
-  text-align: center;
-  font-size: 10px;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
   font-weight: 700;
-  color: #333;
+  color: #444;
   line-height: 1;
-  letter-spacing: 0.3px;
 }
 /* Bredere panel så tekst ikke brækker */
 .lev-disp-ctrl .leaflet-control-layers-list { min-width: 220px !important; }
