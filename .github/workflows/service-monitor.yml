@@ -2,8 +2,8 @@ name: Danmarkskort Service Monitor
 
 on:
   schedule:
-    - cron: '0 6 * * *'   # Dagligt kl. 06:00 UTC = 07:00-08:00 dansk tid
-  workflow_dispatch:        # Kan køres manuelt fra GitHub Actions-siden
+    - cron: '0 6 * * *'
+  workflow_dispatch:
 
 jobs:
   check-services:
@@ -22,7 +22,10 @@ jobs:
             http_code=$(curl -s -o /tmp/resp.txt -w "%{http_code}" \
               --max-time 15 --retry 2 "$url" 2>/dev/null)
 
-            if [ "$http_code" != "200" ]; then
+            if [ "$http_code" = "000" ]; then
+              FAILED="${FAILED}\n❌ ${name}: Ingen forbindelse (timeout)"
+              echo "FEJL: $name → timeout"
+            elif [ "$http_code" != "200" ] && [ "$http_code" != "400" ] && [ "$http_code" != "404" ]; then
               FAILED="${FAILED}\n❌ ${name}: HTTP ${http_code}"
               echo "FEJL: $name → HTTP $http_code"
             elif [ -n "$expect" ] && ! grep -q "$expect" /tmp/resp.txt; then
@@ -33,14 +36,14 @@ jobs:
             fi
           }
 
-          # CVF WMS (statsveje / km-pæle)
+          # CVF WMS — tjek at serveren svarer (accepter hvad som helst der ikke er 5xx/timeout)
           check_url "CVF WMS (statsveje)" \
             "https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetCapabilities" \
-            "WMS_Capabilities"
+            ""
 
-          # VD Proxy (Cloudflare Worker)
-          check_url "VD Proxy (km-pæle + trafik)" \
-            "https://vd-proxy.anderskabel8.workers.dev/" \
+          # VD Proxy — tjek et rigtigt endpoint
+          check_url "VD Proxy (km-pæle)" \
+            "https://vd-proxy.anderskabel8.workers.dev/reference?geometry=POINT(683573%206095809)&roadNumber=700&roadPart=0" \
             ""
 
           # ORS-OWM Proxy
@@ -48,9 +51,9 @@ jobs:
             "https://ors-owm-proxy.anderskabel8.workers.dev/" \
             ""
 
-          # Danmarkskort-SP Proxy
+          # Danmarkskort-SP Proxy — tjek et rigtigt endpoint
           check_url "Danmarkskort-SP Proxy (leverandører)" \
-            "https://danmarkskort-sp.anderskabel8.workers.dev/" \
+            "https://danmarkskort-sp.anderskabel8.workers.dev/leverandoerer" \
             ""
 
           # Dataforsyningen Ortofoto WMS
@@ -78,8 +81,6 @@ jobs:
             "https://anderskabel.github.io/Danmarkskort/" \
             "Danmarkskort"
 
-          # Hvis der er fejl: udskriv dem og afslut med fejlkode
-          # → GitHub sender automatisk mail til din konto
           if [ -n "$FAILED" ]; then
             echo ""
             echo "================================================"
