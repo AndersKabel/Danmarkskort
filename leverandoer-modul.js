@@ -410,9 +410,22 @@ function _levShowListe() {
 
   document.getElementById("levNyBtn").addEventListener("click", () => _levShowForm(null));
   document.getElementById("levRefreshBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("levRefreshBtn");
+    btn.textContent = "⏳ Opdaterer...";
+    btn.disabled = true;
     _levLoaded = false;
     await _levLoad();
     _levShowListe();
+    // _levShowListe() genbygger DOM — hent ny reference til knappen
+    const tid = new Date().toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+    const nyBtn = document.getElementById("levRefreshBtn");
+    if (nyBtn) {
+      nyBtn.textContent = `✅ Opdateret ${tid}`;
+      setTimeout(() => {
+        const b = document.getElementById("levRefreshBtn");
+        if (b) b.textContent = "↻ Opdater";
+      }, 3000);
+    }
   });
   body.querySelectorAll(".lev-list-row").forEach(row =>
     row.addEventListener("click", () => _levShowForm(row.dataset.id))
