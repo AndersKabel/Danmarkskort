@@ -271,6 +271,13 @@
     </div>
   </div>
 
+  <!-- Bemærkning -->
+  <div class="card">
+    <h2>Bemærkning <span style="font-weight:400;color:#9ca3af;font-size:13px">(valgfri)</span></h2>
+    <input type="text" id="inp-bemærkning" placeholder="fx. Fra Aalborg mod Sjælland" maxlength="200" autocomplete="off">
+    <div style="font-size:12px;color:#aaa;margin-top:6px">Vises i popup på kortet</div>
+  </div>
+
   <!-- Tid -->
   <div class="card">
     <h2>Tilgængelig i</h2>
@@ -556,7 +563,8 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vognNr: _vognNr, code: _code, fra, til,
-          valgtAdresse: _valgtAdresse
+          valgtAdresse: _valgtAdresse,
+          bemærkning: document.getElementById("inp-bemærkning").value.trim()
         })
       });
       const data = await r.json();
