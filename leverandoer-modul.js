@@ -26,6 +26,7 @@ const LEV_KATEGORIER = [
 const _levKatLag = {};
 LEV_KATEGORIER.forEach(k => { _levKatLag[k.id] = L.layerGroup(); });
 var redigerLeverandoerLayer = L.layerGroup();
+var levTilgaengeligLayer    = L.layerGroup();   // Tilgængelige leverandører
 
 // ── STATE ────────────────────────────────────────────────────────
 let _levData          = [];
@@ -33,6 +34,7 @@ let _levPostnrMap     = {};   // postnr → [primær kommunekode]
 let _levHighlights    = [];
 let _levLoginProgress = false;
 let _levLoaded        = false;
+let _levTilgInterval  = null; // auto-refresh interval for tilgængelighed-laget
 
 // ── BOOT ─────────────────────────────────────────────────────────
 async function initLeverandoerModul() {
@@ -47,7 +49,8 @@ function _levBuildControl() {
   LEV_KATEGORIER.forEach(k => {
     overlays[`${k.ikon} ${k.navn}`] = _levKatLag[k.id];
   });
-  overlays["✏️ Rediger leverandører"] = redigerLeverandoerLayer;
+  overlays["🟢 Tilgængelige leverandører"] = levTilgaengeligLayer;
+  overlays["✏️ Rediger leverandører"]       = redigerLeverandoerLayer;
 
   L.control.layers({}, overlays, { position: "topright", collapsed: true }).addTo(map);
 
@@ -58,10 +61,25 @@ function _levBuildControl() {
       await _levOpenAdmin();
       return;
     }
+    // Tilgængelighed-lag → hent data og start 60-sekunders auto-refresh
+    if (e.layer === levTilgaengeligLayer) {
+      await _levTilgLoad();
+      _levTilgInterval = setInterval(_levTilgLoad, 60_000);
+      return;
+    }
     // Et kategori-lag tændes → load data første gang
     const erKat = LEV_KATEGORIER.some(k => _levKatLag[k.id] === e.layer);
     if (erKat && !_levLoaded) {
       await _levLoad();
+    }
+  });
+
+  // Stop interval og ryd markører når tilgængelighed-laget slås fra
+  map.on("overlayremove", function (e) {
+    if (e.layer === levTilgaengeligLayer) {
+      clearInterval(_levTilgInterval);
+      _levTilgInterval = null;
+      levTilgaengeligLayer.clearLayers();
     }
   });
 }
@@ -192,6 +210,54 @@ function _levBuildMarkers() {
         });
 
       katLag.addLayer(marker);
+    });
+  });
+}
+
+// ── TILGÆNGELIGHED – LAG ─────────────────────────────────────────
+async function _levTilgLoad() {
+  try {
+    const resp = await fetch(`${LEV_SP_WORKER}/tilgaengelig`);
+    if (!resp.ok) { console.warn("Tilgængelighed: fejl", resp.status); return; }
+    const data = await resp.json();
+    _levTilgBuildMarkers(data.aktive || []);
+  } catch (e) {
+    console.warn("Tilgængelighed: load fejlede", e);
+  }
+}
+
+function _levTilgBuildMarkers(aktive) {
+  levTilgaengeligLayer.clearLayers();
+
+  aktive.forEach(rec => {
+    const kat    = LEV_KATEGORIER.find(k => k.id === rec.levKategori);
+    const farve  = rec.levFarve || "#27ae60";
+    const fraStr = rec.fra ? new Date(rec.fra).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
+    const tilStr = rec.til ? new Date(rec.til).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
+
+    const popupHTML = `
+      <div class="lev-popup">
+        <div class="lev-popup-top" style="border-left:4px solid ${_esc(farve)}">
+          <b>🟢 ${_esc(rec.levNavn)}</b>
+          <span class="lev-popup-sub">${kat ? kat.ikon + " " + kat.navn : ""}</span>
+        </div>
+        <div class="lev-popup-row">🚗 ${_esc(rec.vognReg)}${rec.vognNr ? " – Vogn " + _esc(rec.vognNr) : ""}
+          ${rec.vognBesk ? "<br><small>" + _esc(rec.vognBesk) + "</small>" : ""}
+        </div>
+        <div class="lev-popup-row">⏰ Tilgængelig: <b>${fraStr} → ${tilStr}</b></div>
+      </div>`;
+
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="lev-marker-icon" style="background:${_esc(farve)};box-shadow:0 0 0 3px #fff,0 0 0 5px ${_esc(farve)}">🟢</div>`,
+      iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -22]
+    });
+
+    (rec.adresser || []).forEach(adr => {
+      if (!adr.lat || !adr.lon) return;
+      L.marker([adr.lat, adr.lon], { icon })
+        .bindPopup(popupHTML, { maxWidth: 320, className: "lev-leaflet-popup" })
+        .addTo(levTilgaengeligLayer);
     });
   });
 }
