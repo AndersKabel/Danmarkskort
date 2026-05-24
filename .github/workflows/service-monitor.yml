@@ -1,0 +1,93 @@
+name: Danmarkskort Service Monitor
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # Dagligt kl. 06:00 UTC = 07:00-08:00 dansk tid
+  workflow_dispatch:        # Kan køres manuelt fra GitHub Actions-siden
+
+jobs:
+  check-services:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Tjek alle services
+        run: |
+          FAILED=""
+
+          check_url() {
+            local name="$1"
+            local url="$2"
+            local expect="$3"
+
+            http_code=$(curl -s -o /tmp/resp.txt -w "%{http_code}" \
+              --max-time 15 --retry 2 "$url" 2>/dev/null)
+
+            if [ "$http_code" != "200" ]; then
+              FAILED="${FAILED}\n❌ ${name}: HTTP ${http_code}"
+              echo "FEJL: $name → HTTP $http_code"
+            elif [ -n "$expect" ] && ! grep -q "$expect" /tmp/resp.txt; then
+              FAILED="${FAILED}\n❌ ${name}: Uventet svar"
+              echo "FEJL: $name → forventede '$expect' i svaret"
+            else
+              echo "✅ $name → OK"
+            fi
+          }
+
+          # CVF WMS (statsveje / km-pæle)
+          check_url "CVF WMS (statsveje)" \
+            "https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetCapabilities" \
+            "WMS_Capabilities"
+
+          # VD Proxy (Cloudflare Worker)
+          check_url "VD Proxy (km-pæle + trafik)" \
+            "https://vd-proxy.anderskabel8.workers.dev/" \
+            ""
+
+          # ORS-OWM Proxy
+          check_url "ORS-OWM Proxy (routing + vejr)" \
+            "https://ors-owm-proxy.anderskabel8.workers.dev/" \
+            ""
+
+          # Danmarkskort-SP Proxy
+          check_url "Danmarkskort-SP Proxy (leverandører)" \
+            "https://danmarkskort-sp.anderskabel8.workers.dev/" \
+            ""
+
+          # Dataforsyningen Ortofoto WMS
+          check_url "Dataforsyningen Ortofoto WMS" \
+            "https://api.dataforsyningen.dk/orto_foraar_DAF?service=WMS&request=GetCapabilities&token=${{ secrets.DATAFORSYNINGEN_TOKEN }}" \
+            "WMS_Capabilities"
+
+          # Dataforsyningen Kommuner API
+          check_url "Dataforsyningen Kommuner API" \
+            "https://api.dataforsyningen.dk/kommuner?format=json&token=${{ secrets.DATAFORSYNINGEN_TOKEN }}" \
+            ""
+
+          # DAWA Adresser API
+          check_url "DAWA Adresser API" \
+            "https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=Falck&per_side=1" \
+            ""
+
+          # OpenChargemap API
+          check_url "OpenChargemap API" \
+            "https://api.openchargemap.io/v3/poi/?output=json&countrycode=DK&maxresults=1&key=${{ secrets.OPENCHARGEMAP_KEY }}" \
+            ""
+
+          # Selve kortsiden
+          check_url "Danmarkskort GitHub Pages" \
+            "https://anderskabel.github.io/Danmarkskort/" \
+            "Danmarkskort"
+
+          # Hvis der er fejl: udskriv dem og afslut med fejlkode
+          # → GitHub sender automatisk mail til din konto
+          if [ -n "$FAILED" ]; then
+            echo ""
+            echo "================================================"
+            echo "FEJL OPDAGET — GitHub sender notifikation til dig"
+            echo "================================================"
+            echo -e "$FAILED"
+            exit 1
+          else
+            echo ""
+            echo "✅ Alle services svarer korrekt"
+          fi
