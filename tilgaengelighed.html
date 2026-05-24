@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Tilgængelighed</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 0 40px;
+    }
+
+    .topbar {
+      width: 100%;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 16px 20px;
+      font-size: 17px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+      padding: 24px 20px;
+      width: 100%;
+      max-width: 440px;
+      margin: 0 16px 20px;
+    }
+
+    .card h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 4px;
+      margin-top: 12px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="datetime-local"] {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #ddd;
+      border-radius: 10px;
+      font-size: 15px;
+      color: #222;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: #3b82f6; }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 14px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); opacity: 0.9; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-blue   { background: #3b82f6; color: #fff; }
+    .btn-green  { background: #16a34a; color: #fff; }
+    .btn-red    { background: #dc2626; color: #fff; }
+    .btn-gray   { background: #e5e7eb; color: #444; }
+
+    /* Adresse-knapper */
+    .adr-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .adr-btn {
+      width: 100%;
+      padding: 13px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      color: #374151;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .adr-btn.active {
+      border-color: #16a34a;
+      background: #f0fdf4;
+      color: #15803d;
+    }
+    .adr-btn.gps-btn {
+      border-style: dashed;
+      color: #6b7280;
+      justify-content: center;
+      font-style: italic;
+    }
+    .adr-btn.gps-btn.active {
+      border-color: #3b82f6;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-style: normal;
+      border-style: solid;
+    }
+
+    /* Tidsknapper */
+    .time-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin: 14px 0 4px;
+    }
+    .time-btn {
+      padding: 12px 4px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      color: #444;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .time-btn.active {
+      border-color: #16a34a;
+      background: #f0fdf4;
+      color: #15803d;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0;
+      color: #aaa;
+      font-size: 13px;
+    }
+    .divider::before, .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #e5e7eb;
+    }
+
+    .manual-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .status-active   { background: #f0fdf4; border: 1.5px solid #86efac; color: #15803d; }
+    .status-inactive { background: #f9fafb; border: 1.5px solid #e5e7eb; color: #6b7280; }
+    .status-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .status-dot.green { background: #16a34a; box-shadow: 0 0 0 3px #bbf7d0; }
+    .status-dot.gray  { background: #9ca3af; }
+
+    .vogn-info {
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 4px;
+      font-size: 14px;
+      color: #374151;
+    }
+
+    .feedback {
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      margin-top: 10px;
+      display: none;
+    }
+    .feedback.ok  { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; display: block; }
+    .feedback.err { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; display: block; }
+
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    .spinner-dark {
+      border-color: rgba(0,0,0,0.15);
+      border-top-color: #374151;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #screen-login, #screen-main { width: 100%; max-width: 440px; padding: 0 16px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">🚛 Tilgængelighed</div>
+
+<!-- LOGIN SCREEN -->
+<div id="screen-login">
+  <div class="card">
+    <h2>Log ind med dit vognnummer</h2>
+    <label>Vognnummer</label>
+    <input type="text" id="inp-vognNr" placeholder="fx V201" autocomplete="off" autocapitalize="characters">
+    <label>Adgangskode</label>
+    <input type="password" id="inp-code" placeholder="••••••" autocomplete="off">
+    <button class="btn btn-blue" id="btn-login">Fortsæt →</button>
+    <div id="login-feedback" class="feedback"></div>
+  </div>
+</div>
+
+<!-- MAIN SCREEN -->
+<div id="screen-main" class="hidden">
+
+  <!-- Status -->
+  <div class="card">
+    <h2>Din status</h2>
+    <div id="status-badge" class="status-badge status-inactive">
+      <div class="status-dot gray" id="status-dot"></div>
+      <span id="status-text">Ikke tilgængelig</span>
+    </div>
+    <div id="vogn-info" class="vogn-info hidden"></div>
+  </div>
+
+  <!-- Lokation -->
+  <div class="card">
+    <h2>Startposition</h2>
+    <div class="adr-grid" id="adr-grid">
+      <div style="color:#aaa;font-size:13px">Henter adresser...</div>
+    </div>
+  </div>
+
+  <!-- Bemærkning -->
+  <div class="card">
+    <h2>Bemærkning <span style="font-weight:400;color:#9ca3af;font-size:13px">(valgfri)</span></h2>
+    <input type="text" id="inp-bemærkning" placeholder="fx. Fra Aalborg mod Sjælland" maxlength="200" autocomplete="off">
+    <div style="font-size:12px;color:#aaa;margin-top:6px">Vises i popup på kortet</div>
+  </div>
+
+  <!-- Tid -->
+  <div class="card">
+    <h2>Tilgængelig i</h2>
+    <div class="time-grid" id="time-grid">
+      <button class="time-btn" data-hours="4">4t</button>
+      <button class="time-btn" data-hours="6">6t</button>
+      <button class="time-btn" data-hours="8">8t</button>
+      <button class="time-btn" data-hours="10">10t</button>
+      <button class="time-btn" data-hours="12">12t</button>
+    </div>
+
+    <div class="divider">eller vælg tidsrum</div>
+    <div class="manual-row">
+      <div>
+        <label>Fra</label>
+        <input type="datetime-local" id="inp-fra">
+      </div>
+      <div>
+        <label>Til</label>
+        <input type="datetime-local" id="inp-til">
+      </div>
+    </div>
+
+    <button class="btn btn-green" id="btn-meld">🟢 Meld tilgængelig</button>
+    <button class="btn btn-red hidden" id="btn-fravær">🔴 Meld fraværende</button>
+    <button class="btn btn-gray" id="btn-logout">← Skift vogn</button>
+    <div id="main-feedback" class="feedback"></div>
+  </div>
+
+</div>
+
+<script>
+  const WORKER = "https://danmarkskort-sp.anderskabel8.workers.dev";
+
+  // ── State ──────────────────────────────────────────────────────
+  let _vognNr        = sessionStorage.getItem("lev_vognNr") || "";
+  let _code          = sessionStorage.getItem("lev_code")   || "";
+  let _adresser      = [];          // leverandørens gemte adresser
+  let _valgtAdresse  = null;        // { lat, lon, label }
+  let _aktivRec      = null;
+  let _valgtTimer    = null;
+
+  // ── Init ───────────────────────────────────────────────────────
+  if (_vognNr && _code) showMain();
+  else document.getElementById("screen-login").classList.remove("hidden");
+
+  function defaultFra() {
+    const d = new Date();
+    d.setSeconds(0, 0);
+    d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15);
+    return toLocalDT(d);
+  }
+  function toLocalDT(d) {
+    const pad = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // ── LOGIN ──────────────────────────────────────────────────────
+  document.getElementById("btn-login").addEventListener("click", doLogin);
+  document.getElementById("inp-code").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+
+  async function doLogin() {
+    const vognNr = document.getElementById("inp-vognNr").value.trim();
+    const code   = document.getElementById("inp-code").value.trim();
+    const fb     = document.getElementById("login-feedback");
+    const btn    = document.getElementById("btn-login");
+    if (!vognNr || !code) { showFb(fb, "err", "Udfyld begge felter."); return; }
+
+    btn.innerHTML = `<span class="spinner"></span>Logger ind...`;
+    btn.disabled = true;
+    fb.className = "feedback";
+
+    try {
+      const now = new Date();
+      const r = await fetch(`${WORKER}/tilgaengelig`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vognNr, code,
+          fra: now.toISOString(),
+          til: new Date(now.getTime() + 3600_000).toISOString(),
+          testOnly: true   // validér uden at gemme
+        })
+      });
+
+      if (r.status === 401) { showFb(fb, "err", "Forkert adgangskode."); return; }
+      if (r.status === 404) { showFb(fb, "err", "Vognnummer ikke fundet. Tjek stavning."); return; }
+      if (!r.ok)            { showFb(fb, "err", "Fejl – prøv igen."); return; }
+
+      const data = await r.json();
+      _adresser = data.record?.alleAdresser || [];
+      _vognNr = vognNr;
+      _code   = code;
+      sessionStorage.setItem("lev_vognNr", vognNr);
+      sessionStorage.setItem("lev_code",   code);
+      showMain();
+
+    } catch (e) {
+      showFb(fb, "err", "Netværksfejl – er du online?");
+    } finally {
+      btn.innerHTML = "Fortsæt →";
+      btn.disabled = false;
+    }
+  }
+
+  // ── MAIN SCREEN ────────────────────────────────────────────────
+  async function showMain() {
+    document.getElementById("screen-login").classList.add("hidden");
+    document.getElementById("screen-main").classList.remove("hidden");
+    document.getElementById("inp-fra").value = defaultFra();
+    updateTilFromFra(4);
+    setActiveTimeBtn(4);
+    buildAdrGrid();
+    await refreshStatus();
+  }
+
+  // ── ADRESSE-GRID ───────────────────────────────────────────────
+  function buildAdrGrid() {
+    const grid = document.getElementById("adr-grid");
+    grid.innerHTML = "";
+
+    if (!_adresser.length) {
+      grid.innerHTML = `<p style="font-size:13px;color:#aaa">Ingen gemte adresser – brug GPS.</p>`;
+    } else {
+      _adresser.forEach(adr => {
+        const btn = document.createElement("button");
+        btn.className = "adr-btn";
+        btn.dataset.lat   = adr.lat;
+        btn.dataset.lon   = adr.lon;
+        btn.dataset.label = adr.label || "";
+        btn.innerHTML = `📍 <span>${esc(adr.label || adr.id)}</span>`;
+        btn.addEventListener("click", () => vælgAdresse(adr.lat, adr.lon, adr.label || adr.id, btn));
+        grid.appendChild(btn);
+      });
+    }
+
+    // GPS-knap
+    const gpsBtn = document.createElement("button");
+    gpsBtn.className = "adr-btn gps-btn";
+    gpsBtn.id = "btn-gps";
+    gpsBtn.textContent = "📱 Brug min GPS-position";
+    gpsBtn.addEventListener("click", hentGPS);
+    grid.appendChild(gpsBtn);
+
+    // Disclaimer
+    const disc = document.createElement("p");
+    disc.style.cssText = "font-size:12px;color:#9ca3af;margin-top:10px;line-height:1.5";
+    disc.textContent = "📋 Din position deles kun som et øjebliksbillede mens du er meldt tilgængelig. "
+      + "Der gemmes ingen historik og ingen bevægelsessporing — oplysningen slettes automatisk når tilgængeligheden udløber.";
+    grid.appendChild(disc);
+  }
+
+  function vælgAdresse(lat, lon, label, clickedBtn) {
+    _valgtAdresse = { lat: parseFloat(lat), lon: parseFloat(lon), label };
+    document.querySelectorAll(".adr-btn").forEach(b => b.classList.remove("active"));
+    clickedBtn.classList.add("active");
+  }
+
+  async function hentGPS() {
+    const btn = document.getElementById("btn-gps");
+    if (!navigator.geolocation) {
+      btn.textContent = "❌ GPS ikke tilgængeligt";
+      return;
+    }
+    btn.innerHTML = `<span class="spinner spinner-dark"></span>Henter position...`;
+    btn.disabled = true;
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat   = pos.coords.latitude;
+        const lon   = pos.coords.longitude;
+        const label = "Min GPS-position";
+        _valgtAdresse = { lat, lon, label };
+        document.querySelectorAll(".adr-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        btn.textContent = `📱 ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        btn.disabled = false;
+      },
+      err => {
+        btn.textContent = "❌ Kunne ikke hente position";
+        btn.disabled = false;
+        setTimeout(() => { btn.textContent = "📱 Brug min GPS-position"; }, 3000);
+      },
+      { timeout: 10000, maximumAge: 60000 }
+    );
+  }
+
+  // ── STATUS ─────────────────────────────────────────────────────
+  async function refreshStatus() {
+    try {
+      const r    = await fetch(`${WORKER}/tilgaengelig`);
+      const data = await r.json();
+      const rec  = (data.aktive || []).find(a =>
+        String(a.vognNr || "").toLowerCase() === _vognNr.toLowerCase()
+      );
+      _aktivRec = rec || null;
+
+      // Hvis allerede aktiv og ingen adresser i state: brug dem fra aktiv record
+      if (_aktivRec && !_adresser.length && _aktivRec.alleAdresser) {
+        _adresser = _aktivRec.alleAdresser;
+        buildAdrGrid();
+      }
+
+      renderStatus();
+    } catch (e) {
+      console.warn("Status-refresh fejlede", e);
+    }
+  }
+
+  function renderStatus() {
+    const badge = document.getElementById("status-badge");
+    const dot   = document.getElementById("status-dot");
+    const txt   = document.getElementById("status-text");
+    const vInfo = document.getElementById("vogn-info");
+    const btnFr = document.getElementById("btn-fravær");
+
+    if (_aktivRec) {
+      badge.className = "status-badge status-active";
+      dot.className   = "status-dot green";
+      const adrLabel = _aktivRec.adresser?.[0]?.label || "";
+      txt.textContent = `Tilgængelig ${fmt(_aktivRec.fra)} → ${fmt(_aktivRec.til)}${adrLabel ? " · " + adrLabel : ""}`;
+      vInfo.innerHTML = `<strong>${esc(_aktivRec.levNavn)}</strong> · Vogn ${esc(_aktivRec.vognNr)}`;
+      vInfo.classList.remove("hidden");
+      btnFr.classList.remove("hidden");
+    } else {
+      badge.className = "status-badge status-inactive";
+      dot.className   = "status-dot gray";
+      txt.textContent = "Ikke tilgængelig";
+      vInfo.classList.add("hidden");
+      btnFr.classList.add("hidden");
+    }
+  }
+
+  function fmt(iso) {
+    if (!iso) return "?";
+    return new Date(iso).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  // ── TIDSKNAPPER ────────────────────────────────────────────────
+  document.getElementById("time-grid").addEventListener("click", e => {
+    const btn = e.target.closest(".time-btn");
+    if (!btn) return;
+    const h = parseInt(btn.dataset.hours, 10);
+    _valgtTimer = h;
+    setActiveTimeBtn(h);
+    updateTilFromFra(h);
+  });
+
+  function setActiveTimeBtn(h) {
+    document.querySelectorAll(".time-btn").forEach(b =>
+      b.classList.toggle("active", parseInt(b.dataset.hours) === h)
+    );
+  }
+  function updateTilFromFra(h) {
+    const fraVal = document.getElementById("inp-fra").value;
+    if (!fraVal) return;
+    const til = new Date(new Date(fraVal).getTime() + h * 3600_000);
+    document.getElementById("inp-til").value = toLocalDT(til);
+  }
+  document.getElementById("inp-fra").addEventListener("change", () => {
+    if (_valgtTimer) updateTilFromFra(_valgtTimer);
+  });
+  document.getElementById("inp-til").addEventListener("change", () => {
+    _valgtTimer = null;
+    document.querySelectorAll(".time-btn").forEach(b => b.classList.remove("active"));
+  });
+
+  // ── MELD TILGÆNGELIG ──────────────────────────────────────────
+  document.getElementById("btn-meld").addEventListener("click", async () => {
+    const fb  = document.getElementById("main-feedback");
+    const btn = document.getElementById("btn-meld");
+
+    if (!_valgtAdresse) {
+      showFb(fb, "err", "Vælg en startposition først."); return;
+    }
+
+    const fra = new Date(document.getElementById("inp-fra").value).toISOString();
+    const til = new Date(document.getElementById("inp-til").value).toISOString();
+    if (!fra || !til || new Date(til) <= new Date(fra)) {
+      showFb(fb, "err", "Vælg et gyldigt tidsrum (til > fra)."); return;
+    }
+
+    btn.innerHTML = `<span class="spinner"></span>Sender...`;
+    btn.disabled = true;
+    fb.className = "feedback";
+
+    try {
+      const r = await fetch(`${WORKER}/tilgaengelig`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vognNr: _vognNr, code: _code, fra, til,
+          valgtAdresse: _valgtAdresse,
+          bemærkning: document.getElementById("inp-bemærkning").value.trim()
+        })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || r.status);
+
+      showFb(fb, "ok", `✅ Tilmeldt tilgængelig ${fmt(fra)} → ${fmt(til)}`);
+      _aktivRec = data.record;
+      renderStatus();
+    } catch (e) {
+      showFb(fb, "err", `Fejl: ${e.message}`);
+    } finally {
+      btn.innerHTML = "🟢 Meld tilgængelig";
+      btn.disabled = false;
+    }
+  });
+
+  // ── MELD FRAVÆRENDE ───────────────────────────────────────────
+  document.getElementById("btn-fravær").addEventListener("click", async () => {
+    const fb  = document.getElementById("main-feedback");
+    const btn = document.getElementById("btn-fravær");
+    btn.innerHTML = `<span class="spinner"></span>Sender...`;
+    btn.disabled = true;
+    fb.className = "feedback";
+    try {
+      const r = await fetch(`${WORKER}/tilgaengelig`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vognNr: _vognNr, code: _code })
+      });
+      if (!r.ok) throw new Error(r.status);
+      showFb(fb, "ok", "✅ Du er meldt fraværende.");
+      _aktivRec = null;
+      renderStatus();
+    } catch (e) {
+      showFb(fb, "err", `Fejl: ${e.message}`);
+    } finally {
+      btn.innerHTML = "🔴 Meld fraværende";
+      btn.disabled = false;
+    }
+  });
+
+  // ── LOGOUT ────────────────────────────────────────────────────
+  document.getElementById("btn-logout").addEventListener("click", () => {
+    sessionStorage.removeItem("lev_vognNr");
+    sessionStorage.removeItem("lev_code");
+    _vognNr = ""; _code = ""; _aktivRec = null; _adresser = []; _valgtAdresse = null;
+    document.getElementById("inp-vognNr").value = "";
+    document.getElementById("inp-code").value = "";
+    document.getElementById("login-feedback").className = "feedback";
+    document.getElementById("main-feedback").className = "feedback";
+    document.getElementById("screen-main").classList.add("hidden");
+    document.getElementById("screen-login").classList.remove("hidden");
+  });
+
+  // ── HJÆLPERE ──────────────────────────────────────────────────
+  function showFb(el, type, msg) {
+    el.textContent = msg;
+    el.className = "feedback " + type;
+  }
+  function esc(s) {
+    return String(s || "")
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+</script>
+</body>
+</html>
