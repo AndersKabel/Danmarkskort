@@ -456,6 +456,12 @@ function _levShowForm(id) {
           <label>Farve <input type="color" id="lf-farve" value="${_esc(lev.farve || '#3498db')}"></label>
           <label class="lev-check-label"><input type="checkbox" id="lf-aktiv" ${lev.aktiv !== false ? "checked" : ""}> Aktiv</label>
         </div>
+        <label>🔑 Adgangskode til lev-klar.html
+          <div class="lev-row" style="gap:8px;margin-top:4px">
+            <input type="text" id="lf-kode" value="${_esc(lev.kode || '')}" placeholder="Vælg en kode til leverandøren" style="flex:1">
+            <button type="button" id="levGenKode" class="lev-btn-secondary" style="white-space:nowrap">🎲 Generer</button>
+          </div>
+        </label>
       </fieldset>
 
       <fieldset class="lev-fs">
@@ -509,6 +515,12 @@ function _levShowForm(id) {
   document.getElementById("levAddVogn").addEventListener("click", () => _levAppendVognRow(vognDiv, {}));
   document.getElementById("levGemBtn") .addEventListener("click", () => _levGem(lev));
   document.getElementById("levSletBtn")?.addEventListener("click", () => _levSlet(lev.id));
+  document.getElementById("levGenKode").addEventListener("click", () => {
+    const tegn = "abcdefghjkmnpqrstuvwxyz23456789";
+    let kode = "";
+    for (let i = 0; i < 8; i++) kode += tegn[Math.floor(Math.random() * tegn.length)];
+    document.getElementById("lf-kode").value = kode;
+  });
 }
 
 // ── TELEFON-RÆKKER ───────────────────────────────────────────────
@@ -673,6 +685,7 @@ async function _levGem(template) {
       farve:    document.getElementById("lf-farve").value,
       kategori: document.getElementById("lf-kategori").value,
       aktiv:    document.getElementById("lf-aktiv").checked,
+      kode:     document.getElementById("lf-kode").value.trim(),
       kontakt: {
         navn:         document.getElementById("lf-knavn").value.trim(),
         email:        document.getElementById("lf-kemail").value.trim(),
