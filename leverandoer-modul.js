@@ -487,7 +487,7 @@ function _levShowForm(id) {
           <label>Farve <input type="color" id="lf-farve" value="${_esc(lev.farve || '#3498db')}"></label>
           <label class="lev-check-label"><input type="checkbox" id="lf-aktiv" ${lev.aktiv !== false ? "checked" : ""}> Aktiv</label>
         </div>
-        <label>🔑 Adgangskode til lev-klar.html
+        <label>🔑 Adgangskode til tilgaengelighed.html
           <div class="lev-row" style="gap:8px;margin-top:4px">
             <input type="text" id="lf-kode" value="${_esc(lev.kode || '')}" placeholder="Vælg en kode til leverandøren" style="flex:1">
             <button type="button" id="levGenKode" class="lev-btn-secondary" style="white-space:nowrap">🎲 Generer</button>
