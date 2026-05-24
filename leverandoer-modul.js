@@ -255,6 +255,7 @@ function _levTilgBuildMarkers(aktive) {
           🚗 <b>Vogn ${_esc(rec.vognNr)}</b>${rec.vognReg ? " · " + _esc(rec.vognReg) : ""}
           ${rec.vognBesk ? "<br><small>" + _esc(rec.vognBesk) + "</small>" : ""}
           <br>⏰ <b>${fraStr} → ${tilStr}</b>
+          ${rec.bemærkning ? "<br>💬 <i>" + _esc(rec.bemærkning) + "</i>" : ""}
         </div>`;
     }).join('<hr class="lev-hr">');
 
