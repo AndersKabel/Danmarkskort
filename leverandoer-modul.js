@@ -52,7 +52,8 @@ function _levBuildControl() {
   overlays["🟢 Tilgængelige leverandører"] = levTilgaengeligLayer;
   overlays["✏️ Rediger leverandører"]       = redigerLeverandoerLayer;
 
-  L.control.layers({}, overlays, { position: "topright", collapsed: true }).addTo(map);
+  const levCtrl = L.control.layers({}, overlays, { position: "topright", collapsed: true }).addTo(map);
+  levCtrl.getContainer().classList.add("lev-disp-ctrl");
 
   map.on("overlayadd", async function (e) {
     // Rediger-laget åbner admin-panelet
