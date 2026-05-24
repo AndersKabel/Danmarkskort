@@ -596,13 +596,16 @@ input[type="search"]::-webkit-search-decoration { display: none; }
 /* ── AR LAYER CONTROL KNAP ──────────────────────────────────────── */
 .main-ar-ctrl .leaflet-control-layers-toggle {
   background-image: none !important;
-  width: 44px !important;
-  font-size: 12px !important;
-  font-weight: 800 !important;
-  color: #1a1a2e !important;
-  line-height: 36px !important;
+  width: 62px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #333 !important;
   text-align: center !important;
+  letter-spacing: 0.3px !important;
+  display: block !important;
 }
 .main-ar-ctrl .leaflet-control-layers-toggle::before {
-  content: "AR";
+  content: "⊞ AR";
 }
