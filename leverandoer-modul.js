@@ -241,7 +241,9 @@ function _levTilgBuildMarkers(aktive) {
           <b>🟢 ${_esc(rec.levNavn)}</b>
           <span class="lev-popup-sub">${kat ? kat.ikon + " " + kat.navn : ""}</span>
         </div>
-        <div class="lev-popup-row">🚗 ${_esc(rec.vognReg)}${rec.vognNr ? " – Vogn " + _esc(rec.vognNr) : ""}
+        <div class="lev-popup-row">
+          🚗 <b>Vogn ${_esc(rec.vognNr)}</b>
+          ${rec.vognReg ? " · " + _esc(rec.vognReg) : ""}
           ${rec.vognBesk ? "<br><small>" + _esc(rec.vognBesk) + "</small>" : ""}
         </div>
         <div class="lev-popup-row">⏰ Tilgængelig: <b>${fraStr} → ${tilStr}</b></div>
