@@ -594,21 +594,22 @@ input[type="search"]::-webkit-search-decoration { display: none; }
   cursor: pointer;
 }
 /* ── AR LAYER CONTROL KNAP ──────────────────────────────────────── */
+/* AR sidder i Leaflets topright — naturligt til højre for km-knapperne */
 .main-ar-ctrl .leaflet-control-layers-toggle {
-  width: 54px !important;
-  height: 34px !important;
-  background-position: 7px center !important;
-  background-size: 16px 16px !important;
+  width: 44px !important;
+  height: 42px !important;
+  background-position: center 7px !important;
+  background-size: 18px 18px !important;
   position: relative !important;
   display: block !important;
 }
 .main-ar-ctrl .leaflet-control-layers-toggle::after {
   content: "AR";
   position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 11px;
+  bottom: 5px;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 10px;
   font-weight: 700;
   color: #444;
   line-height: 1;
