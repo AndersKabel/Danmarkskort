@@ -1226,6 +1226,7 @@ const _rvInterval = setInterval(() => {
   }
 }, 500);
 const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+layerControl.getContainer().classList.add("main-ar-ctrl");
 
 // ── Custom Place knap ────────────────────────────────────────────
 document.getElementById("cpOpenBtn").addEventListener("click", _cpOpenModal);
