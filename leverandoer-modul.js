@@ -229,38 +229,53 @@ async function _levTilgLoad() {
 function _levTilgBuildMarkers(aktive) {
   levTilgaengeligLayer.clearLayers();
 
+  // Gruppér alle records per unik position (lat/lon)
+  const byPos = new Map();
   aktive.forEach(rec => {
-    const kat    = LEV_KATEGORIER.find(k => k.id === rec.levKategori);
-    const farve  = rec.levFarve || "#27ae60";
-    const fraStr = rec.fra ? new Date(rec.fra).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
-    const tilStr = rec.til ? new Date(rec.til).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
+    (rec.adresser || []).forEach(adr => {
+      if (!adr.lat || !adr.lon) return;
+      const key = `${parseFloat(adr.lat).toFixed(5)},${parseFloat(adr.lon).toFixed(5)}`;
+      if (!byPos.has(key)) byPos.set(key, { lat: adr.lat, lon: adr.lon, label: adr.label, records: [] });
+      byPos.get(key).records.push(rec);
+    });
+  });
+
+  // Én markør per unik position
+  byPos.forEach(({ lat, lon, label, records }) => {
+    const farve = records[0].levFarve || "#27ae60";
+    const kat   = LEV_KATEGORIER.find(k => k.id === records[0].levKategori);
+    const antal = records.length;
+
+    // Byg én popup-række per tilgængelig vogn
+    const vognRækker = records.map(rec => {
+      const fraStr = rec.fra ? new Date(rec.fra).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
+      const tilStr = rec.til ? new Date(rec.til).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
+      return `
+        <div class="lev-popup-row">
+          🚗 <b>Vogn ${_esc(rec.vognNr)}</b>${rec.vognReg ? " · " + _esc(rec.vognReg) : ""}
+          ${rec.vognBesk ? "<br><small>" + _esc(rec.vognBesk) + "</small>" : ""}
+          <br>⏰ <b>${fraStr} → ${tilStr}</b>
+        </div>`;
+    }).join('<hr class="lev-hr">');
 
     const popupHTML = `
       <div class="lev-popup">
         <div class="lev-popup-top" style="border-left:4px solid ${_esc(farve)}">
-          <b>🟢 ${_esc(rec.levNavn)}</b>
-          <span class="lev-popup-sub">${kat ? kat.ikon + " " + kat.navn : ""}</span>
+          <b>🟢 ${_esc(records[0].levNavn)}</b>
+          <span class="lev-popup-sub">${kat ? kat.ikon + " " + kat.navn : ""}${label ? " · " + _esc(label) : ""}</span>
         </div>
-        <div class="lev-popup-row">
-          🚗 <b>Vogn ${_esc(rec.vognNr)}</b>
-          ${rec.vognReg ? " · " + _esc(rec.vognReg) : ""}
-          ${rec.vognBesk ? "<br><small>" + _esc(rec.vognBesk) + "</small>" : ""}
-        </div>
-        <div class="lev-popup-row">⏰ Tilgængelig: <b>${fraStr} → ${tilStr}</b></div>
+        ${vognRækker}
       </div>`;
 
     const icon = L.divIcon({
       className: "",
-      html: `<div class="lev-marker-icon" style="background:${_esc(farve)};box-shadow:0 0 0 3px #fff,0 0 0 5px ${_esc(farve)}">🟢</div>`,
+      html: `<div class="lev-marker-icon" style="background:${_esc(farve)};box-shadow:0 0 0 3px #fff,0 0 0 5px ${_esc(farve)}">${antal > 1 ? antal + "🟢" : "🟢"}</div>`,
       iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -22]
     });
 
-    (rec.adresser || []).forEach(adr => {
-      if (!adr.lat || !adr.lon) return;
-      L.marker([adr.lat, adr.lon], { icon })
-        .bindPopup(popupHTML, { maxWidth: 320, className: "lev-leaflet-popup" })
-        .addTo(levTilgaengeligLayer);
-    });
+    L.marker([lat, lon], { icon })
+      .bindPopup(popupHTML, { maxWidth: 320, className: "lev-leaflet-popup" })
+      .addTo(levTilgaengeligLayer);
   });
 }
 
