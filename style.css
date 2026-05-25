@@ -595,20 +595,21 @@ input[type="search"]::-webkit-search-decoration { display: none; }
 }
 /* ── AR LAYER CONTROL KNAP ──────────────────────────────────────── */
 .main-ar-ctrl {
-  margin-top: 3px !important;
+  margin-top: 14px !important;   /* lidt ned (default er 10px) */
+  margin-right: 4px !important;  /* lidt tættere på kanten (default er 10px) */
 }
 .main-ar-ctrl .leaflet-control-layers-toggle {
   width: 44px !important;
-  height: 42px !important;
-  background-position: center 7px !important;
-  background-size: 18px 18px !important;
+  height: 34px !important;
+  background-position: center 5px !important;
+  background-size: 16px 16px !important;
   position: relative !important;
   display: block !important;
 }
 .main-ar-ctrl .leaflet-control-layers-toggle::after {
   content: "AR";
   position: absolute;
-  bottom: 5px;
+  bottom: 4px;
   left: 0; right: 0;
   text-align: center;
   font-size: 10px;
