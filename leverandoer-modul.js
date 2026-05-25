@@ -178,42 +178,48 @@ function _levBuildMarkers() {
   LEV_KATEGORIER.forEach(k => _levKatLag[k.id].clearLayers());
 
   (_levData || []).filter(l => l.aktiv !== false).forEach(lev => {
-    const katLag = _levKatLag[lev.kategori];
-    if (!katLag) return;
+    // Støt både nyt (kategorier[]) og gammelt (kategori) format
+    const kategorier = (lev.kategorier?.length ? lev.kategorier : (lev.kategori ? [lev.kategori] : []));
+    if (!kategorier.length) return;
 
     (lev.arbejdsAdresser || []).forEach(adr => {
       if (!adr.lat || !adr.lon) return;
-      let closeTimer = null;
 
-      const marker = L.marker([adr.lat, adr.lon], { icon: _levIcon(lev) })
-        .bindPopup(_levPopupHTML(lev, adr), { maxWidth: 360, className: "lev-leaflet-popup" })
-        .on("mouseover", function () {
-          clearTimeout(closeTimer);
-          this.openPopup();
-          _levHighlight(lev, adr);
-        })
-        .on("mouseout", function () {
-          const self = this;
-          closeTimer = setTimeout(() => {
-            self.closePopup();
-            _levClearHighlights();
-          }, 250);
-        })
-        .on("popupopen", function () {
-          // Annuller luk-timeren hvis musen går ind i popup'en
-          const el = this.getPopup().getElement();
-          if (!el) return;
-          el.addEventListener("mouseenter", () => clearTimeout(closeTimer));
-          el.addEventListener("mouseleave", () => {
+      // Én markør per kategori-lag
+      kategorier.forEach(katId => {
+        const katLag = _levKatLag[katId];
+        if (!katLag) return;
+
+        let closeTimer = null;
+        const marker = L.marker([adr.lat, adr.lon], { icon: _levIcon(lev, katId) })
+          .bindPopup(_levPopupHTML(lev, adr), { maxWidth: 360, className: "lev-leaflet-popup" })
+          .on("mouseover", function () {
+            clearTimeout(closeTimer);
+            this.openPopup();
+            _levHighlight(lev, adr);
+          })
+          .on("mouseout", function () {
             const self = this;
             closeTimer = setTimeout(() => {
               self.closePopup();
               _levClearHighlights();
             }, 250);
+          })
+          .on("popupopen", function () {
+            const el = this.getPopup().getElement();
+            if (!el) return;
+            el.addEventListener("mouseenter", () => clearTimeout(closeTimer));
+            el.addEventListener("mouseleave", () => {
+              const self = this;
+              closeTimer = setTimeout(() => {
+                self.closePopup();
+                _levClearHighlights();
+              }, 250);
+            });
           });
-        });
 
-      katLag.addLayer(marker);
+        katLag.addLayer(marker);
+      });
     });
   });
 }
@@ -307,8 +313,8 @@ function _levTilgBuildMarkers(aktive) {
   });
 }
 
-function _levIcon(lev) {
-  const kat    = LEV_KATEGORIER.find(k => k.id === lev.kategori);
+function _levIcon(lev, katId) {
+  const kat     = LEV_KATEGORIER.find(k => k.id === (katId || lev.kategorier?.[0] || lev.kategori));
   const initial = kat ? kat.ikon : (lev.navn || "?")[0].toUpperCase();
   const color   = lev.farve || "#3498db";
   return L.divIcon({
@@ -429,14 +435,16 @@ function _levShowListe() {
   const body = document.getElementById("levPanelBody");
 
   const lister = (_levData || []).map(lev => {
-    const kat = LEV_KATEGORIER.find(k => k.id === lev.kategori);
+    const kats = (lev.kategorier?.length ? lev.kategorier : (lev.kategori ? [lev.kategori] : []))
+      .map(id => LEV_KATEGORIER.find(k => k.id === id)).filter(Boolean);
+    const katTekst = kats.length ? kats.map(k => k.ikon + " " + k.navn).join(" + ") : "Ingen kategori";
     return `
       <div class="lev-list-row" data-id="${lev.id}">
         <span class="lev-list-dot" style="background:${lev.farve || '#aaa'}"></span>
         <div class="lev-list-info">
           <span class="lev-list-navn">${_esc(lev.navn || "Navnløs")}</span>
           <span class="lev-list-meta">
-            ${kat ? kat.ikon + " " + kat.navn : "Ingen kategori"} ·
+            ${katTekst} ·
             ${(lev.arbejdsAdresser || []).length} adr. ·
             ${(lev.vogne || []).length} vogne
             ${lev.aktiv === false ? " · <em style='color:#e74c3c'>inaktiv</em>" : ""}
@@ -483,7 +491,7 @@ function _levShowForm(id) {
   const isNy = !lev;
   if (isNy) {
     lev = {
-      id: "lev-" + Date.now(), navn: "", farve: "#3498db", kategori: "", aktiv: true,
+      id: "lev-" + Date.now(), navn: "", farve: "#3498db", kategorier: [], kategori: "", aktiv: true,
       kontakt: { navn: "", email: "", telefonnumre: [] },
       fakturaAdresse: { vej: "", postnr: "", by: "" },
       arbejdsAdresser: [], vogne: [], prioritetsPostnumre: []
@@ -493,9 +501,12 @@ function _levShowForm(id) {
   document.getElementById("levPanelTitle").textContent = isNy ? "Ny leverandør" : _esc(lev.navn) || "Rediger";
   const body = document.getElementById("levPanelBody");
 
-  const katOptions = LEV_KATEGORIER.map(k =>
-    `<option value="${k.id}" ${lev.kategori === k.id ? "selected" : ""}>${k.ikon} ${k.navn}</option>`
-  ).join("");
+  const levKategorier = lev.kategorier?.length ? lev.kategorier : (lev.kategori ? [lev.kategori] : []);
+  const katCheckboxes = LEV_KATEGORIER.map(k => `
+    <label class="lev-kat-check-label">
+      <input type="checkbox" name="lf-kat" value="${k.id}" ${levKategorier.includes(k.id) ? "checked" : ""}>
+      ${k.ikon} ${_esc(k.navn)}
+    </label>`).join("");
 
   body.innerHTML = `
     <div class="lev-form">
@@ -504,12 +515,8 @@ function _levShowForm(id) {
       <fieldset class="lev-fs">
         <legend>📋 Basisoplysninger</legend>
         <label>Firmanavn <input type="text" id="lf-navn" value="${_esc(lev.navn)}" placeholder="Firma ApS"></label>
-        <label>Kategori
-          <select id="lf-kategori">
-            <option value="">-- Vælg kategori --</option>
-            ${katOptions}
-          </select>
-        </label>
+        <div class="lev-form-label">Kategori(er)</div>
+        <div id="lf-kategorier" class="lev-kat-checkboxes">${katCheckboxes}</div>
         <div class="lev-row lev-row-color">
           <label>Farve <input type="color" id="lf-farve" value="${_esc(lev.farve || '#3498db')}"></label>
           <label class="lev-check-label"><input type="checkbox" id="lf-aktiv" ${lev.aktiv !== false ? "checked" : ""}> Aktiv</label>
@@ -741,7 +748,7 @@ async function _levGem(template) {
       id:       template.id,
       navn,
       farve:    document.getElementById("lf-farve").value,
-      kategori: document.getElementById("lf-kategori").value,
+      kategorier: Array.from(document.querySelectorAll('#lf-kategorier input[name="lf-kat"]:checked')).map(el => el.value),
       aktiv:    document.getElementById("lf-aktiv").checked,
       kode:     document.getElementById("lf-kode").value.trim(),
       kontakt: {
