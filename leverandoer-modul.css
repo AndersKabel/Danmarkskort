@@ -352,10 +352,11 @@
   padding-top: 14px; border-top: 1px solid #eaecf0;
 }
 /* ── DISP LAYER CONTROL KNAP ─────────────────────────────────── */
+/* Positioneret direkte i kortets container — samme reference som #distanceOptions */
 .lev-disp-ctrl {
   position: absolute !important;
   top: 10px !important;
-  right: 395px !important;   /* til venstre for km-knapperne (~322px bred + 60px offset + 13px luft) */
+  right: 360px !important;  /* 350px (km-venstre kant) + 10px luft */
   margin: 0 !important;
   z-index: 900 !important;
 }
