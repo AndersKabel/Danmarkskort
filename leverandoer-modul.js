@@ -221,10 +221,33 @@ async function _levTilgLoad() {
     const resp = await fetch(`${LEV_SP_WORKER}/tilgaengelig`);
     if (!resp.ok) { console.warn("Tilgængelighed: fejl", resp.status); return; }
     const data = await resp.json();
-    _levTilgBuildMarkers(data.aktive || []);
+    const aktive = data.aktive || [];
+    _levTilgBuildMarkers(aktive);
+
+    // Vis besked hvis ingen er tilgængelige
+    if (aktive.length === 0) _levTilgToast("Ingen leverandører meldt tilgængelig");
   } catch (e) {
     console.warn("Tilgængelighed: load fejlede", e);
   }
+}
+
+function _levTilgToast(besked) {
+  const eksisterende = document.getElementById("lev-tilg-toast");
+  if (eksisterende) eksisterende.remove();
+
+  const toast = document.createElement("div");
+  toast.id = "lev-tilg-toast";
+  toast.textContent = besked;
+  toast.style.cssText = [
+    "position:fixed", "bottom:60px", "left:50%", "transform:translateX(-50%)",
+    "background:rgba(0,0,0,0.75)", "color:#fff", "padding:10px 20px",
+    "border-radius:8px", "font-size:14px", "z-index:9999",
+    "pointer-events:none", "white-space:nowrap",
+    "transition:opacity 0.4s"
+  ].join(";");
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = "0"; }, 2500);
+  setTimeout(() => { toast.remove(); }, 3000);
 }
 
 function _levTilgBuildMarkers(aktive) {
