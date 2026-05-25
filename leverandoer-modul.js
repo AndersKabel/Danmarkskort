@@ -53,7 +53,10 @@ function _levBuildControl() {
   overlays["✏️ Rediger leverandører"]       = redigerLeverandoerLayer;
 
   const levCtrl = L.control.layers({}, overlays, { position: "topright", collapsed: true }).addTo(map);
-  levCtrl.getContainer().classList.add("lev-disp-ctrl");
+  const levCtrlEl = levCtrl.getContainer();
+  levCtrlEl.classList.add("lev-disp-ctrl");
+  // Flyt til kortets container — så right: bruger samme reference som #distanceOptions
+  map.getContainer().appendChild(levCtrlEl);
 
   map.on("overlayadd", async function (e) {
     // Rediger-laget åbner admin-panelet
