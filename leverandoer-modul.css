@@ -384,3 +384,36 @@
   font-size: 13px !important;
   padding: 3px 0 !important;
 }
+/* ── DISP LAYER CONTROL KNAP ─────────────────────────────────── */
+.lev-disp-ctrl {
+  position: absolute !important;
+  top: 10px !important;
+  right: 360px !important;
+  margin: 0 !important;
+  z-index: 900 !important;
+}
+.lev-disp-ctrl .leaflet-control-layers-toggle {
+  width: 44px !important;
+  height: 46px !important;
+  background-position: center 10px !important;
+  background-size: 18px 18px !important;
+  position: relative !important;
+  display: block !important;
+}
+.lev-disp-ctrl .leaflet-control-layers-toggle::after {
+  content: "Disp";
+  position: absolute;
+  bottom: 6px;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #444;
+  line-height: 1;
+}
+.lev-disp-ctrl .leaflet-control-layers-list { min-width: 220px !important; }
+.lev-disp-ctrl .leaflet-control-layers-overlays label {
+  white-space: nowrap !important;
+  font-size: 13px !important;
+  padding: 3px 0 !important;
+}
