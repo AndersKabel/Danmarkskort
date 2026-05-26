@@ -607,7 +607,7 @@ input[type="search"]::-webkit-search-decoration { display: none; }
   display: block !important;
 }
 .main-ar-ctrl .leaflet-control-layers-toggle::after {
-  content: "AR";
+  content: "";
   position: absolute;
   bottom: 4px;
   left: 0; right: 0;
@@ -631,7 +631,7 @@ input[type="search"]::-webkit-search-decoration { display: none; }
   display: block !important;
 }
 .main-ar-ctrl .leaflet-control-layers-toggle::after {
-  content: "AR";
+  content: "";
   position: absolute;
   bottom: 6px;
   left: 0; right: 0;
