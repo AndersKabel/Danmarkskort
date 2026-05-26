@@ -606,3 +606,9 @@ input[type="search"]::-webkit-search-decoration { display: none; }
   position: relative !important;
   display: block !important;
 }
+.main-ar-ctrl.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+  display: none !important;
+}
+.lev-disp-ctrl.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+  display: none !important;
+}
