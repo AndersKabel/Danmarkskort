@@ -722,6 +722,90 @@ fetch("CustomPlaces.json")
   .catch(err => console.warn("CustomPlaces netværksfejl:", err.message));
 
 /***************************************************
+ * Statsveje (km-pæle og motorvejspunkter fra Excel)
+ ***************************************************/
+var statsveje = [];
+var currentStatsvejLine = null; // Linje mellem fra/til koordinater for strækning
+
+fetch("Statsveje")
+  .then(function(response) { return response.json(); })
+  .then(function(data) {
+    if (!Array.isArray(data)) { console.error("Statsveje er ikke et array"); return; }
+    statsveje = data.filter(p => !p.template).map(p => {
+      if (typeof p.lat === "number" && typeof p.lon === "number") p.coords = [p.lat, p.lon];
+      return p;
+    });
+    console.log("Statsveje indlæst:", statsveje.length, "poster");
+  })
+  .catch(err => console.warn("Statsveje ikke fundet:", err.message));
+
+function clearStatsvejLine() {
+  if (currentStatsvejLine && map.hasLayer(currentStatsvejLine)) {
+    map.removeLayer(currentStatsvejLine);
+  }
+  currentStatsvejLine = null;
+}
+
+function findNearbyStatsveje(lat, lon) {
+  if (!statsveje || statsveje.length === 0) return [];
+  var clickLL = L.latLng(lat, lon);
+  var steps = [50, 100, 200, 500];
+  var sorted = statsveje
+    .map(p => {
+      if (typeof p.lat !== "number" || typeof p.lon !== "number") return null;
+      return { place: p, dist: map.distance(clickLL, L.latLng(p.lat, p.lon)) };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.dist - b.dist);
+  for (var r of steps) {
+    var within = sorted.filter(e => e.dist <= r);
+    if (within.length > 0) {
+      var best = within.filter(e => Math.abs(e.dist - within[0].dist) <= 5);
+      return best;
+    }
+  }
+  return [];
+}
+
+function renderStatsvejFromStatsvejsObj(statsObj) {
+  var el  = document.getElementById("statsvejInfo");
+  var box = document.getElementById("statsvejInfoBox");
+  if (!el || !box || !statsObj) return;
+
+  var navn      = statsObj.navn        || "";
+  var admNr     = statsObj.admNummer   || statsObj.adm_nr   || "";
+  var forgrening= statsObj.forgrening  || "";
+  var ruteNr    = statsObj.ruteNr      || statsObj.rute_nr  || "";
+  var type      = statsObj.type        || statsObj.vejtype  || "";
+  var suppl     = statsObj.supplAdresse|| "";
+  var vejkat    = statsObj.vejkategori || "";
+  var spor      = statsObj.antalSpor   || "";
+  var noed      = statsObj.noedspor    || "";
+  var respHverd = statsObj.responsHverdage || "";
+  var respOevr  = statsObj.responsOevrig   || "";
+  var km        = statsObj.kmPael      || statsObj.km_pæl   || "";
+  var bemærk    = statsObj["bemærkninger"] || "";
+
+  var html = "";
+  if (navn)      html += `<strong>${navn}</strong><br>`;
+  if (admNr)     html += `<strong>Adm. nr.:</strong> ${admNr}<br>`;
+  if (forgrening)html += `<strong>Forgrening:</strong> ${forgrening}<br>`;
+  if (ruteNr)    html += `<strong>Rute nr.:</strong> ${ruteNr}<br>`;
+  if (type)      html += `<strong>Vejtype:</strong> ${type}<br>`;
+  if (suppl)     html += `<strong>Suppl. adresse:</strong> ${suppl}<br>`;
+  if (vejkat)    html += `<strong>Vejkategori:</strong> ${vejkat}<br>`;
+  if (spor)      html += `<strong>Antal spor:</strong> ${spor}<br>`;
+  if (noed)      html += `<strong>Nødspor:</strong> ${noed}<br>`;
+  if (respHverd) html += `<strong>Respons hverdage 6-18:</strong> ${respHverd}<br>`;
+  if (respOevr)  html += `<strong>Respons øvrig tid:</strong> ${respOevr}<br>`;
+  if (km)        html += `<strong>Km:</strong> ${km}<br>`;
+  if (bemærk)    html += `<strong>Bemærkninger:</strong> ${bemærk}<br>`;
+
+  el.innerHTML = html;
+  box.style.display = html ? "block" : "none";
+}
+
+/***************************************************
  * Hjælpefunktion til at kopiere tekst til clipboard
  ***************************************************/
 function copyToClipboard(str) {
@@ -2157,6 +2241,7 @@ clearBtn.addEventListener("click", function() {
   clearBtn.style.display = "none";
   document.getElementById("infoBox").style.display = "none";
   document.getElementById("statsvejInfoBox").style.display = "none";
+  clearStatsvejLine();
   resetCoordinateBox();
   resetInfoBox();
   searchInput.focus();
@@ -2688,6 +2773,24 @@ function doSearch(query, listElement) {
       };
     });
 
+  // Statsveje (km-pæle fra Excel)
+  let statsvejsResults = statsveje
+    .filter(function(p) {
+      let navnMatch  = p.navn && p.navn.toLowerCase().includes(lowerQuery);
+      let adrMatch   = p.adresse && p.adresse.toLowerCase().includes(lowerQuery);
+      let forkMatch  = p.adresseForkortelse && p.adresseForkortelse.toLowerCase().includes(lowerQuery);
+      return navnMatch || adrMatch || forkMatch;
+    })
+    .map(function(p) {
+      return {
+        type: "statsvej",
+        navn: p.navn || "",
+        adresse: p.adresse || "",
+        coords: p.coords,
+        data: p
+      };
+    });
+
   // Vis custom places ØJEBLIKKELIGT (inden DAWA svarer)
   if (customResults.length > 0) {
     listElement.innerHTML = "";
@@ -2820,21 +2923,22 @@ function doSearch(query, listElement) {
         ...orsResults
       ];
     } else {
-      // Normal tilstand: danske kilder + evt. egne steder
+      // Normal tilstand: danske kilder + evt. egne steder + statsveje
       combined = [
         ...addrResults,
         ...stedResults,
         ...roadResults,
         ...(strandData || []),
         ...customResults,
+        ...statsvejsResults,
         ...orsResults
       ];
     }
 
     // Sortering
     combined.sort((a, b) => {
-      const aIsName = (a.type === "stednavn" || a.type === "navngivenvej" || a.type === "custom" || a.type === "ors_foreign");
-      const bIsName = (b.type === "stednavn" || b.type === "navngivenvej" || b.type === "custom" || b.type === "ors_foreign");
+      const aIsName = (a.type === "stednavn" || a.type === "navngivenvej" || a.type === "custom" || a.type === "statsvej" || a.type === "ors_foreign");
+      const bIsName = (b.type === "stednavn" || b.type === "navngivenvej" || b.type === "custom" || b.type === "statsvej" || b.type === "ors_foreign");
       if (aIsName && !bIsName) return -1;
       if (!aIsName && bIsName) return 1;
       return getSortPriority(a, query) - getSortPriority(b, query);
@@ -2863,6 +2967,12 @@ function doSearch(query, listElement) {
       } else if (obj.type === "custom") {
         let extra = obj.adresse ? " – " + obj.adresse : "";
         labelSpan.innerHTML = `⭐ ${obj.navn}${extra}`;
+      } else if (obj.type === "statsvej") {
+        let extra = obj.adresse ? " – " + obj.adresse : "";
+        let bemærkNote = obj.data && obj.data["bemærkninger"]
+          ? ` <span style="color:#e67e22;font-size:11px;font-weight:600;">[${obj.data["bemærkninger"]}]</span>`
+          : "";
+        labelSpan.innerHTML = `🛣️ ${obj.navn}${extra}${bemærkNote}`;
       } else if (obj.type === "ors_foreign") {
         labelSpan.innerHTML = `🌍 ${obj.label}`;
       }
@@ -2922,6 +3032,48 @@ function doSearch(query, listElement) {
               updateInfoBox(revData, lat, lon);
             })
             .catch(err => console.error("Reverse geocoding fejl for specialsted:", err));
+          listElement.innerHTML = "";
+          listElement.style.display = "none";
+        } else if (obj.type === "statsvej") {
+          let coordsStats = obj.coords;
+          if (!coordsStats || coordsStats.length < 2) return;
+          let lat = coordsStats[0];
+          let lon = coordsStats[1];
+
+          // Ryd evt. tidligere statsvej-linje
+          clearStatsvejLine();
+
+          // Vis Excel-data med det samme
+          renderStatsvejFromStatsvejsObj(obj.data);
+
+          // Strækning med begge koordinater: tegn linje og fit bounds
+          if (obj.data && obj.data.tilLat && obj.data.tilLon) {
+            var fraLL = L.latLng(lat, lon);
+            var tilLL = L.latLng(obj.data.tilLat, obj.data.tilLon);
+            currentStatsvejLine = L.polyline([fraLL, tilLL], {
+              color: "#e74c3c",
+              weight: 4,
+              opacity: 0.85,
+              dashArray: "8, 4"
+            }).addTo(map);
+            map.fitBounds(L.latLngBounds(fraLL, tilLL), { padding: [60, 60] });
+            createSelectionMarker(lat, lon);
+            setCoordinateBox(lat, lon);
+            document.getElementById("infoBox").style.display = "block";
+          } else {
+            setCoordinateBox(lat, lon);
+            placeMarkerAndZoom([lat, lon], obj.navn);
+          }
+
+          let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+          fetch(revUrl)
+            .then(r => r.json())
+            .then(revData => {
+              updateInfoBox(revData, lat, lon);
+              // Genvis egne data (updateInfoBox kan overskrive statsvejInfoBox)
+              renderStatsvejFromStatsvejsObj(obj.data);
+            })
+            .catch(err => console.error("Reverse geocoding fejl for statsvej:", err));
           listElement.innerHTML = "";
           listElement.style.display = "none";
         } else if (obj.type === "navngivenvej") {
