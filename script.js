@@ -857,8 +857,6 @@ function getSortPriority(item, query) {
     text = item.navn || "";
   } else if (item.type === "custom") {
     text = item.navn || "";
-  } else if (item.type === "statsvej") {
-    text = item.navn || "";
   } else if (item.type === "ors_foreign") {
     text = item.label || "";
   }
@@ -2884,41 +2882,35 @@ function doSearch(query, listElement) {
       adgangsadresse: item.adgangsadresse
     }));
 
-    // Stednavne — efterfiltrer: behold kun hvis søgeord faktisk er substring af navnet
-    // (DAWA's API laver fuzzy-matching som returnerer irrelevante resultater)
+    // Stednavne
     let stedResults = [];
     if (stedData) {
-      let raw = [];
       if (Array.isArray(stedData.results)) {
-        raw = stedData.results.map(result => ({
+        stedResults = stedData.results.map(result => ({
           type: "stednavn",
           navn: result.visningstekst || result.navn,
           bbox: result.bbox || null,
           geometry: result.geometry
         }));
       } else if (Array.isArray(stedData)) {
-        raw = stedData.map(result => ({
+        stedResults = stedData.map(result => ({
           type: "stednavn",
           navn: result.visningstekst || result.skrivemaade_officiel,
           bbox: result.bbox || null,
           geometry: result.geometri
         }));
       }
-      const lq = query.toLowerCase();
-      stedResults = raw.filter(r => r.navn && r.navn.toLowerCase().includes(lq));
     }
 
-    // Navngivne veje — efterfiltrer på samme måde
-    let roadResults = (roadData || [])
-      .map(item => ({
-        type: "navngivenvej",
-        navn: item.navn || item.adresseringsnavn || "",
-        id: item.id,
-        visualCenter: item.visueltcenter,
-        bbox: item.bbox,
-        postnumre: item.postnumre || []
-      }))
-      .filter(r => r.navn && r.navn.toLowerCase().includes(query.toLowerCase()));
+    // Navngivne veje
+    let roadResults = (roadData || []).map(item => ({
+      type: "navngivenvej",
+      navn: item.navn || item.adresseringsnavn || "",
+      id: item.id,
+      visualCenter: item.visueltcenter,
+      bbox: item.bbox,
+      postnumre: item.postnumre || []
+    }));
 
     // Udenlandske adresser fra ORS
     let orsResults = (orsData || []).map(o => o);
@@ -2976,11 +2968,13 @@ function doSearch(query, listElement) {
         let extra = obj.adresse ? " – " + obj.adresse : "";
         labelSpan.innerHTML = `⭐ ${obj.navn}${extra}`;
       } else if (obj.type === "statsvej") {
-        let extra = obj.adresse ? " – " + obj.adresse : "";
-        let bemærkNote = obj.data && obj.data["bemærkninger"]
-          ? ` <span style="color:#e67e22;font-size:11px;font-weight:600;">[${obj.data["bemærkninger"]}]</span>`
-          : "";
-        labelSpan.innerHTML = `🛣️ ${obj.navn}${extra}${bemærkNote}`;
+        let subtitle = "";
+        if (obj.adresse) subtitle += obj.adresse;
+        if (obj.data && obj.data["bemærkninger"]) {
+          subtitle += (subtitle ? " · " : "") + `<span style="color:#e67e22;font-weight:600;">${obj.data["bemærkninger"]}</span>`;
+        }
+        labelSpan.innerHTML = `🛣️ ${obj.navn}`
+          + (subtitle ? `<br><span style="color:#888;font-size:11px;padding-left:20px;">${subtitle}</span>` : "");
       } else if (obj.type === "ors_foreign") {
         labelSpan.innerHTML = `🌍 ${obj.label}`;
       }
