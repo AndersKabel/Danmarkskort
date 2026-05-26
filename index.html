@@ -6,7 +6,7 @@
   <title>Danmarkskort</title>
 
   <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="lib/leaflet.css" />
 
   <!-- Din egen style -->
   <link rel="stylesheet" href="style.css">
@@ -14,13 +14,13 @@
   <link rel="icon" href="data:,">
 
   <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="lib/leaflet.js"></script>
 
   <!-- Turf.js til intersection + point-in-polygon -->
-  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <script src="lib/turf.min.js"></script>
 
   <!-- Wellknown (WKT parser) -->
-  <script src="https://unpkg.com/wellknown@0.5.0/wellknown.js"></script>
+  <script src="lib/wellknown.js"></script>
 </head>
 <body>
 
@@ -58,7 +58,7 @@
           Sæt flueben for at søge på udenlandske adresser
         </span>
           <span id="orsGeocodeQuota" class="ors-quota-indicator"></span>
-        <button id="cpOpenBtn" class="cp-steder-btn" title="Opret Custom Place">⭐</button>
+        <button id="cpOpenBtn" class="cp-steder-btn" title="Opret/Gem Custom Place">⭐</button>
       </div>
 
       <ul id="results"></ul>
@@ -210,7 +210,7 @@
   </div>
 
   <!-- Proj4js til koordinat-transformation -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.5/proj4.js"></script>
+  <script src="lib/proj4.js"></script>
 
   <!-- Din egen script-fil -->
   <script src="script.js"></script>
