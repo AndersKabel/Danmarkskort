@@ -304,7 +304,7 @@ function _levTilgBuildMarkers(aktive) {
     const icon = L.divIcon({
       className: "",
       html: `<div class="lev-marker-icon" style="background:${_esc(farve)};box-shadow:0 0 0 3px #fff,0 0 0 5px ${_esc(farve)}">${antal > 1 ? antal + "🟢" : "🟢"}</div>`,
-      iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -22]
+      iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -14]
     });
 
     L.marker([lat, lon], { icon })
@@ -320,7 +320,7 @@ function _levIcon(lev, katId) {
   return L.divIcon({
     className:   "",
     html:        `<div class="lev-marker-icon" style="background:${color}">${initial}</div>`,
-    iconSize:    [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -22]
+    iconSize:    [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -14]
   });
 }
 
