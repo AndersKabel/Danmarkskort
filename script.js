@@ -857,6 +857,8 @@ function getSortPriority(item, query) {
     text = item.navn || "";
   } else if (item.type === "custom") {
     text = item.navn || "";
+  } else if (item.type === "statsvej") {
+    text = item.navn || "";
   } else if (item.type === "ors_foreign") {
     text = item.label || "";
   }
@@ -2882,35 +2884,41 @@ function doSearch(query, listElement) {
       adgangsadresse: item.adgangsadresse
     }));
 
-    // Stednavne
+    // Stednavne — efterfiltrer: behold kun hvis søgeord faktisk er substring af navnet
+    // (DAWA's API laver fuzzy-matching som returnerer irrelevante resultater)
     let stedResults = [];
     if (stedData) {
+      let raw = [];
       if (Array.isArray(stedData.results)) {
-        stedResults = stedData.results.map(result => ({
+        raw = stedData.results.map(result => ({
           type: "stednavn",
           navn: result.visningstekst || result.navn,
           bbox: result.bbox || null,
           geometry: result.geometry
         }));
       } else if (Array.isArray(stedData)) {
-        stedResults = stedData.map(result => ({
+        raw = stedData.map(result => ({
           type: "stednavn",
           navn: result.visningstekst || result.skrivemaade_officiel,
           bbox: result.bbox || null,
           geometry: result.geometri
         }));
       }
+      const lq = query.toLowerCase();
+      stedResults = raw.filter(r => r.navn && r.navn.toLowerCase().includes(lq));
     }
 
-    // Navngivne veje
-    let roadResults = (roadData || []).map(item => ({
-      type: "navngivenvej",
-      navn: item.navn || item.adresseringsnavn || "",
-      id: item.id,
-      visualCenter: item.visueltcenter,
-      bbox: item.bbox,
-      postnumre: item.postnumre || []
-    }));
+    // Navngivne veje — efterfiltrer på samme måde
+    let roadResults = (roadData || [])
+      .map(item => ({
+        type: "navngivenvej",
+        navn: item.navn || item.adresseringsnavn || "",
+        id: item.id,
+        visualCenter: item.visueltcenter,
+        bbox: item.bbox,
+        postnumre: item.postnumre || []
+      }))
+      .filter(r => r.navn && r.navn.toLowerCase().includes(query.toLowerCase()));
 
     // Udenlandske adresser fra ORS
     let orsResults = (orsData || []).map(o => o);
