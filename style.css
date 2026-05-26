@@ -595,49 +595,14 @@ input[type="search"]::-webkit-search-decoration { display: none; }
 }
 /* ── AR LAYER CONTROL KNAP ──────────────────────────────────────── */
 .main-ar-ctrl {
-  margin-top: 14px !important;   /* lidt ned (default er 10px) */
-  margin-right: 4px !important;  /* lidt tættere på kanten (default er 10px) */
-}
-.main-ar-ctrl .leaflet-control-layers-toggle {
-  width: 44px !important;
-  height: 34px !important;
-  background-position: center 5px !important;
-  background-size: 16px 16px !important;
-  position: relative !important;
-  display: block !important;
-}
-.main-ar-ctrl .leaflet-control-layers-toggle::after {
-  content: "";
-  position: absolute;
-  bottom: 4px;
-  left: 0; right: 0;
-  text-align: center;
-  font-size: 10px;
-  font-weight: 700;
-  color: #444;
-  line-height: 1;
-}
-/* ── AR LAYER CONTROL KNAP ──────────────────────────────────────── */
-.main-ar-ctrl {
   margin-top: 10px !important;
   margin-right: 4px !important;
 }
 .main-ar-ctrl .leaflet-control-layers-toggle {
   width: 44px !important;
-  height: 46px !important;
-  background-position: center 10px !important;
-  background-size: 18px 18px !important;
+  height: 44px !important;
+  background-position: center center !important;
+  background-size: 26px 26px !important;
   position: relative !important;
   display: block !important;
-}
-.main-ar-ctrl .leaflet-control-layers-toggle::after {
-  content: "";
-  position: absolute;
-  bottom: 6px;
-  left: 0; right: 0;
-  text-align: center;
-  font-size: 10px;
-  font-weight: 700;
-  color: #444;
-  line-height: 1;
 }
