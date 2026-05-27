@@ -10,9 +10,14 @@
 // ── KONFIGURATION ────────────────────────────────────────────────
 const LEV_SP_WORKER = "https://danmarkskort-sp.anderskabel8.workers.dev";
 
+// Leverandør-kategorier (eksterne firmaer)
 const LEV_KATEGORIER = [
-  { id: "u3500",      navn: "Autoleverandør u. 3500 kg.",  ikon: "🚗" },
-  { id: "o3500",      navn: "Autoleverandør o. 3500 kg.",  ikon: "🚛" },
+  { id: "u3500", navn: "Autoleverandør u. 3500 kg.", ikon: "🚗" },
+  { id: "o3500", navn: "Autoleverandør o. 3500 kg.", ikon: "🚛" },
+];
+
+// Egne enheder-kategorier (Falcks egne biler/reddere)
+const EGNE_KATEGORIER = [
   { id: "tma",        navn: "TMA og tavlevognstrailere",   ikon: "🚧" },
   { id: "dyr",        navn: "Dyreredning",                 ikon: "🐾" },
   { id: "drift_hjem", navn: "Drift fra hjem",              ikon: "🏠" },
@@ -22,30 +27,29 @@ const LEV_KATEGORIER = [
 ];
 
 // ── LEAFLET LAG ──────────────────────────────────────────────────
-// Ét lag per kategori – erklæret globalt så script.js ikke behøver dem
 const _levKatLag = {};
 LEV_KATEGORIER.forEach(k => { _levKatLag[k.id] = L.layerGroup(); });
 var redigerLeverandoerLayer = L.layerGroup();
-var levTilgaengeligLayer    = L.layerGroup();   // Tilgængelige leverandører
+var levTilgaengeligLayer    = L.layerGroup();
+
+const _enhedKatLag = {};
+EGNE_KATEGORIER.forEach(k => { _enhedKatLag[k.id] = L.layerGroup(); });
+var redigerEnhederLayer = L.layerGroup();
 
 // ── STATE ────────────────────────────────────────────────────────
 let _levData          = [];
-let _levPostnrMap     = {};   // postnr → [primær kommunekode]
+let _levPostnrMap     = {};
 let _levHighlights    = [];
 let _levLoginProgress = false;
 let _levLoaded        = false;
-let _levTilgInterval  = null; // auto-refresh interval for tilgængelighed-laget
+let _levTilgInterval  = null;
 
-// ── EGNE ENHEDER STATE ───────────────────────────────────────────
-let _enhedData        = [];
-let _enhedLoaded      = false;
-const _enhedKatLag    = {};
-LEV_KATEGORIER.forEach(k => { _enhedKatLag[k.id] = L.layerGroup(); });
-var redigerEnhederLayer = L.layerGroup();
+let _enhedData   = [];
+let _enhedLoaded = false;
 
 // ── BOOT ─────────────────────────────────────────────────────────
 async function initLeverandoerModul() {
-  _levLoadPostnrMap();   // starter i baggrunden – blokerer ikke UI
+  _levLoadPostnrMap();
   _levBuildControl();
   _levBuildUI();
 }
@@ -53,15 +57,17 @@ async function initLeverandoerModul() {
 // ── LEAFLET LAYER CONTROL ────────────────────────────────────────
 function _levBuildControl() {
   const overlays = {};
+
+  // Leverandører
   LEV_KATEGORIER.forEach(k => {
     overlays[`${k.ikon} ${k.navn}`] = _levKatLag[k.id];
   });
   overlays["🟢 Tilgængelige leverandører"] = levTilgaengeligLayer;
   overlays["✏️ Rediger leverandører"]       = redigerLeverandoerLayer;
 
-  // Egne enheder — separate lag per kategori
-  LEV_KATEGORIER.forEach(k => {
-    overlays[`${k.ikon} ${k.navn} (egne)`] = _enhedKatLag[k.id];
+  // Egne enheder
+  EGNE_KATEGORIER.forEach(k => {
+    overlays[`${k.ikon} ${k.navn}`] = _enhedKatLag[k.id];
   });
   overlays["✏️ Rediger egne enheder"] = redigerEnhederLayer;
 
@@ -86,14 +92,11 @@ function _levBuildControl() {
       _levTilgInterval = setInterval(_levTilgLoad, 60_000);
       return;
     }
-    const erKat = LEV_KATEGORIER.some(k => _levKatLag[k.id] === e.layer);
-    if (erKat && !_levLoaded) {
-      await _levLoad();
-    }
-    const erEnhedKat = LEV_KATEGORIER.some(k => _enhedKatLag[k.id] === e.layer);
-    if (erEnhedKat && !_enhedLoaded) {
-      await _enhedLoad();
-    }
+    const erLevKat = LEV_KATEGORIER.some(k => _levKatLag[k.id] === e.layer);
+    if (erLevKat && !_levLoaded) await _levLoad();
+
+    const erEnhedKat = EGNE_KATEGORIER.some(k => _enhedKatLag[k.id] === e.layer);
+    if (erEnhedKat && !_enhedLoaded) await _enhedLoad();
   });
 
   map.on("overlayremove", function (e) {
@@ -918,10 +921,10 @@ async function _enhedLoad() {
 }
 
 function _enhedRenderLag() {
-  LEV_KATEGORIER.forEach(k => _enhedKatLag[k.id].clearLayers());
+  EGNE_KATEGORIER.forEach(k => _enhedKatLag[k.id].clearLayers());
   (_enhedData || []).forEach(enhed => {
     if (enhed.lat == null || enhed.lon == null) return;
-    const kat = LEV_KATEGORIER.find(k => k.id === enhed.kategori);
+    const kat = EGNE_KATEGORIER.find(k => k.id === enhed.kategori);
     if (!kat) return;
     const marker = L.circleMarker([enhed.lat, enhed.lon], {
       radius: 8, fillColor: "#2471a3", color: "#fff", weight: 2, fillOpacity: 0.92
@@ -929,8 +932,8 @@ function _enhedRenderLag() {
     marker.bindPopup(`
       <strong>${_esc(enhed.navn)}</strong><br>
       ${kat.ikon} ${_esc(kat.navn)}<br>
-      ${enhed.adresse  ? _esc(enhed.adresse)  + "<br>" : ""}
-      ${enhed.kontakt  ? "📞 " + _esc(enhed.kontakt)  + "<br>" : ""}
+      ${enhed.adresse   ? _esc(enhed.adresse)  + "<br>" : ""}
+      ${enhed.kontakt   ? "📞 " + _esc(enhed.kontakt)  + "<br>" : ""}
       ${enhed.bemærkning ? "<em>" + _esc(enhed.bemærkning) + "</em>" : ""}
     `);
     _enhedKatLag[kat.id].addLayer(marker);
@@ -948,8 +951,9 @@ async function _enhedOpenAdmin() {
 function _enhedShowListe() {
   document.getElementById("levPanelTitle").textContent = "📍 Egne enheder";
   const body = document.getElementById("levPanelBody");
+
   const rækker = (_enhedData || []).map(e => {
-    const kat = LEV_KATEGORIER.find(k => k.id === e.kategori);
+    const kat = EGNE_KATEGORIER.find(k => k.id === e.kategori);
     return `
       <div class="lev-list-row">
         <div class="lev-list-info">
@@ -966,14 +970,15 @@ function _enhedShowListe() {
   body.innerHTML = `
     <div class="lev-list-toolbar">
       <button id="enhedNyBtn" class="lev-btn-primary">+ Ny enhed</button>
-      <button id="enhedTilbageBtn" class="lev-btn-secondary">← Leverandører</button>
+      <button id="enhedRefreshBtn" class="lev-btn-secondary">↻ Opdater</button>
     </div>
     <div class="lev-list-container">${rækker}</div>`;
 
   document.getElementById("enhedNyBtn").addEventListener("click", () => _enhedShowForm(null));
-  document.getElementById("enhedTilbageBtn").addEventListener("click", () => {
-    document.getElementById("levPanelTitle").textContent = "🚛 Leverandørstyring";
-    _levShowListe();
+  document.getElementById("enhedRefreshBtn").addEventListener("click", async () => {
+    _enhedLoaded = false;
+    await _enhedLoad();
+    _enhedShowListe();
   });
   body.querySelectorAll(".enhed-rediger-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -989,7 +994,7 @@ function _enhedShowListe() {
 function _enhedShowForm(enhed) {
   document.getElementById("levPanelTitle").textContent = enhed ? "✏️ Rediger enhed" : "➕ Ny enhed";
   const body = document.getElementById("levPanelBody");
-  const katOptions = LEV_KATEGORIER.map(k =>
+  const katOptions = EGNE_KATEGORIER.map(k =>
     `<option value="${k.id}" ${enhed?.kategori === k.id ? "selected" : ""}>${k.ikon} ${k.navn}</option>`
   ).join("");
 
@@ -1078,7 +1083,6 @@ async function _enhedGem(existingId) {
   const status   = document.getElementById("ef-status");
 
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
-  if (!kategori) { status.style.color = "#c0392b"; status.textContent = "Vælg en kategori."; return; }
 
   const gemBtn = document.getElementById("ef-gem");
   gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
