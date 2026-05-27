@@ -1038,13 +1038,13 @@ async function loadDmiTemperatur() {
                     t < 15  ? "#f7e27a" :
                     t < 20  ? "#f4a147" : "#e84040";
 
-      L.circleMarker([lat, lon], {
-        radius: 18, color: "#fff", weight: 1.5,
-        fillColor: color, fillOpacity: 0.9
-      })
-      .bindTooltip(`${t > 0 ? "+" : ""}${t}°C`, {
-        permanent: true, direction: "center",
-        className: "dmi-temp-label"
+      const label = `${t > 0 ? "+" : ""}${t}°C`;
+      L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: "",
+          html: `<div class="dmi-temp-box" style="background:${color}">${label}</div>`,
+          iconAnchor: [24, 12]
+        })
       })
       .addTo(dmiTempLayer);
     });
@@ -1296,7 +1296,7 @@ const overlayMaps = {
 };
 // Tilføj vejrlag, hvis API-nøgle er sat
 // RainViewer tilføjes når det er loadet (async)
-if (weatherTempLayer) overlayMaps["Temperatur (OWM)"] = weatherTempLayer;
+// Temperatur (OWM) er fjernet – bruges ikke
 overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
 overlayMaps["🚧 Vejarbejder (VD)"] = vdTrafikLayer;
 overlayMaps["⚠️ Advarsler (VD)"] = vdAdvarselLayer;
