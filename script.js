@@ -2943,12 +2943,19 @@ function doSearch(query, listElement) {
       ];
     }
 
-    // Sortering
+    // Sortering — to niveauer:
+    // 1. Type-prioritet: statsvej → stednavn/vej/custom → adresse/strandpost → ors
+    // 2. Matchkvalitet inden for samme type (0=præcist, 1=starter med, 2=indeholder)
+    function getTypePriority(item) {
+      if (item.type === "statsvej")                                    return 0;
+      if (item.type === "stednavn" || item.type === "navngivenvej" || item.type === "custom") return 1;
+      if (item.type === "adresse" || item.type === "strandpost")       return 2;
+      if (item.type === "ors_foreign")                                 return 3;
+      return 4;
+    }
     combined.sort((a, b) => {
-      const aIsName = (a.type === "stednavn" || a.type === "navngivenvej" || a.type === "custom" || a.type === "statsvej" || a.type === "ors_foreign");
-      const bIsName = (b.type === "stednavn" || b.type === "navngivenvej" || b.type === "custom" || b.type === "statsvej" || b.type === "ors_foreign");
-      if (aIsName && !bIsName) return -1;
-      if (!aIsName && bIsName) return 1;
+      const typeDiff = getTypePriority(a) - getTypePriority(b);
+      if (typeDiff !== 0) return typeDiff;
       return getSortPriority(a, query) - getSortPriority(b, query);
     });
 
@@ -2969,7 +2976,7 @@ function doSearch(query, listElement) {
         labelSpan.innerHTML = `🏠 ${obj.tekst}`;
       } else if (obj.type === "navngivenvej") {
         const pnrTekst = (obj.postnumre || []).map(p => p.nr + " " + p.navn).join(" · ");
-        labelSpan.innerHTML = `🛣️ ${obj.navn}${pnrTekst ? ` <span style="color:#888;font-size:11px">(${pnrTekst})</span>` : ""}`;
+        labelSpan.innerHTML = `🛤️ ${obj.navn}${pnrTekst ? ` <span style="color:#888;font-size:11px">(${pnrTekst})</span>` : ""}`;
       } else if (obj.type === "stednavn") {
         labelSpan.innerHTML = `📍 ${obj.navn}`;
       } else if (obj.type === "custom") {
