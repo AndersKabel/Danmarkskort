@@ -1039,7 +1039,7 @@ async function loadDmiTemperatur() {
                     t < 20  ? "#f4a147" : "#e84040";
 
       L.circleMarker([lat, lon], {
-        radius: 14, color: "#fff", weight: 1.5,
+        radius: 18, color: "#fff", weight: 1.5,
         fillColor: color, fillOpacity: 0.9
       })
       .bindTooltip(`${t > 0 ? "+" : ""}${t}°C`, {
