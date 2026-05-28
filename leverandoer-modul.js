@@ -52,6 +52,16 @@ async function initLeverandoerModul() {
   _levLoadPostnrMap();
   _levBuildControl();
   _levBuildUI();
+
+  // Hook ind i placeMarkerAndZoom så afstande opdateres når ny adresse søges
+  if (typeof placeMarkerAndZoom === "function") {
+    const _orig = window.placeMarkerAndZoom;
+    window.placeMarkerAndZoom = function() {
+      const r = _orig.apply(this, arguments);
+      if (_enhedLoaded) setTimeout(_enhedRenderLag, 150);
+      return r;
+    };
+  }
 }
 
 // ── LEAFLET LAYER CONTROL ────────────────────────────────────────
@@ -922,23 +932,42 @@ async function _enhedLoad() {
 
 function _enhedRenderLag() {
   EGNE_KATEGORIER.forEach(k => _enhedKatLag[k.id].clearLayers());
-  (_enhedData || []).forEach(enhed => {
+
+  // Find aktuel markør-position (fra adressesøgning)
+  const markerPos = (typeof currentMarker !== "undefined" && currentMarker && currentMarker.getLatLng)
+    ? currentMarker.getLatLng() : null;
+
+  // Beregn afstand + sorter nærmest-først hvis markør findes
+  let data = (_enhedData || []).map(enhed => {
+    const afstand = (markerPos && enhed.lat != null && enhed.lon != null)
+      ? (map.distance(markerPos, L.latLng(enhed.lat, enhed.lon)) / 1000)
+      : null;
+    return { ...enhed, _afstand: afstand };
+  });
+  if (markerPos) data.sort((a, b) => (a._afstand ?? Infinity) - (b._afstand ?? Infinity));
+
+  data.forEach(enhed => {
     if (enhed.lat == null || enhed.lon == null) return;
     const kat = EGNE_KATEGORIER.find(k => k.id === enhed.kategori);
     if (!kat) return;
+    const afstandTekst = enhed._afstand != null
+      ? `📍 <strong>${enhed._afstand.toFixed(1)} km</strong> fra søgt adresse<br>` : "";
     const marker = L.circleMarker([enhed.lat, enhed.lon], {
       radius: 8, fillColor: "#2471a3", color: "#fff", weight: 2, fillOpacity: 0.92
     });
     marker.bindPopup(`
       <strong>${_esc(enhed.navn)}</strong><br>
       ${kat.ikon} ${_esc(kat.navn)}<br>
-      ${enhed.adresse   ? _esc(enhed.adresse)  + "<br>" : ""}
-      ${enhed.kontakt   ? `📞 <a href="tel:${_esc(enhed.kontakt.replace(/\s/g,''))}">${_esc(enhed.kontakt)}</a><br>` : ""}
+      ${afstandTekst}
+      ${enhed.adresse    ? _esc(enhed.adresse)   + "<br>" : ""}
+      ${enhed.kontakt    ? `📞 <a href="tel:${_esc(enhed.kontakt.replace(/\s/g,''))}">${_esc(enhed.kontakt)}</a><br>` : ""}
       ${enhed.bemærkning ? "<em>" + _esc(enhed.bemærkning) + "</em>" : ""}
     `);
     _enhedKatLag[kat.id].addLayer(marker);
   });
 }
+
+let _enhedKeepAlive = null;
 
 async function _enhedOpenAdmin() {
   const ok = await _levEnsureLogin();
@@ -946,6 +975,20 @@ async function _enhedOpenAdmin() {
   await _enhedLoad();
   document.getElementById("levAdminPanel").classList.add("lev-panel-open");
   _enhedShowListe();
+
+  // Keep-alive: ping worker hvert 8. sek så den ikke sover ved gem
+  _enhedKeepAlive = setInterval(() => fetch(LEV_SP_WORKER + "/enheder"), 8000);
+
+  // Stop keep-alive når panelet lukkes
+  const closeBtn = document.getElementById("levPanelClose");
+  if (closeBtn) {
+    const _origClose = closeBtn.onclick;
+    closeBtn.onclick = function() {
+      clearInterval(_enhedKeepAlive);
+      _enhedKeepAlive = null;
+      if (_origClose) _origClose.apply(this, arguments);
+    };
+  }
 }
 
 function _enhedShowListe() {
@@ -975,10 +1018,14 @@ function _enhedShowListe() {
     <div class="lev-list-container">${rækker}</div>`;
 
   document.getElementById("enhedNyBtn").addEventListener("click", () => _enhedShowForm(null));
-  document.getElementById("enhedRefreshBtn").addEventListener("click", async () => {
+  document.getElementById("enhedRefreshBtn").addEventListener("click", async function() {
+    const btn = this;
+    btn.disabled = true;
+    btn.textContent = "⏳ Opdaterer...";
     _enhedLoaded = false;
     await _enhedLoad();
-    _enhedShowListe();
+    btn.textContent = "✅ Opdateret!";
+    setTimeout(() => { _enhedShowListe(); }, 800);
   });
   body.querySelectorAll(".enhed-rediger-btn").forEach(btn => {
     btn.addEventListener("click", () => {
