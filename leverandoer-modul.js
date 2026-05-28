@@ -370,7 +370,7 @@ function _levPopupHTML(lev, adr) {
     tlf.forEach(t => {
       h += `<div class="lev-popup-row lev-popup-tlf">
         <span class="lev-popup-tlf-label">${_esc(t.label)}</span>
-        <a href="tel:${_esc(t.tlf.replace(/\s/g,''))}">${_esc(t.tlf)}</a>
+        <a href="tel:${_esc('+45' + t.tlf.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(t.tlf)}</a>
       </div>`;
     });
   }
@@ -960,7 +960,7 @@ function _enhedRenderLag() {
       ${kat.ikon} ${_esc(kat.navn)}<br>
       ${afstandTekst}
       ${enhed.adresse    ? _esc(enhed.adresse)   + "<br>" : ""}
-      ${enhed.kontakt    ? `📞 <a href="tel:${_esc(enhed.kontakt.replace(/\s/g,''))}">${_esc(enhed.kontakt)}</a><br>` : ""}
+      ${enhed.kontakt    ? `📞 <a href="tel:${_esc('+45' + enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a><br>` : ""}
       ${enhed.bemærkning ? "<em>" + _esc(enhed.bemærkning) + "</em>" : ""}
     `);
     _enhedKatLag[kat.id].addLayer(marker);
