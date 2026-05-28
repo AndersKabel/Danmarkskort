@@ -62,6 +62,11 @@ async function initLeverandoerModul() {
       return r;
     };
   }
+
+  // Opdater afstande også ved direkte klik på kortet
+  map.on("click", function() {
+    if (_enhedLoaded) setTimeout(_enhedRenderLag, 300);
+  });
 }
 
 // ── LEAFLET LAYER CONTROL ────────────────────────────────────────
