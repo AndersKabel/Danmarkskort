@@ -24,6 +24,7 @@ const EGNE_KATEGORIER = [
   { id: "mors",       navn: "Mors biler",                  ikon: "🚌" },
   { id: "liggende",   navn: "Liggende / forflytninger",    ikon: "🛏️" },
   { id: "vejrenser",  navn: "Vejrenser",                   ikon: "🧹" },
+  { id: "skytter",    navn: "Skytter",                     ikon: "🎯" },
 ];
 
 // ── LEAFLET LAG ──────────────────────────────────────────────────
