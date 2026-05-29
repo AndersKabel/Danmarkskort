@@ -241,30 +241,60 @@ function _levBuildMarkers() {
         if (!katLag) return;
 
         let closeTimer = null;
+        let isFullOpen = false;
         const marker = L.marker([adr.lat, adr.lon], { icon: _levIcon(lev, katId) })
-          .bindPopup(_levPopupHTML(lev, adr), { maxWidth: 360, className: "lev-leaflet-popup" })
+          .bindPopup(_levMiniPopupHTML(lev, adr), { maxWidth: 280, className: "lev-leaflet-popup" })
           .on("mouseover", function () {
+            if (isFullOpen) return;
             clearTimeout(closeTimer);
+            this.setPopupContent(_levMiniPopupHTML(lev, adr));
             this.openPopup();
             _levHighlight(lev, adr);
           })
           .on("mouseout", function () {
+            if (isFullOpen) return;
             const self = this;
             closeTimer = setTimeout(() => {
               self.closePopup();
               _levClearHighlights();
             }, 250);
           })
+          .on("click", function () {
+            clearTimeout(closeTimer);
+            isFullOpen = true;
+            this.setPopupContent(_levFullPopupHTML(lev, adr));
+            this.openPopup();
+            _levHighlight(lev, adr);
+          })
+          .on("popupclose", function () {
+            isFullOpen = false;
+            _levClearHighlights();
+          })
           .on("popupopen", function () {
             const el = this.getPopup().getElement();
             if (!el) return;
             el.addEventListener("mouseenter", () => clearTimeout(closeTimer));
             el.addEventListener("mouseleave", () => {
+              if (isFullOpen) return;
               const self = this;
               closeTimer = setTimeout(() => {
                 self.closePopup();
                 _levClearHighlights();
               }, 250);
+            });
+            // Vogn expand/collapse
+            el.querySelectorAll(".lev-popup-vogn-hdr-click").forEach(hdr => {
+              hdr.addEventListener("click", () => {
+                const detail = hdr.nextElementSibling;
+                if (!detail) return;
+                const open = detail.style.display !== "none";
+                detail.style.display = open ? "none" : "block";
+                hdr.classList.toggle("lev-popup-vogn-hdr-open", !open);
+              });
+            });
+            // Lightbox ved klik på vogn-billede
+            el.querySelectorAll(".lev-popup-vogn-img-full").forEach(img => {
+              img.addEventListener("click", e => { e.stopPropagation(); _levLightbox(img.src); });
             });
           });
 
@@ -374,7 +404,30 @@ function _levIcon(lev, katId) {
   });
 }
 
-function _levPopupHTML(lev, adr) {
+// Mini popup (hover): kun navn, tlf, email
+function _levMiniPopupHTML(lev, adr) {
+  const c = lev.farve || "#3498db";
+  let h = `<div class="lev-popup lev-popup-mini">
+    <div class="lev-popup-top" style="border-left:4px solid ${c}">
+      <b>${_esc(lev.navn)}</b>
+      ${adr.label ? `<span class="lev-popup-sub">${_esc(adr.label)}</span>` : ""}
+    </div>`;
+  const tlf = lev.kontakt?.telefonnumre || [];
+  tlf.forEach(t => {
+    h += `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+t.tlf.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(t.tlf)}</a>`;
+    if (t.label) h += ` <span style="color:#aaa;font-size:11px">(${_esc(t.label)})</span>`;
+    h += `</div>`;
+  });
+  if (lev.kontakt?.email)
+    h += `<div class="lev-popup-row">✉️ <a href="mailto:${_esc(lev.kontakt.email)}">${_esc(lev.kontakt.email)}</a></div>`;
+  if ((lev.vogne||[]).length)
+    h += `<div class="lev-popup-klik-hint">Klik for vogne og detaljer →</div>`;
+  h += `</div>`;
+  return h;
+}
+
+// Fuld popup (klik): adresse, vogne med expand
+function _levFullPopupHTML(lev, adr) {
   const c = lev.farve || "#3498db";
   let h = `<div class="lev-popup">
     <div class="lev-popup-top" style="border-left:4px solid ${c}">
@@ -385,12 +438,11 @@ function _levPopupHTML(lev, adr) {
 
   const tlf = lev.kontakt?.telefonnumre || [];
   if (tlf.length) {
-    h += `<hr class="lev-hr"><div class="lev-popup-section-hdr">📞 Telefon</div>`;
+    h += `<hr class="lev-hr">`;
     tlf.forEach(t => {
-      h += `<div class="lev-popup-row lev-popup-tlf">
-        <span class="lev-popup-tlf-label">${_esc(t.label)}</span>
-        <a href="tel:${_esc('+45' + t.tlf.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(t.tlf)}</a>
-      </div>`;
+      h += `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+t.tlf.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(t.tlf)}</a>`;
+      if (t.label) h += ` <span style="color:#aaa;font-size:11px">(${_esc(t.label)})</span>`;
+      h += `</div>`;
     });
   }
   if (lev.kontakt?.email)
@@ -400,21 +452,34 @@ function _levPopupHTML(lev, adr) {
   if (vogne.length) {
     h += `<hr class="lev-hr"><div class="lev-popup-section-hdr">🚗 Vogne (${vogne.length})</div>`;
     vogne.forEach(v => {
-      h += `<div class="lev-popup-vogn">`;
-      if (v.billede) h += `<img src="${_esc(v.billede)}" class="lev-popup-vogn-img" alt="" onerror="this.style.display='none'">`;
-      h += `<div>`;
-      if (v.reg)        h += `<b>${_esc(v.reg)}</b>`;
-      if (v.vognnummer) h += ` <span class="lev-popup-vognr">– Vogn ${_esc(v.vognnummer)}</span>`;
-      if (v.beskrivelse) h += `<br><span class="lev-popup-vogn-besk">${_esc(v.beskrivelse)}</span>`;
-      h += `</div></div>`;
+      const harDetaljer = !!(v.billede || v.reg || v.ladhøjde || v.totalLast || v.lastGrill || v.infoTekst);
+      h += `<div class="lev-popup-vogn-row">`;
+      h += `<div class="lev-popup-vogn-hdr${harDetaljer ? ' lev-popup-vogn-hdr-click' : ''}">`;
+      h += `<span>🚗 <b>Vogn ${_esc(v.vognnummer || "?")}</b>`;
+      if (v.beskrivelse) h += ` <span class="lev-popup-vogn-besk" style="font-weight:400;color:#555"> — ${_esc(v.beskrivelse)}</span>`;
+      h += `</span>`;
+      if (harDetaljer) h += `<span class="lev-popup-vogn-toggle">▶</span>`;
+      h += `</div>`;
+      if (harDetaljer) {
+        h += `<div class="lev-popup-vogn-detail">`;
+        if (v.billede) h += `<img src="${_esc(v.billede)}" class="lev-popup-vogn-img-full" alt="" onerror="this.style.display='none'" title="Klik for fuld størrelse">`;
+        const specs = [];
+        if (v.reg)       specs.push(`Reg.nr.: <b>${_esc(v.reg)}</b>`);
+        if (v.ladhøjde) specs.push(`Ladhøjde: <b>${_esc(v.ladhøjde)}</b>`);
+        if (v.totalLast) specs.push(`Total last: <b>${_esc(v.totalLast)}</b>`);
+        if (v.lastGrill) specs.push(`Last grill: <b>${_esc(v.lastGrill)}</b>`);
+        if (specs.length) h += `<div class="lev-popup-vogn-specs">${specs.join(' &nbsp;·&nbsp; ')}</div>`;
+        if (v.infoTekst) h += `<div class="lev-popup-vogn-info">${_esc(v.infoTekst)}</div>`;
+        h += `</div>`;
+      }
+      h += `</div>`;
     });
   }
 
   const pnr = (adr?.prioritetsPostnumre?.length)
-    ? adr.prioritetsPostnumre
-    : (lev.prioritetsPostnumre || []);
+    ? adr.prioritetsPostnumre : (lev.prioritetsPostnumre || []);
   if (pnr.length) {
-    const vis    = pnr.slice(0, 10).join(", ");
+    const vis = pnr.slice(0, 10).join(", ");
     const ekstra = pnr.length > 10 ? ` +${pnr.length - 10} mere` : "";
     h += `<hr class="lev-hr"><div class="lev-popup-prio">📮 Prioritet: ${vis}${ekstra}</div>`;
   }
@@ -562,7 +627,7 @@ function _levShowForm(id) {
     <div class="lev-form">
       <button class="lev-tilbage-btn" id="levTilbage">← Tilbage til liste</button>
 
-      <fieldset class="lev-fs">
+      <fieldset class="lev-fs" data-section="basis">
         <legend>📋 Basisoplysninger</legend>
         <label>Firmanavn <input type="text" id="lf-navn" value="${_esc(lev.navn)}" placeholder="Firma ApS"></label>
         <div class="lev-form-label">Kategori(er)</div>
@@ -579,7 +644,7 @@ function _levShowForm(id) {
         </label>
       </fieldset>
 
-      <fieldset class="lev-fs">
+      <fieldset class="lev-fs" data-section="kontakt">
         <legend>👤 Kontakt</legend>
         <label>Kontaktperson <input type="text" id="lf-knavn" value="${_esc(lev.kontakt?.navn)}"></label>
         <label>Email <input type="email" id="lf-kemail" value="${_esc(lev.kontakt?.email)}" placeholder="kontakt@firma.dk"></label>
@@ -588,7 +653,7 @@ function _levShowForm(id) {
         <button type="button" id="levAddTlf" class="lev-btn-add">+ Tilføj telefonnummer</button>
       </fieldset>
 
-      <fieldset class="lev-fs">
+      <fieldset class="lev-fs" data-section="faktura">
         <legend>📄 Faktura-adresse</legend>
         <label>Vejnavn + nr. <input type="text" id="lf-fvej" value="${_esc(lev.fakturaAdresse?.vej)}"></label>
         <div class="lev-row">
@@ -597,14 +662,14 @@ function _levShowForm(id) {
         </div>
       </fieldset>
 
-      <fieldset class="lev-fs">
+      <fieldset class="lev-fs" data-section="adr">
         <legend>📍 Arbejdsadresser</legend>
         <p class="lev-hint">Hvert depot/udgangspunkt vises som markør på kortet.</p>
         <div id="lf-adresser"></div>
         <button type="button" id="levAddAdr" class="lev-btn-add">+ Tilføj adresse</button>
       </fieldset>
 
-      <fieldset class="lev-fs">
+      <fieldset class="lev-fs" data-section="vogne">
         <legend>🚗 Vogne</legend>
         <div id="lf-vogne"></div>
         <button type="button" id="levAddVogn" class="lev-btn-add">+ Tilføj vogn</button>
@@ -704,28 +769,61 @@ function _levAppendAdrRow(container, a = {}) {
 function _levAppendVognRow(container, v = {}) {
   const div = document.createElement("div");
   div.className = "lev-vogn-row";
-  div.dataset.id      = v.id      || "vogn-" + Date.now();
+  div.dataset.id        = v.id      || "vogn-" + Date.now();
   div.dataset.billedUrl = v.billede || "";
-  const harFoto = !!v.billede;
+  const harFoto     = !!v.billede;
+  const harDetaljer = !!(v.reg || v.ladhøjde || v.totalLast || v.lastGrill || v.infoTekst || v.billede);
   div.innerHTML = `
     <div class="lev-row lev-row-header">
-      <label class="lev-label-grow">Reg.nr. <input type="text" class="v-reg" value="${_esc(v.reg)}" placeholder="AB 12 345"></label>
+      <label class="lev-label-grow" style="font-weight:700;font-size:13px;color:#1a2a3a">
+        Vognnummer
+        <input type="text" class="v-vognr" value="${_esc(v.vognnummer)}" placeholder="f.eks. 6515" style="font-weight:700">
+      </label>
       <button type="button" class="lev-slet-row-btn">✕</button>
     </div>
-    <label>Beskrivelse <input type="text" class="v-besk" value="${_esc(v.beskrivelse)}" placeholder="Kranvogn – 20t løftekapacitet"></label>
-    <label>Vognnummer <input type="text" class="v-vognr" value="${_esc(v.vognnummer)}" placeholder="f.eks. 8696"></label>
-    <div class="lev-vogn-foto-wrap">
-      ${harFoto
-        ? `<img class="lev-vogn-thumb" src="${_esc(v.billede)}" alt="" onerror="this.style.display='none'">`
-        : `<div class="lev-vogn-nofoto">Intet foto</div>`}
-      <div class="lev-vogn-foto-btns">
-        <label class="lev-btn-add lev-file-label" style="cursor:pointer">
-          📷 Upload foto <input type="file" class="v-foto" accept="image/*" style="display:none">
+    <label>Kort beskrivelse
+      <input type="text" class="v-besk" value="${_esc(v.beskrivelse)}" placeholder="Ladvogn – 5 kundepladser">
+    </label>
+    <button type="button" class="lev-vogn-toggle-btn">${harDetaljer ? "▾" : "▸"} Reg.nr. &amp; specifikationer</button>
+    <div class="lev-vogn-specs-wrap" style="display:${harDetaljer ? "block" : "none"}">
+      <label>Reg.nr.
+        <input type="text" class="v-reg" value="${_esc(v.reg)}" placeholder="AB 12 345">
+      </label>
+      <div class="lev-row">
+        <label style="flex:1">Ladhøjde
+          <input type="text" class="v-ladhøjde" value="${_esc(v.ladhøjde)}" placeholder="f.eks. 2,4 m">
         </label>
-        ${harFoto ? `<button type="button" class="lev-btn-fjern-foto">✕ Fjern foto</button>` : ""}
+        <label style="flex:1">Total last
+          <input type="text" class="v-totalLast" value="${_esc(v.totalLast)}" placeholder="f.eks. 3500 kg">
+        </label>
+      </div>
+      <label>Last grill
+        <input type="text" class="v-lastGrill" value="${_esc(v.lastGrill)}" placeholder="f.eks. 750 kg">
+      </label>
+      <label>Info / bemærkninger
+        <textarea class="v-infoTekst lev-textarea" rows="3" placeholder="Fritekst – særlige egenskaber, udstyr, begrænsninger...">${_esc(v.infoTekst)}</textarea>
+      </label>
+      <div class="lev-vogn-foto-wrap">
+        ${harFoto
+          ? `<img class="lev-vogn-thumb" src="${_esc(v.billede)}" alt="" onerror="this.style.display='none'">`
+          : `<div class="lev-vogn-nofoto">Intet foto</div>`}
+        <div class="lev-vogn-foto-btns">
+          <label class="lev-btn-add lev-file-label" style="cursor:pointer">
+            📷 Upload foto <input type="file" class="v-foto" accept="image/*" style="display:none">
+          </label>
+          ${harFoto ? `<button type="button" class="lev-btn-fjern-foto">✕ Fjern foto</button>` : ""}
+        </div>
       </div>
     </div>`;
   container.appendChild(div);
+
+  div.querySelector(".lev-vogn-toggle-btn").addEventListener("click", () => {
+    const wrap = div.querySelector(".lev-vogn-specs-wrap");
+    const btn  = div.querySelector(".lev-vogn-toggle-btn");
+    const open = wrap.style.display !== "none";
+    wrap.style.display = open ? "none" : "block";
+    btn.textContent    = (open ? "▸" : "▾") + " Reg.nr. & specifikationer";
+  });
 
   div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
 
@@ -846,9 +944,13 @@ async function _levGem(template) {
       const thumb = row.querySelector(".lev-vogn-thumb");
       lev.vogne.push({
         id:          row.dataset.id,
-        reg:         row.querySelector(".v-reg").value.trim(),
-        beskrivelse: row.querySelector(".v-besk").value.trim(),
-        vognnummer:  row.querySelector(".v-vognr").value.trim(),
+        reg:         row.querySelector(".v-reg")?.value.trim()       || "",
+        beskrivelse: row.querySelector(".v-besk")?.value.trim()      || "",
+        vognnummer:  row.querySelector(".v-vognr")?.value.trim()     || "",
+        ladhøjde:   row.querySelector(".v-ladhøjde")?.value.trim()  || "",
+        totalLast:   row.querySelector(".v-totalLast")?.value.trim() || "",
+        lastGrill:   row.querySelector(".v-lastGrill")?.value.trim() || "",
+        infoTekst:   row.querySelector(".v-infoTekst")?.value.trim() || "",
         billede:     row.dataset.billedUrl || (thumb?.src?.startsWith("http") ? thumb.src : null)
       });
     });
@@ -923,6 +1025,21 @@ function _levResizeB64(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+// ── LIGHTBOX ─────────────────────────────────────────────────────
+function _levLightbox(src) {
+  let lb = document.getElementById("lev-lightbox");
+  if (!lb) {
+    lb = document.createElement("div");
+    lb.id = "lev-lightbox";
+    lb.className = "lev-lightbox";
+    lb.innerHTML = '<span class="lev-lightbox-luk" title="Luk">✕</span><img alt="">';
+    lb.addEventListener("click", () => lb.style.display = "none");
+    document.body.appendChild(lb);
+  }
+  lb.querySelector("img").src = src;
+  lb.style.display = "flex";
 }
 
 // ── HJÆLPER ──────────────────────────────────────────────────────
