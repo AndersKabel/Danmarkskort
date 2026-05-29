@@ -954,8 +954,14 @@ function _enhedRenderLag() {
 
   data.forEach(enhed => {
     if (enhed.lat == null || enhed.lon == null) return;
-    const kat = EGNE_KATEGORIER.find(k => k.id === enhed.kategori);
-    if (!kat) return;
+    // Bagudkompatibelt: støt både kategorier[] og gammel kategori
+    const kats = enhed.kategorier?.length ? enhed.kategorier
+      : (enhed.kategori ? [enhed.kategori] : []);
+    if (!kats.length) return;
+    const katNavne = kats.map(id => {
+      const k = EGNE_KATEGORIER.find(k => k.id === id);
+      return k ? k.ikon + " " + k.navn : id;
+    }).join("<br>");
     const afstandTekst = enhed._afstand != null
       ? `📍 <strong>${enhed._afstand.toFixed(1)} km</strong> fra søgt adresse<br>` : "";
     const marker = L.circleMarker([enhed.lat, enhed.lon], {
@@ -963,13 +969,16 @@ function _enhedRenderLag() {
     });
     marker.bindPopup(`
       <strong>${_esc(enhed.navn)}</strong><br>
-      ${kat.ikon} ${_esc(kat.navn)}<br>
+      ${katNavne}<br>
       ${afstandTekst}
       ${enhed.adresse    ? _esc(enhed.adresse)   + "<br>" : ""}
       ${enhed.kontakt    ? `📞 <a href="tel:${_esc('+45' + enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a><br>` : ""}
       ${enhed.bemærkning ? "<em>" + _esc(enhed.bemærkning) + "</em>" : ""}
     `);
-    _enhedKatLag[kat.id].addLayer(marker);
+    // Tilføj markør til hvert relevant lag
+    kats.forEach(katId => {
+      if (_enhedKatLag[katId]) _enhedKatLag[katId].addLayer(marker);
+    });
   });
 }
 
@@ -1002,12 +1011,16 @@ function _enhedShowListe() {
   const body = document.getElementById("levPanelBody");
 
   const rækker = (_enhedData || []).map(e => {
-    const kat = EGNE_KATEGORIER.find(k => k.id === e.kategori);
+    const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+    const katTekst = kats.map(id => {
+      const k = EGNE_KATEGORIER.find(k => k.id === id);
+      return k ? k.ikon + " " + k.navn : id;
+    }).join(" · ");
     return `
       <div class="lev-list-row">
         <div class="lev-list-info">
           <span class="lev-list-navn">${_esc(e.navn)}</span>
-          <span class="lev-list-meta">${kat ? kat.ikon + " " + kat.navn : e.kategori}${e.adresse ? " · " + _esc(e.adresse) : ""}</span>
+          <span class="lev-list-meta">${katTekst}${e.adresse ? " · " + _esc(e.adresse) : ""}</span>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="lev-btn-secondary enhed-rediger-btn" data-id="${_esc(e.id)}" style="padding:4px 8px;font-size:12px">✏️</button>
@@ -1047,8 +1060,13 @@ function _enhedShowListe() {
 function _enhedShowForm(enhed) {
   document.getElementById("levPanelTitle").textContent = enhed ? "✏️ Rediger enhed" : "➕ Ny enhed";
   const body = document.getElementById("levPanelBody");
-  const katOptions = EGNE_KATEGORIER.map(k =>
-    `<option value="${k.id}" ${enhed?.kategori === k.id ? "selected" : ""}>${k.ikon} ${k.navn}</option>`
+  const valgteKat = enhed?.kategorier?.length ? enhed.kategorier
+    : (enhed?.kategori ? [enhed.kategori] : []);
+  const katCheckboxes = EGNE_KATEGORIER.map(k =>
+    `<label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
+      <input type="checkbox" name="ef-kat" value="${k.id}" ${valgteKat.includes(k.id) ? "checked" : ""}>
+      ${k.ikon} ${k.navn}
+    </label>`
   ).join("");
 
   body.innerHTML = `
@@ -1058,11 +1076,11 @@ function _enhedShowForm(enhed) {
           placeholder="fx 409 Falck Kolding TMA 8670"
           style="display:block;width:100%;margin-top:4px;padding:6px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box">
       </label>
-      <label style="font-size:13px;font-weight:600">Kategori
-        <select id="ef-kat" style="display:block;width:100%;margin-top:4px;padding:6px;border:1px solid #ccc;border-radius:4px">
-          ${katOptions}
-        </select>
-      </label>
+      <div style="font-size:13px;font-weight:600">Kategorier (vælg én eller flere)
+        <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:13px">
+          ${katCheckboxes}
+        </div>
+      </div>
       <label style="font-size:13px;font-weight:600">Adresse (søg)
         <input id="ef-adr-sok" type="text" value="${_esc(enhed?.adresse || "")}"
           placeholder="Skriv adresse og vælg fra listen..."
@@ -1126,16 +1144,17 @@ function _enhedShowForm(enhed) {
 }
 
 async function _enhedGem(existingId) {
-  const navn     = document.getElementById("ef-navn").value.trim();
-  const kategori = document.getElementById("ef-kat").value;
-  const adresse  = document.getElementById("ef-adr-sok").value.trim();
-  const lat      = parseFloat(document.getElementById("ef-lat").value) || null;
-  const lon      = parseFloat(document.getElementById("ef-lon").value) || null;
-  const kontakt  = document.getElementById("ef-kontakt").value.trim();
-  const bemærk   = document.getElementById("ef-bemaerk").value.trim();
-  const status   = document.getElementById("ef-status");
+  const navn      = document.getElementById("ef-navn").value.trim();
+  const kategorier = Array.from(document.querySelectorAll('input[name="ef-kat"]:checked')).map(el => el.value);
+  const adresse   = document.getElementById("ef-adr-sok").value.trim();
+  const lat       = parseFloat(document.getElementById("ef-lat").value) || null;
+  const lon       = parseFloat(document.getElementById("ef-lon").value) || null;
+  const kontakt   = document.getElementById("ef-kontakt").value.trim();
+  const bemærk    = document.getElementById("ef-bemaerk").value.trim();
+  const status    = document.getElementById("ef-status");
 
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
+  if (!kategorier.length) { status.style.color = "#c0392b"; status.textContent = "Vælg mindst én kategori."; return; }
 
   const gemBtn = document.getElementById("ef-gem");
   gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
@@ -1144,7 +1163,7 @@ async function _enhedGem(existingId) {
     const resp = await _levSpFetch("/enheder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: existingId, navn, kategori, lat, lon, adresse, kontakt, bemærkning: bemærk })
+      body: JSON.stringify({ id: existingId, navn, kategorier, lat, lon, adresse, kontakt, bemærkning: bemærk })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
