@@ -448,7 +448,10 @@ function _levFullPopupHTML(lev, adr) {
   if (lev.kontakt?.email)
     h += `<div class="lev-popup-row">✉️ <a href="mailto:${_esc(lev.kontakt.email)}">${_esc(lev.kontakt.email)}</a></div>`;
 
-  const vogne = lev.vogne || [];
+  const alleVogne = lev.vogne || [];
+  const vogne = alleVogne.filter(v =>
+    !v.adresseIds?.length || v.adresseIds.includes(adr.id)
+  );
   if (vogne.length) {
     h += `<hr class="lev-hr"><div class="lev-popup-section-hdr">🚗 Vogne (${vogne.length})</div>`;
     vogne.forEach(v => {
@@ -663,7 +666,7 @@ function _levShowForm(id) {
       </fieldset>
 
       <fieldset class="lev-fs" data-section="adr">
-        <legend>📍 Arbejdsadresser</legend>
+        <legend>🏠 Depoter</legend>
         <p class="lev-hint">Hvert depot/udgangspunkt vises som markør på kortet.</p>
         <div id="lf-adresser"></div>
         <button type="button" id="levAddAdr" class="lev-btn-add">+ Tilføj adresse</button>
@@ -687,12 +690,19 @@ function _levShowForm(id) {
   const vognDiv = document.getElementById("lf-vogne");
   (lev.kontakt?.telefonnumre || []).forEach(t => _levAppendTlfRow(tlfDiv, t));
   (lev.arbejdsAdresser || []).forEach(a => _levAppendAdrRow(adrDiv, a));
-  (lev.vogne || []).forEach(v => _levAppendVognRow(vognDiv, v));
+  (lev.vogne || []).forEach(v => _levAppendVognRow(vognDiv, v, lev.arbejdsAdresser || []));
 
   document.getElementById("levTilbage").addEventListener("click", _levShowListe);
   document.getElementById("levAddTlf") .addEventListener("click", () => _levAppendTlfRow(tlfDiv, {}));
   document.getElementById("levAddAdr") .addEventListener("click", () => _levAppendAdrRow(adrDiv, {}));
-  document.getElementById("levAddVogn").addEventListener("click", () => _levAppendVognRow(vognDiv, {}));
+  document.getElementById("levAddVogn").addEventListener("click", () => {
+    // Læs aktuelle depoter fra formularen (kan være ændret siden åbning)
+    const aktuelleAdr = Array.from(document.querySelectorAll("#lf-adresser .lev-adr-row")).map(row => ({
+      id:    row.dataset.id,
+      label: row.querySelector(".a-label")?.value.trim() || row.querySelector(".a-vej")?.value.trim() || "Depot"
+    }));
+    _levAppendVognRow(vognDiv, {}, aktuelleAdr);
+  });
   document.getElementById("levGemBtn") .addEventListener("click", () => _levGem(lev));
   document.getElementById("levSletBtn")?.addEventListener("click", () => _levSlet(lev.id));
   document.getElementById("levGenKode").addEventListener("click", () => {
@@ -766,13 +776,27 @@ function _levAppendAdrRow(container, a = {}) {
 }
 
 // ── VOGN-RÆKKER ──────────────────────────────────────────────────
-function _levAppendVognRow(container, v = {}) {
+function _levAppendVognRow(container, v = {}, adresser = []) {
   const div = document.createElement("div");
   div.className = "lev-vogn-row";
   div.dataset.id        = v.id      || "vogn-" + Date.now();
   div.dataset.billedUrl = v.billede || "";
   const harFoto     = !!v.billede;
   const harDetaljer = !!(v.reg || v.ladhøjde || v.totalLast || v.lastGrill || v.infoTekst || v.billede);
+  const depotChecks = adresser.length ? `
+    <div class="lev-vogn-depoter">
+      <div style="font-size:11.5px;font-weight:600;color:#5a6a7a;margin-top:8px;margin-bottom:4px">
+        🏠 Kører fra depot <span style="font-weight:400;color:#aaa;font-size:11px">(tomt = alle depoter)</span>
+      </div>
+      <div class="lev-vogn-depot-checks" style="display:flex;flex-direction:column;gap:3px">
+        ${adresser.map(a => `
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+            <input type="checkbox" class="v-depot-check" value="${a.id}"
+              ${(v.adresseIds||[]).includes(a.id) ? "checked" : ""}>
+            ${a.label || a.vej || "Depot"}
+          </label>`).join("")}
+      </div>
+    </div>` : "";
   div.innerHTML = `
     <div class="lev-row lev-row-header">
       <label class="lev-label-grow" style="font-weight:700;font-size:13px;color:#1a2a3a">
@@ -784,6 +808,7 @@ function _levAppendVognRow(container, v = {}) {
     <label>Kort beskrivelse
       <input type="text" class="v-besk" value="${_esc(v.beskrivelse)}" placeholder="Ladvogn – 5 kundepladser">
     </label>
+    ${depotChecks}
     <button type="button" class="lev-vogn-toggle-btn">${harDetaljer ? "▾" : "▸"} Reg.nr. &amp; specifikationer</button>
     <div class="lev-vogn-specs-wrap" style="display:${harDetaljer ? "block" : "none"}">
       <label>Reg.nr.
@@ -951,7 +976,8 @@ async function _levGem(template) {
         totalLast:   row.querySelector(".v-totalLast")?.value.trim() || "",
         lastGrill:   row.querySelector(".v-lastGrill")?.value.trim() || "",
         infoTekst:   row.querySelector(".v-infoTekst")?.value.trim() || "",
-        billede:     row.dataset.billedUrl || (thumb?.src?.startsWith("http") ? thumb.src : null)
+        billede:     row.dataset.billedUrl || (thumb?.src?.startsWith("http") ? thumb.src : null),
+        adresseIds:  Array.from(row.querySelectorAll(".v-depot-check:checked")).map(el => el.value)
       });
     });
 
