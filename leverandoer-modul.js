@@ -1156,6 +1156,36 @@ async function _enhedGem(existingId) {
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
   if (!kategorier.length) { status.style.color = "#c0392b"; status.textContent = "Vælg mindst én kategori."; return; }
 
+  // ── DUBLET-TJEK (kun ved oprettelse af ny enhed) ─────────────────
+  if (!existingId && _enhedData?.length) {
+    const nytMandNr  = (navn.match(/^(\d{4})/) || [])[1] || "";
+    const nytNavn    = navn.toLowerCase();
+    const nytAdr     = adresse.toLowerCase().replace(/\s+/g, " ");
+    const nytKontakt = kontakt.replace(/\s/g, "");
+
+    const advarsler = [];
+    for (const e of _enhedData) {
+      const eksNavn    = (e.navn    || "").toLowerCase();
+      const eksMandNr  = (eksNavn.match(/^(\d{4})/) || [])[1] || "";
+      const eksAdr     = (e.adresse || "").toLowerCase().replace(/\s+/g, " ");
+      const eksKontakt = (e.kontakt || "").replace(/\s/g, "");
+
+      if (nytMandNr  && eksMandNr  && nytMandNr  === eksMandNr)  advarsler.push(`Advarsel: ${nytMandNr} findes allerede (${e.navn})`);
+      else if (nytNavn && eksNavn  && nytNavn     === eksNavn)    advarsler.push(`Advarsel: "${e.navn}" findes allerede`);
+      if (nytAdr     && eksAdr     && nytAdr      === eksAdr)     advarsler.push(`Advarsel: Adressen "${adresse}" findes allerede (${e.navn})`);
+      if (nytKontakt && eksKontakt && nytKontakt  === eksKontakt) advarsler.push(`Advarsel: Telefon ${kontakt} findes allerede (${e.navn})`);
+    }
+
+    if (advarsler.length) {
+      const fortsæt = confirm(advarsler.join("\n") + "\n\nVil du oprette enheden alligevel?");
+      if (!fortsæt) {
+        status.style.color = "#e67e22";
+        status.textContent = "Oprettelse annulleret — tjek eksisterende enheder.";
+        return;
+      }
+    }
+  }
+
   const gemBtn = document.getElementById("ef-gem");
   gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
 
