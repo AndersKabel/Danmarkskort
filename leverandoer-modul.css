@@ -482,3 +482,77 @@
   font-size: 13px !important;
   padding: 3px 0 !important;
 }
+/* ── SEKTIONSFARVER I ADMIN-FORMULAR ─────────────────────────── */
+.lev-fs[data-section="basis"]   { background: #f0f4ff; border-color: #c5d3f0; }
+.lev-fs[data-section="kontakt"] { background: #f0faf5; border-color: #b8e0cc; }
+.lev-fs[data-section="faktura"] { background: #fffbf0; border-color: #e8d89a; }
+.lev-fs[data-section="adr"]     { background: #fff5f0; border-color: #e8c9b8; }
+.lev-fs[data-section="vogne"]   { background: #f5f0ff; border-color: #c8b8e8; }
+
+/* ── MINI POPUP (hover) ──────────────────────────────────────── */
+.lev-popup-mini { min-width: 180px; }
+.lev-popup-klik-hint {
+  font-size: 11px; color: #2980b9; margin-top: 6px;
+  text-align: right; font-style: italic;
+}
+
+/* ── FULD POPUP – VOGN RÆKKER ────────────────────────────────── */
+.lev-popup-vogn-row {
+  border: 1px solid #eef0f3; border-radius: 6px;
+  margin: 4px 0; overflow: hidden;
+}
+.lev-popup-vogn-hdr {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 8px; font-size: 13px; background: #f8f9fa;
+}
+.lev-popup-vogn-hdr-click { cursor: pointer; }
+.lev-popup-vogn-hdr-click:hover { background: #eaf2fd; }
+.lev-popup-vogn-toggle { font-size: 11px; color: #888; transition: transform 0.2s; }
+.lev-popup-vogn-hdr-open .lev-popup-vogn-toggle { transform: rotate(90deg); }
+.lev-popup-vogn-detail {
+  display: none; padding: 8px; border-top: 1px solid #eee;
+  background: #fff;
+}
+.lev-popup-vogn-img-full {
+  width: 100%; max-height: 160px; object-fit: cover;
+  border-radius: 5px; border: 1px solid #ddd;
+  margin-bottom: 6px; cursor: zoom-in;
+  transition: opacity 0.15s;
+}
+.lev-popup-vogn-img-full:hover { opacity: 0.9; }
+.lev-popup-vogn-specs { font-size: 12px; color: #444; margin-bottom: 4px; line-height: 1.6; }
+.lev-popup-vogn-info  { font-size: 12px; color: #666; white-space: pre-line; margin-top: 4px; }
+
+/* ── LIGHTBOX ────────────────────────────────────────────────── */
+.lev-lightbox {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.88);
+  display: none; align-items: center; justify-content: center;
+  z-index: 9999; cursor: zoom-out;
+  backdrop-filter: blur(3px);
+}
+.lev-lightbox img {
+  max-width: 92vw; max-height: 92vh;
+  border-radius: 8px; box-shadow: 0 12px 48px rgba(0,0,0,0.6);
+  animation: levLBin 0.18s ease;
+}
+@keyframes levLBin {
+  from { opacity: 0; transform: scale(0.93); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.lev-lightbox-luk {
+  position: fixed; top: 18px; right: 22px;
+  color: #fff; font-size: 28px; cursor: pointer; opacity: 0.8;
+  line-height: 1;
+}
+.lev-lightbox-luk:hover { opacity: 1; }
+
+/* ── VOGN ADMIN FORMULAR – TOGGLE ────────────────────────────── */
+.lev-vogn-toggle-btn {
+  background: none; border: none; cursor: pointer;
+  color: #2980b9; font-size: 12px; font-weight: 600;
+  padding: 4px 0; margin-top: 6px; display: block;
+  text-align: left;
+}
+.lev-vogn-toggle-btn:hover { text-decoration: underline; }
+.lev-vogn-specs-wrap { margin-top: 4px; }
