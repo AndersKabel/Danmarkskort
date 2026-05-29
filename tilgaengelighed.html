@@ -66,8 +66,8 @@
       outline: none;
       transition: border-color 0.15s;
     }
-    input[type="datetime-local"] {
-      width: 100%;
+    input[type="date"],
+    input[type="time"] {
       padding: 10px 8px;
       border: 1.5px solid #ddd;
       border-radius: 10px;
@@ -76,6 +76,13 @@
       outline: none;
       transition: border-color 0.15s;
     }
+    .dt-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 0;
+    }
+    .dt-row input[type="date"] { flex: 1.6; }
+    .dt-row input[type="time"] { flex: 1; }
     input:focus { border-color: #3b82f6; }
 
     .btn {
@@ -351,11 +358,17 @@
     <div class="manual-row">
       <div>
         <label>Fra</label>
-        <input type="datetime-local" id="inp-fra">
+        <div class="dt-row">
+          <input type="date" id="inp-fra-dato">
+          <input type="time" id="inp-fra-tid" step="300">
+        </div>
       </div>
       <div>
         <label>Til</label>
-        <input type="datetime-local" id="inp-til">
+        <div class="dt-row">
+          <input type="date" id="inp-til-dato">
+          <input type="time" id="inp-til-tid" step="300">
+        </div>
       </div>
     </div>
 
@@ -386,11 +399,25 @@
     const d = new Date();
     d.setSeconds(0, 0);
     d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15);
-    return toLocalDT(d);
+    return d;
   }
   function toLocalDT(d) {
     const pad = n => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  // Hjælpere til separate date+time felter
+  function _setDT(prefix, d) {
+    const pad = n => String(n).padStart(2, "0");
+    document.getElementById(`inp-${prefix}-dato`).value =
+      `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    document.getElementById(`inp-${prefix}-tid`).value =
+      `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  function _getDT(prefix) {
+    const dato = document.getElementById(`inp-${prefix}-dato`).value;
+    const tid  = document.getElementById(`inp-${prefix}-tid`).value;
+    if (!dato || !tid) return null;
+    return new Date(`${dato}T${tid}`);
   }
 
   // ── LOGIN ──────────────────────────────────────────────────────
@@ -445,7 +472,7 @@
   async function showMain() {
     document.getElementById("screen-login").classList.add("hidden");
     document.getElementById("screen-main").classList.remove("hidden");
-    document.getElementById("inp-fra").value = defaultFra();
+    _setDT("fra", defaultFra());
     updateTilFromFra(4);
     setActiveTimeBtn(4);
     buildAdrGrid();
@@ -690,18 +717,21 @@
     );
   }
   function updateTilFromFra(h) {
-    const fraVal = document.getElementById("inp-fra").value;
-    if (!fraVal) return;
-    const til = new Date(new Date(fraVal).getTime() + h * 3600_000);
-    document.getElementById("inp-til").value = toLocalDT(til);
+    const fra = _getDT("fra");
+    if (!fra) return;
+    _setDT("til", new Date(fra.getTime() + h * 3600_000));
   }
-  document.getElementById("inp-fra").addEventListener("change", () => {
-    if (_valgtTimer) updateTilFromFra(_valgtTimer);
-  });
-  document.getElementById("inp-til").addEventListener("change", () => {
-    _valgtTimer = null;
-    document.querySelectorAll(".time-btn").forEach(b => b.classList.remove("active"));
-  });
+  ["inp-fra-dato", "inp-fra-tid"].forEach(id =>
+    document.getElementById(id).addEventListener("change", () => {
+      if (_valgtTimer) updateTilFromFra(_valgtTimer);
+    })
+  );
+  ["inp-til-dato", "inp-til-tid"].forEach(id =>
+    document.getElementById(id).addEventListener("change", () => {
+      _valgtTimer = null;
+      document.querySelectorAll(".time-btn").forEach(b => b.classList.remove("active"));
+    })
+  );
 
   // ── MELD TILGÆNGELIG ──────────────────────────────────────────
   document.getElementById("btn-meld").addEventListener("click", async () => {
@@ -712,9 +742,11 @@
       showFb(fb, "err", "Vælg en startposition først."); return;
     }
 
-    const fra = new Date(document.getElementById("inp-fra").value).toISOString();
-    const til = new Date(document.getElementById("inp-til").value).toISOString();
-    if (!fra || !til || new Date(til) <= new Date(fra)) {
+    const fraD = _getDT("fra");
+    const tilD = _getDT("til");
+    const fra = fraD?.toISOString();
+    const til = tilD?.toISOString();
+    if (!fra || !til || tilD <= fraD) {
       showFb(fb, "err", "Vælg et gyldigt tidsrum (til > fra)."); return;
     }
 
