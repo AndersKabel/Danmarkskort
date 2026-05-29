@@ -240,6 +240,55 @@
 
     #screen-login, #screen-main { width: 100%; max-width: 440px; padding: 0 16px; }
     .hidden { display: none !important; }
+
+    /* Manuel adresse */
+    .adr-btn.manual-btn {
+      border-style: dashed;
+      color: #6b7280;
+      justify-content: center;
+      font-style: italic;
+    }
+    .adr-btn.manual-btn.active {
+      border-color: #16a34a;
+      background: #f0fdf4;
+      color: #15803d;
+      font-style: normal;
+      border-style: solid;
+    }
+    .manual-adr-wrap {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: -2px;
+    }
+    .manual-adr-wrap.open { display: flex; }
+    .manual-adr-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #3b82f6;
+      border-radius: 10px;
+      font-size: 14px;
+      color: #222;
+      outline: none;
+    }
+    .manual-adr-liste {
+      border: 1.5px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+      max-height: 180px;
+      overflow-y: auto;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .manual-adr-item {
+      padding: 10px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 1px solid #f3f4f6;
+      color: #374151;
+    }
+    .manual-adr-item:last-child { border-bottom: none; }
+    .manual-adr-item:hover { background: #f0f9ff; }
   </style>
 </head>
 <body>
@@ -430,6 +479,75 @@
     gpsBtn.textContent = "📱 Brug min GPS-position";
     gpsBtn.addEventListener("click", hentGPS);
     grid.appendChild(gpsBtn);
+
+    // Manuel adresse-knap (fold-ud)
+    const manuelBtn = document.createElement("button");
+    manuelBtn.className = "adr-btn manual-btn";
+    manuelBtn.id = "btn-manuel";
+    manuelBtn.textContent = "⌨️ Indtast adresse manuelt";
+    grid.appendChild(manuelBtn);
+
+    // Autocomplete-felt (skjult som standard)
+    const manuelWrap = document.createElement("div");
+    manuelWrap.className = "manual-adr-wrap";
+    manuelWrap.innerHTML = `
+      <input type="text" class="manual-adr-input" id="manuel-adr-input"
+        placeholder="Skriv adresse..." autocomplete="off">
+      <div class="manual-adr-liste" id="manuel-adr-liste"></div>`;
+    grid.appendChild(manuelWrap);
+
+    // Toggle fold-ud
+    manuelBtn.addEventListener("click", () => {
+      const erAaben = manuelWrap.classList.toggle("open");
+      if (erAaben) setTimeout(() => document.getElementById("manuel-adr-input")?.focus(), 50);
+    });
+
+    // DAWA autocomplete
+    const manuelInput = manuelWrap.querySelector("#manuel-adr-input");
+    const manuelListe = manuelWrap.querySelector("#manuel-adr-liste");
+    let manuelTimer;
+    manuelInput.addEventListener("input", () => {
+      clearTimeout(manuelTimer);
+      const q = manuelInput.value.trim();
+      if (q.length < 3) { manuelListe.style.display = "none"; return; }
+      manuelTimer = setTimeout(async () => {
+        try {
+          const r = await fetch(
+            `https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(q)}&per_side=6&struktur=mini`
+          );
+          const items = await r.json();
+          if (!items.length) { manuelListe.style.display = "none"; return; }
+          manuelListe.innerHTML = items.map(it =>
+            `<div class="manual-adr-item"
+              data-tekst="${esc(it.tekst)}"
+              data-lat="${it.adresse?.y ?? ""}"
+              data-lon="${it.adresse?.x ?? ""}">${esc(it.tekst)}</div>`
+          ).join("");
+          manuelListe.style.display = "block";
+        } catch { manuelListe.style.display = "none"; }
+      }, 300);
+    });
+
+    manuelListe.addEventListener("click", e => {
+      const item = e.target.closest(".manual-adr-item");
+      if (!item || !item.dataset.lat) return;
+      const lat   = parseFloat(item.dataset.lat);
+      const lon   = parseFloat(item.dataset.lon);
+      const label = item.dataset.tekst;
+      _valgtAdresse = { lat, lon, label };
+      document.querySelectorAll(".adr-btn").forEach(b => b.classList.remove("active"));
+      manuelBtn.classList.add("active");
+      manuelBtn.textContent = `📍 ${label}`;
+      manuelWrap.classList.remove("open");
+      manuelListe.style.display = "none";
+    });
+
+    // Luk liste ved klik udenfor
+    document.addEventListener("click", e => {
+      if (!manuelWrap.contains(e.target) && e.target !== manuelBtn) {
+        manuelListe.style.display = "none";
+      }
+    }, { capture: true });
 
     // Disclaimer
     const disc = document.createElement("p");
