@@ -288,7 +288,7 @@
       color: #374151;
     }
     .manual-adr-item:last-child { border-bottom: none; }
-    .manual-adr-item:hover { background: #f0f9ff; }
+    .manual-adr-item:hover, .manual-adr-item.highlighted { background: #f0f9ff; }
   </style>
 </head>
 <body>
@@ -528,9 +528,40 @@
       }, 300);
     });
 
+    // Vælg adresse ved klik
     manuelListe.addEventListener("click", e => {
       const item = e.target.closest(".manual-adr-item");
       if (!item || !item.dataset.lat) return;
+      vælgManuelAdresse(item);
+    });
+
+    // Piletaster + Enter
+    manuelInput.addEventListener("keydown", e => {
+      const items = manuelListe.querySelectorAll(".manual-adr-item");
+      if (!items.length) return;
+      const aktiv = manuelListe.querySelector(".manual-adr-item.highlighted");
+      let idx = aktiv ? Array.from(items).indexOf(aktiv) : -1;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        idx = Math.min(idx + 1, items.length - 1);
+        items.forEach((it, i) => it.classList.toggle("highlighted", i === idx));
+        items[idx].scrollIntoView({ block: "nearest" });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        idx = Math.max(idx - 1, 0);
+        items.forEach((it, i) => it.classList.toggle("highlighted", i === idx));
+        items[idx].scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const valgt = aktiv || items[0];
+        if (valgt?.dataset.lat) vælgManuelAdresse(valgt);
+      } else if (e.key === "Escape") {
+        manuelListe.style.display = "none";
+      }
+    });
+
+    function vælgManuelAdresse(item) {
       const lat   = parseFloat(item.dataset.lat);
       const lon   = parseFloat(item.dataset.lon);
       const label = item.dataset.tekst;
@@ -540,7 +571,7 @@
       manuelBtn.textContent = `📍 ${label}`;
       manuelWrap.classList.remove("open");
       manuelListe.style.display = "none";
-    });
+    }
 
     // Luk liste ved klik udenfor
     document.addEventListener("click", e => {
