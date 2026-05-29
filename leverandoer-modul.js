@@ -48,6 +48,8 @@ let _levTilgInterval  = null;
 let _enhedData   = [];
 let _enhedLoaded = false;
 
+let _levLayerCtrl = null; // Reference til Leaflet layer control (bruges til at afmarker checkboxes)
+
 // ── BOOT ─────────────────────────────────────────────────────────
 async function initLeverandoerModul() {
   _levLoadPostnrMap();
@@ -79,27 +81,31 @@ function _levBuildControl() {
     overlays[`${k.ikon} ${k.navn}`] = _levKatLag[k.id];
   });
   overlays["🟢 Tilgængelige leverandører"] = levTilgaengeligLayer;
-  overlays["✏️ Rediger leverandører"]       = redigerLeverandoerLayer;
 
   // Egne enheder
   EGNE_KATEGORIER.forEach(k => {
     overlays[`${k.ikon} ${k.navn}`] = _enhedKatLag[k.id];
   });
-  overlays["✏️ Rediger egne enheder"] = redigerEnhederLayer;
 
-  const levCtrl = L.control.layers({}, overlays, { position: "topright", collapsed: true }).addTo(map);
-  const levCtrlEl = levCtrl.getContainer();
+  // Rediger-knapper samlet nederst
+  overlays["✏️ Rediger leverandører"]  = redigerLeverandoerLayer;
+  overlays["✏️ Rediger egne enheder"]  = redigerEnhederLayer;
+
+  _levLayerCtrl = L.control.layers({}, overlays, { position: "topright", collapsed: true }).addTo(map);
+  const levCtrlEl = _levLayerCtrl.getContainer();
   levCtrlEl.classList.add("lev-disp-ctrl");
   map.getContainer().appendChild(levCtrlEl);
 
   map.on("overlayadd", async function (e) {
     if (e.layer === redigerLeverandoerLayer) {
       map.removeLayer(redigerLeverandoerLayer);
+      _levUncheckLayer(redigerLeverandoerLayer);
       await _levOpenAdmin();
       return;
     }
     if (e.layer === redigerEnhederLayer) {
       map.removeLayer(redigerEnhederLayer);
+      _levUncheckLayer(redigerEnhederLayer);
       await _enhedOpenAdmin();
       return;
     }
@@ -122,6 +128,13 @@ function _levBuildControl() {
       levTilgaengeligLayer.clearLayers();
     }
   });
+}
+
+// ── LAYER CONTROL HELPERS ───────────────────────────────────────
+function _levUncheckLayer(layer) {
+  if (!_levLayerCtrl) return;
+  const found = (_levLayerCtrl._layers || []).find(l => l.layer === layer);
+  if (found?.input) found.input.checked = false;
 }
 
 // ── SP AUTH ──────────────────────────────────────────────────────
