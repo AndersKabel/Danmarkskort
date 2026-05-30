@@ -118,7 +118,16 @@ function _levBuildControl() {
     if (erLevKat && !_levLoaded) await _levLoad();
 
     const erEnhedKat = EGNE_KATEGORIER.some(k => _enhedKatLag[k.id] === e.layer);
-    if (erEnhedKat && !_enhedLoaded) await _enhedLoad();
+    if (erEnhedKat && !_enhedLoaded) {
+      const ok = await _levEnsureDisponering();
+      if (ok) {
+        await _enhedLoad();
+      } else {
+        // Login afbrudt/fejlet — afmarker laget igen
+        map.removeLayer(e.layer);
+        _levUncheckLayer(e.layer);
+      }
+    }
   });
 
   map.on("overlayremove", function (e) {
@@ -158,17 +167,60 @@ async function _levEnsureLogin() {
   _levLoginProgress = true;
   try {
     const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: "include" });
-    if (me.ok) return true;
-
-    const code = prompt("Indtast adgangskoden til leverandørstyring:");
+    if (me.ok) {
+      const data = await me.json();
+      if (!data.role || data.role === "admin") return true; // admin session
+      // Har kun læse-session — bed om admin-kode
+    }
+    const code = prompt("Indtast admin-koden til leverandørstyring:");
     if (!code?.trim()) return false;
-
     const login = await fetch(`${LEV_SP_WORKER}/auth/login`, {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: code.trim() })
     });
-    if (!login.ok) { alert("Forkert kode – prøv igen."); return false; }
+    if (!login.ok) {
+      const err = await login.json().catch(() => ({}));
+      if (err.error === "too_many_attempts") {
+        alert("For mange fejlede forsøg — prøv igen om en time.");
+      } else {
+        alert("Forkert kode – prøv igen.");
+      }
+      return false;
+    }
+    const data = await login.json();
+    if (data.role !== "admin") { alert("Denne kode giver kun læseadgang."); return false; }
+    return true;
+  } finally {
+    _levLoginProgress = false;
+  }
+}
+
+// Disponering-login: accepterer admin eller read-session
+async function _levEnsureDisponering() {
+  if (_levLoginProgress) return false;
+  _levLoginProgress = true;
+  try {
+    const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: "include" });
+    if (me.ok) return true; // enhver gyldig session
+
+    const code = prompt("Disponering kræver login.
+Indtast adgangskoden:");
+    if (!code?.trim()) return false;
+    const login = await fetch(`${LEV_SP_WORKER}/auth/login`, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: code.trim() })
+    });
+    if (!login.ok) {
+      const err = await login.json().catch(() => ({}));
+      if (err.error === "too_many_attempts") {
+        alert("For mange fejlede forsøg — prøv igen om en time.");
+      } else {
+        alert("Forkert kode – prøv igen.");
+      }
+      return false;
+    }
     return true;
   } finally {
     _levLoginProgress = false;
@@ -1081,7 +1133,13 @@ function _esc(s) {
 
 async function _enhedLoad() {
   try {
-    const resp = await fetch(LEV_SP_WORKER + "/enheder");
+    const resp = await fetch(LEV_SP_WORKER + "/enheder", { credentials: "include" });
+    if (resp.status === 401) {
+      // Session udløbet — nulstil så næste lag-aktivering trigger login igen
+      _enhedLoaded = false;
+      console.warn("Egne enheder: session udløbet");
+      return;
+    }
     if (!resp.ok) { console.warn("Egne enheder fejlede:", resp.status); return; }
     const data = await resp.json();
     _enhedData   = data.enheder || [];
