@@ -111,7 +111,7 @@ function _levBuildControl() {
     }
     if (e.layer === levTilgaengeligLayer) {
       await _levTilgLoad();
-      _levTilgInterval = setInterval(_levTilgLoad, 60_000);
+      _levTilgInterval = setInterval(_levTilgLoad, 180_000); // 3 min - sparer KV-kald (gratis plan: 100k/dag)
       return;
     }
     const erLevKat = LEV_KATEGORIER.some(k => _levKatLag[k.id] === e.layer);
@@ -1147,11 +1147,12 @@ async function _enhedOpenAdmin() {
   document.getElementById("levAdminPanel").classList.add("lev-panel-open");
   _enhedShowListe();
 
-  // Keep-alive: ping worker hvert 8. sek så den ikke sover ved gem
-  _enhedKeepAlive = setInterval(() => fetch(LEV_SP_WORKER + "/enheder"), 8000);
+  // Keep-alive: ping worker hvert 60. sek (ikke 8 sek - det bruger for mange KV-læsninger)
+  // Bruger /leverandoerer i stedet for /enheder - det er public og læser ikke KV
+  _enhedKeepAlive = setInterval(() => fetch(LEV_SP_WORKER + "/leverandoerer"), 60_000);
 
-  // Stop keep-alive når panelet lukkes
-  const closeBtn = document.getElementById("levPanelClose");
+  // Stop keep-alive når panelet lukkes - korrekt knap-ID er levPanelLuk
+  const closeBtn = document.getElementById("levPanelLuk");
   if (closeBtn) {
     const _origClose = closeBtn.onclick;
     closeBtn.onclick = function() {
