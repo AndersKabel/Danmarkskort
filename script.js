@@ -3364,11 +3364,11 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
 
     const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
 
-    // Via proxy — præcis som CVF (ingen srs/format parametre nødvendige)
+    // roadPart=0 giver 404 fra VD's API — udelad parameteren når forgrening er 0
     const url = `${VD_PROXY}/reference` +
       `?geometry=POINT(${x}%20${y})` +
       `&roadNumber=${roadNumber}` +
-      `&roadPart=${roadPart}`;
+      (roadPart ? `&roadPart=${roadPart}` : "");
 
     const resp = await fetch(url, { cache: "no-store" });
     if (!resp.ok) return "";
