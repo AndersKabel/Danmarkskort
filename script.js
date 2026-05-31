@@ -3344,7 +3344,7 @@ let   _statsvejAbortCtrl = null;
  ***************************************************/
 async function checkForStatsvej(lat, lon) {
   // Cache — samme ~100m-område returnerer øjeblikkeligt
-  const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;  // toFixed(4) = ~11m granularitet
   if (_statsvejCache.has(cacheKey)) return _statsvejCache.get(cacheKey);
 
   // Afbryd evt. igangværende kald ved gentagne klik
@@ -3354,7 +3354,7 @@ async function checkForStatsvej(lat, lon) {
 
   try {
     const [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const buffer = 100;
+    const buffer = 25;
     const bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
     // Ét WMS-kald — samme tilgang som CVF/sandkassen
