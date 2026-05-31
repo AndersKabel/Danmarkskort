@@ -1180,6 +1180,17 @@ var rutenummerLayer = L.tileLayer.wms("https://geocloud.vd.dk/VM/wms", {
   attribution: "© Vejdirektoratet"
 });
 
+// Km-markeringer på statsvejnettet fra VD GeoCloud (VM WMS)
+// Bruges som visuelt hjælpelag — især nyttigt når VD's referencing-API er nede
+var kmMaerkerLayer = L.tileLayer.wms("https://geocloud.vd.dk/VM/wms", {
+  layers: "km_maerker_vd",
+  format: "image/png",
+  transparent: true,
+  version: "1.1.1",
+  opacity: 0.85,
+  attribution: "© Vejdirektoratet"
+});
+
 /***************************************************
  * Falck Ass-lag
  ***************************************************/
@@ -1297,7 +1308,8 @@ const overlayMaps = {
 // Tilføj vejrlag, hvis API-nøgle er sat
 // RainViewer tilføjes når det er loadet (async)
 // Temperatur (OWM) er fjernet – bruges ikke
-overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
+overlayMaps["📍 Km-markeringer (VD)"] = kmMaerkerLayer;
+  overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
 overlayMaps["🚧 Vejarbejder (VD)"] = vdTrafikLayer;
 overlayMaps["⚠️ Advarsler (VD)"] = vdAdvarselLayer;
 overlayMaps["📐 Matrikel"] = matrikelLayer;
@@ -3228,7 +3240,7 @@ function visStatsvejBox(statsvejData, lat, lon) {
       document.getElementById("statsvejInfoBox").style.display = "block";
       getKmAtPoint(lat, lon, statsvejData).then(kmText => {
         if (kmText === "__VD_NEDE__") {
-          statsvejInfoEl.innerHTML += `<br><span style="color:#e67e22;font-size:11px">⚠️ Km-pæle utilgængelige — VD's API er midlertidigt nede</span>`;
+          statsvejInfoEl.innerHTML += `<br><span style="color:#e67e22;font-size:11px">⚠️ Km-pæle utilgængelige — VD's API er midlertidigt nede<br>Brug laget 📍 <em>Km-markeringer (VD)</em> som alternativ</span>`;
         } else if (kmText) {
           statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
         }
