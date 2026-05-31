@@ -96,6 +96,39 @@ function _levBuildControl() {
   levCtrlEl.classList.add("lev-disp-ctrl");
   map.getContainer().appendChild(levCtrlEl);
 
+  // Klik-expand (erstatter Leaflets hover-expand)
+  // Fjern Leaflets egne mouseenter/mouseleave ved at klone toggle-knappen
+  const levToggleOld = levCtrlEl.querySelector('.leaflet-control-layers-toggle');
+  if (levToggleOld) {
+    const levToggle = levToggleOld.cloneNode(true);
+    levToggleOld.parentNode.replaceChild(levToggle, levToggleOld);
+
+    levToggle.addEventListener('click', async function (e) {
+      e.stopPropagation();
+      const erAaben = levCtrlEl.classList.contains('leaflet-control-layers-expanded');
+      if (erAaben) {
+        // Luk panelet
+        levCtrlEl.classList.remove('leaflet-control-layers-expanded');
+        return;
+      }
+      // Åbn panel: tjek session først
+      const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: 'include' });
+      if (me.ok) {
+        // Gyldig session — åbn panelet
+        levCtrlEl.classList.add('leaflet-control-layers-expanded');
+      } else {
+        // Ingen session — bed om kode
+        const ok = await _levEnsureDisponering();
+        if (ok) levCtrlEl.classList.add('leaflet-control-layers-expanded');
+      }
+    });
+
+    // Luk panel når man klikker på kortet
+    map.getContainer().addEventListener('click', function () {
+      levCtrlEl.classList.remove('leaflet-control-layers-expanded');
+    });
+  }
+
   map.on("overlayadd", async function (e) {
     if (e.layer === redigerLeverandoerLayer) {
       map.removeLayer(redigerLeverandoerLayer);
