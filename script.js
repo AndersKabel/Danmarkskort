@@ -1191,6 +1191,26 @@ var kmMaerkerLayer = L.tileLayer.wms("https://geocloud.vd.dk/VM/wms", {
   attribution: "© Vejdirektoratet"
 });
 
+// Rastepladser til store køretøjer (modulvogntog) — nyttigt til reddere der holder pause
+var rastepladserLayer = L.tileLayer.wms("https://geocloud.vd.dk/VM/wms", {
+  layers: "rastepladser",
+  format: "image/png",
+  transparent: true,
+  version: "1.1.1",
+  opacity: 0.9,
+  attribution: "© Vejdirektoratet"
+});
+
+// Frakørsler på statsvejnettet fra VD GeoCloud
+var frakorslerLayer = L.tileLayer.wms("https://geocloud.vd.dk/VM/wms", {
+  layers: "frakorsler",
+  format: "image/png",
+  transparent: true,
+  version: "1.1.1",
+  opacity: 0.9,
+  attribution: "© Vejdirektoratet"
+});
+
 /***************************************************
  * Falck Ass-lag
  ***************************************************/
@@ -1309,6 +1329,8 @@ const overlayMaps = {
 // RainViewer tilføjes når det er loadet (async)
 // Temperatur (OWM) er fjernet – bruges ikke
 overlayMaps["📍 Km-markeringer (VD)"] = kmMaerkerLayer;
+  overlayMaps["🅿️ Rastepladser (store køretøjer)"] = rastepladserLayer;
+  overlayMaps["🔀 Frakørsler (statsveje)"] = frakorslerLayer;
   overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
 overlayMaps["🚧 Vejarbejder (VD)"] = vdTrafikLayer;
 overlayMaps["⚠️ Advarsler (VD)"] = vdAdvarselLayer;
