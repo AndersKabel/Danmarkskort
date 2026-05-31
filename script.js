@@ -3303,7 +3303,7 @@ function visStatsvejBox(statsvejData, lat, lon) {
       document.getElementById("statsvejInfoBox").style.display = "block";
       getKmAtPoint(lat, lon, statsvejData).then(kmText => {
         if (kmText === "__VD_NEDE__") {
-          statsvejInfoEl.innerHTML += `<br><span style="color:#e67e22;font-size:11px">⚠️ Km-pæle utilgængelige — VD's API er midlertidigt nede<br>Brug laget 📍 <em>Km-markeringer (VD)</em> som alternativ</span>`;
+          statsvejInfoEl.innerHTML += `<br><span style="color:#e67e22;font-size:11px">⚠️ Km-pæle utilgængelige — VD's API er midlertidigt nede<br>Brug kortlaget 📍 <em>Km-markeringer (VD)</em> som alternativ</span>`;
         } else if (kmText) {
           statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
         }
