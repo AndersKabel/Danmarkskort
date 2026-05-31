@@ -379,6 +379,10 @@
   line-height: 1;
 }
 .lev-disp-ctrl .leaflet-control-layers-list { min-width: 220px !important; }
+/* Bloker Leaflets CSS hover-expand pa lev-disp-ctrl */
+.lev-disp-ctrl.leaflet-control-layers:hover { padding: 0 !important; }
+.lev-disp-ctrl.leaflet-control-layers .leaflet-control-layers-list { display: none; }
+.lev-disp-ctrl.leaflet-control-layers.leaflet-control-layers-expanded .leaflet-control-layers-list { display: block; }
 .lev-disp-ctrl .leaflet-control-layers-overlays label {
   white-space: nowrap !important;
   font-size: 13px !important;
