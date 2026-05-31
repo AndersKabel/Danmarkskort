@@ -204,8 +204,7 @@ async function _levEnsureDisponering() {
     const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: "include" });
     if (me.ok) return true; // enhver gyldig session
 
-    const code = prompt("Disponering kræver login.
-Indtast adgangskoden:");
+    const code = prompt("Disponering kræver login — indtast adgangskoden:");
     if (!code?.trim()) return false;
     const login = await fetch(`${LEV_SP_WORKER}/auth/login`, {
       method: "POST", credentials: "include",
