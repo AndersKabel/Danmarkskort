@@ -1355,7 +1355,12 @@ kmForklaringCtrl.onAdd = function() {
 };
 
 map.on("overlayadd", function(e) {
-  if (e.layer === kmMaerkerLayer) kmForklaringCtrl.addTo(map);
+  if (e.layer === kmMaerkerLayer) {
+    kmForklaringCtrl.addTo(map);
+    // Flyt boksen op så den ikke dækker kommunekode-baren i bunden
+    const el = kmForklaringCtrl.getContainer();
+    if (el) el.style.marginBottom = "28px";
+  }
 });
 map.on("overlayremove", function(e) {
   if (e.layer === kmMaerkerLayer) kmForklaringCtrl.remove();
