@@ -1324,6 +1324,42 @@ const _rvInterval = setInterval(() => {
   }
 }, 500);
 const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+
+// ── Km-markerings forklaring ──────────────────────────────────────
+// Vises kun når "Km-markeringer (VD)"-laget er aktivt
+const kmForklaringCtrl = L.control({ position: "bottomleft" });
+kmForklaringCtrl.onAdd = function() {
+  const div = L.DomUtil.create("div", "");
+  div.style.cssText = [
+    "background:rgba(255,255,255,0.93)",
+    "border:1px solid #c0392b",
+    "border-radius:6px",
+    "padding:8px 11px",
+    "font-size:12px",
+    "line-height:1.6",
+    "max-width:230px",
+    "box-shadow:0 2px 6px rgba(0,0,0,0.18)"
+  ].join(";");
+  div.innerHTML = [
+    "<strong style='color:#c0392b'>📍 Km-markeringer — format</strong>",
+    "<hr style='margin:4px 0;border-color:#eee'>",
+    "<code style='font-size:11px'>60 - 0 140/0000</code>",
+    "<table style='margin-top:4px;font-size:11px;border-collapse:collapse'>",
+    "  <tr><td style='color:#888;padding-right:6px'>60</td><td>Vejnummer</td></tr>",
+    "  <tr><td style='color:#888;padding-right:6px'>0</td><td>Forgrening (0 = hovedstrækning)</td></tr>",
+    "  <tr><td style='color:#888;padding-right:6px'>140</td><td>Km-mærke</td></tr>",
+    "  <tr><td style='color:#888;padding-right:6px'>/0000</td><td>Meter (0 = præcis ved pælen)</td></tr>",
+    "</table>"
+  ].join("");
+  return div;
+};
+
+map.on("overlayadd", function(e) {
+  if (e.layer === kmMaerkerLayer) kmForklaringCtrl.addTo(map);
+});
+map.on("overlayremove", function(e) {
+  if (e.layer === kmMaerkerLayer) kmForklaringCtrl.remove();
+});
 layerControl.getContainer().classList.add("main-ar-ctrl");
 
 // ── Custom Place knap ────────────────────────────────────────────
