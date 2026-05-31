@@ -3227,7 +3227,11 @@ function visStatsvejBox(statsvejData, lat, lon) {
     if (hasStatsvej) {
       document.getElementById("statsvejInfoBox").style.display = "block";
       getKmAtPoint(lat, lon, statsvejData).then(kmText => {
-        if (kmText) statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
+        if (kmText === "__VD_NEDE__") {
+          statsvejInfoEl.innerHTML += `<br><span style="color:#e67e22;font-size:11px">⚠️ Km-pæle utilgængelige — VD's API er midlertidigt nede</span>`;
+        } else if (kmText) {
+          statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
+        }
       });
     }
   } else {
@@ -3371,7 +3375,7 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
       (roadPart ? `&roadPart=${roadPart}` : "");
 
     const resp = await fetch(url, { cache: "no-store" });
-    if (!resp.ok) return "";
+    if (!resp.ok) return "__VD_NEDE__";
 
     const data = await resp.json();
 
