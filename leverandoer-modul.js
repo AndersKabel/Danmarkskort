@@ -136,15 +136,40 @@ function _levBuildControl() {
 
   // Checkbox-handlers
   wrap.querySelectorAll('input[type=checkbox]').forEach(function (cb) {
-    cb.addEventListener('change', function () {
+    cb.addEventListener('change', async function () {
       const lag = cb.dataset.lag;
       let layer = null;
       if (lag === 'tilgaengelig')         layer = levTilgaengeligLayer;
       else if (lag.startsWith('lev-'))    layer = _levKatLag[lag.slice(4)];
       else if (lag.startsWith('enhed-'))  layer = _enhedKatLag[lag.slice(6)];
       if (!layer) return;
-      if (cb.checked) map.addLayer(layer);
-      else            map.removeLayer(layer);
+
+      if (cb.checked) {
+        map.addLayer(layer);
+        // Tilgængelige leverandører
+        if (lag === 'tilgaengelig') {
+          await _levTilgLoad();
+          _levTilgInterval = setInterval(_levTilgLoad, 180_000);
+        }
+        // Leverandør-kategorier
+        const erLevKat = lag.startsWith('lev-');
+        if (erLevKat && !_levLoaded) await _levLoad();
+        // Egne enheder
+        const erEnhedKat = lag.startsWith('enhed-');
+        if (erEnhedKat && !_enhedLoaded) {
+          const ok = await _levEnsureDisponering();
+          if (!ok) { map.removeLayer(layer); cb.checked = false; }
+          else await _enhedLoad();
+        }
+      } else {
+        map.removeLayer(layer);
+        // Stop tilgængelighedsinterval når laget fjernes
+        if (lag === 'tilgaengelig') {
+          clearInterval(_levTilgInterval);
+          _levTilgInterval = null;
+          levTilgaengeligLayer.clearLayers();
+        }
+      }
     });
   });
 
@@ -163,35 +188,6 @@ function _levBuildControl() {
   // Gem wrap som _levLayerCtrl (bruges af _levUncheckLayer)
   _levLayerCtrl = wrap;
 
-  map.on("overlayadd", async function (e) {
-    if (e.layer === levTilgaengeligLayer) {
-      await _levTilgLoad();
-      _levTilgInterval = setInterval(_levTilgLoad, 180_000); // 3 min - sparer KV-kald (gratis plan: 100k/dag)
-      return;
-    }
-    const erLevKat = LEV_KATEGORIER.some(k => _levKatLag[k.id] === e.layer);
-    if (erLevKat && !_levLoaded) await _levLoad();
-
-    const erEnhedKat = EGNE_KATEGORIER.some(k => _enhedKatLag[k.id] === e.layer);
-    if (erEnhedKat && !_enhedLoaded) {
-      const ok = await _levEnsureDisponering();
-      if (ok) {
-        await _enhedLoad();
-      } else {
-        // Login afbrudt/fejlet — afmarker laget igen
-        map.removeLayer(e.layer);
-        _levUncheckLayer(e.layer);
-      }
-    }
-  });
-
-  map.on("overlayremove", function (e) {
-    if (e.layer === levTilgaengeligLayer) {
-      clearInterval(_levTilgInterval);
-      _levTilgInterval = null;
-      levTilgaengeligLayer.clearLayers();
-    }
-  });
 }
 
 // ── LAYER CONTROL HELPERS ───────────────────────────────────────
