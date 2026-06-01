@@ -361,44 +361,37 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-}
-.lev-disp-toggle {
-  width: 44px;
-  height: 44px;
-  background: #fff;
-  border: 2px solid rgba(0,0,0,0.2);
+  background: rgba(255,255,255,0.9);
+  padding: 5px;
   border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+/* Disp-knap: samme udseende som .distance-btn */
+.lev-disp-toggle {
+  margin: 2px;
+  padding: 6px 10px;
+  font-size: 14px;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  font-size: 16px;
-  line-height: 1;
-  box-shadow: 0 1px 5px rgba(0,0,0,0.15);
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  line-height: 1.4;
 }
-.lev-disp-toggle:hover { background: #f4f4f4; }
-.lev-disp-toggle-tekst {
-  font-size: 10px;
-  font-weight: 700;
-  color: #444;
-  margin-top: 1px;
-}
+.lev-disp-toggle:hover { background: #f0f0f0; }
+.lev-disp-toggle-ikon { display: none; }
+.lev-disp-toggle-tekst { font-size: 14px; font-weight: normal; }
 .lev-disp-panel {
   display: none;
-  background: #fff;
-  border: 2px solid rgba(0,0,0,0.2);
+  background: rgba(255,255,255,0.97);
+  border: 1px solid #ccc;
   border-radius: 4px;
-  box-shadow: 0 1px 5px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   margin-top: 4px;
   min-width: 220px;
   padding: 6px 0;
 }
 .lev-disp-panel.lev-disp-panel-aaben { display: block; }
-.lev-disp-section {
-  padding: 4px 10px;
-}
+.lev-disp-section { padding: 4px 10px; }
 .lev-disp-row {
   display: flex;
   align-items: center;
@@ -409,11 +402,7 @@
   white-space: nowrap;
 }
 .lev-disp-row input[type=checkbox] { cursor: pointer; }
-.lev-disp-divider {
-  height: 1px;
-  background: #e0e0e0;
-  margin: 4px 0;
-}
+.lev-disp-divider { height: 1px; background: #e0e0e0; margin: 4px 0; }
 .lev-disp-rediger { display: flex; flex-direction: column; gap: 4px; }
 .lev-disp-rediger-btn {
   background: none;
