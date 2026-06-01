@@ -223,17 +223,18 @@ async function _levSpFetch(path, options) {
   return resp;
 }
 
-async function _levEnsureLogin() {
+// Drift-login: kraever rolle 'drift' eller 'admin' - bruges til redigering
+async function _levEnsureDrift() {
   if (_levLoginProgress) return false;
   _levLoginProgress = true;
   try {
     const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: "include" });
     if (me.ok) {
       const data = await me.json();
-      if (!data.role || data.role === "admin") return true; // admin session
-      // Har kun læse-session — bed om admin-kode
+      if (data.role === "admin" || data.role === "drift") return true;
+      // Har kun læse-session — bed om driftkoordinator-kode
     }
-    const code = prompt("Indtast admin-koden til leverandørstyring:");
+    const code = prompt("Redigering kræver driftkoordinatorkode:");
     if (!code?.trim()) return false;
     const login = await fetch(`${LEV_SP_WORKER}/auth/login`, {
       method: "POST", credentials: "include",
@@ -250,12 +251,17 @@ async function _levEnsureLogin() {
       return false;
     }
     const data = await login.json();
-    if (data.role !== "admin") { alert("Denne kode giver kun læseadgang."); return false; }
+    if (data.role !== "admin" && data.role !== "drift") {
+      alert("Denne kode giver ikke redigeringsadgang.");
+      return false;
+    }
     return true;
   } finally {
     _levLoginProgress = false;
   }
 }
+// Alias for bagudkompatibilitet
+const _levEnsureLogin = _levEnsureDrift;
 
 // Disponering-login: accepterer admin eller read-session
 async function _levEnsureDisponering() {
