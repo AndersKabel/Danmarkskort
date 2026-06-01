@@ -3354,7 +3354,7 @@ async function checkForStatsvej(lat, lon) {
 
   try {
     const [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const buffer = 25;
+    const buffer = 50;
     const bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
     // Ét WMS-kald — samme tilgang som CVF/sandkassen
