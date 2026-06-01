@@ -1285,7 +1285,8 @@ function _enhedShowListe() {
   document.getElementById("levPanelTitle").textContent = "📍 Egne enheder";
   const body = document.getElementById("levPanelBody");
 
-  const rækker = (_enhedData || []).map(e => {
+  // Byg en række for én enhed
+  function _enhedRaekke(e) {
     const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
     const katTekst = kats.map(id => {
       const k = EGNE_KATEGORIER.find(k => k.id === id);
@@ -1302,14 +1303,48 @@ function _enhedShowListe() {
           <button class="lev-btn-secondary enhed-slet-btn"   data-id="${_esc(e.id)}" style="padding:4px 8px;font-size:12px;color:#c0392b">🗑️</button>
         </div>
       </div>`;
-  }).join("") || `<p class="lev-empty">Ingen egne enheder endnu. Klik "+ Ny enhed".</p>`;
+  }
+
+  // Filtrer og render listen
+  function _enhedRenderFiltreret(soegeTekst) {
+    const q = (soegeTekst || "").toLowerCase().trim();
+    const data = _enhedData || [];
+    const filtreret = q === "" ? data : data.filter(e => {
+      const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+      const katTekst = kats.map(id => {
+        const k = EGNE_KATEGORIER.find(k => k.id === id);
+        return k ? (k.navn + " " + k.ikon).toLowerCase() : id;
+      }).join(" ");
+      return (e.navn || "").toLowerCase().includes(q)
+        || (e.adresse || "").toLowerCase().includes(q)
+        || katTekst.includes(q);
+    });
+    const rækker = filtreret.map(_enhedRaekke).join("")
+      || `<p class="lev-empty">${q ? "Ingen enheder matcher søgningen." : "Ingen egne enheder endnu. Klik \"+ Ny enhed\"."}</p>`;
+    document.getElementById("enhedListeContainer").innerHTML = rækker;
+    // Genknyt klik-handlers
+    body.querySelectorAll(".enhed-rediger-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const enhed = _enhedData.find(e => e.id === btn.dataset.id);
+        if (enhed) _enhedShowForm(enhed);
+      });
+    });
+    body.querySelectorAll(".enhed-slet-btn").forEach(btn => {
+      btn.addEventListener("click", () => _enhedSlet(btn.dataset.id));
+    });
+  }
 
   body.innerHTML = `
     <div class="lev-list-toolbar">
       <button id="enhedNyBtn" class="lev-btn-primary">+ Ny enhed</button>
       <button id="enhedRefreshBtn" class="lev-btn-secondary">↻ Opdater</button>
+      <input id="enhedSoeg" type="search" placeholder="Søg navn, adresse, kategori…"
+        style="flex:1;min-width:0;padding:5px 8px;font-size:13px;border:1px solid #ccc;border-radius:4px">
     </div>
-    <div class="lev-list-container">${rækker}</div>`;
+    <div id="enhedListeContainer" class="lev-list-container"></div>`;
+
+  // Initial render (ingen filter)
+  _enhedRenderFiltreret("");
 
   document.getElementById("enhedNyBtn").addEventListener("click", () => _enhedShowForm(null));
   document.getElementById("enhedRefreshBtn").addEventListener("click", async function() {
@@ -1321,14 +1356,8 @@ function _enhedShowListe() {
     btn.textContent = "✅ Opdateret!";
     setTimeout(() => { _enhedShowListe(); }, 800);
   });
-  body.querySelectorAll(".enhed-rediger-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const enhed = _enhedData.find(e => e.id === btn.dataset.id);
-      if (enhed) _enhedShowForm(enhed);
-    });
-  });
-  body.querySelectorAll(".enhed-slet-btn").forEach(btn => {
-    btn.addEventListener("click", () => _enhedSlet(btn.dataset.id));
+  document.getElementById("enhedSoeg").addEventListener("input", function() {
+    _enhedRenderFiltreret(this.value);
   });
 }
 
