@@ -96,10 +96,10 @@ function _levBuildControl() {
   levCtrlEl.classList.add("lev-disp-ctrl");
   map.getContainer().appendChild(levCtrlEl);
 
-  // Klik-expand: overskriver Leaflets _expand/_collapse direkte paa control-objektet
-  // og haandterer klik paa toggle-knappen med session-tjek
-  _levLayerCtrl._expand  = function () {}; // Disable hover-expand
-  _levLayerCtrl._collapse = function () {}; // Disable hover-collapse
+  // Klik-expand: fjern Leaflets mouseenter/mouseleave via L.DomEvent.off
+  // og tilfoej vores egen klik-handler med session-tjek
+  L.DomEvent.off(levCtrlEl, 'mouseenter', _levLayerCtrl._expand,  _levLayerCtrl);
+  L.DomEvent.off(levCtrlEl, 'mouseleave', _levLayerCtrl._collapse, _levLayerCtrl);
 
   const levToggle = levCtrlEl.querySelector('.leaflet-control-layers-toggle');
   if (levToggle) {
