@@ -1339,7 +1339,7 @@ function _enhedShowListe() {
       <button id="enhedNyBtn" class="lev-btn-primary">+ Ny enhed</button>
       <button id="enhedRefreshBtn" class="lev-btn-secondary">↻ Opdater</button>
       <input id="enhedSoeg" type="search" placeholder="Søg navn, adresse, kategori…"
-        style="flex:1;min-width:0;padding:5px 8px;font-size:13px;border:1px solid #ccc;border-radius:4px">
+        style="flex:1;min-width:0;padding:8px 8px;font-size:13px;border:1px solid #ccc;border-radius:7px">
     </div>
     <div id="enhedListeContainer" class="lev-list-container"></div>`;
 
