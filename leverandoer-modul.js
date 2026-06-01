@@ -87,10 +87,7 @@ function _levBuildControl() {
   ).join('');
 
   wrap.innerHTML = `
-    <button class="lev-disp-toggle" id="levDispToggle">
-      <span class="lev-disp-toggle-ikon">&#128472;</span>
-      <span class="lev-disp-toggle-tekst">Disp</span>
-    </button>
+    <button class="lev-disp-toggle" id="levDispToggle">Disp</button>
     <div class="lev-disp-panel" id="levDispPanel">
       <div class="lev-disp-section">${levRows}
         <label class="lev-disp-row"><input type="checkbox" data-lag="tilgaengelig"> 🟢 Tilgængelige leverandører</label>
