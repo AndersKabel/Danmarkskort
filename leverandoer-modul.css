@@ -352,140 +352,81 @@
   padding-top: 14px; border-top: 1px solid #eaecf0;
 }
 /* ── DISP LAYER CONTROL KNAP ─────────────────────────────────── */
+/* ── DISP PANEL (custom HTML — ingen Leaflet hover) ────────── */
 .lev-disp-ctrl {
-  position: absolute !important;
-  top: 10px !important;
-  right: 360px !important;
-  margin: 0 !important;
-  z-index: 900 !important;
-}
-.lev-disp-ctrl .leaflet-control-layers-toggle {
-  width: 44px !important;
-  height: 34px !important;
-  background-position: center 5px !important;
-  background-size: 16px 16px !important;
-  position: relative !important;
-  display: block !important;
-}
-.lev-disp-ctrl .leaflet-control-layers-toggle::after {
-  content: "Disp";
   position: absolute;
-  bottom: 4px;
-  left: 0; right: 0;
-  text-align: center;
-  font-size: 10px;
-  font-weight: 700;
-  color: #444;
-  line-height: 1;
-}
-.lev-disp-ctrl .leaflet-control-layers-list { min-width: 220px !important; }
-/* Bloker Leaflets CSS hover-expand pa lev-disp-ctrl */
-.lev-disp-ctrl.leaflet-control-layers:hover { padding: 0 !important; }
-.lev-disp-ctrl.leaflet-control-layers .leaflet-control-layers-list { display: none; }
-.lev-disp-ctrl.leaflet-control-layers.leaflet-control-layers-expanded .leaflet-control-layers-list { display: block; }
-.lev-disp-ctrl .leaflet-control-layers-overlays label {
-  white-space: nowrap !important;
-  font-size: 13px !important;
-  padding: 3px 0 !important;
-}
-/* ── DISP LAYER CONTROL KNAP ─────────────────────────────────── */
-.lev-disp-ctrl {
-  position: absolute !important;
-  top: 10px !important;
-  right: 360px !important;
-  margin: 0 !important;
-  z-index: 900 !important;
-}
-.lev-disp-ctrl .leaflet-control-layers-toggle {
-  width: 44px !important;
-  height: 46px !important;
-  background-position: center 10px !important;
-  background-size: 18px 18px !important;
-  position: relative !important;
-  display: block !important;
-}
-.lev-disp-ctrl .leaflet-control-layers-toggle::after {
-  content: "Disp";
-  position: absolute;
-  bottom: 6px;
-  left: 0; right: 0;
-  text-align: center;
-  font-size: 10px;
-  font-weight: 700;
-  color: #444;
-  line-height: 1;
-}
-.lev-disp-ctrl .leaflet-control-layers-list { min-width: 220px !important; }
-.lev-disp-ctrl .leaflet-control-layers-overlays label {
-  white-space: nowrap !important;
-  font-size: 13px !important;
-  padding: 3px 0 !important;
-}
-/* ── MULTI-KATEGORI CHECKBOXES ──────────────────────────────────── */
-.lev-form-label {
-  font-size: 13px;
-  color: #555;
-  margin-top: 12px;
-  margin-bottom: 4px;
-}
-.lev-kat-checkboxes {
+  top: 10px;
+  right: 360px;
+  z-index: 900;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
-  background: #f8f9fa;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  align-items: flex-end;
 }
-.lev-kat-check-label {
+.lev-disp-toggle {
+  width: 44px;
+  height: 44px;
+  background: #fff;
+  border: 2px solid rgba(0,0,0,0.2);
+  border-radius: 4px;
+  cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 3px 0;
-  user-select: none;
+  justify-content: center;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.15);
 }
-.lev-kat-check-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-/* ── DISP LAYER CONTROL KNAP ─────────────────────────────────── */
-.lev-disp-ctrl {
-  position: absolute !important;
-  top: 10px !important;
-  right: 360px !important;
-  margin: 0 !important;
-  z-index: 900 !important;
-}
-.lev-disp-ctrl .leaflet-control-layers-toggle {
-  width: 44px !important;
-  height: 46px !important;
-  background-position: center 10px !important;
-  background-size: 18px 18px !important;
-  position: relative !important;
-  display: block !important;
-}
-.lev-disp-ctrl .leaflet-control-layers-toggle::after {
-  content: "Disp";
-  position: absolute;
-  bottom: 6px;
-  left: 0; right: 0;
-  text-align: center;
+.lev-disp-toggle:hover { background: #f4f4f4; }
+.lev-disp-toggle-tekst {
   font-size: 10px;
   font-weight: 700;
   color: #444;
-  line-height: 1;
+  margin-top: 1px;
 }
-.lev-disp-ctrl .leaflet-control-layers-list { min-width: 220px !important; }
-.lev-disp-ctrl .leaflet-control-layers-overlays label {
-  white-space: nowrap !important;
-  font-size: 13px !important;
-  padding: 3px 0 !important;
+.lev-disp-panel {
+  display: none;
+  background: #fff;
+  border: 2px solid rgba(0,0,0,0.2);
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.15);
+  margin-top: 4px;
+  min-width: 220px;
+  padding: 6px 0;
 }
+.lev-disp-panel.lev-disp-panel-aaben { display: block; }
+.lev-disp-section {
+  padding: 4px 10px;
+}
+.lev-disp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 3px 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lev-disp-row input[type=checkbox] { cursor: pointer; }
+.lev-disp-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 4px 0;
+}
+.lev-disp-rediger { display: flex; flex-direction: column; gap: 4px; }
+.lev-disp-rediger-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.lev-disp-rediger-btn:hover { background: #f0f4ff; }
+
 /* ── SEKTIONSFARVER I ADMIN-FORMULAR ─────────────────────────── */
 .lev-fs[data-section="basis"]   { background: #f0f4ff; border-color: #c5d3f0; }
 .lev-fs[data-section="kontakt"] { background: #f0faf5; border-color: #b8e0cc; }
