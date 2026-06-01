@@ -137,6 +137,10 @@
   padding: 12px 14px 10px;
   background: #fff;
   border-bottom: 1px solid #e3e8ef;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .lev-list-container { padding: 6px 0; }
 .lev-list-row {
