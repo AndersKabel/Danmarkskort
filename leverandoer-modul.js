@@ -96,30 +96,31 @@ function _levBuildControl() {
   levCtrlEl.classList.add("lev-disp-ctrl");
   map.getContainer().appendChild(levCtrlEl);
 
-  // Klik-expand (erstatter Leaflets hover-expand)
-  // Fjern Leaflets egne mouseenter/mouseleave ved at klone toggle-knappen
-  const levToggleOld = levCtrlEl.querySelector('.leaflet-control-layers-toggle');
-  if (levToggleOld) {
-    const levToggle = levToggleOld.cloneNode(true);
-    levToggleOld.parentNode.replaceChild(levToggle, levToggleOld);
+  // Klik-expand: overskriver Leaflets _expand/_collapse direkte paa control-objektet
+  // og haandterer klik paa toggle-knappen med session-tjek
+  _levLayerCtrl._expand  = function () {}; // Disable hover-expand
+  _levLayerCtrl._collapse = function () {}; // Disable hover-collapse
 
+  const levToggle = levCtrlEl.querySelector('.leaflet-control-layers-toggle');
+  if (levToggle) {
     levToggle.addEventListener('click', async function (e) {
       e.stopPropagation();
       const erAaben = levCtrlEl.classList.contains('leaflet-control-layers-expanded');
       if (erAaben) {
-        // Luk panelet
         levCtrlEl.classList.remove('leaflet-control-layers-expanded');
         return;
       }
       // Åbn panel: tjek session først
-      const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: 'include' });
-      if (me.ok) {
-        // Gyldig session — åbn panelet
-        levCtrlEl.classList.add('leaflet-control-layers-expanded');
-      } else {
-        // Ingen session — bed om kode
-        const ok = await _levEnsureDisponering();
-        if (ok) levCtrlEl.classList.add('leaflet-control-layers-expanded');
+      try {
+        const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: 'include' });
+        if (me.ok) {
+          levCtrlEl.classList.add('leaflet-control-layers-expanded');
+        } else {
+          const ok = await _levEnsureDisponering();
+          if (ok) levCtrlEl.classList.add('leaflet-control-layers-expanded');
+        }
+      } catch (err) {
+        console.warn('Disp session-tjek fejlede:', err);
       }
     });
 
