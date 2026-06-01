@@ -126,13 +126,13 @@ function _levBuildControl() {
     }
   });
 
-  // Klik paa kortet lukker panelet
-  map.getContainer().addEventListener('click', function () {
+  // Klik paa kortet lukker panelet (via Leaflet event — interfererer ikke med marker-placement)
+  map.on('click', function () {
     panel.classList.remove('lev-disp-panel-aaben');
   });
 
   // Stop klik inde i panelet fra at boble op til kortet
-  panel.addEventListener('click', function (e) { e.stopPropagation(); });
+  L.DomEvent.disableClickPropagation(panel);
 
   // Checkbox-handlers
   wrap.querySelectorAll('input[type=checkbox]').forEach(function (cb) {
@@ -290,9 +290,9 @@ async function _levEnsureDisponering() {
 // ── DATA LOADING ─────────────────────────────────────────────────
 async function _levLoad() {
   try {
-    // GET /leverandoerer er public – ingen auth nødvendig
-    const resp = await fetch(LEV_SP_WORKER + "/leverandoerer", { credentials: "include" });
-    if (!resp.ok) { console.warn("Leverandørdata fejlede:", resp.status); return; }
+    // GET /leverandoerer kræver gyldig session (samme niveau som /enheder)
+    const resp = await _levSpFetch("/leverandoerer");
+    if (!resp || !resp.ok) { console.warn("Leverandørdata fejlede:", resp?.status); return; }
     const data = await resp.json();
     _levData   = data.leverandoerer || [];
     _levLoaded = true;
@@ -1265,9 +1265,9 @@ async function _enhedOpenAdmin() {
   document.getElementById("levAdminPanel").classList.add("lev-panel-open");
   _enhedShowListe();
 
-  // Keep-alive: ping worker hvert 60. sek (ikke 8 sek - det bruger for mange KV-læsninger)
-  // Bruger /leverandoerer i stedet for /enheder - det er public og læser ikke KV
-  _enhedKeepAlive = setInterval(() => fetch(LEV_SP_WORKER + "/leverandoerer"), 60_000);
+  // Keep-alive: ping worker hvert 60. sek for at holde sessionen aktiv
+  // Bruger /auth/me — kræver ingen KV og returnerer blot session-status
+  _enhedKeepAlive = setInterval(() => fetch(LEV_SP_WORKER + "/auth/me", { credentials: "include" }), 60_000);
 
   // Stop keep-alive når panelet lukkes - korrekt knap-ID er levPanelLuk
   const closeBtn = document.getElementById("levPanelLuk");
