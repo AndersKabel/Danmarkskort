@@ -74,75 +74,99 @@ async function initLeverandoerModul() {
 
 // ── LEAFLET LAYER CONTROL ────────────────────────────────────────
 function _levBuildControl() {
-  const overlays = {};
+  // Custom HTML-panel erstatter L.control.layers
+  // Ingen Leaflet hover-logik — fuld kontrol over åbn/luk
+  const wrap = document.createElement('div');
+  wrap.className = 'lev-disp-ctrl';
 
-  // Leverandører
-  LEV_KATEGORIER.forEach(k => {
-    overlays[`${k.ikon} ${k.navn}`] = _levKatLag[k.id];
-  });
-  overlays["🟢 Tilgængelige leverandører"] = levTilgaengeligLayer;
+  const levRows = LEV_KATEGORIER.map(k =>
+    `<label class="lev-disp-row"><input type="checkbox" data-lag="lev-${k.id}"> ${k.ikon} ${k.navn}</label>`
+  ).join('');
+  const enhedRows = EGNE_KATEGORIER.map(k =>
+    `<label class="lev-disp-row"><input type="checkbox" data-lag="enhed-${k.id}"> ${k.ikon} ${k.navn}</label>`
+  ).join('');
 
-  // Egne enheder
-  EGNE_KATEGORIER.forEach(k => {
-    overlays[`${k.ikon} ${k.navn}`] = _enhedKatLag[k.id];
-  });
+  wrap.innerHTML = `
+    <button class="lev-disp-toggle" id="levDispToggle">
+      <span class="lev-disp-toggle-ikon">&#128472;</span>
+      <span class="lev-disp-toggle-tekst">Disp</span>
+    </button>
+    <div class="lev-disp-panel" id="levDispPanel">
+      <div class="lev-disp-section">${levRows}
+        <label class="lev-disp-row"><input type="checkbox" data-lag="tilgaengelig"> 🟢 Tilgængelige leverandører</label>
+      </div>
+      <div class="lev-disp-divider"></div>
+      <div class="lev-disp-section">${enhedRows}</div>
+      <div class="lev-disp-divider"></div>
+      <div class="lev-disp-section lev-disp-rediger">
+        <button class="lev-disp-rediger-btn" id="levRedigerLev">✏️ Rediger leverandører</button>
+        <button class="lev-disp-rediger-btn" id="levRedigerEnheder">✏️ Rediger egne enheder</button>
+      </div>
+    </div>
+  `;
+  map.getContainer().appendChild(wrap);
 
-  // Rediger-knapper samlet nederst
-  overlays["✏️ Rediger leverandører"]  = redigerLeverandoerLayer;
-  overlays["✏️ Rediger egne enheder"]  = redigerEnhederLayer;
+  const toggleBtn = document.getElementById('levDispToggle');
+  const panel     = document.getElementById('levDispPanel');
 
-  _levLayerCtrl = L.control.layers({}, overlays, { position: "topright", collapsed: true }).addTo(map);
-  const levCtrlEl = _levLayerCtrl.getContainer();
-  levCtrlEl.classList.add("lev-disp-ctrl");
-  map.getContainer().appendChild(levCtrlEl);
-
-  // Klik-expand: fjern Leaflets mouseenter/mouseleave via L.DomEvent.off
-  // og tilfoej vores egen klik-handler med session-tjek
-  L.DomEvent.off(levCtrlEl, 'mouseenter', _levLayerCtrl._expand,  _levLayerCtrl);
-  L.DomEvent.off(levCtrlEl, 'mouseleave', _levLayerCtrl._collapse, _levLayerCtrl);
-
-  const levToggle = levCtrlEl.querySelector('.leaflet-control-layers-toggle');
-  if (levToggle) {
-    levToggle.addEventListener('click', async function (e) {
-      e.stopPropagation();
-      const erAaben = levCtrlEl.classList.contains('leaflet-control-layers-expanded');
-      if (erAaben) {
-        levCtrlEl.classList.remove('leaflet-control-layers-expanded');
-        return;
-      }
-      // Åbn panel: tjek session først
+  // Disp-knap: tjek session og åbn/luk panel
+  toggleBtn.addEventListener('click', async function (e) {
+    e.stopPropagation();
+    if (!panel.classList.contains('lev-disp-panel-aaben')) {
       try {
         const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: 'include' });
         if (me.ok) {
-          levCtrlEl.classList.add('leaflet-control-layers-expanded');
+          panel.classList.add('lev-disp-panel-aaben');
         } else {
           const ok = await _levEnsureDisponering();
-          if (ok) levCtrlEl.classList.add('leaflet-control-layers-expanded');
+          if (ok) panel.classList.add('lev-disp-panel-aaben');
         }
       } catch (err) {
         console.warn('Disp session-tjek fejlede:', err);
       }
-    });
+    } else {
+      panel.classList.remove('lev-disp-panel-aaben');
+    }
+  });
 
-    // Luk panel når man klikker på kortet
-    map.getContainer().addEventListener('click', function () {
-      levCtrlEl.classList.remove('leaflet-control-layers-expanded');
+  // Klik paa kortet lukker panelet
+  map.getContainer().addEventListener('click', function () {
+    panel.classList.remove('lev-disp-panel-aaben');
+  });
+
+  // Stop klik inde i panelet fra at boble op til kortet
+  panel.addEventListener('click', function (e) { e.stopPropagation(); });
+
+  // Checkbox-handlers
+  wrap.querySelectorAll('input[type=checkbox]').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      const lag = cb.dataset.lag;
+      let layer = null;
+      if (lag === 'tilgaengelig')         layer = levTilgaengeligLayer;
+      else if (lag.startsWith('lev-'))    layer = _levKatLag[lag.slice(4)];
+      else if (lag.startsWith('enhed-'))  layer = _enhedKatLag[lag.slice(6)];
+      if (!layer) return;
+      if (cb.checked) map.addLayer(layer);
+      else            map.removeLayer(layer);
     });
-  }
+  });
+
+  // Rediger-knapper
+  document.getElementById('levRedigerLev').addEventListener('click', async function (e) {
+    e.stopPropagation();
+    panel.classList.remove('lev-disp-panel-aaben');
+    await _levOpenAdmin();
+  });
+  document.getElementById('levRedigerEnheder').addEventListener('click', async function (e) {
+    e.stopPropagation();
+    panel.classList.remove('lev-disp-panel-aaben');
+    await _enhedOpenAdmin();
+  });
+
+  // Gem wrap som _levLayerCtrl (bruges af _levUncheckLayer)
+  _levLayerCtrl = wrap;
 
   map.on("overlayadd", async function (e) {
-    if (e.layer === redigerLeverandoerLayer) {
-      map.removeLayer(redigerLeverandoerLayer);
-      _levUncheckLayer(redigerLeverandoerLayer);
-      await _levOpenAdmin();
-      return;
-    }
-    if (e.layer === redigerEnhederLayer) {
-      map.removeLayer(redigerEnhederLayer);
-      _levUncheckLayer(redigerEnhederLayer);
-      await _enhedOpenAdmin();
-      return;
-    }
     if (e.layer === levTilgaengeligLayer) {
       await _levTilgLoad();
       _levTilgInterval = setInterval(_levTilgLoad, 180_000); // 3 min - sparer KV-kald (gratis plan: 100k/dag)
@@ -176,8 +200,14 @@ function _levBuildControl() {
 // ── LAYER CONTROL HELPERS ───────────────────────────────────────
 function _levUncheckLayer(layer) {
   if (!_levLayerCtrl) return;
-  const found = (_levLayerCtrl._layers || []).find(l => l.layer === layer);
-  if (found?.input) found.input.checked = false;
+  _levLayerCtrl.querySelectorAll('input[type=checkbox]').forEach(function (cb) {
+    const lag = cb.dataset.lag;
+    let l = null;
+    if (lag === 'tilgaengelig')         l = levTilgaengeligLayer;
+    else if (lag && lag.startsWith('lev-'))   l = _levKatLag[lag.slice(4)];
+    else if (lag && lag.startsWith('enhed-')) l = _enhedKatLag[lag.slice(6)];
+    if (l === layer) cb.checked = false;
+  });
 }
 
 // ── SP AUTH ──────────────────────────────────────────────────────
