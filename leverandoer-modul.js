@@ -848,8 +848,6 @@ function _levShowForm(id) {
 
       <fieldset class="lev-fs" data-section="vogne">
         <legend>🚗 Vogne</legend>
-        <input id="lf-vogne-soeg" type="search" placeholder="Søg vognnummer eller beskrivelse…"
-          style="width:100%;box-sizing:border-box;padding:7px 10px;font-size:13px;border:1px solid #ccc;border-radius:6px;margin-bottom:8px">
         <div id="lf-vogne"></div>
         <button type="button" id="levAddVogn" class="lev-btn-add">+ Tilføj vogn</button>
       </fieldset>
@@ -868,22 +866,17 @@ function _levShowForm(id) {
   (lev.arbejdsAdresser || []).forEach(a => _levAppendAdrRow(adrDiv, a));
   (lev.vogne || []).forEach(v => _levAppendVognRow(vognDiv, v, lev.arbejdsAdresser || []));
 
-  // Vognsøgefelt (i vogne-sektion)
-  function _filterVogne(q) {
-    const ql = (q || "").toLowerCase().trim();
-    document.querySelectorAll("#lf-vogne .lev-vogn-row").forEach(row => {
-      const vognr = (row.querySelector(".v-vognr")?.value || "").toLowerCase();
-      const besk  = (row.querySelector(".v-besk")?.value  || "").toLowerCase();
-      row.style.display = (!ql || vognr.includes(ql) || besk.includes(ql)) ? "" : "none";
-    });
-  }
-  document.getElementById("lf-vogne-soeg").addEventListener("input", function() {
-    _filterVogne(this.value);
-    document.getElementById("lf-vogn-soeg-top").value = this.value; // synkroniser
-  });
+  // Vognsøgefelt — filtrerer på vognnummer, beskrivelse og depot-labels
   document.getElementById("lf-vogn-soeg-top").addEventListener("input", function() {
-    _filterVogne(this.value);
-    document.getElementById("lf-vogne-soeg").value = this.value; // synkroniser
+    const ql = this.value.toLowerCase().trim();
+    document.querySelectorAll("#lf-vogne .lev-vogn-row").forEach(row => {
+      if (!ql) { row.style.display = ""; return; }
+      const vognr  = (row.querySelector(".v-vognr")?.value  || "").toLowerCase();
+      const besk   = (row.querySelector(".v-besk")?.value   || "").toLowerCase();
+      const depoter = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
+        .map(l => l.textContent.toLowerCase()).join(" ");
+      row.style.display = (vognr.includes(ql) || besk.includes(ql) || depoter.includes(ql)) ? "" : "none";
+    });
   });
 
   document.getElementById("levTilbage").addEventListener("click", _levShowListe);
