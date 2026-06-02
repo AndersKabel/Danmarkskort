@@ -800,8 +800,12 @@ function _levShowForm(id) {
     <div class="lev-form">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <button class="lev-tilbage-btn" id="levTilbage" style="margin-bottom:0;white-space:nowrap">← Tilbage til liste</button>
-        <input id="lf-vogn-soeg-top" type="search" placeholder="Søg i vogne…"
-          style="flex:1;min-width:0;padding:5px 9px;font-size:13px;border:1px solid #ccc;border-radius:6px">
+        <div style="position:relative;flex:1;min-width:0">
+          <input id="lf-vogn-soeg-top" type="search" placeholder="Søg vognnummer, beskrivelse, depot…"
+            autocomplete="off"
+            style="width:100%;box-sizing:border-box;padding:5px 9px;font-size:13px;border:1px solid #ccc;border-radius:6px">
+          <div id="lf-vogn-soeg-liste" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 2px);background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 3px 10px rgba(0,0,0,0.15);z-index:9999;max-height:260px;overflow-y:auto"></div>
+        </div>
       </div>
 
       <fieldset class="lev-fs" data-section="basis">
@@ -866,18 +870,116 @@ function _levShowForm(id) {
   (lev.arbejdsAdresser || []).forEach(a => _levAppendAdrRow(adrDiv, a));
   (lev.vogne || []).forEach(v => _levAppendVognRow(vognDiv, v, lev.arbejdsAdresser || []));
 
-  // Vognsøgefelt — filtrerer på vognnummer, beskrivelse og depot-labels
-  document.getElementById("lf-vogn-soeg-top").addEventListener("input", function() {
-    const ql = this.value.toLowerCase().trim();
-    document.querySelectorAll("#lf-vogne .lev-vogn-row").forEach(row => {
-      if (!ql) { row.style.display = ""; return; }
-      const vognr  = (row.querySelector(".v-vognr")?.value  || "").toLowerCase();
-      const besk   = (row.querySelector(".v-besk")?.value   || "").toLowerCase();
-      const depoter = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
-        .map(l => l.textContent.toLowerCase()).join(" ");
-      row.style.display = (vognr.includes(ql) || besk.includes(ql) || depoter.includes(ql)) ? "" : "none";
+  // Vognsøgefelt — autocomplete der scroller til valgt vogn
+  (function() {
+    const soegInput = document.getElementById("lf-vogn-soeg-top");
+    const soegListe = document.getElementById("lf-vogn-soeg-liste");
+    let aktivIndex = -1;
+
+    function lukliste() {
+      soegListe.style.display = "none";
+      soegListe.innerHTML = "";
+      aktivIndex = -1;
+    }
+
+    function vaelgVogn(row) {
+      // Scroll til vognen og highlight den kortvarigt
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+      row.style.transition = "box-shadow 0.2s";
+      row.style.boxShadow = "0 0 0 3px #f0a500";
+      setTimeout(() => { row.style.boxShadow = ""; }, 1800);
+      soegInput.value = "";
+      lukliste();
+    }
+
+    soegInput.addEventListener("input", function() {
+      const ql = this.value.toLowerCase().trim();
+      if (!ql) { lukliste(); return; }
+
+      const rows = Array.from(document.querySelectorAll("#lf-vogne .lev-vogn-row"));
+      const matches = rows.filter(row => {
+        const vognr   = (row.querySelector(".v-vognr")?.value || "").toLowerCase();
+        const besk    = (row.querySelector(".v-besk")?.value  || "").toLowerCase();
+        const depoter = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
+          .map(l => l.textContent.trim().toLowerCase()).join(" ");
+        return vognr.includes(ql) || besk.includes(ql) || depoter.includes(ql);
+      });
+
+      if (!matches.length) {
+        soegListe.innerHTML = '<div style="padding:8px 12px;font-size:13px;color:#888">Ingen vogne matcher</div>';
+        soegListe.style.display = "block";
+        aktivIndex = -1;
+        return;
+      }
+
+      soegListe.innerHTML = matches.map((row, i) => {
+        const vognr = row.querySelector(".v-vognr")?.value || "?";
+        const besk  = row.querySelector(".v-besk")?.value  || "";
+        const depoter = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
+          .map(l => l.textContent.trim()).filter(Boolean);
+        const depotTekst = depoter.length ? '<span style="color:#888;font-size:11px"> — ' + depoter.join(", ") + '</span>' : "";
+        return `<div class="lev-vogn-soeg-item" data-idx="${i}"
+          style="padding:7px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px">
+          <strong>🚗 Vogn ${_esc(vognr)}</strong>${besk ? " — " + _esc(besk) : ""}${depotTekst}
+        </div>`;
+      }).join("");
+      soegListe.style.display = "block";
+      aktivIndex = -1;
+
+      // Klik på item
+      soegListe.querySelectorAll(".lev-vogn-soeg-item").forEach((item, i) => {
+        item.addEventListener("mousedown", e => {
+          e.preventDefault(); // undgå blur før klik registreres
+          vaelgVogn(matches[i]);
+        });
+        item.addEventListener("mouseenter", () => {
+          soegListe.querySelectorAll(".lev-vogn-soeg-item").forEach(el => el.style.background = "");
+          item.style.background = "#f0f7ff";
+          aktivIndex = i;
+        });
+      });
     });
-  });
+
+    // Pil op/ned + Enter + Escape
+    soegInput.addEventListener("keydown", function(e) {
+      const items = Array.from(soegListe.querySelectorAll(".lev-vogn-soeg-item"));
+      const rows  = Array.from(document.querySelectorAll("#lf-vogne .lev-vogn-row"));
+      if (!items.length) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        aktivIndex = Math.min(aktivIndex + 1, items.length - 1);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        aktivIndex = Math.max(aktivIndex - 1, 0);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (aktivIndex >= 0) {
+          const matchedRows = rows.filter(row => {
+            const ql = soegInput.value.toLowerCase().trim();
+            const vognr   = (row.querySelector(".v-vognr")?.value || "").toLowerCase();
+            const besk    = (row.querySelector(".v-besk")?.value  || "").toLowerCase();
+            const depoter = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
+              .map(l => l.textContent.trim().toLowerCase()).join(" ");
+            return vognr.includes(ql) || besk.includes(ql) || depoter.includes(ql);
+          });
+          if (matchedRows[aktivIndex]) vaelgVogn(matchedRows[aktivIndex]);
+        }
+        return;
+      } else if (e.key === "Escape") {
+        lukliste(); return;
+      } else { return; }
+
+      items.forEach(el => el.style.background = "");
+      if (items[aktivIndex]) items[aktivIndex].style.background = "#f0f7ff";
+    });
+
+    // Luk ved klik udenfor
+    document.addEventListener("click", function _vognSoegLuk(e) {
+      if (!soegInput.contains(e.target) && !soegListe.contains(e.target)) lukliste();
+      if (!document.getElementById("lf-vogn-soeg-top")) document.removeEventListener("click", _vognSoegLuk);
+    });
+  })();
 
   document.getElementById("levTilbage").addEventListener("click", _levShowListe);
   document.getElementById("levAddTlf") .addEventListener("click", () => _levAppendTlfRow(tlfDiv, {}));
