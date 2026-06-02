@@ -875,11 +875,13 @@ function _levShowForm(id) {
     const soegInput = document.getElementById("lf-vogn-soeg-top");
     const soegListe = document.getElementById("lf-vogn-soeg-liste");
     let aktivIndex = -1;
+    let aktivMatches = [];
 
     function lukliste() {
       soegListe.style.display = "none";
       soegListe.innerHTML = "";
       aktivIndex = -1;
+      aktivMatches = [];
     }
 
     function vaelgVogn(row) {
@@ -897,13 +899,22 @@ function _levShowForm(id) {
       if (!ql) { lukliste(); return; }
 
       const rows = Array.from(document.querySelectorAll("#lf-vogne .lev-vogn-row"));
-      const matches = rows.filter(row => {
-        const vognr   = (row.querySelector(".v-vognr")?.value || "").toLowerCase();
-        const besk    = (row.querySelector(".v-besk")?.value  || "").toLowerCase();
-        const depoter = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
-          .map(l => l.textContent.trim().toLowerCase()).join(" ");
-        return vognr.includes(ql) || besk.includes(ql) || depoter.includes(ql);
+      // Niveau 1: match på vognnummer eller depot-label (h��jeste prioritet)
+      // Niveau 2: match på beskrivelse eller ��vrig depot-tekst
+      const pri1 = [], pri2 = [];
+      rows.forEach(row => {
+        const vognr      = (row.querySelector(".v-vognr")?.value || "").toLowerCase();
+        const besk       = (row.querySelector(".v-besk")?.value  || "").toLowerCase();
+        const depotLabels = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
+          .map(l => l.textContent.trim().toLowerCase());
+        const depotStr   = depotLabels.join(" ");
+        const erPri1 = vognr.includes(ql) || depotLabels.some(d => d.includes(ql));
+        const erPri2 = !erPri1 && (besk.includes(ql) || depotStr.includes(ql));
+        if (erPri1) pri1.push(row);
+        else if (erPri2) pri2.push(row);
       });
+      const matches = [...pri1, ...pri2];
+      aktivMatches = matches;
 
       if (!matches.length) {
         soegListe.innerHTML = '<div style="padding:8px 12px;font-size:13px;color:#888">Ingen vogne matcher</div>';
@@ -954,17 +965,7 @@ function _levShowForm(id) {
         aktivIndex = Math.max(aktivIndex - 1, 0);
       } else if (e.key === "Enter") {
         e.preventDefault();
-        if (aktivIndex >= 0) {
-          const matchedRows = rows.filter(row => {
-            const ql = soegInput.value.toLowerCase().trim();
-            const vognr   = (row.querySelector(".v-vognr")?.value || "").toLowerCase();
-            const besk    = (row.querySelector(".v-besk")?.value  || "").toLowerCase();
-            const depoter = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
-              .map(l => l.textContent.trim().toLowerCase()).join(" ");
-            return vognr.includes(ql) || besk.includes(ql) || depoter.includes(ql);
-          });
-          if (matchedRows[aktivIndex]) vaelgVogn(matchedRows[aktivIndex]);
-        }
+        if (aktivIndex >= 0 && aktivMatches[aktivIndex]) vaelgVogn(aktivMatches[aktivIndex]);
         return;
       } else if (e.key === "Escape") {
         lukliste(); return;
