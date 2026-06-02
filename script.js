@@ -3347,21 +3347,25 @@ async function checkForStatsvej(lat, lon) {
   const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;  // toFixed(4) = ~11m granularitet
   if (_statsvejCache.has(cacheKey)) return _statsvejCache.get(cacheKey);
 
-  // Afbryd evt. igangværende kald ved gentagne klik
+  // 150ms debounce -- undgaar abort ved hurtigt dobbeltklik (fix C)
   if (_statsvejAbortCtrl) _statsvejAbortCtrl.abort();
   _statsvejAbortCtrl = new AbortController();
   const signal = _statsvejAbortCtrl.signal;
 
   try {
+    await new Promise((res, rej) => {
+      const t = setTimeout(res, 150);
+      signal.addEventListener('abort', () => { clearTimeout(t); rej(new DOMException('Aborted','AbortError')); });
+    });
+
     const [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const buffer = 50;
+    const buffer = 120; // 120m -- CVF geometri kan ligge op til 100m fra klikpunkt (fix D)
     const bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
-    // Ét WMS-kald — samme tilgang som CVF/sandkassen
     const url =
       'https://geocloud.vd.dk/CVF/wms?' +
       'SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&' +
-      'INFO_FORMAT=application/json&FEATURE_COUNT=5&' +
+      'INFO_FORMAT=application/json&FEATURE_COUNT=10&' +
       'TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&' +
       'SRS=EPSG:25832&WIDTH=101&HEIGHT=101&' +
       `BBOX=${bbox}&X=50&Y=50`;
