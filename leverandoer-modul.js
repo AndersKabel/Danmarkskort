@@ -798,7 +798,11 @@ function _levShowForm(id) {
 
   body.innerHTML = `
     <div class="lev-form">
-      <button class="lev-tilbage-btn" id="levTilbage">← Tilbage til liste</button>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <button class="lev-tilbage-btn" id="levTilbage" style="margin-bottom:0;white-space:nowrap">← Tilbage til liste</button>
+        <input id="lf-vogn-soeg-top" type="search" placeholder="Søg i vogne…"
+          style="flex:1;min-width:0;padding:5px 9px;font-size:13px;border:1px solid #ccc;border-radius:6px">
+      </div>
 
       <fieldset class="lev-fs" data-section="basis">
         <legend>📋 Basisoplysninger</legend>
@@ -844,6 +848,8 @@ function _levShowForm(id) {
 
       <fieldset class="lev-fs" data-section="vogne">
         <legend>🚗 Vogne</legend>
+        <input id="lf-vogne-soeg" type="search" placeholder="Søg vognnummer eller beskrivelse…"
+          style="width:100%;box-sizing:border-box;padding:7px 10px;font-size:13px;border:1px solid #ccc;border-radius:6px;margin-bottom:8px">
         <div id="lf-vogne"></div>
         <button type="button" id="levAddVogn" class="lev-btn-add">+ Tilføj vogn</button>
       </fieldset>
@@ -861,6 +867,24 @@ function _levShowForm(id) {
   (lev.kontakt?.telefonnumre || []).forEach(t => _levAppendTlfRow(tlfDiv, t));
   (lev.arbejdsAdresser || []).forEach(a => _levAppendAdrRow(adrDiv, a));
   (lev.vogne || []).forEach(v => _levAppendVognRow(vognDiv, v, lev.arbejdsAdresser || []));
+
+  // Vognsøgefelt (i vogne-sektion)
+  function _filterVogne(q) {
+    const ql = (q || "").toLowerCase().trim();
+    document.querySelectorAll("#lf-vogne .lev-vogn-row").forEach(row => {
+      const vognr = (row.querySelector(".v-vognr")?.value || "").toLowerCase();
+      const besk  = (row.querySelector(".v-besk")?.value  || "").toLowerCase();
+      row.style.display = (!ql || vognr.includes(ql) || besk.includes(ql)) ? "" : "none";
+    });
+  }
+  document.getElementById("lf-vogne-soeg").addEventListener("input", function() {
+    _filterVogne(this.value);
+    document.getElementById("lf-vogn-soeg-top").value = this.value; // synkroniser
+  });
+  document.getElementById("lf-vogn-soeg-top").addEventListener("input", function() {
+    _filterVogne(this.value);
+    document.getElementById("lf-vogne-soeg").value = this.value; // synkroniser
+  });
 
   document.getElementById("levTilbage").addEventListener("click", _levShowListe);
   document.getElementById("levAddTlf") .addEventListener("click", () => _levAppendTlfRow(tlfDiv, {}));
@@ -1420,7 +1444,7 @@ function _enhedShowListe() {
         <button id="enhedKatFilterBtn" style="padding:7px 10px;font-size:13px;cursor:pointer;background:#fff;border:1px solid #ccc;border-radius:7px;white-space:nowrap">
           📂 Kategori
         </button>
-        <div id="enhedKatDropdown" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #ccc;border-radius:7px;box-shadow:0 3px 10px rgba(0,0,0,0.15);z-index:9999;min-width:200px;padding:4px 0">
+        <div id="enhedKatDropdown" style="display:none;position:absolute;left:0;top:calc(100% + 4px);background:#fff;border:1px solid #ccc;border-radius:7px;box-shadow:0 3px 10px rgba(0,0,0,0.15);z-index:9999;min-width:200px;padding:4px 0">
           <div style="padding:5px 10px 3px;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Vis kategorier</div>
           ${katDropdownItems}
           <div style="border-top:1px solid #eee;margin-top:3px;padding:4px 10px">
