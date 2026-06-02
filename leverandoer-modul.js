@@ -666,7 +666,8 @@ function _levShowListe() {
   document.getElementById("levPanelTitle").textContent = "🚛 Leverandørstyring";
   const body = document.getElementById("levPanelBody");
 
-  const lister = (_levData || []).map(lev => {
+  // Byg en række for én leverandør
+  function _levRaekke(lev) {
     const kats = (lev.kategorier?.length ? lev.kategorier : (lev.kategori ? [lev.kategori] : []))
       .map(id => LEV_KATEGORIER.find(k => k.id === id)).filter(Boolean);
     const katTekst = kats.length ? kats.map(k => k.ikon + " " + k.navn).join(" + ") : "Ingen kategori";
@@ -684,14 +685,40 @@ function _levShowListe() {
         </div>
         <span class="lev-list-arrow">›</span>
       </div>`;
-  }).join("") || `<p class="lev-empty">Ingen leverandører endnu.<br>Klik "+ Ny leverandør" for at starte.</p>`;
+  }
+
+  // Filtrer og render listen
+  function _levRenderFiltreret(soegeTekst) {
+    const q = (soegeTekst || "").toLowerCase().trim();
+    const data = _levData || [];
+    const filtreret = q === "" ? data : data.filter(lev => {
+      const kats = (lev.kategorier?.length ? lev.kategorier : (lev.kategori ? [lev.kategori] : []))
+        .map(id => LEV_KATEGORIER.find(k => k.id === id)).filter(Boolean)
+        .map(k => (k.navn + " " + k.ikon).toLowerCase()).join(" ");
+      return (lev.navn || "").toLowerCase().includes(q)
+        || kats.includes(q)
+        || (lev.arbejdsAdresser || []).some(a =>
+            (a.vej || "").toLowerCase().includes(q) ||
+            (a.by  || "").toLowerCase().includes(q));
+    });
+    const rækker = filtreret.map(_levRaekke).join("")
+      || `<p class="lev-empty">${q ? "Ingen leverandører matcher søgningen." : "Ingen leverandører endnu.<br>Klik \"+ Ny leverandør\" for at starte."}</p>`;
+    document.getElementById("levListeContainer").innerHTML = rækker;
+    body.querySelectorAll(".lev-list-row").forEach(row =>
+      row.addEventListener("click", () => _levShowForm(row.dataset.id))
+    );
+  }
 
   body.innerHTML = `
     <div class="lev-list-toolbar">
       <button id="levNyBtn"      class="lev-btn-primary">+ Ny leverandør</button>
       <button id="levRefreshBtn" class="lev-btn-secondary">↻ Opdater</button>
+      <input id="levSoeg" type="search" placeholder="Søg navn, kategori, adresse…"
+        style="flex:1;min-width:0;padding:8px 8px;font-size:13px;border:1px solid #ccc;border-radius:7px">
     </div>
-    <div class="lev-list-container">${lister}</div>`;
+    <div id="levListeContainer" class="lev-list-container"></div>`;
+
+  _levRenderFiltreret("");
 
   document.getElementById("levNyBtn").addEventListener("click", () => _levShowForm(null));
   document.getElementById("levRefreshBtn").addEventListener("click", async () => {
@@ -701,7 +728,6 @@ function _levShowListe() {
     _levLoaded = false;
     await _levLoad();
     _levShowListe();
-    // _levShowListe() genbygger DOM — hent ny reference til knappen
     const tid = new Date().toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
     const nyBtn = document.getElementById("levRefreshBtn");
     if (nyBtn) {
@@ -712,9 +738,9 @@ function _levShowListe() {
       }, 3000);
     }
   });
-  body.querySelectorAll(".lev-list-row").forEach(row =>
-    row.addEventListener("click", () => _levShowForm(row.dataset.id))
-  );
+  document.getElementById("levSoeg").addEventListener("input", function () {
+    _levRenderFiltreret(this.value);
+  });
 }
 
 // ── FORMULAR ─────────────────────────────────────────────────────
