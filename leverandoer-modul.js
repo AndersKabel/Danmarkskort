@@ -18,13 +18,15 @@ const LEV_KATEGORIER = [
 
 // Egne enheder-kategorier (Falcks egne biler/reddere)
 const EGNE_KATEGORIER = [
-  { id: "tma",        navn: "TMA og tavlevognstrailere",   ikon: "🚧" },
-  { id: "dyr",        navn: "Dyreredning",                 ikon: "🐾" },
-  { id: "drift_hjem", navn: "Drift fra hjem",              ikon: "🏠" },
-  { id: "mors",       navn: "Mors biler",                  ikon: "🚌" },
-  { id: "liggende",   navn: "Liggende / forflytninger",    ikon: "🛏️" },
-  { id: "vejrenser",  navn: "Vejrenser",                   ikon: "🧹" },
-  { id: "skytter",    navn: "Skytter",                     ikon: "🎯" },
+  { id: "tma_vogn",    navn: "TMA vogn",        ikon: "🚧" },
+  { id: "tavletrailer",navn: "Tavletrailer",     ikon: "🪧" },
+  { id: "dyr",         navn: "Dyreredning",      ikon: "🐾" },
+  { id: "drift_hjem",  navn: "Drift fra hjem",   ikon: "🏠" },
+  { id: "mors",        navn: "Mors biler",        ikon: "🚌" },
+  { id: "liggende",    navn: "Liggende",          ikon: "🛏️" },
+  { id: "forflytning", navn: "Forflytning",       ikon: "🚑" },
+  { id: "vejrenser",   navn: "Vejrenser",         ikon: "🧹" },
+  { id: "skytter",     navn: "Skytter",           ikon: "🎯" },
 ];
 
 // ── LEAFLET LAG ──────────────────────────────────────────────────
