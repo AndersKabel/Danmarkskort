@@ -251,6 +251,7 @@ async function _levEnsureDrift() {
       alert("Denne kode giver ikke redigeringsadgang.");
       return false;
     }
+    _levVelkomst(data.role);
     return true;
   } finally {
     _levLoginProgress = false;
@@ -283,10 +284,35 @@ async function _levEnsureDisponering() {
       }
       return false;
     }
+    // Velkomstbesked baseret paa rolle
+    const loginData = await login.json().catch(() => ({}));
+    _levVelkomst(loginData.role);
     return true;
   } finally {
     _levLoginProgress = false;
   }
+}
+
+// Velkomst-toast ved login
+function _levVelkomst(role) {
+  const beskeder = {
+    admin:  "Velkommen, administrator 👋",
+    drift:  "Velkommen, driftkoordinator 👋",
+    read:   "Velkommen, disponent 👋"
+  };
+  const tekst = beskeder[role] || "Velkommen 👋";
+  const toast = document.createElement('div');
+  toast.textContent = tekst;
+  toast.style.cssText = [
+    "position:fixed","top:60px","left:50%","transform:translateX(-50%)",
+    "background:#1a6fa3","color:#fff","padding:10px 22px",
+    "border-radius:8px","font-size:15px","font-weight:600",
+    "z-index:9999","pointer-events:none","box-shadow:0 2px 8px rgba(0,0,0,0.25)",
+    "transition:opacity 0.4s"
+  ].join(";");
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = "0"; }, 2000);
+  setTimeout(() => { toast.remove(); }, 2500);
 }
 
 // ── DATA LOADING ─────────────────────────────────────────────────
@@ -526,7 +552,8 @@ function _levMiniPopupHTML(lev, adr) {
       <b>${_esc(lev.navn)}</b>
       ${adr.label ? `<span class="lev-popup-sub">${_esc(adr.label)}</span>` : ""}
     </div>`;
-  const tlf = lev.kontakt?.telefonnumre || [];
+  // Sorter: prioritet 1 (lavest tal) = vises foerst = hoejest prioritet
+  const tlf = [...(lev.kontakt?.telefonnumre || [])].sort((a,b) => (a.prioritet||99)-(b.prioritet||99));
   tlf.forEach(t => {
     h += `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+t.tlf.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(t.tlf)}</a>`;
     if (t.label) h += ` <span style="color:#aaa;font-size:11px">(${_esc(t.label)})</span>`;
@@ -550,7 +577,8 @@ function _levFullPopupHTML(lev, adr) {
     </div>
     <div class="lev-popup-row">📍 ${_esc(adr.vej)}, ${_esc(adr.postnr)} ${_esc(adr.by)}</div>`;
 
-  const tlf = lev.kontakt?.telefonnumre || [];
+  // Sorter: prioritet 1 = hoejest prioritet = vises foerst
+  const tlf = [...(lev.kontakt?.telefonnumre || [])].sort((a,b) => (a.prioritet||99)-(b.prioritet||99));
   if (tlf.length) {
     h += `<hr class="lev-hr">`;
     tlf.forEach(t => {
