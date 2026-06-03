@@ -398,8 +398,11 @@ function _levBuildMarkers() {
     (lev.arbejdsAdresser || []).forEach(adr => {
       if (!adr.lat || !adr.lon) return;
 
+      // Brug adressens egne kategorier hvis sat, ellers arv fra leverandøren
+      const adrKategorier = (adr.kategorier?.length) ? adr.kategorier : kategorier;
+
       // Én markør per kategori-lag
-      kategorier.forEach(katId => {
+      adrKategorier.forEach(katId => {
         const katLag = _levKatLag[katId];
         if (!katLag) return;
 
@@ -1051,7 +1054,20 @@ function _levAppendAdrRow(container, a = {}) {
     </div>
     <label class="lev-label-pnr">📮 Prioritetspostnumre for denne adresse
       <textarea class="a-pnr lev-textarea lev-textarea-sm" rows="2" placeholder="5000, 5200, 5210...">${_esc(adrPnr)}</textarea>
-    </label>`;
+    </label>
+    <div style="margin-top:6px">
+      <div style="font-size:11.5px;font-weight:600;color:#5a6a7a;margin-bottom:4px">
+        🚛️ Kører med <span style="font-weight:400;color:#aaa;font-size:11px">(tomt = arver fra leverandøren)</span>
+      </div>
+      <div class="a-kategorier" style="display:flex;flex-direction:column;gap:3px">
+        ${LEV_KATEGORIER.map(k => `
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+            <input type="checkbox" class="a-kat-check" value="${k.id}"
+              ${(a.kategorier||[]).includes(k.id) ? "checked" : ""}>
+            ${k.ikon} ${k.navn}
+          </label>`).join("")}
+      </div>
+    </div>`;
   container.appendChild(div);
   div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
   div.querySelector(".lev-geocode-btn").addEventListener("click", async (e) => {
@@ -1261,7 +1277,8 @@ async function _levGem(template) {
         lat:                 parseFloat(row.querySelector(".a-lat").value) || null,
         lon:                 parseFloat(row.querySelector(".a-lon").value) || null,
         prioritetsPostnumre: (row.querySelector(".a-pnr")?.value || "")
-                               .split(/[\s,;]+/).map(s => s.trim()).filter(s => /^\d{4}$/.test(s))
+                               .split(/[\s,;]+/).map(s => s.trim()).filter(s => /^\d{4}$/.test(s)),
+        kategorier:          Array.from(row.querySelectorAll(".a-kat-check:checked")).map(el => el.value)
       });
     });
 
