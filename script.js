@@ -3382,7 +3382,23 @@ async function checkForStatsvej(lat, lon) {
 
     const jsonData = JSON.parse(textData);
     if (jsonData.features?.length > 0) {
-      const props = jsonData.features[0].properties || {};
+      // Sorter features efter vejtype-hierarki så motorvej prioriteres over sideveærker
+      const VEJTYPE_PRIORITET = {
+        "Motorvej":          0,
+        "Motortrafikvej":    1,
+        "Primærrute":       2,
+        "Sekundærrute":     3,
+        "Øvrige veje":       4,
+        "Øvrige":           4,
+      };
+      const sortedFeatures = [...jsonData.features].sort((a, b) => {
+        const vtA = a.properties?.VEJTYPE ?? a.properties?.vejtype ?? "";
+        const vtB = b.properties?.VEJTYPE ?? b.properties?.vejtype ?? "";
+        const pA = VEJTYPE_PRIORITET[vtA] ?? 9;
+        const pB = VEJTYPE_PRIORITET[vtB] ?? 9;
+        return pA - pB;
+      });
+      const props = sortedFeatures[0].properties || {};
       const result = {
         ...props,
         ADM_NR:       props.ADM_NR       ?? props.adm_nr       ?? null,
