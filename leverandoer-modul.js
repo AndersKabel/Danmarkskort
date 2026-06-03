@@ -366,6 +366,27 @@ async function _levLoadPostnrMap() {
 }
 
 // ── MARKØRER ─────────────────────────────────────────────────────
+// Bindes både ved popupopen OG ved setPopupContent (klik -> fuld popup)
+function _levBindPopupHandlers(el) {
+  if (!el) return;
+  el.querySelectorAll(".lev-popup-vogn-hdr-click").forEach(hdr => {
+    if (hdr.dataset.handlerBound) return;
+    hdr.dataset.handlerBound = "1";
+    hdr.addEventListener("click", () => {
+      const detail = hdr.nextElementSibling;
+      if (!detail) return;
+      const open = detail.style.display !== "none";
+      detail.style.display = open ? "none" : "block";
+      hdr.classList.toggle("lev-popup-vogn-hdr-open", !open);
+    });
+  });
+  el.querySelectorAll(".lev-popup-vogn-img-full").forEach(img => {
+    if (img.dataset.handlerBound) return;
+    img.dataset.handlerBound = "1";
+    img.addEventListener("click", e => { e.stopPropagation(); _levLightbox(img.src); });
+  });
+}
+
 function _levBuildMarkers() {
   LEV_KATEGORIER.forEach(k => _levKatLag[k.id].clearLayers());
 
@@ -407,6 +428,9 @@ function _levBuildMarkers() {
             this.setPopupContent(_levFullPopupHTML(lev, adr));
             this.openPopup();
             _levHighlight(lev, adr);
+            // Bind handlers direkte efter setPopupContent — popupopen fyrer ikke ved content-skift
+            const popup = this.getPopup();
+            if (popup) setTimeout(() => _levBindPopupHandlers(popup.getElement(), closeTimer), 0);
           })
           .on("popupclose", function () {
             isFullOpen = false;
@@ -424,20 +448,7 @@ function _levBuildMarkers() {
                 _levClearHighlights();
               }, 250);
             });
-            // Vogn expand/collapse
-            el.querySelectorAll(".lev-popup-vogn-hdr-click").forEach(hdr => {
-              hdr.addEventListener("click", () => {
-                const detail = hdr.nextElementSibling;
-                if (!detail) return;
-                const open = detail.style.display !== "none";
-                detail.style.display = open ? "none" : "block";
-                hdr.classList.toggle("lev-popup-vogn-hdr-open", !open);
-              });
-            });
-            // Lightbox ved klik på vogn-billede
-            el.querySelectorAll(".lev-popup-vogn-img-full").forEach(img => {
-              img.addEventListener("click", e => { e.stopPropagation(); _levLightbox(img.src); });
-            });
+            _levBindPopupHandlers(el, closeTimer);
           });
 
         katLag.addLayer(marker);
