@@ -3546,7 +3546,9 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
     const resp = await fetch(url, { cache: "no-store" });
     if (!resp.ok) return "__VD_NEDE__";
 
-    const data = await resp.json();
+    const rawText = await resp.text();
+    if (!rawText?.trim()) return "";
+    const data = JSON.parse(rawText);
 
     // kmtText kan ligge på flere steder afhængig af vejtype/forgrening
     const kmtText =
