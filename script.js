@@ -1379,14 +1379,88 @@ kmForklaringCtrl.onAdd = function() {
 map.on("overlayadd", function(e) {
   if (e.layer === kmMaerkerLayer) {
     kmForklaringCtrl.addTo(map);
-    // Flyt boksen op så den ikke dækker kommunekode-baren i bunden
     const el = kmForklaringCtrl.getContainer();
     if (el) el.style.marginBottom = "28px";
   }
 });
 map.on("overlayremove", function(e) {
-  if (e.layer === kmMaerkerLayer) kmForklaringCtrl.remove();
+  if (e.layer === kmMaerkerLayer) {
+    kmForklaringCtrl.remove();
+    // Hvis CVF stadig er aktiv, flyt den tilbage til normal position
+    const cvfEl = cvfForklaringCtrl.getContainer();
+    if (cvfEl) cvfEl.style.marginBottom = "28px";
+  }
+  if (e.layer === cvfVejeLayer) cvfForklaringCtrl.remove();
 });
+
+// CVF vejklassifikation forklaringsboks
+const cvfForklaringCtrl = L.control({ position: "bottomleft" });
+cvfForklaringCtrl.onAdd = function() {
+  const div = L.DomUtil.create("div", "");
+  div.style.cssText = [
+    "background:rgba(255,255,255,0.93)",
+    "border:1px solid #666",
+    "border-radius:6px",
+    "padding:8px 11px",
+    "font-size:12px",
+    "line-height:1.7",
+    "max-width:220px",
+    "box-shadow:0 2px 6px rgba(0,0,0,0.18)"
+  ].join(";");
+  // Farver fra CVF WMS legend
+  const typer = [
+    { farve: "#e8000d", navn: "Statsvej" },
+    { farve: "#e8000d", navn: "Statssti",        stiplet: true },
+    { farve: "#76b947", navn: "Kommunevej" },
+    { farve: "#76b947", navn: "Kommunesti",      stiplet: true },
+    { farve: "#aaaaaa", navn: "Privat fællesvej" },
+    { farve: "#aaaaaa", navn: "Privat fællessti", stiplet: true },
+    { farve: "#d4a843", navn: "Udlagt privat fællesvej" },
+    { farve: "#d4a843", navn: "Udlagt privat fællessti", stiplet: true },
+    { farve: "#cccccc", navn: "Privat vej" },
+    { farve: "#cccccc", navn: "Privat sti",      stiplet: true },
+    { farve: "#7b5ea7", navn: "Almen vej" },
+    { farve: "#7b5ea7", navn: "Almen sti",       stiplet: true },
+    { farve: "#e87dac", navn: "Planl. nedkl. vej" },
+    { farve: "#e87dac", navn: "Planl. nedkl. sti", stiplet: true },
+  ];
+  const rækker = typer.map(t => {
+    const linje = t.stiplet
+      ? `<span style="display:inline-block;width:22px;height:3px;background:repeating-linear-gradient(90deg,${t.farve} 0,${t.farve} 4px,transparent 4px,transparent 7px);vertical-align:middle;margin-right:6px"></span>`
+      : `<span style="display:inline-block;width:22px;height:3px;background:${t.farve};vertical-align:middle;margin-right:6px"></span>`;
+    return `<div style="display:flex;align-items:center;white-space:nowrap">${linje}${t.navn}</div>`;
+  }).join("");
+  div.innerHTML = `<strong style="color:#444">🛣️ CVF vejklassifikation</strong>`
+    + `<hr style="margin:4px 0;border-color:#eee">${rækker}`;
+  return div;
+};
+
+map.on("overlayadd", function(e) {
+  if (e.layer === cvfVejeLayer) {
+    cvfForklaringCtrl.addTo(map);
+    const el = cvfForklaringCtrl.getContainer();
+    if (el) el.style.marginBottom = "28px";
+  }
+  // Km-boks aktiv? Flyt CVF-boks op over den
+  if (e.layer === kmMaerkerLayer || e.layer === cvfVejeLayer) {
+    _cvfKmJuster();
+  }
+});
+
+function _cvfKmJuster() {
+  const kmAktiv  = map.hasLayer(kmMaerkerLayer);
+  const cvfAktiv = map.hasLayer(cvfVejeLayer);
+  const kmEl  = kmForklaringCtrl.getContainer();
+  const cvfEl = cvfForklaringCtrl.getContainer();
+  if (kmAktiv && cvfAktiv && kmEl && cvfEl) {
+    // Begge aktive: CVF sidder over km-boksen
+    const kmH = kmEl.offsetHeight || 100;
+    cvfEl.style.marginBottom = (28 + kmH + 6) + "px";
+  } else if (cvfEl) {
+    cvfEl.style.marginBottom = "28px";
+  }
+}
+
 layerControl.getContainer().classList.add("main-ar-ctrl");
 
 // ── Custom Place knap ────────────────────────────────────────────
