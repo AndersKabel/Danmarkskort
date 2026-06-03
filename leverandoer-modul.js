@@ -906,7 +906,7 @@ function _levShowForm(id) {
         const vognr      = (row.querySelector(".v-vognr")?.value || "").toLowerCase();
         const besk       = (row.querySelector(".v-besk")?.value  || "").toLowerCase();
         const depotLabels = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
-          .map(l => l.textContent.trim().toLowerCase());
+          .map(l => (l.dataset.depotNavn || l.textContent).trim().toLowerCase());
         const depotStr   = depotLabels.join(" ");
         const erPri1 = vognr.includes(ql) || depotLabels.some(d => d.includes(ql));
         const erPri2 = !erPri1 && (besk.includes(ql) || depotStr.includes(ql));
@@ -927,7 +927,7 @@ function _levShowForm(id) {
         const vognr = row.querySelector(".v-vognr")?.value || "?";
         const besk  = row.querySelector(".v-besk")?.value  || "";
         const depoter = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
-          .map(l => l.textContent.trim()).filter(Boolean);
+          .map(l => (l.dataset.depotNavn || l.textContent).trim()).filter(Boolean);
         const depotTekst = depoter.length ? '<span style="color:#888;font-size:11px"> — ' + depoter.join(", ") + '</span>' : "";
         return `<div class="lev-vogn-soeg-item" data-idx="${i}"
           style="padding:7px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px">
@@ -1080,7 +1080,7 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
       </div>
       <div class="lev-vogn-depot-checks" style="display:flex;flex-direction:column;gap:3px">
         ${adresser.map(a => `
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+          <label data-depot-navn="${a.label || a.vej || 'Depot'}" style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
             <input type="checkbox" class="v-depot-check" value="${a.id}"
               ${(v.adresseIds||[]).includes(a.id) ? "checked" : ""}>
             ${a.label || a.vej || "Depot"}
