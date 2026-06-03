@@ -884,26 +884,25 @@ function _levShowForm(id) {
   (lev.arbejdsAdresser || []).forEach(a => _levAppendAdrRow(adrDiv, a));
   (lev.vogne || []).forEach(v => _levAppendVognRow(vognDiv, v, lev.arbejdsAdresser || []));
 
-  // Vognsøgefelt — autocomplete der scroller til valgt vogn
+  // Søgefelt — autocomplete for både depoter og vogne
   (function() {
     const soegInput = document.getElementById("lf-vogn-soeg-top");
     const soegListe = document.getElementById("lf-vogn-soeg-liste");
     let aktivIndex = -1;
-    let aktivMatches = [];
+    let aktivItems = []; // { type, el, label, besk, depoter }
 
     function lukliste() {
       soegListe.style.display = "none";
       soegListe.innerHTML = "";
       aktivIndex = -1;
-      aktivMatches = [];
+      aktivItems = [];
     }
 
-    function vaelgVogn(row) {
-      // Scroll til vognen og highlight den kortvarigt
-      row.scrollIntoView({ behavior: "smooth", block: "center" });
-      row.style.transition = "box-shadow 0.2s";
-      row.style.boxShadow = "0 0 0 3px #f0a500";
-      setTimeout(() => { row.style.boxShadow = ""; }, 1800);
+    function vaelgElement(item) {
+      item.el.scrollIntoView({ behavior: "smooth", block: "center" });
+      item.el.style.transition = "box-shadow 0.2s";
+      item.el.style.boxShadow = item.type === "depot" ? "0 0 0 3px #2980b9" : "0 0 0 3px #f0a500";
+      setTimeout(() => { item.el.style.boxShadow = ""; }, 1800);
       soegInput.value = "";
       lukliste();
     }
@@ -912,87 +911,85 @@ function _levShowForm(id) {
       const ql = this.value.toLowerCase().trim();
       if (!ql) { lukliste(); return; }
 
-      const rows = Array.from(document.querySelectorAll("#lf-vogne .lev-vogn-row"));
-      // Niveau 1: match på vognnummer eller depot-label (h��jeste prioritet)
-      // Niveau 2: match på beskrivelse eller ��vrig depot-tekst
-      const pri1 = [], pri2 = [];
-      rows.forEach(row => {
-        const vognr      = (row.querySelector(".v-vognr")?.value || "").toLowerCase();
-        const besk       = (row.querySelector(".v-besk")?.value  || "").toLowerCase();
-        const depotLabels = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
-          .map(l => (l.dataset.depotNavn || l.textContent).trim().toLowerCase());
-        const depotStr   = depotLabels.join(" ");
-        const erPri1 = vognr.includes(ql) || depotLabels.some(d => d.includes(ql));
-        const erPri2 = !erPri1 && (besk.includes(ql) || depotStr.includes(ql));
-        if (erPri1) pri1.push(row);
-        else if (erPri2) pri2.push(row);
-      });
-      const matches = [...pri1, ...pri2];
-      aktivMatches = matches;
+      // Depoter: match på label eller by
+      const depotItems = Array.from(document.querySelectorAll("#lf-adresser .lev-adr-row"))
+        .map(row => ({
+          type:  "depot",
+          el:    row,
+          label: (row.querySelector(".a-label")?.value || row.querySelector(".a-vej")?.value || "Depot").trim()
+        }))
+        .filter(d => d.label.toLowerCase().includes(ql));
 
-      if (!matches.length) {
-        soegListe.innerHTML = '<div style="padding:8px 12px;font-size:13px;color:#888">Ingen vogne matcher</div>';
+      // Vogne: niveau 1 = vognnr/depot-label, niveau 2 = beskrivelse
+      const vognPri1 = [], vognPri2 = [];
+      Array.from(document.querySelectorAll("#lf-vogne .lev-vogn-row")).forEach(row => {
+        const vognr  = (row.querySelector(".v-vognr")?.value || "").toLowerCase();
+        const besk   = (row.querySelector(".v-besk")?.value  || "").toLowerCase();
+        const dLabels = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
+          .map(l => (l.dataset.depotNavn || l.textContent).trim().toLowerCase());
+        const item = {
+          type: "vogn", el: row,
+          label: row.querySelector(".v-vognr")?.value || "?",
+          besk:  row.querySelector(".v-besk")?.value  || "",
+          depoter: Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
+            .map(l => (l.dataset.depotNavn || l.textContent).trim()).filter(Boolean)
+        };
+        if (vognr.includes(ql) || dLabels.some(d => d.includes(ql))) vognPri1.push(item);
+        else if (besk.includes(ql)) vognPri2.push(item);
+      });
+
+      aktivItems = [...depotItems, ...vognPri1, ...vognPri2];
+      aktivIndex = -1;
+
+      if (!aktivItems.length) {
+        soegListe.innerHTML = '<div style="padding:8px 12px;font-size:13px;color:#888">Ingen resultater</div>';
         soegListe.style.display = "block";
-        aktivIndex = -1;
         return;
       }
 
-      soegListe.innerHTML = matches.map((row, i) => {
-        const vognr = row.querySelector(".v-vognr")?.value || "?";
-        const besk  = row.querySelector(".v-besk")?.value  || "";
-        const depoter = Array.from(row.querySelectorAll(".lev-vogn-depot-checks label"))
-          .map(l => (l.dataset.depotNavn || l.textContent).trim()).filter(Boolean);
-        const depotTekst = depoter.length ? '<span style="color:#888;font-size:11px"> — ' + depoter.join(", ") + '</span>' : "";
-        return `<div class="lev-vogn-soeg-item" data-idx="${i}"
-          style="padding:7px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px">
-          <strong>🚗 Vogn ${_esc(vognr)}</strong>${besk ? " — " + _esc(besk) : ""}${depotTekst}
-        </div>`;
-      }).join("");
-      soegListe.style.display = "block";
-      aktivIndex = -1;
-
-      // Klik på item
-      soegListe.querySelectorAll(".lev-vogn-soeg-item").forEach((item, i) => {
-        item.addEventListener("mousedown", e => {
-          e.preventDefault(); // undgå blur før klik registreres
-          vaelgVogn(matches[i]);
+      let html = "";
+      if (depotItems.length) {
+        html += '<div style="padding:3px 12px 2px;font-size:10px;font-weight:700;color:#2980b9;text-transform:uppercase;letter-spacing:.5px;background:#f0f7ff">🏠 Depoter</div>';
+        depotItems.forEach((d, i) => {
+          html += `<div class="lev-soeg-item" data-idx="${i}" style="padding:7px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px"><strong>🏠 ${_esc(d.label)}</strong></div>`;
         });
+      }
+      const vognItems = [...vognPri1, ...vognPri2];
+      if (vognItems.length) {
+        if (depotItems.length) html += '<div style="height:1px;background:#e0e0e0;margin:2px 0"></div>';
+        html += '<div style="padding:3px 12px 2px;font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px">🚗 Vogne</div>';
+        vognItems.forEach((v, i) => {
+          const dt = v.depoter.length ? '<span style="color:#888;font-size:11px"> — ' + v.depoter.join(", ") + '</span>' : "";
+          html += `<div class="lev-soeg-item" data-idx="${depotItems.length + i}" style="padding:7px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px"><strong>🚗 Vogn ${_esc(v.label)}</strong>${v.besk ? " — " + _esc(v.besk) : ""}${dt}</div>`;
+        });
+      }
+      soegListe.innerHTML = html;
+      soegListe.style.display = "block";
+
+      soegListe.querySelectorAll(".lev-soeg-item").forEach((item, i) => {
+        item.addEventListener("mousedown", e => { e.preventDefault(); if (aktivItems[i]) vaelgElement(aktivItems[i]); });
         item.addEventListener("mouseenter", () => {
-          soegListe.querySelectorAll(".lev-vogn-soeg-item").forEach(el => el.style.background = "");
-          item.style.background = "#f0f7ff";
-          aktivIndex = i;
+          soegListe.querySelectorAll(".lev-soeg-item").forEach(el => el.style.background = "");
+          item.style.background = "#f0f7ff"; aktivIndex = i;
         });
       });
     });
 
-    // Pil op/ned + Enter + Escape
     soegInput.addEventListener("keydown", function(e) {
-      const items = Array.from(soegListe.querySelectorAll(".lev-vogn-soeg-item"));
-      const rows  = Array.from(document.querySelectorAll("#lf-vogne .lev-vogn-row"));
+      const items = Array.from(soegListe.querySelectorAll(".lev-soeg-item"));
       if (!items.length) return;
-
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        aktivIndex = Math.min(aktivIndex + 1, items.length - 1);
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        aktivIndex = Math.max(aktivIndex - 1, 0);
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        if (aktivIndex >= 0 && aktivMatches[aktivIndex]) vaelgVogn(aktivMatches[aktivIndex]);
-        return;
-      } else if (e.key === "Escape") {
-        lukliste(); return;
-      } else { return; }
-
+      if (e.key === "ArrowDown")      { e.preventDefault(); aktivIndex = Math.min(aktivIndex + 1, items.length - 1); }
+      else if (e.key === "ArrowUp")   { e.preventDefault(); aktivIndex = Math.max(aktivIndex - 1, 0); }
+      else if (e.key === "Enter")     { e.preventDefault(); if (aktivIndex >= 0 && aktivItems[aktivIndex]) vaelgElement(aktivItems[aktivIndex]); return; }
+      else if (e.key === "Escape")    { lukliste(); return; }
+      else return;
       items.forEach(el => el.style.background = "");
       if (items[aktivIndex]) items[aktivIndex].style.background = "#f0f7ff";
     });
 
-    // Luk ved klik udenfor
-    document.addEventListener("click", function _vognSoegLuk(e) {
+    document.addEventListener("click", function _soegLuk(e) {
       if (!soegInput.contains(e.target) && !soegListe.contains(e.target)) lukliste();
-      if (!document.getElementById("lf-vogn-soeg-top")) document.removeEventListener("click", _vognSoegLuk);
+      if (!document.getElementById("lf-vogn-soeg-top")) document.removeEventListener("click", _soegLuk);
     });
   })();
 
