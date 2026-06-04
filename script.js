@@ -3359,13 +3359,13 @@ async function checkForStatsvej(lat, lon) {
     });
 
     const [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const buffer = 120; // 120m -- CVF geometri kan ligge op til 100m fra klikpunkt (fix D)
+    const buffer = 40; // 40m buffer -- matcher VDs præcision; Storstrømsbroen dækkes af manuel fallback
     const bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
     const url =
       'https://geocloud.vd.dk/CVF/wms?' +
       'SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&' +
-      'INFO_FORMAT=application/json&FEATURE_COUNT=10&' +
+      'INFO_FORMAT=application/json&FEATURE_COUNT=200&' +
       'TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&' +
       'SRS=EPSG:25832&WIDTH=101&HEIGHT=101&' +
       `BBOX=${bbox}&X=50&Y=50`;
@@ -3382,14 +3382,7 @@ async function checkForStatsvej(lat, lon) {
 
     const jsonData = JSON.parse(textData);
     if (jsonData.features?.length > 0) {
-      // Sortér på averageDistanceToRoad — vælg den feature der er tættest på klikpunktet.
-      // Nødvendigt på motorveje med parallelle spor (fx Hillerødmotorvejen fgr. 5 og 7)
-      // hvor begge kan ligge inden for 120m-bufferen og features[0] ikke er den nærmeste.
-      const sorted = jsonData.features.slice().sort((a, b) =>
-        (a.properties?.averageDistanceToRoad ?? 999) -
-        (b.properties?.averageDistanceToRoad ?? 999)
-      );
-      const props = sorted[0].properties || {};
+      const props = jsonData.features[0].properties || {};
       const result = {
         ...props,
         ADM_NR:       props.ADM_NR       ?? props.adm_nr       ?? null,
