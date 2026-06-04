@@ -3383,12 +3383,16 @@ async function checkForStatsvej(lat, lon) {
 
     const jsonData = JSON.parse(textData);
     if (jsonData.features?.length > 0) {
-      // Sortér på averageDistanceToRoad — vælg den feature der er tættest på klikpunktet.
-      // Nødvendigt på motorveje med parallelle spor hvor flere features ligger inden for 120m-bufferen.
-      const sorted = jsonData.features.slice().sort((a, b) =>
-        (a.properties?.averageDistanceToRoad ?? 999) -
-        (b.properties?.averageDistanceToRoad ?? 999)
-      );
+      // Sortér på geometrisk afstand fra klikpunkt til feature-geometri (EPSG:25832).
+      // averageDistanceToRoad er gennemsnit langs hele stykket og rammer forkert på parallelle spor.
+      const featAfstand = f => {
+        const coords = f.geometry?.coordinates;
+        if (!coords) return f.properties?.averageDistanceToRoad ?? 999;
+        const fx = Array.isArray(coords[0]) ? coords[0][0] : coords[0];
+        const fy = Array.isArray(coords[0]) ? coords[0][1] : coords[1];
+        return Math.sqrt((fx - utmX) ** 2 + (fy - utmY) ** 2);
+      };
+      const sorted = jsonData.features.slice().sort((a, b) => featAfstand(a) - featAfstand(b));
       const props = sorted[0].properties || {};
       const result = {
         ...props,
