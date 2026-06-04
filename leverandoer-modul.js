@@ -1480,6 +1480,7 @@ function _enhedRenderLag() {
              </button>` : "";
         return `<div class="lev-popup-vogn-row" style="padding:4px 0">
           <strong>${_esc(v.nummer)}</strong>${v.beskrivelse ? " — " + _esc(v.beskrivelse) : ""}
+          ${v.telefon ? `<div style="font-size:12px;margin-top:2px">📞 <a href="tel:${_esc('+45'+v.telefon.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(v.telefon)}</a></div>` : ""}
           ${v.detaljer ? `<div style="font-size:11px;color:#666;margin-top:2px">${_esc(v.detaljer)}</div>` : ""}
           ${flytteBtn}
         </div>`;
@@ -1891,6 +1892,10 @@ function _enhedAppendVognRow(container, v = {}) {
       <input type="text" class="ev-besk" value="${_esc(v.beskrivelse || "")}"
         placeholder="fx Morsvogn">
     </label>
+    <label>Telefon (vogn/redder)
+      <input type="tel" class="ev-tlf" value="${_esc(v.telefon || "")}"
+        placeholder="fx 70 70 08 00">
+    </label>
     <label>Detaljer / lang beskrivelse
       <textarea class="ev-detaljer lev-textarea" rows="2"
         placeholder="fx 1x XL ST-Vogn, Timeredder tilkald...">${_esc(v.detaljer || "")}</textarea>
@@ -1916,6 +1921,7 @@ async function _enhedGem(existingId) {
     id:          row.dataset.id,
     nummer:      row.querySelector(".ev-nummer")?.value.trim()   || "",
     beskrivelse: row.querySelector(".ev-besk")?.value.trim()     || "",
+    telefon:     row.querySelector(".ev-tlf")?.value.trim()      || "",
     detaljer:    row.querySelector(".ev-detaljer")?.value.trim() || ""
   })).filter(v => v.nummer);
 
