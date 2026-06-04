@@ -1600,18 +1600,16 @@ function _enhedShowListe() {
   document.getElementById("levPanelTitle").textContent = "📍 Egne enheder";
   const body = document.getElementById("levPanelBody");
 
-  // Byg en række for én enhed
+  // Åbne sektioner (husker tilstand ved søgning)
+  const _aabne = new Set(EGNE_KATEGORIER.map(k => k.id)); // alle åbne som standard
+
+  // Byg én enhed-række
   function _enhedRaekke(e) {
-    const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-    const katTekst = kats.map(id => {
-      const k = EGNE_KATEGORIER.find(k => k.id === id);
-      return k ? k.ikon + " " + k.navn : id;
-    }).join(" · ");
     return `
-      <div class="lev-list-row">
+      <div class="lev-list-row" style="padding-left:12px">
         <div class="lev-list-info">
           <span class="lev-list-navn">${_esc(e.navn)}</span>
-          <span class="lev-list-meta">${katTekst}${e.adresse ? " · " + _esc(e.adresse) : ""}</span>
+          <span class="lev-list-meta">${e.adresse ? _esc(e.adresse) : ""}</span>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="lev-btn-secondary enhed-rediger-btn" data-id="${_esc(e.id)}" style="padding:4px 8px;font-size:12px">✏️</button>
@@ -1620,86 +1618,137 @@ function _enhedShowListe() {
       </div>`;
   }
 
-  // Kategori-filter state (lokalt i _enhedShowListe scope)
-  const _katFilter = new Set();
-
-  // Filtrer og render listen — kombinerer søgetekst OG kategori-filter (AND)
-  function _enhedRenderFiltreret(soegeTekst) {
-    const q = (soegeTekst || "").toLowerCase().trim();
+  // Render hele accordion-listen
+  function _enhedRenderAccordion(q) {
+    q = (q || "").toLowerCase().trim();
     const data = _enhedData || [];
-    const filtreret = data.filter(e => {
-      const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-      // Kategori-filter: hvis ingen valgt, vis alle; ellers skal enheden have mindst én match
-      if (_katFilter.size > 0 && !kats.some(id => _katFilter.has(id))) return false;
-      // Tekst-filter
-      if (q) {
-        const katTekst = kats.map(id => {
-          const k = EGNE_KATEGORIER.find(k => k.id === id);
-          return k ? (k.navn + " " + k.ikon).toLowerCase() : id;
-        }).join(" ");
+    let html = "";
+
+    // Kategori-sektioner
+    EGNE_KATEGORIER.forEach(kat => {
+      const enhederIKat = data.filter(e => {
+        const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+        if (!kats.includes(kat.id)) return false;
+        if (!q) return true;
         return (e.navn || "").toLowerCase().includes(q)
-          || (e.adresse || "").toLowerCase().includes(q)
-          || katTekst.includes(q);
-      }
-      return true;
+          || (e.adresse || "").toLowerCase().includes(q);
+      });
+
+      const erAaben = _aabne.has(kat.id) || q; // søgning åbner altid
+      const antal   = enhederIKat.length;
+      const pil     = erAaben ? "▾" : "▸";
+
+      html += `
+        <div class="enhed-kat-header" data-katid="${kat.id}"
+          style="display:flex;align-items:center;justify-content:space-between;
+                 padding:8px 12px;cursor:pointer;background:#f5f7fa;
+                 border-bottom:1px solid #e0e6ef;user-select:none">
+          <span style="font-weight:700;font-size:13px">${kat.ikon} ${kat.navn}</span>
+          <span style="display:flex;align-items:center;gap:6px">
+            ${antal > 0 ? `<span style="background:#2471a3;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">${antal}</span>` : `<span style="color:#bbb;font-size:11px">ingen</span>`}
+            <span style="font-size:11px;color:#888">${pil}</span>
+          </span>
+        </div>
+        <div class="enhed-kat-body" data-katid="${kat.id}"
+          style="display:${erAaben ? "block" : "none"};border-bottom:2px solid #e0e6ef">
+          ${enhederIKat.length
+            ? enhederIKat.map(_enhedRaekke).join("")
+            : `<p class="lev-empty" style="margin:8px 12px;font-size:12px;color:#aaa">Ingen enheder i denne kategori</p>`}
+        </div>`;
     });
-    const ingenTekst = !q && _katFilter.size === 0
-      ? "Ingen egne enheder endnu. Klik \"+ Ny enhed\"."
-      : "Ingen enheder matcher filteret.";
-    const rækker = filtreret.map(_enhedRaekke).join("") || `<p class="lev-empty">${ingenTekst}</p>`;
-    document.getElementById("enhedListeContainer").innerHTML = rækker;
-    // Genknyt klik-handlers
-    body.querySelectorAll(".enhed-rediger-btn").forEach(btn => {
+
+    // Stationer-sektion (enheder med vogne[] — det nye format)
+    const stationer = data.filter(e => {
+      const harVogne = (e.vogne || []).length > 0;
+      // En "station" har enten vogne eller ingen kendte gamle kategorier
+      if (!q) return harVogne;
+      return harVogne && (
+        (e.navn || "").toLowerCase().includes(q) ||
+        (e.adresse || "").toLowerCase().includes(q) ||
+        (e.vogne || []).some(v =>
+          (v.nummer || "").toLowerCase().includes(q) ||
+          (v.beskrivelse || "").toLowerCase().includes(q)
+        )
+      );
+    });
+
+    if (stationer.length > 0 || !q) {
+      const erAaben  = _aabne.has("__stationer__") || q;
+      const pil      = erAaben ? "▾" : "▸";
+      html += `
+        <div class="enhed-kat-header" data-katid="__stationer__"
+          style="display:flex;align-items:center;justify-content:space-between;
+                 padding:8px 12px;cursor:pointer;background:#f0f4f8;
+                 border-bottom:1px solid #e0e6ef;user-select:none;margin-top:4px">
+          <span style="font-weight:700;font-size:13px">🏠 Stationer</span>
+          <span style="display:flex;align-items:center;gap:6px">
+            ${stationer.length > 0 ? `<span style="background:#27ae60;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">${stationer.length}</span>` : `<span style="color:#bbb;font-size:11px">ingen</span>`}
+            <span style="font-size:11px;color:#888">${pil}</span>
+          </span>
+        </div>
+        <div class="enhed-kat-body" data-katid="__stationer__"
+          style="display:${erAaben ? "block" : "none"};border-bottom:2px solid #e0e6ef">
+          ${stationer.length
+            ? stationer.map(e => {
+                const vognTekst = (e.vogne || []).map(v => v.nummer + (v.beskrivelse ? " " + v.beskrivelse : "")).join(", ");
+                return `
+                  <div class="lev-list-row" style="padding-left:12px">
+                    <div class="lev-list-info">
+                      <span class="lev-list-navn">${_esc(e.navn)}</span>
+                      <span class="lev-list-meta">${vognTekst ? "🚗 " + _esc(vognTekst) : ""}${e.adresse ? " · " + _esc(e.adresse) : ""}</span>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-shrink:0">
+                      <button class="lev-btn-secondary enhed-rediger-btn" data-id="${_esc(e.id)}" style="padding:4px 8px;font-size:12px">✏️</button>
+                      <button class="lev-btn-secondary enhed-slet-btn"   data-id="${_esc(e.id)}" style="padding:4px 8px;font-size:12px;color:#c0392b">🗑️</button>
+                    </div>
+                  </div>`;
+              }).join("")
+            : `<p class="lev-empty" style="margin:8px 12px;font-size:12px;color:#aaa">Ingen stationer oprettet</p>`}
+        </div>`;
+    }
+
+    document.getElementById("enhedListeContainer").innerHTML = html;
+
+    // Accordion toggle
+    document.getElementById("enhedListeContainer").querySelectorAll(".enhed-kat-header").forEach(hdr => {
+      hdr.addEventListener("click", () => {
+        const kid  = hdr.dataset.katid;
+        const body = document.querySelector(`.enhed-kat-body[data-katid="${kid}"]`);
+        const pil  = hdr.querySelector("span:last-child span:last-child");
+        const aaben = body.style.display !== "none";
+        body.style.display = aaben ? "none" : "block";
+        if (pil) pil.textContent = aaben ? "▸" : "▾";
+        if (aaben) _aabne.delete(kid); else _aabne.add(kid);
+      });
+    });
+
+    // Knyt rediger/slet-handlers
+    document.getElementById("enhedListeContainer").querySelectorAll(".enhed-rediger-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const enhed = _enhedData.find(e => e.id === btn.dataset.id);
         if (enhed) _enhedShowForm(enhed);
       });
     });
-    body.querySelectorAll(".enhed-slet-btn").forEach(btn => {
+    document.getElementById("enhedListeContainer").querySelectorAll(".enhed-slet-btn").forEach(btn => {
       btn.addEventListener("click", () => _enhedSlet(btn.dataset.id));
     });
   }
-
-  // Byg kategori-dropdown HTML
-  const katDropdownItems = EGNE_KATEGORIER.map(k =>
-    `<label style="display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;white-space:nowrap;font-size:13px">
-      <input type="checkbox" data-katid="${k.id}" style="cursor:pointer"> ${k.ikon} ${k.navn}
-    </label>`
-  ).join("");
 
   body.innerHTML = `
     <div class="lev-list-toolbar" style="flex-wrap:wrap;gap:6px">
       <button id="enhedNyBtn" class="lev-btn-primary">+ Ny enhed</button>
       <button id="enhedRefreshBtn" class="lev-btn-secondary">↻ Opdater</button>
-      <input id="enhedSoeg" type="search" placeholder="Søg navn, adresse, kat…"
+      <input id="enhedSoeg" type="search" placeholder="Søg navn, adresse, vogn…"
         style="flex:1;min-width:80px;padding:8px;font-size:13px;border:1px solid #ccc;border-radius:7px">
-      <div style="position:relative">
-        <button id="enhedKatFilterBtn" style="padding:7px 10px;font-size:13px;cursor:pointer;background:#fff;border:1px solid #ccc;border-radius:7px;white-space:nowrap">
-          📂 Kategori
-        </button>
-        <div id="enhedKatDropdown" style="display:none;position:absolute;left:0;top:calc(100% + 4px);background:#fff;border:1px solid #ccc;border-radius:7px;box-shadow:0 3px 10px rgba(0,0,0,0.15);z-index:9999;min-width:200px;padding:4px 0">
-          <div style="padding:5px 10px 3px;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Vis kategorier</div>
-          ${katDropdownItems}
-          <div style="border-top:1px solid #eee;margin-top:3px;padding:4px 10px">
-            <button id="enhedKatNulstil" style="font-size:12px;background:none;border:none;color:#c0392b;cursor:pointer;padding:2px 0">✕ Nulstil filter</button>
-          </div>
-        </div>
-      </div>
     </div>
-    <div id="enhedListeContainer" class="lev-list-container"></div>`;
+    <div id="enhedListeContainer" class="lev-list-container" style="padding:0"></div>`;
 
-  // Initial render
-  _enhedRenderFiltreret("");
+  _enhedRenderAccordion("");
 
-  // Søgefelt
   document.getElementById("enhedSoeg").addEventListener("input", function() {
-    _enhedRenderFiltreret(this.value);
+    _enhedRenderAccordion(this.value);
   });
-
-  // Ny enhed
   document.getElementById("enhedNyBtn").addEventListener("click", () => _enhedShowForm(null));
-
-  // Opdater
   document.getElementById("enhedRefreshBtn").addEventListener("click", async function() {
     const btn = this;
     btn.disabled = true;
@@ -1708,51 +1757,6 @@ function _enhedShowListe() {
     await _enhedLoad();
     btn.textContent = "✅ Opdateret!";
     setTimeout(() => { _enhedShowListe(); }, 800);
-  });
-
-  // Kategori-dropdown: åbn/luk
-  const katBtn      = document.getElementById("enhedKatFilterBtn");
-  const katDropdown = document.getElementById("enhedKatDropdown");
-  katBtn.addEventListener("click", function(e) {
-    e.stopPropagation();
-    const åben = katDropdown.style.display !== "none";
-    katDropdown.style.display = åben ? "none" : "block";
-  });
-
-  // Klik udenfor lukker dropdown
-  document.addEventListener("click", function _katClose(e) {
-    if (!katBtn.contains(e.target) && !katDropdown.contains(e.target)) {
-      katDropdown.style.display = "none";
-    }
-    // Ryd listener hvis panelet er væk (cleanup)
-    if (!document.getElementById("enhedKatFilterBtn")) {
-      document.removeEventListener("click", _katClose);
-    }
-  });
-
-  // Kategori-checkboxes
-  katDropdown.querySelectorAll("input[type=checkbox]").forEach(cb => {
-    cb.addEventListener("change", function() {
-      if (this.checked) _katFilter.add(this.dataset.katid);
-      else              _katFilter.delete(this.dataset.katid);
-      // Opdater knap-tekst så man kan se at filter er aktivt
-      const antal = _katFilter.size;
-      katBtn.textContent = antal > 0 ? `📂 Kategori (${antal})` : "📂 Kategori";
-      katBtn.style.borderColor = antal > 0 ? "#2980b9" : "#ccc";
-      katBtn.style.color       = antal > 0 ? "#2980b9" : "";
-      _enhedRenderFiltreret(document.getElementById("enhedSoeg").value);
-    });
-  });
-
-  // Nulstil filter
-  document.getElementById("enhedKatNulstil").addEventListener("click", function(e) {
-    e.stopPropagation();
-    _katFilter.clear();
-    katDropdown.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = false);
-    katBtn.textContent   = "📂 Kategori";
-    katBtn.style.borderColor = "#ccc";
-    katBtn.style.color       = "";
-    _enhedRenderFiltreret(document.getElementById("enhedSoeg").value);
   });
 }
 
