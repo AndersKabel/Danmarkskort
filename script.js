@@ -3383,17 +3383,9 @@ async function checkForStatsvej(lat, lon) {
 
     const jsonData = JSON.parse(textData);
     if (jsonData.features?.length > 0) {
-      // Sortér på geometrisk afstand fra klikpunkt til feature-geometri (EPSG:25832).
-      // averageDistanceToRoad er gennemsnit langs hele stykket og rammer forkert på parallelle spor.
-      const featAfstand = f => {
-        const coords = f.geometry?.coordinates;
-        if (!coords) return f.properties?.averageDistanceToRoad ?? 999;
-        const fx = Array.isArray(coords[0]) ? coords[0][0] : coords[0];
-        const fy = Array.isArray(coords[0]) ? coords[0][1] : coords[1];
-        return Math.sqrt((fx - utmX) ** 2 + (fy - utmY) ** 2);
-      };
-      const sorted = jsonData.features.slice().sort((a, b) => featAfstand(a) - featAfstand(b));
-      const props = sorted[0].properties || {};
+      // CVF's WMS vælger selv den nærmeste feature via pixel-nærhed i GetFeatureInfo.
+      // features[0] er derfor altid den mest relevante — ingen sortering nødvendig.
+      const props = jsonData.features[0].properties || {};
       const result = {
         ...props,
         ADM_NR:       props.ADM_NR       ?? props.adm_nr       ?? null,
