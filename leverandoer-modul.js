@@ -1427,10 +1427,16 @@ function _enhedRenderLag() {
     ? currentMarker.getLatLng() : null;
 
   let data = (_enhedData || []).map(enhed => {
-    const afstand = (markerPos && enhed.lat != null && enhed.lon != null)
-      ? (map.distance(markerPos, L.latLng(enhed.lat, enhed.lon)) / 1000)
+    // Hvis enheden er knyttet til en station: arv lat/lon/adresse fra stationen
+    let effLat = enhed.lat, effLon = enhed.lon, effAdr = enhed.adresse;
+    if (enhed.stationId) {
+      const st = _enhedData.find(e => e.id === enhed.stationId);
+      if (st) { effLat = st.lat; effLon = st.lon; effAdr = st.adresse; }
+    }
+    const afstand = (markerPos && effLat != null && effLon != null)
+      ? (map.distance(markerPos, L.latLng(effLat, effLon)) / 1000)
       : null;
-    return { ...enhed, _afstand: afstand };
+    return { ...enhed, _effLat: effLat, _effLon: effLon, _effAdr: effAdr, _afstand: afstand };
   });
   if (markerPos) data.sort((a, b) => (a._afstand ?? Infinity) - (b._afstand ?? Infinity));
 
@@ -1438,7 +1444,7 @@ function _enhedRenderLag() {
   const ALLE_MAA_FLYTTE = new Set(["tma_vogn", "tavletrailer"]);
 
   data.forEach(enhed => {
-    if (enhed.lat == null || enhed.lon == null) return;
+    if (enhed._effLat == null || enhed._effLon == null) return;
     const kats = enhed.kategorier?.length ? enhed.kategorier
       : (enhed.kategori ? [enhed.kategori] : []);
     if (!kats.length) return;
@@ -1454,7 +1460,7 @@ function _enhedRenderLag() {
       iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16]
     });
 
-    const marker = L.marker([enhed.lat, enhed.lon], { icon: leafletIcon });
+    const marker = L.marker([enhed._effLat, enhed._effLon], { icon: leafletIcon });
 
     // Byg popup
     const afstandTekst = enhed._afstand != null
@@ -1761,7 +1767,7 @@ function _enhedShowListe() {
 }
 
 function _enhedShowForm(enhed) {
-  document.getElementById("levPanelTitle").textContent = enhed ? "✏️ Rediger station" : "➕ Ny station";
+  document.getElementById("levPanelTitle").textContent = enhed ? "✏️ Rediger enhed" : "➕ Ny enhed";
   const body = document.getElementById("levPanelBody");
   const valgteKat = enhed?.kategorier?.length ? enhed.kategorier
     : (enhed?.kategori ? [enhed.kategori] : []);
@@ -1772,34 +1778,82 @@ function _enhedShowForm(enhed) {
     </label>`
   ).join("");
 
+  // Bestem hvilken tilknytningstilstand enheden er i
+  const harStationId  = !!enhed?.stationId;
+  const tilknytStation = harStationId ? "station" : "adresse";
+  const stationNavn   = harStationId
+    ? (_enhedData.find(e => e.id === enhed.stationId)?.navn || "")
+    : "";
+
   body.innerHTML = `
     <div class="lev-form">
       <button class="lev-tilbage-btn" id="efTilbage" style="margin-bottom:12px">← Tilbage til liste</button>
 
       <fieldset class="lev-fs">
         <legend>📋 Basisoplysninger</legend>
-        <label>Stationsnavn
+        <label>Navn
           <input id="ef-navn" type="text" value="${_esc(enhed?.navn || "")}"
-            placeholder="fx 423 Falck Fredericia">
+            placeholder="fx 423 Falck Fredericia eller 4577 Ingolf Petersen">
         </label>
-        <div class="lev-form-label">Kategorier / kompetencer</div>
+        <div class="lev-form-label" style="margin-top:10px">Kategorier / kompetencer</div>
         <div style="display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
           ${katCheckboxes}
         </div>
       </fieldset>
 
       <fieldset class="lev-fs">
-        <legend>📍 Adresse</legend>
-        <label>Søg adresse
-          <input id="ef-adr-sok" type="text" value="${_esc(enhed?.adresse || "")}"
-            placeholder="Skriv adresse og vælg fra listen..." autocomplete="off">
-          <div id="ef-adr-liste" style="border:1px solid #ddd;border-radius:4px;background:#fff;max-height:140px;overflow-y:auto;display:none;font-size:12px"></div>
-        </label>
-        <input id="ef-lat" type="hidden" value="${enhed?.lat ?? ""}">
-        <input id="ef-lon" type="hidden" value="${enhed?.lon ?? ""}">
-        <div class="lev-row" style="margin-top:6px;gap:8px">
-          <label class="lev-label-coord">Lat. <input id="ef-lat-vis" type="text" value="${enhed?.lat ?? ""}" placeholder="56.xxxx" style="font-size:12px"></label>
-          <label class="lev-label-coord">Lon. <input id="ef-lon-vis" type="text" value="${enhed?.lon ?? ""}" placeholder="10.xxxx" style="font-size:12px"></label>
+        <legend>📍 Placering</legend>
+        <div style="display:flex;gap:0;border:1px solid #ccc;border-radius:6px;overflow:hidden;margin-bottom:10px">
+          <label id="ef-tab-station" style="flex:1;text-align:center;padding:7px 4px;cursor:pointer;font-size:12px;font-weight:600;
+            background:${tilknytStation==="station"?"#2471a3":"#f5f7fa"};color:${tilknytStation==="station"?"#fff":"#555"};
+            border-right:1px solid #ccc;margin:0">
+            <input type="radio" name="ef-tilknyt" value="station" ${tilknytStation==="station"?"checked":""} style="display:none">
+            🏠 Tilknyt til station
+          </label>
+          <label id="ef-tab-adresse" style="flex:1;text-align:center;padding:7px 4px;cursor:pointer;font-size:12px;font-weight:600;
+            background:${tilknytStation==="adresse"?"#2471a3":"#f5f7fa"};color:${tilknytStation==="adresse"?"#fff":"#555"};margin:0">
+            <input type="radio" name="ef-tilknyt" value="adresse" ${tilknytStation==="adresse"?"checked":""} style="display:none">
+            📍 Direkte adresse
+          </label>
+        </div>
+
+        <div id="ef-sektion-station" style="display:${tilknytStation==="station"?"block":"none"}">
+          <label>Søg station
+            <input id="ef-station-sok" type="text" value="${_esc(stationNavn)}"
+              placeholder="Skriv stationsnavn og vælg fra listen..." autocomplete="off">
+            <div id="ef-station-liste" style="border:1px solid #ddd;border-radius:4px;background:#fff;
+              max-height:160px;overflow-y:auto;display:none;font-size:12px;position:relative;z-index:10"></div>
+          </label>
+          <input id="ef-stationId" type="hidden" value="${_esc(enhed?.stationId || "")}">
+          <div id="ef-station-valgt" style="margin-top:6px;font-size:12px;color:#27ae60;min-height:18px"></div>
+
+          <div id="ef-ny-station-boks" style="display:none;border:1px dashed #2471a3;border-radius:6px;padding:10px;margin-top:8px;background:#f0f6ff">
+            <div style="font-size:12px;font-weight:700;color:#2471a3;margin-bottom:8px">➕ Opret ny station</div>
+            <label>Stationsnavn <input id="ef-ny-st-navn" type="text" placeholder="fx 423 Falck Fredericia"></label>
+            <label style="margin-top:6px">Søg adresse
+              <input id="ef-ny-st-adr-sok" type="text" placeholder="Skriv adresse..." autocomplete="off">
+              <div id="ef-ny-st-adr-liste" style="border:1px solid #ddd;border-radius:4px;background:#fff;max-height:120px;overflow-y:auto;display:none;font-size:12px"></div>
+            </label>
+            <input id="ef-ny-st-lat" type="hidden">
+            <input id="ef-ny-st-lon" type="hidden">
+            <label style="margin-top:6px">Kontakt (station) <input id="ef-ny-st-kontakt" type="text" placeholder="fx 76 26 60 00"></label>
+            <button type="button" id="ef-ny-st-opret" class="lev-btn-primary" style="margin-top:8px;width:100%">✅ Opret station og tilknyt</button>
+            <div id="ef-ny-st-status" style="font-size:12px;min-height:16px;margin-top:4px"></div>
+          </div>
+        </div>
+
+        <div id="ef-sektion-adresse" style="display:${tilknytStation==="adresse"?"block":"none"}">
+          <label>Søg adresse
+            <input id="ef-adr-sok" type="text" value="${_esc(!harStationId ? (enhed?.adresse || "") : "")}"
+              placeholder="Skriv adresse og vælg fra listen..." autocomplete="off">
+            <div id="ef-adr-liste" style="border:1px solid #ddd;border-radius:4px;background:#fff;max-height:140px;overflow-y:auto;display:none;font-size:12px"></div>
+          </label>
+          <input id="ef-lat" type="hidden" value="${!harStationId ? (enhed?.lat ?? "") : ""}">
+          <input id="ef-lon" type="hidden" value="${!harStationId ? (enhed?.lon ?? "") : ""}">
+          <div class="lev-row" style="margin-top:6px;gap:8px">
+            <label class="lev-label-coord">Lat. <input id="ef-lat-vis" type="text" value="${!harStationId ? (enhed?.lat ?? "") : ""}" placeholder="56.xxxx" style="font-size:12px"></label>
+            <label class="lev-label-coord">Lon. <input id="ef-lon-vis" type="text" value="${!harStationId ? (enhed?.lon ?? "") : ""}" placeholder="10.xxxx" style="font-size:12px"></label>
+          </div>
         </div>
       </fieldset>
 
@@ -1813,7 +1867,7 @@ function _enhedShowForm(enhed) {
         </label>
       </fieldset>
 
-      <fieldset class="lev-fs">
+      <fieldset class="lev-fs" id="ef-vogne-sektion">
         <legend>🚗 Vogne</legend>
         <div id="ef-vogne"></div>
         <button type="button" id="efAddVogn" class="lev-btn-add">+ Tilføj vogn</button>
@@ -1829,7 +1883,162 @@ function _enhedShowForm(enhed) {
   const vognDiv = document.getElementById("ef-vogne");
   (enhed?.vogne || []).forEach(v => _enhedAppendVognRow(vognDiv, v));
 
-  // DAWA adressesøgning
+  // ── TAB-SKIFT: station vs direkte adresse ────────────────────
+  document.querySelectorAll('input[name="ef-tilknyt"]').forEach(radio => {
+    radio.closest("label").addEventListener("click", () => {
+      const val = radio.value;
+      document.getElementById("ef-sektion-station").style.display  = val === "station"  ? "block" : "none";
+      document.getElementById("ef-sektion-adresse").style.display  = val === "adresse"  ? "block" : "none";
+      document.getElementById("ef-tab-station").style.background   = val === "station"  ? "#2471a3" : "#f5f7fa";
+      document.getElementById("ef-tab-station").style.color        = val === "station"  ? "#fff"    : "#555";
+      document.getElementById("ef-tab-adresse").style.background   = val === "adresse"  ? "#2471a3" : "#f5f7fa";
+      document.getElementById("ef-tab-adresse").style.color        = val === "adresse"  ? "#fff"    : "#555";
+      // Ryd stationId hvis man skifter til direkte adresse
+      if (val === "adresse") document.getElementById("ef-stationId").value = "";
+    });
+  });
+
+  // ── STATION-AUTOCOMPLETE ─────────────────────────────────────
+  const stSok   = document.getElementById("ef-station-sok");
+  const stListe = document.getElementById("ef-station-liste");
+  const stIdHid = document.getElementById("ef-stationId");
+  const stValgt = document.getElementById("ef-station-valgt");
+  const nyStBoks = document.getElementById("ef-ny-station-boks");
+
+  // Vis valgt station hvis allerede sat
+  if (enhed?.stationId) {
+    const st = _enhedData.find(e => e.id === enhed.stationId);
+    if (st) stValgt.textContent = `✅ Tilknyttet: ${st.navn}${st.adresse ? " · " + st.adresse : ""}`;
+  }
+
+  // Stationer = enheder med vogne (og/eller ingen stationId selv)
+  function _stationerListe() {
+    return (_enhedData || []).filter(e => (e.vogne || []).length > 0 && e.id !== (enhed?.id || "__ny__"));
+  }
+
+  stSok.addEventListener("input", function() {
+    const q = this.value.toLowerCase().trim();
+    const hits = _stationerListe().filter(e =>
+      (e.navn || "").toLowerCase().includes(q) ||
+      (e.adresse || "").toLowerCase().includes(q)
+    );
+
+    stListe.innerHTML = "";
+    // Eksisterende stationer
+    hits.forEach(st => {
+      const div = document.createElement("div");
+      div.style.cssText = "padding:6px 10px;cursor:pointer;border-bottom:1px solid #eee;font-size:12px";
+      div.innerHTML = `<strong>${_esc(st.navn)}</strong>${st.adresse ? `<span style="color:#888"> · ${_esc(st.adresse)}</span>` : ""}`;
+      div.addEventListener("mouseenter", () => div.style.background = "#f0f6ff");
+      div.addEventListener("mouseleave", () => div.style.background = "");
+      div.addEventListener("click", () => {
+        stIdHid.value = st.id;
+        stSok.value   = st.navn;
+        stValgt.textContent = `✅ Tilknyttet: ${st.navn}${st.adresse ? " · " + st.adresse : ""}`;
+        stValgt.style.color = "#27ae60";
+        stListe.style.display = "none";
+        nyStBoks.style.display = "none";
+      });
+      stListe.appendChild(div);
+    });
+
+    // "Opret ny station"-mulighed
+    if (q.length >= 2) {
+      const div = document.createElement("div");
+      div.style.cssText = "padding:6px 10px;cursor:pointer;font-size:12px;color:#2471a3;font-weight:600;background:#f0f6ff";
+      div.textContent = `+ Opret ny station: "${this.value.trim()}"`;
+      div.addEventListener("click", () => {
+        document.getElementById("ef-ny-st-navn").value = this.value.trim();
+        nyStBoks.style.display = "block";
+        stListe.style.display  = "none";
+        stIdHid.value = "";
+        stValgt.textContent = "";
+        document.getElementById("ef-ny-st-navn").focus();
+      });
+      stListe.appendChild(div);
+    }
+
+    stListe.style.display = stListe.children.length ? "block" : "none";
+  });
+
+  document.addEventListener("click", function _lukStListe(e) {
+    if (!stSok.contains(e.target) && !stListe.contains(e.target)) stListe.style.display = "none";
+    if (!document.getElementById("ef-station-sok")) document.removeEventListener("click", _lukStListe);
+  });
+
+  // ── NY STATION: adresse-autocomplete ────────────────────────
+  const nyStAdrSok   = document.getElementById("ef-ny-st-adr-sok");
+  const nyStAdrListe = document.getElementById("ef-ny-st-adr-liste");
+  let nyStAdrTimer;
+  nyStAdrSok.addEventListener("input", () => {
+    clearTimeout(nyStAdrTimer);
+    const q = nyStAdrSok.value.trim();
+    if (q.length < 3) { nyStAdrListe.style.display = "none"; return; }
+    nyStAdrTimer = setTimeout(async () => {
+      try {
+        const r = await fetch(`https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(q)}&per_side=6&struktur=mini`);
+        const items = await r.json();
+        if (!items.length) { nyStAdrListe.style.display = "none"; return; }
+        nyStAdrListe.innerHTML = items.map(it =>
+          `<div class="ef-adr-item" data-tekst="${_esc(it.tekst)}"
+            data-lat="${it.adresse?.y ?? ""}" data-lon="${it.adresse?.x ?? ""}"
+            style="padding:6px 8px;cursor:pointer;border-bottom:1px solid #eee">${_esc(it.tekst)}</div>`
+        ).join("");
+        nyStAdrListe.style.display = "block";
+        nyStAdrListe.querySelectorAll(".ef-adr-item").forEach(div => {
+          div.addEventListener("mouseenter", () => div.style.background = "#f0f0f0");
+          div.addEventListener("mouseleave", () => div.style.background = "");
+          div.addEventListener("click", () => {
+            nyStAdrSok.value = div.dataset.tekst;
+            document.getElementById("ef-ny-st-lat").value = div.dataset.lat;
+            document.getElementById("ef-ny-st-lon").value = div.dataset.lon;
+            nyStAdrListe.style.display = "none";
+          });
+        });
+      } catch(e) { nyStAdrListe.style.display = "none"; }
+    }, 300);
+  });
+
+  // ── OPRET NY STATION ─────────────────────────────────────────
+  document.getElementById("ef-ny-st-opret").addEventListener("click", async () => {
+    const stNavn    = document.getElementById("ef-ny-st-navn").value.trim();
+    const stAdr     = nyStAdrSok.value.trim();
+    const stLat     = parseFloat(document.getElementById("ef-ny-st-lat").value) || null;
+    const stLon     = parseFloat(document.getElementById("ef-ny-st-lon").value) || null;
+    const stKontakt = document.getElementById("ef-ny-st-kontakt").value.trim();
+    const stStatus  = document.getElementById("ef-ny-st-status");
+
+    if (!stNavn) { stStatus.style.color = "#c0392b"; stStatus.textContent = "Stationsnavn er påkrævet."; return; }
+
+    const opretBtn = document.getElementById("ef-ny-st-opret");
+    opretBtn.disabled = true; opretBtn.textContent = "⏳ Opretter...";
+    stStatus.textContent = "";
+
+    try {
+      const resp = await _levSpFetch("/enheder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ navn: stNavn, kategorier: [], lat: stLat, lon: stLon, adresse: stAdr, kontakt: stKontakt, vogne: [] })
+      });
+      if (!resp.ok) throw new Error("Opret fejlede");
+      const ny = await resp.json();
+      const nyId = ny.id || ny.enhed?.id;
+      // Genindlæs enhedsliste så den nye station er tilgængelig
+      await _enhedLoad();
+      // Tilknyt
+      stIdHid.value = nyId;
+      stSok.value   = stNavn;
+      stValgt.textContent = `✅ Ny station oprettet og tilknyttet: ${stNavn}`;
+      stValgt.style.color = "#27ae60";
+      nyStBoks.style.display = "none";
+      opretBtn.disabled = false; opretBtn.textContent = "✅ Opret station og tilknyt";
+    } catch(e) {
+      stStatus.style.color = "#c0392b"; stStatus.textContent = "Fejl: " + e.message;
+      opretBtn.disabled = false; opretBtn.textContent = "✅ Opret station og tilknyt";
+    }
+  });
+
+  // ── DAWA adressesøgning (direkte adresse-sektion) ────────────
   const adrInput = document.getElementById("ef-adr-sok");
   const adrListe = document.getElementById("ef-adr-liste");
   const latVis   = document.getElementById("ef-lat-vis");
@@ -1911,15 +2120,27 @@ function _enhedAppendVognRow(container, v = {}) {
 async function _enhedGem(existingId) {
   const navn       = document.getElementById("ef-navn").value.trim();
   const kategorier = Array.from(document.querySelectorAll('input[name="ef-kat"]:checked')).map(el => el.value);
-  const adresse    = document.getElementById("ef-adr-sok").value.trim();
-  const lat        = parseFloat(document.getElementById("ef-lat").value) || null;
-  const lon        = parseFloat(document.getElementById("ef-lon").value) || null;
   const kontakt    = document.getElementById("ef-kontakt").value.trim();
   const bemærk     = document.getElementById("ef-bemaerk").value.trim();
   const status     = document.getElementById("ef-status");
 
-  if (!navn) { status.style.color = "#c0392b"; status.textContent = "Stationsnavn er påkrævet."; return; }
+  // Tilknytning: station eller direkte adresse?
+  const tilknytVal = document.querySelector('input[name="ef-tilknyt"]:checked')?.value || "adresse";
+  let stationId = null, adresse = "", lat = null, lon = null;
+
+  if (tilknytVal === "station") {
+    stationId = document.getElementById("ef-stationId").value.trim() || null;
+  } else {
+    adresse = document.getElementById("ef-adr-sok")?.value.trim() || "";
+    lat     = parseFloat(document.getElementById("ef-lat")?.value) || null;
+    lon     = parseFloat(document.getElementById("ef-lon")?.value) || null;
+  }
+
+  if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
   if (!kategorier.length) { status.style.color = "#c0392b"; status.textContent = "Vælg mindst én kategori."; return; }
+  if (tilknytVal === "station" && !stationId) {
+    status.style.color = "#c0392b"; status.textContent = "Vælg en station eller opret en ny."; return;
+  }
 
   const vogne = Array.from(document.querySelectorAll("#ef-vogne .lev-vogn-row")).map(row => ({
     id:          row.dataset.id,
@@ -1935,7 +2156,7 @@ async function _enhedGem(existingId) {
       .filter(e => (e.navn || "").toLowerCase() === nytNavn)
       .map(e => `Advarsel: "${e.navn}" findes allerede`);
     if (advarsler.length) {
-      if (!confirm(advarsler.join("\n") + "\n\nVil du oprette stationen alligevel?")) {
+      if (!confirm(advarsler.join("\n") + "\n\nVil du oprette enheden alligevel?")) {
         status.style.color = "#e67e22"; status.textContent = "Annulleret."; return;
       }
     }
@@ -1948,7 +2169,7 @@ async function _enhedGem(existingId) {
     const resp = await _levSpFetch("/enheder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: existingId, navn, kategorier, lat, lon, adresse, kontakt, bemærkning: bemærk, vogne })
+      body: JSON.stringify({ id: existingId, navn, kategorier, stationId, lat, lon, adresse, kontakt, bemærkning: bemærk, vogne })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
@@ -1961,7 +2182,7 @@ async function _enhedGem(existingId) {
 }
 
 async function _enhedSlet(id) {
-  if (!confirm("Slet denne station? Alle vogne slettes også.")) return;
+  if (!confirm("Slet denne enhed?")) return;
   try {
     const resp = await _levSpFetch(`/enheder/${encodeURIComponent(id)}`, { method: "DELETE" });
     if (!resp.ok) throw new Error("Slet fejlede");
