@@ -3359,7 +3359,8 @@ async function checkForStatsvej(lat, lon) {
     });
 
     const [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const buffer = 40; // 40m buffer -- matcher VDs præcision; Storstrømsbroen dækkes af manuel fallback
+    const buffer = 120; // 120m buffer -- nødvendig for at ramme CVF-geometri på brede motorveje.
+    // Sortering på averageDistanceToRoad (nedenfor) sikrer at vi altid vælger den nærmeste feature.
     const bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
     const url =
@@ -3382,7 +3383,13 @@ async function checkForStatsvej(lat, lon) {
 
     const jsonData = JSON.parse(textData);
     if (jsonData.features?.length > 0) {
-      const props = jsonData.features[0].properties || {};
+      // Sortér på averageDistanceToRoad — vælg den feature der er tættest på klikpunktet.
+      // Nødvendigt på motorveje med parallelle spor hvor flere features ligger inden for 120m-bufferen.
+      const sorted = jsonData.features.slice().sort((a, b) =>
+        (a.properties?.averageDistanceToRoad ?? 999) -
+        (b.properties?.averageDistanceToRoad ?? 999)
+      );
+      const props = sorted[0].properties || {};
       const result = {
         ...props,
         ADM_NR:       props.ADM_NR       ?? props.adm_nr       ?? null,
