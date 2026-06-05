@@ -40,6 +40,37 @@ const _enhedKatLag = {};
 EGNE_KATEGORIER.forEach(k => { _enhedKatLag[k.id] = L.layerGroup(); });
 var redigerEnhederLayer = L.layerGroup();
 var stationerLayer      = L.layerGroup();
+var uadLayer            = L.layerGroup();
+
+// Returnerer true hvis enheden er UAD lige nu
+function _erUAD(enhed) {
+  if (!enhed?.uad) return false;
+  if (enhed.uad.type === "manuel") return true;
+  if (enhed.uad.type === "tidsrum") {
+    const nu  = Date.now();
+    const fra = enhed.uad.fra ? new Date(enhed.uad.fra).getTime() : 0;
+    const til = enhed.uad.til ? new Date(enhed.uad.til).getTime() : Infinity;
+    return nu >= fra && nu <= til;
+  }
+  return false;
+}
+
+// Returnerer UAD-badge HTML til brug i lister og popups
+function _uadBadge(enhed) {
+  if (!enhed?.uad) return "";
+  if (enhed.uad.type === "manuel")
+    return `<span style="background:#e74c3c;color:#fff;border-radius:4px;padding:1px 5px;font-size:11px;font-weight:700;margin-left:4px">UAD</span>`;
+  if (enhed.uad.type === "tidsrum" && enhed.uad.til) {
+    const til = new Date(enhed.uad.til);
+    const hhmm = til.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+    const dato = til.toLocaleDateString("da-DK", { day: "numeric", month: "short" });
+    const nu = Date.now();
+    const tilMs = til.getTime();
+    const label = tilMs - nu < 86400000 ? `UAD til ${hhmm}` : `UAD til ${dato} ${hhmm}`;
+    return `<span style="background:#e67e22;color:#fff;border-radius:4px;padding:1px 5px;font-size:11px;font-weight:700;margin-left:4px">${label}</span>`;
+  }
+  return "";
+}
 
 // ── STATE ────────────────────────────────────────────────────────
 let _levData          = [];
@@ -101,6 +132,7 @@ function _levBuildControl() {
       <div class="lev-disp-divider"></div>
       <div class="lev-disp-section">${enhedRows}
         <label class="lev-disp-row"><input type="checkbox" data-lag="stationer"> 🏠 Stationer</label>
+        <label class="lev-disp-row"><input type="checkbox" data-lag="uad"> 🔴 Ude af drift</label>
       </div>
       <div class="lev-disp-divider"></div>
       <div class="lev-disp-section lev-disp-rediger">
@@ -149,6 +181,7 @@ function _levBuildControl() {
       let layer = null;
       if (lag === 'tilgaengelig')         layer = levTilgaengeligLayer;
       else if (lag === 'stationer')       layer = stationerLayer;
+      else if (lag === 'uad')             layer = uadLayer;
       else if (lag.startsWith('lev-'))    layer = _levKatLag[lag.slice(4)];
       else if (lag.startsWith('enhed-'))  layer = _enhedKatLag[lag.slice(6)];
       if (!layer) return;
@@ -172,6 +205,15 @@ function _levBuildControl() {
         }
         // Stationer
         if (lag === 'stationer') {
+          if (!_enhedLoaded) {
+            const ok = await _levEnsureDisponering();
+            if (!ok) { map.removeLayer(layer); cb.checked = false; return; }
+            await _enhedLoad();
+          }
+          _enhedRenderLag();
+        }
+        // UAD
+        if (lag === 'uad') {
           if (!_enhedLoaded) {
             const ok = await _levEnsureDisponering();
             if (!ok) { map.removeLayer(layer); cb.checked = false; return; }
@@ -1438,136 +1480,197 @@ async function _enhedLoad() {
 function _enhedRenderLag() {
   EGNE_KATEGORIER.forEach(k => _enhedKatLag[k.id].clearLayers());
   if (typeof stationerLayer !== "undefined") stationerLayer.clearLayers();
+  if (typeof uadLayer !== "undefined") uadLayer.clearLayers();
 
   const markerPos = (typeof currentMarker !== "undefined" && currentMarker && currentMarker.getLatLng)
     ? currentMarker.getLatLng() : null;
+  const alleEnheder = (_enhedData || []);
+  const maaFlytte   = _levAktivRolle === "admin" || _levAktivRolle === "drift";
 
-  let data = (_enhedData || []).map(enhed => {
-    const afstand = (markerPos && enhed.lat != null && enhed.lon != null)
-      ? (map.distance(markerPos, L.latLng(enhed.lat, enhed.lon)) / 1000)
-      : null;
-    return { ...enhed, _afstand: afstand };
-  });
-  if (markerPos) data.sort((a, b) => (a._afstand ?? Infinity) - (b._afstand ?? Infinity));
+  // ── STATIONER ─────────────────────────────────────────────────
+  alleEnheder.filter(e => e.type === "station" && e.lat != null && e.lon != null).forEach(st => {
+    if (typeof stationerLayer === "undefined") return;
+    const tilknyttede = alleEnheder.filter(x => x.stationId === st.id);
+    const afstand = markerPos ? (map.distance(markerPos, L.latLng(st.lat, st.lon)) / 1000) : null;
 
-  data.forEach(enhed => {
-    if (enhed.lat == null || enhed.lon == null) return;
-
-    // ── STATIONER ─────────────────────────────────────────────────
-    if (enhed.type === "station") {
-      if (typeof stationerLayer === "undefined") return;
-      const leafletIcon = L.divIcon({
-        className: "",
-        html: `<div class="lev-marker-icon" style="background:#27ae60;font-size:14px;width:28px;height:28px;line-height:28px">🏠</div>`,
-        iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16]
+    const katGrupper = EGNE_KATEGORIER.map(k => {
+      const i = tilknyttede.filter(x => {
+        const xKats = x.kategorier?.length ? x.kategorier : (x.kategori ? [x.kategori] : []);
+        return xKats.includes(k.id);
       });
-      const marker = L.marker([enhed.lat, enhed.lon], { icon: leafletIcon });
+      if (!i.length) return "";
+      return `<div style="margin-top:6px">
+        <div style="font-size:11px;font-weight:700;color:#5a6a7a">${k.ikon} ${k.navn}</div>
+        ${i.map(x => {
+          const uad = _erUAD(x);
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0">
+            <span>${_esc(x.navn)}${x.vognnummer ? ` <span style="color:#888">(${_esc(x.vognnummer)})</span>` : ""}</span>
+            ${uad ? _uadBadge(x) : `<span style="color:#27ae60;font-size:11px">✓ Klar</span>`}
+          </div>`;
+        }).join("")}
+      </div>`;
+    }).join("");
 
-      // Find tilknyttede enheder
-      const tilknyttede = (_enhedData || []).filter(x => x.stationId === enhed.id);
-      const katGrupper  = EGNE_KATEGORIER.map(k => {
-        const i = tilknyttede.filter(x => {
-          const xKats = x.kategorier?.length ? x.kategorier : (x.kategori ? [x.kategori] : []);
-          return xKats.includes(k.id);
-        });
-        if (!i.length) return "";
-        return `<div style="margin-top:4px"><strong>${k.ikon} ${k.navn}:</strong> ${i.map(x =>
-          `${_esc(x.navn)}${x.vognnummer ? " ("+_esc(x.vognnummer)+")" : ""}`).join(", ")}</div>`;
-      }).join("");
+    const tlfHTML = st.kontakt
+      ? `<div class="lev-popup-row">📞 <a href="tel:+45${_esc(st.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(st.kontakt)}</a></div>` : "";
+    const afstandTekst = afstand != null
+      ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${afstand.toFixed(1)} km fra søgt adresse</div>` : "";
 
-      const tlfHTML = enhed.kontakt
-        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a></div>`
-        : "";
-
-      const afstandTekst = enhed._afstand != null
-        ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${enhed._afstand.toFixed(1)} km fra søgt adresse</div>` : "";
-
-      marker.bindPopup(`<div class="lev-popup">
-        <div class="lev-popup-top" style="border-left:4px solid #27ae60">
-          <b>${_esc(enhed.navn)}</b>
-          <span class="lev-popup-sub">🏠 Station</span>
-        </div>
-        ${afstandTekst}
-        ${enhed.adresse ? `<div class="lev-popup-row">📍 ${_esc(enhed.adresse)}</div>` : ""}
-        ${tlfHTML}
-        ${enhed.bemærkning ? `<div class="lev-popup-row"><em>${_esc(enhed.bemærkning)}</em></div>` : ""}
-        ${katGrupper ? `<hr class="lev-hr"><div class="lev-popup-section-hdr">Tilknyttede enheder</div>${katGrupper}` : ""}
-      </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
-
-      stationerLayer.addLayer(marker);
-      return;
-    }
-
-    // ── EGNE ENHEDER ──────────────────────────────────────────────
-    // Bagudkompatibilitet: støt både kategorier[] og enkelt kategori
-    const kats = enhed.kategorier?.length ? enhed.kategorier
-      : (enhed.kategori ? [enhed.kategori] : []);
-    if (!kats.length) return;
-
-    const afstandTekst = enhed._afstand != null
-      ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${enhed._afstand.toFixed(1)} km fra søgt adresse</div>` : "";
-
-    const tlfHTML = enhed.kontakt
-      ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45' + enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a></div>`
-      : "";
-
-    const katIkoner = kats.map(id => {
-      const k = EGNE_KATEGORIER.find(k => k.id === id);
-      return k ? `<span title="${k.navn}">${k.ikon} ${k.navn}</span>` : "";
-    }).join(" · ");
-
-    const stationNavn = enhed.stationId
-      ? (_enhedData || []).find(s => s.id === enhed.stationId)?.navn || ""
-      : "";
-
-    const maaFlytte = _levAktivRolle === "admin" || _levAktivRolle === "drift";
-    const vognHTML  = enhed.vognnummer ? `
-      <hr class="lev-hr">
-      <div class="lev-popup-row">🚗 Vogn: <strong>${_esc(enhed.vognnummer)}</strong>
-        ${maaFlytte ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(enhed.id)}"
-          style="font-size:11px;padding:2px 6px;background:#e8f4fd;border:1px solid #2980b9;
-                 border-radius:4px;cursor:pointer;color:#2980b9;margin-left:6px">🔄 Flyt vogn</button>` : ""}
-      </div>` : "";
-
-    const popupHTML = `<div class="lev-popup">
-      <div class="lev-popup-top" style="border-left:4px solid #2471a3">
-        <b>${_esc(enhed.navn)}</b>
-        <span class="lev-popup-sub" style="font-size:11px">${katIkoner}</span>
+    const marker = L.marker([st.lat, st.lon], { icon: L.divIcon({
+      className: "",
+      html: `<div class="lev-marker-icon" style="background:#27ae60;font-size:14px;width:28px;height:28px;line-height:28px">🏠</div>`,
+      iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
+    })});
+    marker.bindPopup(`<div class="lev-popup">
+      <div class="lev-popup-top" style="border-left:4px solid #27ae60">
+        <b>${_esc(st.navn)}</b><span class="lev-popup-sub">🏠 Station</span>
       </div>
       ${afstandTekst}
-      ${stationNavn ? `<div class="lev-popup-row">🏠 ${_esc(stationNavn)}</div>` : ""}
+      ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
       ${tlfHTML}
-      ${enhed.bemærkning ? `<div class="lev-popup-row"><em>${_esc(enhed.bemærkning)}</em></div>` : ""}
-      ${vognHTML}
-    </div>`;
-
-    // Én markør per kategori med kategoriens eget ikon
-    // Samme popup-indhold på alle — brugeren ser altid alle kategorier i popup'en
-    kats.forEach(katId => {
-      if (!_enhedKatLag[katId]) return;
-      const kat  = EGNE_KATEGORIER.find(k => k.id === katId);
-      const ikon = kat?.ikon || "📍";
-
-      const leafletIcon = L.divIcon({
-        className: "",
-        html: `<div class="lev-marker-icon" style="background:#2471a3;font-size:14px;width:28px;height:28px;line-height:28px">${ikon}</div>`,
-        iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16]
-      });
-
-      const marker = L.marker([enhed.lat, enhed.lon], { icon: leafletIcon });
-      marker.bindPopup(popupHTML, { maxWidth: 300, className: "lev-leaflet-popup" });
-
-      marker.on("popupopen", function() {
-        const el = this.getPopup().getElement();
-        if (!el) return;
-        el.querySelectorAll(".lev-enhed-flyt-btn").forEach(btn => {
-          btn.addEventListener("click", () => _enhedFlytVognDialog(btn.dataset.enhedid));
-        });
-      });
-
-      _enhedKatLag[katId].addLayer(marker);
-    });
+      ${st.bemærkning ? `<div class="lev-popup-row"><em>${_esc(st.bemærkning)}</em></div>` : ""}
+      ${katGrupper ? `<hr class="lev-hr"><div class="lev-popup-section-hdr">Tilknyttede enheder</div>${katGrupper}` : ""}
+    </div>`, { maxWidth: 320, className: "lev-leaflet-popup" });
+    stationerLayer.addLayer(marker);
   });
+
+  // ── EGNE ENHEDER per kategori-lag ─────────────────────────────
+  EGNE_KATEGORIER.forEach(kat => {
+    if (!_enhedKatLag[kat.id]) return;
+
+    const enhederIKat = alleEnheder.filter(e => {
+      if (e.type === "station") return false;
+      const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+      return kats.includes(kat.id);
+    });
+
+    // Grupper på stationId
+    const medStation  = enhederIKat.filter(e => e.stationId);
+    const udenStation = enhederIKat.filter(e => !e.stationId);
+    const stGrupper   = new Map();
+    medStation.forEach(e => {
+      if (!stGrupper.has(e.stationId)) stGrupper.set(e.stationId, []);
+      stGrupper.get(e.stationId).push(e);
+    });
+
+    // Grupperet stationsmarkør
+    stGrupper.forEach((enheder, stId) => {
+      const st = alleEnheder.find(s => s.id === stId);
+      if (!st || st.lat == null || st.lon == null) {
+        enheder.forEach(e => _renderEnhedMarker(e, kat, maaFlytte)); return;
+      }
+      const harUAD  = enheder.some(e => _erUAD(e));
+      const alleUAD = enheder.every(e => _erUAD(e));
+      const bg      = alleUAD ? "#e74c3c" : harUAD ? "#e67e22" : "#2471a3";
+      const afstand = markerPos ? (map.distance(markerPos, L.latLng(st.lat, st.lon)) / 1000) : null;
+
+      const rækker = enheder.map(e => {
+        const uad = _erUAD(e);
+        const vognBtn = e.vognnummer && maaFlytte
+          ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(e.id)}" style="font-size:11px;padding:2px 5px;background:#e8f4fd;border:1px solid #2980b9;border-radius:4px;cursor:pointer;color:#2980b9;margin-left:4px">🔄</button>` : "";
+        const uadBtn = maaFlytte
+          ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}" style="font-size:11px;padding:2px 5px;background:${uad?"#fdecea":"#f0f8ee"};border:1px solid ${uad?"#e74c3c":"#27ae60"};border-radius:4px;cursor:pointer;color:${uad?"#e74c3c":"#27ae60"};margin-left:4px">${uad?"✅ Klar":"🔴 UAD"}</button>` : "";
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0">
+          <div><span style="font-size:13px;font-weight:${uad?"400":"600"};color:${uad?"#aaa":"inherit"}">${_esc(e.navn)}</span>
+          ${e.vognnummer ? `<span style="font-size:11px;color:#888;margin-left:4px">🚗${_esc(e.vognnummer)}</span>` : ""}
+          ${uad ? _uadBadge(e) : ""}</div>
+          <div style="display:flex;gap:2px">${vognBtn}${uadBtn}</div>
+        </div>`;
+      }).join("");
+
+      const stTlf = st.kontakt
+        ? `<div class="lev-popup-row">📞 <a href="tel:+45${_esc(st.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(st.kontakt)}</a></div>` : "";
+      const afstandTekst = afstand != null
+        ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${afstand.toFixed(1)} km fra søgt adresse</div>` : "";
+
+      const marker = L.marker([st.lat, st.lon], { icon: L.divIcon({
+        className: "",
+        html: `<div class="lev-marker-icon" style="background:${bg};font-size:14px;width:28px;height:28px;line-height:28px">${kat.ikon}</div>`,
+        iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
+      })});
+      marker.bindPopup(`<div class="lev-popup">
+        <div class="lev-popup-top" style="border-left:4px solid ${bg}">
+          <b>${_esc(st.navn)}</b><span class="lev-popup-sub">${kat.ikon} ${kat.navn}</span>
+        </div>
+        ${afstandTekst}
+        ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
+        ${stTlf}<hr class="lev-hr">${rækker}
+      </div>`, { maxWidth: 340, className: "lev-leaflet-popup" });
+      marker.on("popupopen", function() {
+        const el = this.getPopup().getElement(); if (!el) return;
+        el.querySelectorAll(".lev-enhed-flyt-btn").forEach(b => b.addEventListener("click", () => _enhedFlytVognDialog(b.dataset.enhedid)));
+        el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
+      });
+      _enhedKatLag[kat.id].addLayer(marker);
+    });
+
+    udenStation.forEach(e => _renderEnhedMarker(e, kat, maaFlytte));
+  });
+
+  // ── UAD-LAG ────────────────────────────────────────────────────
+  if (typeof uadLayer !== "undefined") {
+    alleEnheder.filter(e => e.type !== "station" && _erUAD(e) && e.lat != null && e.lon != null).forEach(e => {
+      const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+      const fKat = EGNE_KATEGORIER.find(k => kats.includes(k.id));
+      const stNavn = e.stationId ? (alleEnheder.find(s => s.id === e.stationId)?.navn || "") : "";
+      const uadBtn = maaFlytte
+        ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}" style="font-size:11px;padding:3px 8px;background:#fdecea;border:1px solid #e74c3c;border-radius:4px;cursor:pointer;color:#e74c3c;margin-top:6px">✅ Sæt klar igen</button>` : "";
+      const marker = L.marker([e.lat, e.lon], { icon: L.divIcon({
+        className: "",
+        html: `<div class="lev-marker-icon" style="background:#e74c3c;font-size:14px;width:28px;height:28px;line-height:28px">${fKat?.ikon||"📍"}</div>`,
+        iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
+      })});
+      marker.bindPopup(`<div class="lev-popup">
+        <div class="lev-popup-top" style="border-left:4px solid #e74c3c">
+          <b>${_esc(e.navn)}</b>${_uadBadge(e)}
+          <span class="lev-popup-sub">${fKat?.ikon||""} ${fKat?.navn||""}</span>
+        </div>
+        ${stNavn ? `<div class="lev-popup-row">🏠 ${_esc(stNavn)}</div>` : ""}
+        ${e.vognnummer ? `<div class="lev-popup-row">🚗 ${_esc(e.vognnummer)}</div>` : ""}
+        ${e.kontakt ? `<div class="lev-popup-row">📞 <a href="tel:+45${_esc(e.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(e.kontakt)}</a></div>` : ""}
+        ${uadBtn}
+      </div>`, { maxWidth: 280, className: "lev-leaflet-popup" });
+      marker.on("popupopen", function() {
+        const el = this.getPopup().getElement(); if (!el) return;
+        el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
+      });
+      uadLayer.addLayer(marker);
+    });
+  }
+}
+
+// Individuel enhedsmarkør (ingen stationstilknytning)
+function _renderEnhedMarker(enhed, kat, maaFlytte) {
+  if (enhed.lat == null || enhed.lon == null) return;
+  const uad  = _erUAD(enhed);
+  const bg   = uad ? "#e74c3c" : "#2471a3";
+  const kats = enhed.kategorier?.length ? enhed.kategorier : (enhed.kategori ? [enhed.kategori] : []);
+  const katTekst = kats.map(id => { const k = EGNE_KATEGORIER.find(k=>k.id===id); return k?`${k.ikon} ${k.navn}`:""; }).join(" · ");
+  const vognBtn = enhed.vognnummer && maaFlytte
+    ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(enhed.id)}" style="font-size:11px;padding:2px 6px;background:#e8f4fd;border:1px solid #2980b9;border-radius:4px;cursor:pointer;color:#2980b9;margin-left:6px">🔄 Flyt vogn</button>` : "";
+  const uadBtn = maaFlytte
+    ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(enhed.id)}" style="font-size:11px;padding:2px 6px;background:${uad?"#fdecea":"#f0f8ee"};border:1px solid ${uad?"#e74c3c":"#27ae60"};border-radius:4px;cursor:pointer;color:${uad?"#e74c3c":"#27ae60"};margin-left:6px">${uad?"✅ Sæt klar":"🔴 UAD"}</button>` : "";
+  const marker = L.marker([enhed.lat, enhed.lon], { icon: L.divIcon({
+    className: "",
+    html: `<div class="lev-marker-icon" style="background:${bg};font-size:14px;width:28px;height:28px;line-height:28px">${kat.ikon}</div>`,
+    iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
+  })});
+  marker.bindPopup(`<div class="lev-popup">
+    <div class="lev-popup-top" style="border-left:4px solid ${bg}">
+      <b>${_esc(enhed.navn)}</b>${uad?_uadBadge(enhed):""}
+      <span class="lev-popup-sub" style="font-size:11px">${katTekst}</span>
+    </div>
+    ${enhed.kontakt ? `<div class="lev-popup-row">📞 <a href="tel:+45${_esc(enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a></div>` : ""}
+    ${enhed.bemærkning ? `<div class="lev-popup-row"><em>${_esc(enhed.bemærkning)}</em></div>` : ""}
+    ${enhed.vognnummer ? `<hr class="lev-hr"><div class="lev-popup-row">🚗 Vogn: <strong>${_esc(enhed.vognnummer)}</strong>${vognBtn}</div>` : ""}
+    ${uadBtn ? `<div class="lev-popup-row" style="margin-top:4px">${uadBtn}</div>` : ""}
+  </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
+  marker.on("popupopen", function() {
+    const el = this.getPopup().getElement(); if (!el) return;
+    el.querySelectorAll(".lev-enhed-flyt-btn").forEach(b => b.addEventListener("click", () => _enhedFlytVognDialog(b.dataset.enhedid)));
+    el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
+  });
+  _enhedKatLag[kat.id].addLayer(marker);
 }
 
 // Flyt vogn dialog — bytter vognnummer mellem to enheder
@@ -1630,6 +1733,100 @@ async function _enhedFlytVognDialog(fraEnhedId) {
   } catch(e) {
     alert("Flyt fejlede: " + e.message);
   }
+}
+
+// UAD dialog
+async function _enhedUADDialog(enhedId) {
+  const enhed = _enhedData.find(e => e.id === enhedId);
+  if (!enhed) return;
+
+  // Allerede UAD → tilbyd at sætte klar
+  if (_erUAD(enhed)) {
+    if (!confirm(`Sæt "${enhed.navn}" klar igen?`)) return;
+    try {
+      const r = await _levSpFetch("/enheder", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...enhed, uad: null })
+      });
+      if (!r.ok) throw new Error("Gem fejlede");
+      await _enhedLoad(); _enhedRenderLag();
+      if (document.getElementById("enhedListeContainer")) _enhedShowListe();
+    } catch(e) { alert("Fejl: " + e.message); }
+    return;
+  }
+
+  // Byg lille UAD-dialog
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center";
+
+  const nu = new Date();
+  const pad = n => String(n).padStart(2,"0");
+  const lokalDato = `${nu.getFullYear()}-${pad(nu.getMonth()+1)}-${pad(nu.getDate())}`;
+  const lokalTid  = `${pad(nu.getHours())}:${pad(nu.getMinutes())}`;
+
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:24px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+      <h3 style="margin:0 0 16px;font-size:15px">🔴 Sæt UAD: ${_esc(enhed.navn)}</h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+          <input type="radio" name="uad-type" value="manuel" checked> Manuel — forbliver UAD indtil du sætter klar
+        </label>
+        <label style="display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+          <input type="radio" name="uad-type" value="tidsrum"> Tidsrum
+        </label>
+        <div id="uad-tidsrum-felter" style="display:none;padding-left:24px;flex-direction:column;gap:6px">
+          <label style="font-size:12px;font-weight:600;color:#5a6a7a">Fra
+            <input type="datetime-local" id="uad-fra" value="${lokalDato}T${lokalTid}"
+              style="width:100%;padding:6px;border:1px solid #cdd5df;border-radius:6px;font-size:12px;margin-top:2px">
+          </label>
+          <label style="font-size:12px;font-weight:600;color:#5a6a7a">Til
+            <input type="datetime-local" id="uad-til"
+              style="width:100%;padding:6px;border:1px solid #cdd5df;border-radius:6px;font-size:12px;margin-top:2px">
+          </label>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:20px">
+        <button id="uad-gem" style="flex:1;padding:10px;background:#e74c3c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🔴 Sæt UAD</button>
+        <button id="uad-annuller" style="flex:1;padding:10px;background:#f5f7fa;border:1px solid #cdd5df;border-radius:8px;font-size:13px;cursor:pointer">Annuller</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelectorAll("input[name='uad-type']").forEach(r => {
+    r.addEventListener("change", () => {
+      const vis = overlay.querySelector("input[name='uad-type']:checked").value === "tidsrum";
+      const felter = overlay.querySelector("#uad-tidsrum-felter");
+      felter.style.display = vis ? "flex" : "none";
+    });
+  });
+
+  overlay.querySelector("#uad-annuller").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector("#uad-gem").addEventListener("click", async () => {
+    const type = overlay.querySelector("input[name='uad-type']:checked").value;
+    let uad;
+    if (type === "manuel") {
+      uad = { type: "manuel" };
+    } else {
+      const fra = overlay.querySelector("#uad-fra").value;
+      const til = overlay.querySelector("#uad-til").value;
+      if (!fra || !til) { alert("Udfyld både fra og til."); return; }
+      if (new Date(til) <= new Date(fra)) { alert("Til-tidspunkt skal være efter fra-tidspunkt."); return; }
+      uad = { type: "tidsrum", fra, til };
+    }
+    try {
+      const r = await _levSpFetch("/enheder", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...enhed, uad })
+      });
+      if (!r.ok) throw new Error("Gem fejlede");
+      overlay.remove();
+      await _enhedLoad(); _enhedRenderLag();
+      if (document.getElementById("enhedListeContainer")) _enhedShowListe();
+    } catch(e) { alert("Fejl: " + e.message); }
+  });
 }
 
 
@@ -1803,6 +2000,54 @@ function _enhedShowListe() {
         </div>`;
     }
 
+    // ── UAD-sektion — altid nederst ─────────────────────────────
+    const uadEnheder = data.filter(e => {
+      if (e.type === "station") return false;
+      if (!_erUAD(e)) return false;
+      if (!q) return true;
+      return (e.navn || "").toLowerCase().includes(q) ||
+             (e.adresse || "").toLowerCase().includes(q);
+    });
+
+    if (uadEnheder.length > 0 || !q) {
+      const erAaben = _enhedAabne.has("__uad__") || q;
+      const pil     = erAaben ? "▾" : "▸";
+      html += `
+        <div class="enhed-kat-header" data-katid="__uad__"
+          style="display:flex;align-items:center;justify-content:space-between;
+                 padding:8px 12px;cursor:pointer;background:#fdecea;
+                 border-bottom:1px solid #e0e6ef;user-select:none;margin-top:4px">
+          <span style="font-weight:700;font-size:13px;color:#c0392b">🔴 Ude af drift</span>
+          <span style="display:flex;align-items:center;gap:6px">
+            ${uadEnheder.length > 0
+              ? `<span style="background:#e74c3c;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">${uadEnheder.length}</span>`
+              : `<span style="color:#bbb;font-size:11px">ingen</span>`}
+            <span style="font-size:11px;color:#888">${pil}</span>
+          </span>
+        </div>
+        <div class="enhed-kat-body" data-katid="__uad__"
+          style="display:${erAaben?"block":"none"};border-bottom:2px solid #e0e6ef">
+          ${uadEnheder.length
+            ? uadEnheder.map(e => {
+                const kats   = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+                const fKat   = EGNE_KATEGORIER.find(k => kats.includes(k.id));
+                const stNavn = e.stationId ? (data.find(s => s.id === e.stationId)?.navn || "") : "";
+                return `
+                  <div class="lev-list-row" style="padding-left:12px;border-left:3px solid #e74c3c">
+                    <div class="lev-list-info">
+                      <span class="lev-list-navn">${_esc(e.navn)} ${_uadBadge(e)}</span>
+                      <span class="lev-list-meta">${fKat?fKat.ikon+" "+fKat.navn:""}${stNavn?" · 🏠 "+_esc(stNavn):""}</span>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-shrink:0">
+                      <button class="lev-enhed-uad-btn lev-btn-secondary" data-id="${_esc(e.id)}" style="padding:4px 8px;font-size:12px;color:#27ae60">✅ Klar</button>
+                      <button class="lev-btn-secondary enhed-rediger-btn" data-id="${_esc(e.id)}" style="padding:4px 8px;font-size:12px">✏️</button>
+                    </div>
+                  </div>`;
+              }).join("")
+            : `<p class="lev-empty" style="margin:8px 12px;font-size:12px;color:#aaa">Ingen enheder ude af drift</p>`}
+        </div>`;
+    }
+
     document.getElementById("enhedListeContainer").innerHTML = html;
 
     // Accordion toggle
@@ -1827,6 +2072,11 @@ function _enhedShowListe() {
     });
     document.getElementById("enhedListeContainer").querySelectorAll(".enhed-slet-btn").forEach(btn => {
       btn.addEventListener("click", () => _enhedSlet(btn.dataset.id));
+    });
+
+    // UAD-knapper i accordion (både "🔴 UAD" og "✅ Klar"-knapper)
+    document.getElementById("enhedListeContainer").querySelectorAll(".lev-enhed-uad-btn").forEach(btn => {
+      btn.addEventListener("click", () => _enhedUADDialog(btn.dataset.id));
     });
   }
 
