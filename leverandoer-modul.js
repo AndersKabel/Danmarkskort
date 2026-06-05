@@ -18,15 +18,16 @@ const LEV_KATEGORIER = [
 
 // Egne enheder-kategorier (Falcks egne biler/reddere)
 const EGNE_KATEGORIER = [
-  { id: "tma_vogn",    navn: "TMA vogn",        ikon: "🚧" },
-  { id: "tavletrailer",navn: "Tavletrailer",     ikon: "🪧" },
-  { id: "dyr",         navn: "Dyreredning",      ikon: "🐾" },
-  { id: "drift_hjem",  navn: "Drift fra hjem",   ikon: "🏠" },
-  { id: "mors",        navn: "Mors biler",        ikon: "🚌" },
-  { id: "liggende",    navn: "Liggende",          ikon: "🛏️" },
-  { id: "forflytning", navn: "Forflytning",       ikon: "🚑" },
-  { id: "vejrenser",   navn: "Vejrenser",         ikon: "🧹" },
-  { id: "skytter",     navn: "Skytter",           ikon: "🎯" },
+  { id: "tma_vogn",    navn: "TMA vogn",              ikon: "🚧" },
+  { id: "tavletrailer",navn: "Tavletrailer",           ikon: "🪧" },
+  { id: "dyr_smaadyr", navn: "Dyreredning / smådyr",  ikon: "🐾" },
+  { id: "dyr_ko",      navn: "Dyreredning / ko",      ikon: "🐄" },
+  { id: "drift_hjem",  navn: "Drift fra hjem",        ikon: "🏠" },
+  { id: "mors",        navn: "Mors biler",             ikon: "🚌" },
+  { id: "liggende",    navn: "Liggende",               ikon: "🛏️" },
+  { id: "forflytning", navn: "Forflytning",            ikon: "🚑" },
+  { id: "vejrenser",   navn: "Vejrenser",              ikon: "🧹" },
+  { id: "skytter",     navn: "Skytter",                ikon: "🎯" },
 ];
 
 // ── LEAFLET LAG ──────────────────────────────────────────────────
@@ -1465,7 +1466,10 @@ function _enhedRenderLag() {
       // Find tilknyttede enheder
       const tilknyttede = (_enhedData || []).filter(x => x.stationId === enhed.id);
       const katGrupper  = EGNE_KATEGORIER.map(k => {
-        const i = tilknyttede.filter(x => (x.kategori || x.kategorier?.[0]) === k.id);
+        const i = tilknyttede.filter(x => {
+          const xKats = x.kategorier?.length ? x.kategorier : (x.kategori ? [x.kategori] : []);
+          return xKats.includes(k.id);
+        });
         if (!i.length) return "";
         return `<div style="margin-top:4px"><strong>${k.ikon} ${k.navn}:</strong> ${i.map(x =>
           `${_esc(x.navn)}${x.vognnummer ? " ("+_esc(x.vognnummer)+")" : ""}`).join(", ")}</div>`;
@@ -1495,16 +1499,19 @@ function _enhedRenderLag() {
     }
 
     // ── EGNE ENHEDER ──────────────────────────────────────────────
-    // Bagudkompatibilitet: kategori kan være enkelt felt eller array
-    const katId = enhed.kategori || enhed.kategorier?.[0] || "";
-    if (!katId) return;
+    // Bagudkompatibilitet: støt både kategorier[] og enkelt kategori
+    const kats = enhed.kategorier?.length ? enhed.kategorier
+      : (enhed.kategori ? [enhed.kategori] : []);
+    if (!kats.length) return;
 
-    const foersteKat = EGNE_KATEGORIER.find(k => k.id === katId);
+    const foersteKat = EGNE_KATEGORIER.find(k => k.id === kats[0]);
     const ikon       = foersteKat?.ikon || "📍";
+    const ekstra     = kats.length > 1
+      ? `<sup style="font-size:9px;line-height:1">+${kats.length - 1}</sup>` : "";
 
     const leafletIcon = L.divIcon({
       className: "",
-      html: `<div class="lev-marker-icon" style="background:#2471a3;font-size:14px;width:28px;height:28px;line-height:28px">${ikon}</div>`,
+      html: `<div class="lev-marker-icon" style="background:#2471a3;font-size:14px;width:28px;height:28px;line-height:28px">${ikon}${ekstra}</div>`,
       iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16]
     });
 
@@ -1516,6 +1523,11 @@ function _enhedRenderLag() {
     const tlfHTML = enhed.kontakt
       ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45' + enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a></div>`
       : "";
+
+    const katIkoner = kats.map(id => {
+      const k = EGNE_KATEGORIER.find(k => k.id === id);
+      return k ? `<span title="${k.navn}">${k.ikon} ${k.navn}</span>` : "";
+    }).join(" · ");
 
     // Station-tilknytning i popup
     const stationNavn = enhed.stationId
@@ -1535,7 +1547,7 @@ function _enhedRenderLag() {
     marker.bindPopup(`<div class="lev-popup">
       <div class="lev-popup-top" style="border-left:4px solid #2471a3">
         <b>${_esc(enhed.navn)}</b>
-        <span class="lev-popup-sub">${ikon} ${foersteKat?.navn || ""}</span>
+        <span class="lev-popup-sub" style="font-size:11px">${katIkoner}</span>
       </div>
       ${afstandTekst}
       ${stationNavn ? `<div class="lev-popup-row">🏠 ${_esc(stationNavn)}</div>` : ""}
@@ -1552,7 +1564,10 @@ function _enhedRenderLag() {
       });
     });
 
-    if (_enhedKatLag[katId]) _enhedKatLag[katId].addLayer(marker);
+    // Placér markøren på ALLE valgte kategoriers lag
+    kats.forEach(katId => {
+      if (_enhedKatLag[katId]) _enhedKatLag[katId].addLayer(marker);
+    });
   });
 }
 
@@ -1734,8 +1749,8 @@ function _enhedShowListe() {
                 // Grupper tilknyttede enheder per kategori
                 const katGrupper = EGNE_KATEGORIER.map(k => {
                   const enhederIKat = tilknyttede.filter(x => {
-                    const kat = x.kategori || x.kategorier?.[0] || "";
-                    return kat === k.id;
+                    const xKats = x.kategorier?.length ? x.kategorier : (x.kategori ? [x.kategori] : []);
+                    return xKats.includes(k.id);
                   });
                   if (!enhederIKat.length) return "";
                   return `
@@ -1851,8 +1866,8 @@ function _enhedShowForm(enhed, nyType) {
   const valgtStation  = enhed?.stationId || "";
 
   // Bagudkompatibilitet: kategori kan være array eller enkelt streng
-  const valgtKat = enhed?.kategorier?.length ? enhed.kategorier[0]
-    : (enhed?.kategori || "");
+  const valgteKat = enhed?.kategorier?.length ? enhed.kategorier
+    : (enhed?.kategori ? [enhed.kategori] : []);
 
   // ── STATIONSFORMULAR ──────────────────────────────────────────────
   if (erStation) {
@@ -1903,9 +1918,9 @@ function _enhedShowForm(enhed, nyType) {
 
   // ── ENHEDSFORMULAR ────────────────────────────────────────────────
   } else {
-    const katRadios = EGNE_KATEGORIER.map(k =>
+    const katCheckboxes = EGNE_KATEGORIER.map(k =>
       `<label style="display:flex;flex-direction:row;align-items:center;gap:6px;font-weight:400;cursor:pointer">
-        <input type="radio" name="ef-kat" value="${k.id}" ${valgtKat === k.id ? "checked" : ""}>
+        <input type="checkbox" name="ef-kat" value="${k.id}" ${valgteKat.includes(k.id) ? "checked" : ""}>
         ${k.ikon} ${k.navn}
       </label>`
     ).join("");
@@ -1932,9 +1947,9 @@ function _enhedShowForm(enhed, nyType) {
             <input id="ef-vognr" type="text" value="${_esc(enhed?.vognnummer || "")}"
               placeholder="fx 8694">
           </label>
-          <div class="lev-form-label">Kategori</div>
+          <div class="lev-form-label">Kategorier</div>
           <div style="display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
-            ${katRadios}
+            ${katCheckboxes}
           </div>
         </fieldset>
 
@@ -2097,11 +2112,12 @@ async function _enhedGem(existingId) {
   let vognnummer = "";
   let stationId  = "";
   if (type === "enhed") {
-    const katEl = document.querySelector('input[name="ef-kat"]:checked');
-    kategori    = katEl?.value || "";
+    const katEls    = Array.from(document.querySelectorAll('input[name="ef-kat"]:checked'));
+    kategori        = katEls[0]?.value || "";
+    const kategorier = katEls.map(el => el.value);
     vognnummer  = document.getElementById("ef-vognr")?.value.trim() || "";
     stationId   = document.getElementById("ef-station")?.value || "";
-    if (!kategori) { status.style.color = "#c0392b"; status.textContent = "Vælg en kategori."; return; }
+    if (!kategorier.length) { status.style.color = "#c0392b"; status.textContent = "Vælg mindst én kategori."; return; }
   }
 
   // Duplikat-advarsel
@@ -2119,7 +2135,7 @@ async function _enhedGem(existingId) {
 
   const payload = type === "station"
     ? { id: existingId, type, navn, adresse, lat, lon, kontakt, bemærkning: bemærk }
-    : { id: existingId, type, navn, kategori, vognnummer, stationId: stationId || null,
+    : { id: existingId, type, navn, kategorier, kategori, vognnummer, stationId: stationId || null,
         adresse, lat, lon, kontakt, bemærkning: bemærk };
 
   try {
