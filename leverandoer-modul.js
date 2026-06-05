@@ -49,6 +49,7 @@ let _levTilgInterval  = null;
 
 let _enhedData   = [];
 let _enhedLoaded = false;
+let _enhedAabne  = new Set(); // Husker hvilke kategorisektioner der er foldet ud (tom = alle lukket)
 
 let _levLayerCtrl  = null; // Reference til Leaflet layer control (bruges til at afmarker checkboxes)
 let _levAktivRolle = null; // Aktiv session-rolle: "admin" | "drift" | "read" | null
@@ -1600,9 +1601,6 @@ function _enhedShowListe() {
   document.getElementById("levPanelTitle").textContent = "📍 Egne enheder";
   const body = document.getElementById("levPanelBody");
 
-  // Åbne sektioner (husker tilstand ved søgning)
-  const _aabne = new Set(EGNE_KATEGORIER.map(k => k.id)); // alle åbne som standard
-
   // Byg én enhed-række
   function _enhedRaekke(e) {
     return `
@@ -1634,7 +1632,7 @@ function _enhedShowListe() {
           || (e.adresse || "").toLowerCase().includes(q);
       });
 
-      const erAaben = _aabne.has(kat.id) || q; // søgning åbner altid
+      const erAaben = _enhedAabne.has(kat.id) || q; // søgning åbner altid
       const antal   = enhederIKat.length;
       const pil     = erAaben ? "▾" : "▸";
 
@@ -1672,7 +1670,7 @@ function _enhedShowListe() {
     });
 
     if (stationer.length > 0 || !q) {
-      const erAaben  = _aabne.has("__stationer__") || q;
+      const erAaben  = _enhedAabne.has("__stationer__") || q;
       const pil      = erAaben ? "▾" : "▸";
       html += `
         <div class="enhed-kat-header" data-katid="__stationer__"
@@ -1717,7 +1715,7 @@ function _enhedShowListe() {
         const aaben = body.style.display !== "none";
         body.style.display = aaben ? "none" : "block";
         if (pil) pil.textContent = aaben ? "▸" : "▾";
-        if (aaben) _aabne.delete(kid); else _aabne.add(kid);
+        if (aaben) _enhedAabne.delete(kid); else _enhedAabne.add(kid);
       });
     });
 
@@ -1736,6 +1734,7 @@ function _enhedShowListe() {
   body.innerHTML = `
     <div class="lev-list-toolbar" style="flex-wrap:wrap;gap:6px">
       <button id="enhedNyBtn" class="lev-btn-primary">+ Ny enhed</button>
+      <button id="enhedNyStationBtn" class="lev-btn-secondary">+ Ny station</button>
       <button id="enhedRefreshBtn" class="lev-btn-secondary">↻ Opdater</button>
       <input id="enhedSoeg" type="search" placeholder="Søg navn, adresse, vogn…"
         style="flex:1;min-width:80px;padding:8px;font-size:13px;border:1px solid #ccc;border-radius:7px">
@@ -1747,7 +1746,8 @@ function _enhedShowListe() {
   document.getElementById("enhedSoeg").addEventListener("input", function() {
     _enhedRenderAccordion(this.value);
   });
-  document.getElementById("enhedNyBtn").addEventListener("click", () => _enhedShowForm(null));
+  document.getElementById("enhedNyBtn").addEventListener("click", () => _enhedShowForm(null, "enhed"));
+  document.getElementById("enhedNyStationBtn").addEventListener("click", () => _enhedShowForm(null, "station"));
   document.getElementById("enhedRefreshBtn").addEventListener("click", async function() {
     const btn = this;
     btn.disabled = true;
@@ -1759,8 +1759,13 @@ function _enhedShowListe() {
   });
 }
 
-function _enhedShowForm(enhed) {
-  document.getElementById("levPanelTitle").textContent = enhed ? "✏️ Rediger station" : "➕ Ny station";
+function _enhedShowForm(enhed, nyType) {
+  // Ved redigering: bevar eksisterende type. Ved ny: brug nyType ("enhed" eller "station")
+  const erStation = enhed ? (enhed.type === "station") : (nyType === "station");
+  const titel = enhed
+    ? (erStation ? "✏️ Rediger station" : "✏️ Rediger enhed")
+    : (erStation ? "➕ Ny station"      : "➕ Ny enhed");
+  document.getElementById("levPanelTitle").textContent = titel;
   const body = document.getElementById("levPanelBody");
   const valgteKat = enhed?.kategorier?.length ? enhed.kategorier
     : (enhed?.kategori ? [enhed.kategori] : []);
@@ -1774,12 +1779,13 @@ function _enhedShowForm(enhed) {
   body.innerHTML = `
     <div class="lev-form">
       <button class="lev-tilbage-btn" id="efTilbage" style="margin-bottom:12px">← Tilbage til liste</button>
+      <input type="hidden" id="ef-type" value="${erStation ? 'station' : 'enhed'}">
 
       <fieldset class="lev-fs">
         <legend>📋 Basisoplysninger</legend>
-        <label>Stationsnavn
+        <label>${erStation ? "Stationsnavn" : "Navn"}
           <input id="ef-navn" type="text" value="${_esc(enhed?.navn || "")}"
-            placeholder="fx 423 Falck Fredericia">
+            placeholder="${erStation ? "fx 423 Falck Fredericia" : "fx 8694 TMA Holbæk"}">
         </label>
         <div class="lev-form-label">Kategorier / kompetencer</div>
         <div style="display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
@@ -1917,7 +1923,7 @@ async function _enhedGem(existingId) {
   const bemærk     = document.getElementById("ef-bemaerk").value.trim();
   const status     = document.getElementById("ef-status");
 
-  if (!navn) { status.style.color = "#c0392b"; status.textContent = "Stationsnavn er påkrævet."; return; }
+  if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
   if (!kategorier.length) { status.style.color = "#c0392b"; status.textContent = "Vælg mindst én kategori."; return; }
 
   const vogne = Array.from(document.querySelectorAll("#ef-vogne .lev-vogn-row")).map(row => ({
@@ -1947,7 +1953,7 @@ async function _enhedGem(existingId) {
     const resp = await _levSpFetch("/enheder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: existingId, type: "station", navn, kategorier, lat, lon, adresse, kontakt, bemærkning: bemærk, vogne })
+      body: JSON.stringify({ id: existingId, type: document.getElementById("ef-type")?.value || "enhed", navn, kategorier, lat, lon, adresse, kontakt, bemærkning: bemærk, vogne })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
