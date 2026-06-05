@@ -82,6 +82,7 @@ let _levTilgInterval  = null;
 
 let _enhedData   = [];
 let _enhedLoaded = false;
+let _depotData   = []; // Leverandørdepoter som virtuelle stationer
 let _enhedAabne  = new Set(); // Husker hvilke kategorisektioner der er foldet ud (tom = alle lukket)
 
 let _levLayerCtrl  = null; // Reference til Leaflet layer control (bruges til at afmarker checkboxes)
@@ -1458,18 +1459,38 @@ function _esc(s) {
 // EGNE ENHEDER
 // ════════════════════════════════════════════════════════════════
 
+// Slår stationsnavn op i både DK_Enheder-stationer og leverandørdepoter
+function _findStationNavn(stationId) {
+  if (!stationId) return "";
+  const st = (_enhedData || []).find(s => s.id === stationId && s.type === "station");
+  if (st) return st.navn;
+  const dep = (_depotData || []).find(d => d.id === stationId);
+  if (dep) return dep.navn + (dep.levId ? ` (depot)` : "");
+  return "";
+}
+
+// Slår station/depot op og returnerer { navn, adresse, lat, lon }
+function _findStationData(stationId) {
+  if (!stationId) return null;
+  const st = (_enhedData || []).find(s => s.id === stationId && s.type === "station");
+  if (st) return { navn: st.navn, adresse: st.adresse, lat: st.lat, lon: st.lon };
+  const dep = (_depotData || []).find(d => d.id === stationId);
+  if (dep) return { navn: dep.navn, adresse: dep.adresse, lat: dep.lat, lon: dep.lon };
+  return null;
+}
+
 async function _enhedLoad() {
   try {
     const resp = await fetch(LEV_SP_WORKER + "/enheder", { credentials: "include" });
     if (resp.status === 401) {
-      // Session udløbet — nulstil så næste lag-aktivering trigger login igen
       _enhedLoaded = false;
       console.warn("Egne enheder: session udløbet");
       return;
     }
     if (!resp.ok) { console.warn("Egne enheder fejlede:", resp.status); return; }
-    const data = await resp.json();
+    const data   = await resp.json();
     _enhedData   = data.enheder || [];
+    _depotData   = data.depoter || [];
     _enhedLoaded = true;
     _enhedRenderLag();
   } catch (e) {
@@ -1612,7 +1633,7 @@ function _enhedRenderLag() {
     alleEnheder.filter(e => e.type !== "station" && _erUAD(e) && e.lat != null && e.lon != null).forEach(e => {
       const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
       const fKat = EGNE_KATEGORIER.find(k => kats.includes(k.id));
-      const stNavn = e.stationId ? (alleEnheder.find(s => s.id === e.stationId)?.navn || "") : "";
+      const stNavn = _findStationNavn(e.stationId);
       const uadBtn = maaFlytte
         ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}" style="font-size:11px;padding:3px 8px;background:#fdecea;border:1px solid #e74c3c;border-radius:4px;cursor:pointer;color:#e74c3c;margin-top:6px">✅ Sæt klar igen</button>` : "";
       const marker = L.marker([e.lat, e.lon], { icon: L.divIcon({
@@ -2031,7 +2052,7 @@ function _enhedShowListe() {
             ? uadEnheder.map(e => {
                 const kats   = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
                 const fKat   = EGNE_KATEGORIER.find(k => kats.includes(k.id));
-                const stNavn = e.stationId ? (data.find(s => s.id === e.stationId)?.navn || "") : "";
+                const stNavn = _findStationNavn(e.stationId);
                 return `
                   <div class="lev-list-row" style="padding-left:12px;border-left:3px solid #e74c3c">
                     <div class="lev-list-info">
@@ -2117,8 +2138,9 @@ function _enhedShowForm(enhed, nyType) {
   document.getElementById("levPanelTitle").textContent = titel;
   const body = document.getElementById("levPanelBody");
 
-  // Stationer til dropdown (til enhedsformularen)
+  // Stationer og depoter til dropdown (til enhedsformularen)
   const alleStationer = (_enhedData || []).filter(e => e.type === "station");
+  const alleDepoter   = (_depotData || []);
   const valgtStation  = enhed?.stationId || "";
 
   // Bagudkompatibilitet: kategori kan være array eller enkelt streng
@@ -2181,12 +2203,19 @@ function _enhedShowForm(enhed, nyType) {
       </label>`
     ).join("");
 
-    const stationOptions = alleStationer.length
-      ? `<option value="">— Ingen station —</option>` +
-        alleStationer.map(s =>
-          `<option value="${_esc(s.id)}" ${valgtStation === s.id ? "selected" : ""}>${_esc(s.navn)}</option>`
-        ).join("")
-      : `<option value="">— Ingen stationer oprettet endnu —</option>`;
+    const stationOptions = [
+      `<option value="">— Ingen station —</option>`,
+      ...(alleStationer.length ? [`<optgroup label="🏠 Falck stationer">`] : []),
+      ...alleStationer.map(s =>
+        `<option value="${_esc(s.id)}" ${valgtStation === s.id ? "selected" : ""}>🏠 ${_esc(s.navn)}</option>`
+      ),
+      ...(alleStationer.length ? [`</optgroup>`] : []),
+      ...(alleDepoter.length ? [`<optgroup label="📦 Leverandørdepoter">`] : []),
+      ...alleDepoter.map(d =>
+        `<option value="${_esc(d.id)}" ${valgtStation === d.id ? "selected" : ""}>📦 ${_esc(d.navn)}${d.adresse ? " — " + _esc(d.adresse) : ""}</option>`
+      ),
+      ...(alleDepoter.length ? [`</optgroup>`] : []),
+    ].join("");
 
     body.innerHTML = `
       <div class="lev-form">
@@ -2253,22 +2282,22 @@ function _enhedShowForm(enhed, nyType) {
         <div id="ef-status" style="font-size:12px;color:#27ae60;min-height:18px;padding:4px 0"></div>
       </div>`;
 
-    // Station-dropdown: arv adresse automatisk når station vælges
+    // Station-dropdown: arv adresse automatisk når station/depot vælges
     document.getElementById("ef-station").addEventListener("change", function() {
-      const sid = this.value;
+      const sid  = this.value;
       const hint = document.getElementById("ef-station-hint");
       if (sid) {
-        const st = alleStationer.find(s => s.id === sid);
-        if (st && st.adresse) {
-          document.getElementById("ef-adr-sok").value = st.adresse;
-          document.getElementById("ef-lat").value     = st.lat ?? "";
-          document.getElementById("ef-lon").value     = st.lon ?? "";
-          document.getElementById("ef-lat-vis").value = st.lat != null ? parseFloat(st.lat).toFixed(6) : "";
-          document.getElementById("ef-lon-vis").value = st.lon != null ? parseFloat(st.lon).toFixed(6) : "";
-          hint.textContent = "Adresse arvet fra station — kan overskrives nedenfor";
+        const stData = _findStationData(sid);
+        if (stData?.adresse) {
+          document.getElementById("ef-adr-sok").value  = stData.adresse;
+          document.getElementById("ef-lat").value      = stData.lat ?? "";
+          document.getElementById("ef-lon").value      = stData.lon ?? "";
+          document.getElementById("ef-lat-vis").value  = stData.lat != null ? parseFloat(stData.lat).toFixed(6) : "";
+          document.getElementById("ef-lon-vis").value  = stData.lon != null ? parseFloat(stData.lon).toFixed(6) : "";
+          hint.textContent = "Adresse arvet — kan overskrives nedenfor";
         }
       } else {
-        hint.textContent = "Vælg en station for at arve dens adresse automatisk";
+        hint.textContent = "Vælg en station eller depot for at arve adressen automatisk";
       }
     });
   }
