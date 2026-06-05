@@ -1504,19 +1504,6 @@ function _enhedRenderLag() {
       : (enhed.kategori ? [enhed.kategori] : []);
     if (!kats.length) return;
 
-    const foersteKat = EGNE_KATEGORIER.find(k => k.id === kats[0]);
-    const ikon       = foersteKat?.ikon || "📍";
-    const ekstra     = kats.length > 1
-      ? `<sup style="font-size:9px;line-height:1">+${kats.length - 1}</sup>` : "";
-
-    const leafletIcon = L.divIcon({
-      className: "",
-      html: `<div class="lev-marker-icon" style="background:#2471a3;font-size:14px;width:28px;height:28px;line-height:28px">${ikon}${ekstra}</div>`,
-      iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16]
-    });
-
-    const marker = L.marker([enhed.lat, enhed.lon], { icon: leafletIcon });
-
     const afstandTekst = enhed._afstand != null
       ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${enhed._afstand.toFixed(1)} km fra søgt adresse</div>` : "";
 
@@ -1529,14 +1516,12 @@ function _enhedRenderLag() {
       return k ? `<span title="${k.navn}">${k.ikon} ${k.navn}</span>` : "";
     }).join(" · ");
 
-    // Station-tilknytning i popup
     const stationNavn = enhed.stationId
       ? (_enhedData || []).find(s => s.id === enhed.stationId)?.navn || ""
       : "";
 
-    // Flyt vognnummer — vis kun for drift/admin
-    const maaFlytte   = _levAktivRolle === "admin" || _levAktivRolle === "drift";
-    const vognHTML    = enhed.vognnummer ? `
+    const maaFlytte = _levAktivRolle === "admin" || _levAktivRolle === "drift";
+    const vognHTML  = enhed.vognnummer ? `
       <hr class="lev-hr">
       <div class="lev-popup-row">🚗 Vogn: <strong>${_esc(enhed.vognnummer)}</strong>
         ${maaFlytte ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(enhed.id)}"
@@ -1544,7 +1529,7 @@ function _enhedRenderLag() {
                  border-radius:4px;cursor:pointer;color:#2980b9;margin-left:6px">🔄 Flyt vogn</button>` : ""}
       </div>` : "";
 
-    marker.bindPopup(`<div class="lev-popup">
+    const popupHTML = `<div class="lev-popup">
       <div class="lev-popup-top" style="border-left:4px solid #2471a3">
         <b>${_esc(enhed.navn)}</b>
         <span class="lev-popup-sub" style="font-size:11px">${katIkoner}</span>
@@ -1554,19 +1539,33 @@ function _enhedRenderLag() {
       ${tlfHTML}
       ${enhed.bemærkning ? `<div class="lev-popup-row"><em>${_esc(enhed.bemærkning)}</em></div>` : ""}
       ${vognHTML}
-    </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
+    </div>`;
 
-    marker.on("popupopen", function() {
-      const el = this.getPopup().getElement();
-      if (!el) return;
-      el.querySelectorAll(".lev-enhed-flyt-btn").forEach(btn => {
-        btn.addEventListener("click", () => _enhedFlytVognDialog(btn.dataset.enhedid));
-      });
-    });
-
-    // Placér markøren på ALLE valgte kategoriers lag
+    // Én markør per kategori med kategoriens eget ikon
+    // Samme popup-indhold på alle — brugeren ser altid alle kategorier i popup'en
     kats.forEach(katId => {
-      if (_enhedKatLag[katId]) _enhedKatLag[katId].addLayer(marker);
+      if (!_enhedKatLag[katId]) return;
+      const kat  = EGNE_KATEGORIER.find(k => k.id === katId);
+      const ikon = kat?.ikon || "📍";
+
+      const leafletIcon = L.divIcon({
+        className: "",
+        html: `<div class="lev-marker-icon" style="background:#2471a3;font-size:14px;width:28px;height:28px;line-height:28px">${ikon}</div>`,
+        iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16]
+      });
+
+      const marker = L.marker([enhed.lat, enhed.lon], { icon: leafletIcon });
+      marker.bindPopup(popupHTML, { maxWidth: 300, className: "lev-leaflet-popup" });
+
+      marker.on("popupopen", function() {
+        const el = this.getPopup().getElement();
+        if (!el) return;
+        el.querySelectorAll(".lev-enhed-flyt-btn").forEach(btn => {
+          btn.addEventListener("click", () => _enhedFlytVognDialog(btn.dataset.enhedid));
+        });
+      });
+
+      _enhedKatLag[katId].addLayer(marker);
     });
   });
 }
