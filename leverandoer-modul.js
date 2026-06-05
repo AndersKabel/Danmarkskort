@@ -1607,7 +1607,7 @@ function _enhedShowListe() {
   const body = document.getElementById("levPanelBody");
 
   // Åbne sektioner (husker tilstand ved søgning)
-  const _aabne = new Set(EGNE_KATEGORIER.map(k => k.id)); // alle åbne som standard
+  const _aabne = new Set(); // alle lukket som standard — brugeren folder ud efter behov
 
   // Byg én enhed-række
   function _enhedRaekke(e) {
