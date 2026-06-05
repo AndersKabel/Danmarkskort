@@ -225,7 +225,8 @@
 }
 .lev-row-header { flex-wrap: nowrap; }
 .lev-row-color { margin-top: 10px; align-items: center; }
-.lev-check-label {
+.lev-check-label,
+.lev-kat-check-label {
   flex-direction: row !important; align-items: center !important;
   gap: 6px; cursor: pointer; font-size: 13px;
   margin-top: 0 !important;
