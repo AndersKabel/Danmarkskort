@@ -1575,11 +1575,18 @@ async function _enhedFlytVognDialog(fraEnhedId) {
   const fraEnhed = _enhedData.find(e => e.id === fraEnhedId);
   if (!fraEnhed || !fraEnhed.vognnummer) { alert("Ingen vogn at flytte."); return; }
 
-  // Kun enheder med vognnummer som mulige destinationer
-  const destinationer = _enhedData.filter(e =>
-    e.id !== fraEnhedId && e.type !== "station"
-  );
-  if (!destinationer.length) { alert("Ingen andre enheder at flytte til."); return; }
+  // Kildens kategorier (bagudkompatibilitet)
+  const fraKats = fraEnhed.kategorier?.length ? fraEnhed.kategorier
+    : (fraEnhed.kategori ? [fraEnhed.kategori] : []);
+
+  // Destinationer: kun enheder der deler mindst én kategori med kilden
+  const destinationer = _enhedData.filter(e => {
+    if (e.id === fraEnhedId || e.type === "station") return false;
+    const eKats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+    return fraKats.some(k => eKats.includes(k));
+  });
+
+  if (!destinationer.length) { alert("Ingen andre enheder med samme kategori at flytte til."); return; }
 
   const valg = destinationer.map((e, i) =>
     `${i}: ${e.navn}${e.vognnummer ? " (vogn " + e.vognnummer + ")" : " (ingen vogn)"}`
