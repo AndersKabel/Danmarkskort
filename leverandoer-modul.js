@@ -2108,15 +2108,16 @@ async function _enhedGem(existingId) {
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
 
   // Enhedsspecifikke felter
-  let kategori  = "";
+  let kategori   = "";
+  let kategorier = [];
   let vognnummer = "";
   let stationId  = "";
   if (type === "enhed") {
-    const katEls    = Array.from(document.querySelectorAll('input[name="ef-kat"]:checked'));
-    kategori        = katEls[0]?.value || "";
-    const kategorier = katEls.map(el => el.value);
-    vognnummer  = document.getElementById("ef-vognr")?.value.trim() || "";
-    stationId   = document.getElementById("ef-station")?.value || "";
+    const katEls = Array.from(document.querySelectorAll('input[name="ef-kat"]:checked'));
+    kategorier   = katEls.map(el => el.value);
+    kategori     = kategorier[0] || "";
+    vognnummer   = document.getElementById("ef-vognr")?.value.trim() || "";
+    stationId    = document.getElementById("ef-station")?.value || "";
     if (!kategorier.length) { status.style.color = "#c0392b"; status.textContent = "Vælg mindst én kategori."; return; }
   }
 
