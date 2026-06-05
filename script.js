@@ -3359,20 +3359,35 @@ async function checkForStatsvej(lat, lon) {
     });
 
     const [utmX, utmY] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-    const buffer = 120; // 120m buffer -- nødvendig for at ramme CVF-geometri på brede motorveje.
-    // Sortering på averageDistanceToRoad (nedenfor) sikrer at vi altid vælger den nærmeste feature.
-    const bbox = `${utmX - buffer},${utmY - buffer},${utmX + buffer},${utmY + buffer}`;
 
-    const url =
-      'https://geocloud.vd.dk/CVF/wms?' +
-      'SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&' +
-      'INFO_FORMAT=application/json&FEATURE_COUNT=200&' +
-      'TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&' +
-      'SRS=EPSG:25832&WIDTH=101&HEIGHT=101&' +
-      `BBOX=${bbox}&X=50&Y=50`;
+    // Eskalerende buffer: start med lille buffer som VD (~20m) for høj pixel-præcision.
+    // Hvis ingen features returneres, prøv større buffer (60m, 120m).
+    // Lille buffer = WMS pixel-nærhed er præcis -> rigtig forgrening på motorveje.
+    // Stor buffer = nødvendig for veje med stor CVF-offset (fx Storstrømsbroen).
+    const cvfUrl = buf => {
+      const bbox = `${utmX - buf},${utmY - buf},${utmX + buf},${utmY + buf}`;
+      return 'https://geocloud.vd.dk/CVF/wms?' +
+        'SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&' +
+        'INFO_FORMAT=application/json&FEATURE_COUNT=200&' +
+        'TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&' +
+        'SRS=EPSG:25832&WIDTH=101&HEIGHT=101&' +
+        `BBOX=${bbox}&X=50&Y=50`;
+    };
 
-    const response = await fetch(url, { signal });
-    const textData = await response.text();
+    let textData = '';
+    for (const buf of [20, 60, 120]) {
+      if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+      const response = await fetch(cvfUrl(buf), { signal });
+      textData = await response.text();
+      // Stop ved første buffer der giver features
+      try {
+        const probe = JSON.parse(textData);
+        if (probe.features?.length > 0) break;
+      } catch(e) {
+        if (textData.startsWith('Results')) break; // gammelt tekstformat
+      }
+      textData = ''; // nulstil så næste buffer forsøges
+    }
 
     if (!textData || !textData.trim()) return {};
 
