@@ -1781,13 +1781,13 @@ function _enhedShowListe() {
                     <div class="enhed-kat-header" data-katid="__st__${_esc(st.id)}"
                       style="display:flex;align-items:center;justify-content:space-between;
                              padding:8px 12px;cursor:pointer;background:#f8fafc;user-select:none">
-                      <span style="font-size:13px;font-weight:700">🏠 ${_esc(st.navn)}</span>
-                      <span style="display:flex;align-items:center;gap:6px">
-                        ${st.adresse ? `<span style="font-size:11px;color:#8a9aaa">${_esc(st.adresse)}</span>` : ""}
-                        <div style="display:flex;gap:4px">
-                          <button class="lev-btn-secondary enhed-rediger-btn" data-id="${_esc(st.id)}" style="padding:3px 7px;font-size:11px">✏️</button>
-                          <button class="lev-btn-secondary enhed-slet-btn"   data-id="${_esc(st.id)}" style="padding:3px 7px;font-size:11px;color:#c0392b">🗑️</button>
-                        </div>
+                      <div class="lev-list-info" style="flex:1;min-width:0">
+                        <span class="lev-list-navn">🏠 ${_esc(st.navn)}</span>
+                        ${st.adresse ? `<span class="lev-list-meta">${_esc(st.adresse)}</span>` : ""}
+                      </div>
+                      <span style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+                        <button class="lev-btn-secondary enhed-rediger-btn" data-id="${_esc(st.id)}" style="padding:3px 7px;font-size:11px">✏️</button>
+                        <button class="lev-btn-secondary enhed-slet-btn"   data-id="${_esc(st.id)}" style="padding:3px 7px;font-size:11px;color:#c0392b">🗑️</button>
                         <span style="font-size:11px;color:#888">${stPil}</span>
                       </span>
                     </div>
