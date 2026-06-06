@@ -1827,20 +1827,21 @@ function _enhedRenderLag() {
   }
 }
 
-// Flyt vogn dialog
-async function _enhedFlytVognDialog(vognId, fraStationId) {
-  const fraStation = _enhedData.find(e => e.id === fraStationId);
-  const vogn       = fraStation?.vogne?.find(v => v.id === vognId);
-  if (!fraStation || !vogn) { alert("Vogn ikke fundet."); return; }
+// Flyt vogn (skift station) dialog
+async function _enhedFlytVognDialog(enhedId) {
+  const enhed = (_enhedData || []).find(e => e.id === enhedId);
+  if (!enhed) { alert("Enhed ikke fundet."); return; }
 
-  // Byg liste af mulige destinationer (kun stationer der selv har vogne, undtagen kilden)
-  const destinationer = _enhedData.filter(e => e.id !== fraStationId && (e.vogne || []).length > 0);
+  const fraStation = enhed.stationId ? (_enhedData || []).find(s => s.id === enhed.stationId) : null;
+
+  // Destinationer: alle stationer undtagen nuværende
+  const destinationer = (_enhedData || []).filter(e => e.type === "station" && e.id !== enhed.stationId);
   if (!destinationer.length) { alert("Ingen andre stationer at flytte til."); return; }
 
-  // Byg simpel select-dialog
-  const valg = destinationer.map((e, i) => `${i}: ${e.navn}`).join("\n");
+  const fraLabel = fraStation ? fraStation.navn : "(ingen station)";
+  const valg = destinationer.map((s, i) => `${i}: ${s.navn}`).join("\n");
   const input = prompt(
-    `Flyt vogn ${vogn.nummer} (${vogn.beskrivelse || ""}) fra:\n${fraStation.navn}\n\nTil station (indtast nummer):\n${valg}`
+    `Flyt ${enhed.navn} fra:\n${fraLabel}\n\nTil station (indtast nummer):\n${valg}`
   );
   if (input === null || input.trim() === "") return;
 
@@ -1851,32 +1852,18 @@ async function _enhedFlytVognDialog(vognId, fraStationId) {
 
   const tilStation = destinationer[idx];
 
-  // Advarsel hvis kildestation tømmes
-  if ((fraStation.vogne || []).length === 1) {
-    if (!confirm(`⚠️ ${fraStation.navn} vil ikke have nogen vogne tilbage.\n\nEr du sikker?`)) return;
-  }
-
-  // Udfør flyt: fjern fra kilde, tilføj til destination
-  const fraVogne = (fraStation.vogne || []).filter(v => v.id !== vognId);
-  const tilVogne = [...(tilStation.vogne || []), vogn];
-
+  // Sæt enhedens stationId til den nye station og gem
+  const opdateret = { ...enhed, stationId: tilStation.id };
   try {
-    const r1 = await _levSpFetch("/enheder", {
+    const r = await _levSpFetch("/enheder", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...fraStation, vogne: fraVogne })
+      body: JSON.stringify(opdateret)
     });
-    if (!r1.ok) throw new Error("Gem kildestation fejlede");
-
-    const r2 = await _levSpFetch("/enheder", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...tilStation, vogne: tilVogne })
-    });
-    if (!r2.ok) throw new Error("Gem destinationsstation fejlede");
-
+    if (!r.ok) throw new Error("Gem fejlede");
     await _enhedLoad();
-    alert(`✅ Vogn ${vogn.nummer} flyttet til ${tilStation.navn}`);
-  } catch(e) {
-    alert("Flyt fejlede: " + e.message);
+    alert(`✅ ${enhed.navn} flyttet til ${tilStation.navn}`);
+  } catch(err) {
+    alert("Flyt fejlede: " + err.message);
   }
 }
 
