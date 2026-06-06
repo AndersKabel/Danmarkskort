@@ -1476,101 +1476,355 @@ async function _enhedLoad() {
   }
 }
 
-function _enhedRenderLag() {
-  EGNE_KATEGORIER.forEach(k => _enhedKatLag[k.id].clearLayers());
+// ── UAD HJÆLPEFUNKTIONER ─────────────────────────────────────────
+function _erUAD(e) {
+  if (!e?.uad) return false;
+  if (e.uad.type === "manuel") return true;
+  if (e.uad.type === "tidsrum") {
+    const nu = Date.now();
+    return new Date(e.uad.fra).getTime() <= nu && nu <= new Date(e.uad.til).getTime();
+  }
+  return false;
+}
 
-  const markerPos = (typeof currentMarker !== "undefined" && currentMarker && currentMarker.getLatLng)
-    ? currentMarker.getLatLng() : null;
+function _uadBadge(e) {
+  if (!e?.uad) return "";
+  if (e.uad.type === "manuel")
+    return `<span style="background:#e74c3c;color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px">UAD</span>`;
+  if (e.uad.type === "tidsrum") {
+    const til = new Date(e.uad.til);
+    const hh  = String(til.getHours()).padStart(2,"0");
+    const mm  = String(til.getMinutes()).padStart(2,"0");
+    const dd  = til.toLocaleDateString("da-DK", {day:"numeric",month:"short"});
+    return `<span style="background:#e67e22;color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px">UAD til ${dd} ${hh}:${mm}</span>`;
+  }
+  return "";
+}
 
-  let data = (_enhedData || []).map(enhed => {
-    const afstand = (markerPos && enhed.lat != null && enhed.lon != null)
-      ? (map.distance(markerPos, L.latLng(enhed.lat, enhed.lon)) / 1000)
-      : null;
-    return { ...enhed, _afstand: afstand };
-  });
-  if (markerPos) data.sort((a, b) => (a._afstand ?? Infinity) - (b._afstand ?? Infinity));
+// ── UAD DIALOG ───────────────────────────────────────────────────
+async function _enhedUADDialog(enhedId) {
+  const enhed = (_enhedData || []).find(e => e.id === enhedId);
+  if (!enhed) return;
 
-  // Kategorier der alle må se "Flyt vogn" (ikke kun drift/admin)
-  const ALLE_MAA_FLYTTE = new Set(["tma_vogn", "tavletrailer"]);
+  // Allerede UAD → tilbyd at sætte klar
+  if (_erUAD(enhed)) {
+    if (!confirm(`Sæt "${enhed.navn}" klar igen?`)) return;
+    const opdateret = { ...enhed, uad: null };
+    try {
+      await _levSpFetch("/enheder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opdateret) });
+      await _enhedLoad();
+    } catch(err) { alert("Fejl: " + err.message); }
+    return;
+  }
 
-  data.forEach(enhed => {
-    if (enhed.lat == null || enhed.lon == null) return;
-    const kats = enhed.kategorier?.length ? enhed.kategorier
-      : (enhed.kategori ? [enhed.kategori] : []);
-    if (!kats.length) return;
+  // Byg overlay-dialog
+  const nu = new Date();
+  const lokalDato = `${nu.getFullYear()}-${String(nu.getMonth()+1).padStart(2,"0")}-${String(nu.getDate()).padStart(2,"0")}`;
+  const lokalTid  = `${String(nu.getHours()).padStart(2,"0")}:${String(nu.getMinutes()).padStart(2,"0")}`;
 
-    // Ikon: første kategoris emoji
-    const foersteKat = EGNE_KATEGORIER.find(k => k.id === kats[0]);
-    const ikon       = foersteKat?.ikon || "📍";
-    const ekstra     = kats.length > 1 ? `<sup style="font-size:9px">+${kats.length - 1}</sup>` : "";
-
-    const leafletIcon = L.divIcon({
-      className: "",
-      html: `<div class="lev-marker-icon" style="background:#2471a3;font-size:14px;width:28px;height:28px;line-height:28px">${ikon}${ekstra}</div>`,
-      iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16]
-    });
-
-    const marker = L.marker([enhed.lat, enhed.lon], { icon: leafletIcon });
-
-    // Byg popup
-    const afstandTekst = enhed._afstand != null
-      ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${enhed._afstand.toFixed(1)} km fra søgt adresse</div>` : "";
-
-    const katIkoner = kats.map(id => {
-      const k = EGNE_KATEGORIER.find(k => k.id === id);
-      return k ? `<span title="${k.navn}">${k.ikon}</span>` : "";
-    }).join(" ");
-
-    const vogne = enhed.vogne || [];
-    const maaFlytte = _levAktivRolle === "admin" || _levAktivRolle === "drift";
-
-    const vognHTML = vogne.length ? `
-      <hr class="lev-hr">
-      <div class="lev-popup-section-hdr">🚗 Vogne (${vogne.length})</div>
-      ${vogne.map(v => {
-        const kanFlytte = maaFlytte || kats.some(k => ALLE_MAA_FLYTTE.has(k));
-        const flytteBtn = kanFlytte
-          ? `<button class="lev-enhed-flyt-btn" data-vognid="${_esc(v.id)}" data-stationid="${_esc(enhed.id)}"
-               style="font-size:11px;padding:2px 6px;background:#e8f4fd;border:1px solid #2980b9;border-radius:4px;cursor:pointer;color:#2980b9;margin-top:4px">
-               🔄 Flyt vogn
-             </button>` : "";
-        return `<div class="lev-popup-vogn-row" style="padding:4px 0">
-          <strong>${_esc(v.nummer)}</strong>${v.beskrivelse ? " — " + _esc(v.beskrivelse) : ""}
-          ${v.telefon ? `<div style="font-size:12px;margin-top:2px">📞 <a href="tel:${_esc('+45'+v.telefon.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(v.telefon)}</a></div>` : ""}
-          ${v.detaljer ? `<div style="font-size:11px;color:#666;margin-top:2px">${_esc(v.detaljer)}</div>` : ""}
-          ${flytteBtn}
-        </div>`;
-      }).join('<hr class="lev-hr" style="margin:4px 0">')}` : "";
-
-    const tlfHTML = enhed.kontakt
-      ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45' + enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a></div>`
-      : "";
-
-    const popupHTML = `<div class="lev-popup">
-      <div class="lev-popup-top" style="border-left:4px solid #2471a3">
-        <b>${_esc(enhed.navn)}</b>
-        <span class="lev-popup-sub">${katIkoner}</span>
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center";
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:24px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div style="font-weight:700;font-size:15px;margin-bottom:4px">🔴 Sæt UAD</div>
+      <div style="font-size:12px;color:#666;margin-bottom:16px">${_esc(enhed.navn)}</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+          <input type="radio" name="uad-type" value="manuel" checked> Manuel — forbliver UAD indtil du sætter klar
+        </label>
+        <label style="display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+          <input type="radio" name="uad-type" value="tidsrum"> Tidsrum
+        </label>
+        <div id="uad-tidsrum-felter" style="display:none;padding-left:24px;flex-direction:column;gap:6px">
+          <label style="font-size:12px;font-weight:600;color:#5a6a7a">Fra
+            <input type="datetime-local" id="uad-fra" value="${lokalDato}T${lokalTid}"
+              style="width:100%;padding:6px;border:1px solid #cdd5df;border-radius:6px;font-size:12px;margin-top:2px">
+          </label>
+          <label style="font-size:12px;font-weight:600;color:#5a6a7a">Til
+            <input type="datetime-local" id="uad-til"
+              style="width:100%;padding:6px;border:1px solid #cdd5df;border-radius:6px;font-size:12px;margin-top:2px">
+          </label>
+        </div>
       </div>
-      ${afstandTekst}
-      ${tlfHTML}
-      ${enhed.bemærkning ? `<div class="lev-popup-row"><em>${_esc(enhed.bemærkning)}</em></div>` : ""}
-      ${vognHTML}
+      <div style="display:flex;gap:8px;margin-top:20px">
+        <button id="uad-gem" style="flex:1;padding:10px;background:#e74c3c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🔴 Sæt UAD</button>
+        <button id="uad-annuller" style="flex:1;padding:10px;background:#f5f7fa;border:1px solid #cdd5df;border-radius:8px;font-size:13px;cursor:pointer">Annuller</button>
+      </div>
     </div>`;
 
-    marker.bindPopup(popupHTML, { maxWidth: 300, className: "lev-leaflet-popup" });
+  document.body.appendChild(overlay);
 
-    marker.on("popupopen", function() {
-      const el = this.getPopup().getElement();
-      if (!el) return;
-      el.querySelectorAll(".lev-enhed-flyt-btn").forEach(btn => {
-        btn.addEventListener("click", () => _enhedFlytVognDialog(btn.dataset.vognid, btn.dataset.stationid));
-      });
-    });
-
-    kats.forEach(katId => {
-      if (_enhedKatLag[katId]) _enhedKatLag[katId].addLayer(marker);
+  overlay.querySelectorAll("input[name='uad-type']").forEach(r => {
+    r.addEventListener("change", () => {
+      const vis = overlay.querySelector("input[name='uad-type']:checked").value === "tidsrum";
+      overlay.querySelector("#uad-tidsrum-felter").style.display = vis ? "flex" : "none";
     });
   });
+
+  overlay.querySelector("#uad-annuller").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector("#uad-gem").addEventListener("click", async () => {
+    const type = overlay.querySelector("input[name='uad-type']:checked").value;
+    let uad;
+    if (type === "manuel") {
+      uad = { type: "manuel" };
+    } else {
+      const fra = overlay.querySelector("#uad-fra").value;
+      const til = overlay.querySelector("#uad-til").value;
+      if (!fra || !til) { alert("Udfyld både fra og til."); return; }
+      if (new Date(til) <= new Date(fra)) { alert("Til-tidspunkt skal være efter fra-tidspunkt."); return; }
+      uad = { type: "tidsrum", fra, til };
+    }
+    try {
+      const opdateret = { ...enhed, uad };
+      await _levSpFetch("/enheder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opdateret) });
+      overlay.remove();
+      await _enhedLoad();
+    } catch(err) { alert("Fejl: " + err.message); }
+  });
+}
+
+// ── HJÆLPEFUNKTION: Individuel enhed-markør (uden station) ───────
+function _renderEnhedMarker(enhed, kat, maaFlytte) {
+  if (enhed.lat == null || enhed.lon == null) return;
+  const uad = _erUAD(enhed);
+  const bgFarve = uad ? "#e74c3c" : "#2471a3";
+
+  const icon = L.divIcon({
+    className: "",
+    html: `<div class="lev-marker-icon" style="background:${bgFarve};font-size:14px;width:28px;height:28px;line-height:28px">${kat.ikon}</div>`,
+    iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
+  });
+
+  const flytBtn = maaFlytte
+    ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(enhed.id)}"
+         style="font-size:11px;padding:3px 8px;background:#e8f4fd;border:1px solid #2980b9;
+                border-radius:4px;cursor:pointer;color:#2980b9;margin-top:6px">🔄 Flyt vogn</button>` : "";
+  const uadBtn = maaFlytte
+    ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(enhed.id)}"
+         style="font-size:11px;padding:3px 8px;background:${uad?"#fdecea":"#fef9e7"};
+                border:1px solid ${uad?"#e74c3c":"#f39c12"};border-radius:4px;cursor:pointer;
+                color:${uad?"#e74c3c":"#e67e22"};margin-top:6px">${uad?"✅ Sæt klar":"🔴 Sæt UAD"}</button>` : "";
+
+  const tlfHTML = enhed.kontakt
+    ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a></div>` : "";
+
+  const marker = L.marker([enhed.lat, enhed.lon], { icon });
+  marker.bindPopup(`<div class="lev-popup">
+    <div class="lev-popup-top" style="border-left:4px solid ${bgFarve}">
+      <b>${_esc(enhed.navn)}</b>${uad ? _uadBadge(enhed) : ""}
+      <span class="lev-popup-sub">${kat.ikon} ${kat.navn}</span>
+    </div>
+    ${enhed.vognnummer ? `<div class="lev-popup-row">🚗 ${_esc(enhed.vognnummer)}</div>` : ""}
+    ${tlfHTML}
+    ${enhed.bemærkning ? `<div class="lev-popup-row"><em>${_esc(enhed.bemærkning)}</em></div>` : ""}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${flytBtn}${uadBtn}</div>
+  </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
+
+  marker.on("popupopen", function() {
+    const el = this.getPopup().getElement(); if (!el) return;
+    el.querySelectorAll(".lev-enhed-flyt-btn").forEach(b => b.addEventListener("click", () => _enhedFlytVognDialog(b.dataset.enhedid)));
+    el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
+  });
+
+  if (_enhedKatLag[kat.id]) _enhedKatLag[kat.id].addLayer(marker);
+}
+
+// ── HOVED RENDER-FUNKTION ────────────────────────────────────────
+function _enhedRenderLag() {
+  EGNE_KATEGORIER.forEach(k => _enhedKatLag[k.id]?.clearLayers());
+  if (typeof uadLayer !== "undefined") uadLayer.clearLayers();
+
+  const alleEnheder = _enhedData || [];
+  const markerPos = (typeof currentMarker !== "undefined" && currentMarker?.getLatLng)
+    ? currentMarker.getLatLng() : null;
+  const maaFlytte = _levAktivRolle === "admin" || _levAktivRolle === "drift";
+
+  // ── STATIONER LAG ─────────────────────────────────────────────
+  if (typeof stationerLayer !== "undefined") {
+    stationerLayer.clearLayers();
+    alleEnheder.filter(e => e.type === "station" && e.lat != null && e.lon != null).forEach(st => {
+      const afstand = markerPos ? map.distance(markerPos, L.latLng(st.lat, st.lon)) / 1000 : null;
+      const afstandTekst = afstand != null
+        ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${afstand.toFixed(1)} km fra søgt adresse</div>` : "";
+
+      // Tilknyttede enheder pr kategori
+      const katGrupper = EGNE_KATEGORIER.map(kat => {
+        const enheder = alleEnheder.filter(e => {
+          if (e.type === "station" || e.stationId !== st.id) return false;
+          const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+          return kats.includes(kat.id);
+        });
+        if (!enheder.length) return "";
+        return `<div style="margin-top:6px">
+          <div style="font-size:11px;font-weight:700;color:#5a6a7a">${kat.ikon} ${kat.navn}</div>
+          ${enheder.map(x => {
+            const uad = _erUAD(x);
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:12px">
+              <span style="color:${uad?"#e74c3c":"inherit"}">${_esc(x.navn)}${x.vognnummer ? ` <span style="font-size:11px;color:#888">(${_esc(x.vognnummer)})</span>` : ""}</span>
+              ${uad ? _uadBadge(x) : `<span style="color:#27ae60;font-size:11px">✓ Klar</span>`}
+            </div>`;
+          }).join("")}
+        </div>`;
+      }).join("");
+
+      const tlfHTML = st.kontakt
+        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+st.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(st.kontakt)}</a></div>` : "";
+
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="lev-marker-icon" style="background:#27ae60;font-size:14px;width:28px;height:28px;line-height:28px">🏠</div>`,
+        iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
+      });
+
+      const marker = L.marker([st.lat, st.lon], { icon });
+      marker.bindPopup(`<div class="lev-popup">
+        <div class="lev-popup-top" style="border-left:4px solid #27ae60">
+          <b>${_esc(st.navn)}</b><span class="lev-popup-sub">🏠 Station</span>
+        </div>
+        ${afstandTekst}
+        ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
+        ${tlfHTML}
+        ${st.bemærkning ? `<div class="lev-popup-row"><em>${_esc(st.bemærkning)}</em></div>` : ""}
+        ${katGrupper ? `<hr class="lev-hr"><div class="lev-popup-section-hdr">Tilknyttede enheder</div>${katGrupper}` : ""}
+      </div>`, { maxWidth: 320, className: "lev-leaflet-popup" });
+      stationerLayer.addLayer(marker);
+    });
+  }
+
+  // ── ENHEDER — grupperet per station per kategori-lag ──────────
+  EGNE_KATEGORIER.forEach(kat => {
+    if (!_enhedKatLag[kat.id]) return;
+
+    const enhederIKat = alleEnheder.filter(e => {
+      if (e.type === "station") return false;
+      const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+      return kats.includes(kat.id);
+    });
+
+    const medStation  = enhederIKat.filter(e => e.stationId);
+    const udenStation = enhederIKat.filter(e => !e.stationId);
+
+    // Grupper på stationId
+    const stationGrupper = new Map();
+    medStation.forEach(e => {
+      if (!stationGrupper.has(e.stationId)) stationGrupper.set(e.stationId, []);
+      stationGrupper.get(e.stationId).push(e);
+    });
+
+    // Én markør per station
+    stationGrupper.forEach((enheder, stId) => {
+      const st = alleEnheder.find(s => s.id === stId);
+      if (!st || st.lat == null || st.lon == null) {
+        enheder.forEach(e => _renderEnhedMarker(e, kat, maaFlytte));
+        return;
+      }
+
+      const harUAD  = enheder.some(e => _erUAD(e));
+      const alleUAD = enheder.every(e => _erUAD(e));
+      const bgFarve = alleUAD ? "#e74c3c" : harUAD ? "#e67e22" : "#2471a3";
+
+      const afstand = markerPos ? map.distance(markerPos, L.latLng(st.lat, st.lon)) / 1000 : null;
+      const afstandTekst = afstand != null
+        ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${afstand.toFixed(1)} km fra søgt adresse</div>` : "";
+
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="lev-marker-icon" style="background:${bgFarve};font-size:14px;width:28px;height:28px;line-height:28px">${kat.ikon}</div>`,
+        iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
+      });
+
+      const enhedRaekker = enheder.map(e => {
+        const uad = _erUAD(e);
+        const flytBtn = maaFlytte
+          ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(e.id)}"
+               style="font-size:11px;padding:2px 6px;background:#e8f4fd;border:1px solid #2980b9;
+                      border-radius:4px;cursor:pointer;color:#2980b9">🔄 Flyt</button>` : "";
+        const uadBtn = maaFlytte
+          ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}"
+               style="font-size:11px;padding:2px 6px;background:${uad?"#fdecea":"#fef9e7"};
+                      border:1px solid ${uad?"#e74c3c":"#f39c12"};border-radius:4px;cursor:pointer;
+                      color:${uad?"#e74c3c":"#e67e22"}">${uad?"✅ Klar":"🔴 UAD"}</button>` : "";
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f0f0f0">
+          <span style="font-size:12px;color:${uad?"#e74c3c":"inherit"}">
+            ${_esc(e.navn)}${e.vognnummer ? ` <span style="color:#888">(${_esc(e.vognnummer)})</span>` : ""}
+            ${uad ? _uadBadge(e) : ""}
+          </span>
+          <div style="display:flex;gap:4px">${flytBtn}${uadBtn}</div>
+        </div>`;
+      }).join("");
+
+      const stTlfHTML = st.kontakt
+        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+st.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(st.kontakt)}</a></div>` : "";
+
+      const marker = L.marker([st.lat, st.lon], { icon });
+      marker.bindPopup(`<div class="lev-popup">
+        <div class="lev-popup-top" style="border-left:4px solid ${bgFarve}">
+          <b>${_esc(st.navn)}</b><span class="lev-popup-sub">${kat.ikon} ${kat.navn}</span>
+        </div>
+        ${afstandTekst}
+        ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
+        ${stTlfHTML}
+        <hr class="lev-hr">${enhedRaekker}
+      </div>`, { maxWidth: 340, className: "lev-leaflet-popup" });
+
+      marker.on("popupopen", function() {
+        const el = this.getPopup().getElement(); if (!el) return;
+        el.querySelectorAll(".lev-enhed-flyt-btn").forEach(b => b.addEventListener("click", () => _enhedFlytVognDialog(b.dataset.enhedid)));
+        el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
+      });
+
+      _enhedKatLag[kat.id].addLayer(marker);
+    });
+
+    // Individuelle markører (ingen station)
+    udenStation.forEach(e => _renderEnhedMarker(e, kat, maaFlytte));
+  });
+
+  // ── UAD-LAG — alle UAD enheder samlet ────────────────────────
+  if (typeof uadLayer !== "undefined") {
+    alleEnheder.filter(e => e.type !== "station" && _erUAD(e) && e.lat != null && e.lon != null).forEach(e => {
+      const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+      const foersteKat = EGNE_KATEGORIER.find(k => kats.includes(k.id));
+      const ikon = foersteKat?.ikon || "📍";
+
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="lev-marker-icon" style="background:#e74c3c;font-size:14px;width:28px;height:28px;line-height:28px">${ikon}</div>`,
+        iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
+      });
+
+      const stNavn = e.stationId ? (alleEnheder.find(s => s.id === e.stationId)?.navn || "") : "";
+      const uadBtn = maaFlytte
+        ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}"
+             style="font-size:11px;padding:3px 8px;background:#fdecea;border:1px solid #e74c3c;
+                    border-radius:4px;cursor:pointer;color:#e74c3c;margin-top:6px">✅ Sæt klar igen</button>` : "";
+
+      const tlfHTML = e.kontakt
+        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+e.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(e.kontakt)}</a></div>` : "";
+
+      const marker = L.marker([e.lat, e.lon], { icon });
+      marker.bindPopup(`<div class="lev-popup">
+        <div class="lev-popup-top" style="border-left:4px solid #e74c3c">
+          <b>${_esc(e.navn)}</b>${_uadBadge(e)}
+          <span class="lev-popup-sub">${ikon} ${foersteKat?.navn || ""}</span>
+        </div>
+        ${stNavn ? `<div class="lev-popup-row">🏠 ${_esc(stNavn)}</div>` : ""}
+        ${e.vognnummer ? `<div class="lev-popup-row">🚗 ${_esc(e.vognnummer)}</div>` : ""}
+        ${tlfHTML}
+        ${e.bemærkning ? `<div class="lev-popup-row"><em>${_esc(e.bemærkning)}</em></div>` : ""}
+        ${uadBtn}
+      </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
+
+      marker.on("popupopen", function() {
+        const el = this.getPopup().getElement(); if (!el) return;
+        el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
+      });
+
+      uadLayer.addLayer(marker);
+    });
+  }
 }
 
 // Flyt vogn dialog
