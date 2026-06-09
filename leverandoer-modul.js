@@ -104,9 +104,6 @@ function _levBuildControl() {
   const levRows = LEV_KATEGORIER.map(k =>
     `<label class="lev-disp-row"><input type="checkbox" data-lag="lev-${k.id}"> ${k.ikon} ${k.navn}</label>`
   ).join('');
-  const enhedRows = EGNE_KATEGORIER.map(k =>
-    `<label class="lev-disp-row"><input type="checkbox" data-lag="enhed-${k.id}"> ${k.ikon} ${k.navn}</label>`
-  ).join('');
 
   wrap.innerHTML = `
     <button class="lev-disp-toggle" id="levDispToggle">Disp</button>
@@ -115,7 +112,7 @@ function _levBuildControl() {
         <label class="lev-disp-row"><input type="checkbox" data-lag="tilgaengelig"> 🟢 Tilgængelige leverandører</label>
       </div>
       <div class="lev-disp-divider"></div>
-      <div class="lev-disp-section">${enhedRows}</div>
+      <div class="lev-disp-section" id="levDispEnhedRows"></div>
       <div class="lev-disp-divider"></div>
       <div class="lev-disp-section lev-disp-rediger">
         <button class="lev-disp-rediger-btn" id="levRedigerLev">✏️ Rediger leverandører</button>
@@ -123,6 +120,7 @@ function _levBuildControl() {
       </div>
     </div>
   `;
+  _levBuildEnhedRows();
   map.getContainer().appendChild(wrap);
 
   const toggleBtn = document.getElementById('levDispToggle');
@@ -210,6 +208,50 @@ function _levBuildControl() {
   // Gem wrap som _levLayerCtrl (bruges af _levUncheckLayer)
   _levLayerCtrl = wrap;
 
+}
+
+// Bygger/genbygger enhed-checkboxes i Disp-panelet
+// Kaldes ved init og efter _katLoad() så nye kategorier vises
+function _levBuildEnhedRows() {
+  const container = document.getElementById('levDispEnhedRows');
+  if (!container) return;
+
+  // Gem hvilke lag der er aktivt tændt inden rebuild
+  const aktiveLag = new Set();
+  container.querySelectorAll('input[type=checkbox]:checked').forEach(cb => {
+    aktiveLag.add(cb.dataset.lag);
+  });
+
+  // Sikr at alle kategorier har et Leaflet-lag
+  EGNE_KATEGORIER.forEach(k => {
+    if (!_enhedKatLag[k.id]) _enhedKatLag[k.id] = L.layerGroup();
+  });
+
+  // Byg checkboxes
+  container.innerHTML = EGNE_KATEGORIER.map(k =>
+    `<label class="lev-disp-row"><input type="checkbox" data-lag="enhed-${k.id}"${aktiveLag.has('enhed-'+k.id) ? ' checked' : ''}> ${k.ikon} ${k.navn}</label>`
+  ).join('');
+
+  // Bind handlers på de nye checkboxes
+  container.querySelectorAll('input[type=checkbox]').forEach(function(cb) {
+    cb.addEventListener('change', async function() {
+      const lag = cb.dataset.lag;
+      const layer = _enhedKatLag[lag.slice(6)];
+      if (!layer) return;
+      if (cb.checked) {
+        map.addLayer(layer);
+        if (!_enhedLoaded) {
+          const ok = await _levEnsureDisponering();
+          if (!ok) { map.removeLayer(layer); cb.checked = false; return; }
+          await _katLoad();
+          _levBuildEnhedRows();
+          await _enhedLoad();
+        }
+      } else {
+        map.removeLayer(layer);
+      }
+    });
+  });
 }
 
 // ── LAYER CONTROL HELPERS ───────────────────────────────────────
@@ -1893,6 +1935,7 @@ async function _enhedOpenAdmin() {
   const ok = await _levEnsureLogin();
   if (!ok) return;
   await _katLoad(); // Opdater kategorier fra SharePoint
+  _levBuildEnhedRows(); // Opdater Disp-panel med nye kategorier
   await _enhedLoad();
   document.getElementById("levAdminPanel").classList.add("lev-panel-open");
   _enhedShowListe();
