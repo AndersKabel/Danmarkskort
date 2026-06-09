@@ -17,17 +17,36 @@ const LEV_KATEGORIER = [
 ];
 
 // Egne enheder-kategorier (Falcks egne biler/reddere)
-const EGNE_KATEGORIER = [
-  { id: "tma_vogn",    navn: "TMA vogn",        ikon: "🚧" },
-  { id: "tavletrailer",navn: "Tavletrailer",     ikon: "🪧" },
-  { id: "dyr",         navn: "Dyreredning",      ikon: "🐾" },
-  { id: "drift_hjem",  navn: "Drift fra hjem",   ikon: "🏠" },
-  { id: "mors",        navn: "Mors biler",        ikon: "🚌" },
-  { id: "liggende",    navn: "Liggende",          ikon: "🛏️" },
-  { id: "forflytning", navn: "Forflytning",       ikon: "🚑" },
-  { id: "vejrenser",   navn: "Vejrenser",         ikon: "🧹" },
-  { id: "skytter",     navn: "Skytter",           ikon: "🎯" },
+// Kategorier loades dynamisk fra SharePoint ved login
+// Fallback: hardkodede kategorier bruges indtil SharePoint svarer
+let EGNE_KATEGORIER = [
+  { id: "tma_vogn",    navn: "TMA vogn",      ikon: "🚧", kraeverStation: true,  sortering: 1 },
+  { id: "tavletrailer",navn: "Tavletrailer",   ikon: "🪧", kraeverStation: true,  sortering: 2 },
+  { id: "dyr",         navn: "Dyreredning",    ikon: "🐾", kraeverStation: false, sortering: 3 },
+  { id: "drift_hjem",  navn: "Drift fra hjem", ikon: "🏠", kraeverStation: false, sortering: 4 },
+  { id: "mors",        navn: "Mors biler",     ikon: "🚌", kraeverStation: true,  sortering: 5 },
+  { id: "liggende",    navn: "Liggende",       ikon: "🛏️", kraeverStation: true,  sortering: 6 },
+  { id: "forflytning", navn: "Forflytning",    ikon: "🚑", kraeverStation: true,  sortering: 7 },
+  { id: "vejrenser",   navn: "Vejrenser",      ikon: "🧹", kraeverStation: true,  sortering: 8 },
+  { id: "skytter",     navn: "Skytter",        ikon: "🎯", kraeverStation: false, sortering: 9 },
 ];
+
+// Load kategorier fra SharePoint og opdater lag
+async function _katLoad() {
+  try {
+    const r = await _levSpFetch("/kategorier");
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data.ok || !Array.isArray(data.kategorier) || !data.kategorier.length) return;
+    EGNE_KATEGORIER = data.kategorier;
+    // Opret Leaflet-lag for nye kategorier der ikke allerede har et lag
+    EGNE_KATEGORIER.forEach(k => {
+      if (!_enhedKatLag[k.id]) _enhedKatLag[k.id] = L.layerGroup();
+    });
+  } catch(e) {
+    console.warn("Kategorier: load fejlede, bruger fallback", e);
+  }
+}
 
 // ── LEAFLET LAG ──────────────────────────────────────────────────
 const _levKatLag = {};
@@ -1873,6 +1892,7 @@ let _enhedKeepAlive = null;
 async function _enhedOpenAdmin() {
   const ok = await _levEnsureLogin();
   if (!ok) return;
+  await _katLoad(); // Opdater kategorier fra SharePoint
   await _enhedLoad();
   document.getElementById("levAdminPanel").classList.add("lev-panel-open");
   _enhedShowListe();
@@ -2034,6 +2054,7 @@ function _enhedShowListe() {
     <div class="lev-list-toolbar" style="flex-wrap:wrap;gap:6px">
       <button id="enhedNyStationBtn" class="lev-btn-secondary">+ Ny station</button>
       <button id="enhedNyBtn"        class="lev-btn-primary">+ Ny enhed</button>
+      ${_levAktivRolle === "admin" ? `<button id="enhedNyKatBtn" class="lev-btn-secondary" style="color:#8e44ad;border-color:#8e44ad">⚙️ Kategorier</button>` : ""}
       <button id="enhedRefreshBtn"   class="lev-btn-secondary">↻ Opdater</button>
       <input id="enhedSoeg" type="search" placeholder="Søg navn, adresse…"
         style="flex:1;min-width:80px;padding:8px;font-size:13px;border:1px solid #ccc;border-radius:7px">
@@ -2047,6 +2068,7 @@ function _enhedShowListe() {
   });
   document.getElementById("enhedNyBtn").addEventListener("click", () => _enhedShowForm(null));
   document.getElementById("enhedNyStationBtn").addEventListener("click", () => _enhedShowStationForm(null));
+  document.getElementById("enhedNyKatBtn")?.addEventListener("click", () => _katShowListe());
   document.getElementById("enhedRefreshBtn").addEventListener("click", async function() {
     const btn = this;
     btn.disabled = true; btn.textContent = "⏳ Opdaterer...";
@@ -2359,6 +2381,11 @@ async function _enhedGem(existingId) {
 
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
   if (!kategorier.length) { status.style.color = "#c0392b"; status.textContent = "Vælg mindst én kategori."; return; }
+  // Tjek om nogen valgt kategori kræver station (styres af SharePoint-data)
+  const kraeverStation = kategorier.some(k =>
+    (EGNE_KATEGORIER.find(kat => kat.id === k)?.kraeverStation === true)
+  );
+  if (kraeverStation && !stationId) { status.style.color = "#c0392b"; status.textContent = "Denne kategori kræver en station — vælg eller opret en."; return; }
 
   if (!existingId && _enhedData?.length) {
     const dup = _enhedData.filter(e => e.type !== "station" && (e.navn || "").toLowerCase() === navn.toLowerCase());
@@ -2411,6 +2438,152 @@ async function _enhedSlet(id) {
     if (!resp.ok) throw new Error("Slet fejlede");
     await _enhedLoad();
     _enhedShowListe();
+  } catch(e) {
+    alert("Fejl ved sletning: " + e.message);
+  }
+}
+// ── KATEGORI ADMIN ────────────────────────────────────────────────────────────
+function _katShowListe() {
+  document.getElementById("levPanelTitle").textContent = "⚙️ Kategorier";
+  const body = document.getElementById("levPanelBody");
+
+  function _katRaekke(k) {
+    return `
+      <div class="lev-list-row">
+        <div class="lev-list-info">
+          <span class="lev-list-navn">${k.ikon || "?"} ${_esc(k.navn)}</span>
+          <span class="lev-list-meta">${k.kraeverStation ? "🏠 Kræver station" : "📍 Hjemadresse"} · sortering: ${k.sortering ?? "?"}</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="lev-btn-secondary kat-rediger-btn" data-id="${_esc(k.id)}" style="padding:4px 8px;font-size:12px">✏️</button>
+          <button class="lev-btn-secondary kat-slet-btn"   data-id="${_esc(k.id)}" style="padding:4px 8px;font-size:12px;color:#c0392b">🗑️</button>
+        </div>
+      </div>`;
+  }
+
+  body.innerHTML = `
+    <div class="lev-list-toolbar" style="flex-wrap:wrap;gap:6px">
+      <button id="katTilbage"  class="lev-btn-secondary">← Tilbage</button>
+      <button id="katNyBtn"    class="lev-btn-primary">+ Ny kategori</button>
+    </div>
+    <div id="katListeContainer" class="lev-list-container" style="padding:0">
+      ${EGNE_KATEGORIER.map(_katRaekke).join("")}
+    </div>`;
+
+  document.getElementById("katTilbage").addEventListener("click", _enhedShowListe);
+  document.getElementById("katNyBtn").addEventListener("click", () => _katShowForm(null));
+
+  body.querySelectorAll(".kat-rediger-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const kat = EGNE_KATEGORIER.find(k => k.id === btn.dataset.id);
+      if (kat) _katShowForm(kat);
+    });
+  });
+  body.querySelectorAll(".kat-slet-btn").forEach(btn => {
+    btn.addEventListener("click", () => _katSlet(btn.dataset.id));
+  });
+}
+
+function _katShowForm(kat) {
+  document.getElementById("levPanelTitle").textContent = kat ? "✏️ Rediger kategori" : "➕ Ny kategori";
+  const body = document.getElementById("levPanelBody");
+
+  body.innerHTML = `
+    <div class="lev-form">
+      <button class="lev-tilbage-btn" id="katTilbage2" style="margin-bottom:12px">← Tilbage til kategorier</button>
+      <fieldset class="lev-fs">
+        <legend>⚙️ Kategori</legend>
+        <label>ID (unikt, ingen mellemrum)
+          <input id="kat-id" type="text" value="${_esc(kat?.id || "")}"
+            placeholder="fx tma_vogn" ${kat ? "readonly style=\"background:#f5f7fa;color:#888\"" : ""}>
+        </label>
+        <label style="margin-top:6px">Visningsnavn
+          <input id="kat-navn" type="text" value="${_esc(kat?.navn || "")}" placeholder="fx TMA vogn">
+        </label>
+        <label style="margin-top:6px">Ikon (emoji)
+          <input id="kat-ikon" type="text" value="${_esc(kat?.ikon || "")}" placeholder="fx 🚧" style="font-size:20px;width:60px">
+        </label>
+        <label style="margin-top:6px">Sortering (lavest vises først)
+          <input id="kat-sortering" type="number" value="${kat?.sortering ?? ""}" placeholder="fx 10" style="width:80px">
+        </label>
+        <div style="margin-top:12px">
+          <div style="font-size:11.5px;font-weight:600;color:#5a6a7a;margin-bottom:8px">Tilknytning</div>
+          <label style="display:flex;flex-direction:row;align-items:center;gap:10px;cursor:pointer;font-size:13px">
+            <input type="radio" name="kat-type" value="station" ${kat?.kraeverStation !== false ? "checked" : ""}
+              style="width:15px;height:15px">
+            🏠 Kræver station — enheden kører fra en fast station (fx TMA, morsvogn)
+          </label>
+          <label style="display:flex;flex-direction:row;align-items:center;gap:10px;cursor:pointer;font-size:13px;margin-top:8px">
+            <input type="radio" name="kat-type" value="adresse" ${kat?.kraeverStation === false ? "checked" : ""}
+              style="width:15px;height:15px">
+            📍 Hjemadresse — enheden kører fra sin egen adresse (fx skytte, dyreredning)
+          </label>
+        </div>
+      </fieldset>
+      <div class="lev-form-footer">
+        <button id="kat-gem" class="lev-btn-primary">💾 Gem kategori</button>
+        ${kat ? `<button id="kat-slet" class="lev-btn-danger">🗑️ Slet</button>` : ""}
+      </div>
+      <div id="kat-status" style="font-size:12px;color:#27ae60;min-height:18px;padding:4px 0"></div>
+    </div>`;
+
+  document.getElementById("katTilbage2").addEventListener("click", _katShowListe);
+  document.getElementById("kat-gem").addEventListener("click", () => _katGem(kat?.id || null));
+  document.getElementById("kat-slet")?.addEventListener("click", () => _katSlet(kat.id));
+}
+
+async function _katGem(existingId) {
+  const id         = existingId || document.getElementById("kat-id").value.trim().replace(/\s+/g, "_").toLowerCase();
+  const navn       = document.getElementById("kat-navn").value.trim();
+  const ikon       = document.getElementById("kat-ikon").value.trim();
+  const sortering  = parseInt(document.getElementById("kat-sortering").value) || 99;
+  const kraeverStation = document.querySelector('input[name="kat-type"]:checked')?.value === "station";
+  const status     = document.getElementById("kat-status");
+
+  if (!id)   { status.style.color = "#c0392b"; status.textContent = "ID er påkrævet."; return; }
+  if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
+  if (!ikon) { status.style.color = "#c0392b"; status.textContent = "Vælg et ikon (emoji)."; return; }
+
+  const gemBtn = document.getElementById("kat-gem");
+  gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
+
+  try {
+    const r = await _levSpFetch("/kategorier", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, navn, ikon, kraeverStation, aktiv: true, sortering })
+    });
+    if (!r.ok) throw new Error("Gem fejlede");
+    status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
+    await _katLoad(); // Opdater EGNE_KATEGORIER
+    setTimeout(_katShowListe, 800);
+  } catch(e) {
+    status.style.color = "#c0392b"; status.textContent = "Fejl: " + e.message;
+    gemBtn.disabled = false; gemBtn.textContent = "💾 Gem kategori";
+  }
+}
+
+async function _katSlet(katId) {
+  const kat = EGNE_KATEGORIER.find(k => k.id === katId);
+  if (!kat) return;
+
+  // Tjek om der er enheder med denne kategori
+  const iBrug = (_enhedData || []).filter(e => {
+    const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+    return kats.includes(katId);
+  });
+  if (iBrug.length) {
+    alert(`Kan ikke slette "${kat.navn}" — ${iBrug.length} enhed(er) bruger denne kategori.\n\nFlyt eller slet enhederne først.`);
+    return;
+  }
+
+  if (!confirm(`Slet kategorien "${kat.navn}"?\n\nDette kan ikke fortrydes.`)) return;
+
+  try {
+    const r = await _levSpFetch(`/kategorier/${encodeURIComponent(katId)}`, { method: "DELETE" });
+    if (!r.ok) throw new Error("Slet fejlede");
+    await _katLoad();
+    _katShowListe();
   } catch(e) {
     alert("Fejl ved sletning: " + e.message);
   }
