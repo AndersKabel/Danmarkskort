@@ -120,8 +120,8 @@ function _levBuildControl() {
       </div>
     </div>
   `;
-  _levBuildEnhedRows();
   map.getContainer().appendChild(wrap);
+  _levBuildEnhedRows();
 
   const toggleBtn = document.getElementById('levDispToggle');
   const panel     = document.getElementById('levDispPanel');
