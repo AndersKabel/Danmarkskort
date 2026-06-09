@@ -2063,10 +2063,17 @@ function _enhedShowForm(enhed) {
   const valgteKat = enhed?.kategorier?.length ? enhed.kategorier
     : (enhed?.kategori ? [enhed.kategori] : []);
   const katCheckboxes = EGNE_KATEGORIER.map(k =>
-    `<label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
-      <input type="checkbox" name="ef-kat" value="${k.id}" ${valgteKat.includes(k.id) ? "checked" : ""}>
+    `<label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin-top:4px">
+      <input type="checkbox" name="ef-kat" value="${k.id}" ${valgteKat.includes(k.id) ? "checked" : ""}
+        style="width:15px;height:15px;flex-shrink:0;margin:0">
       ${k.ikon} ${k.navn}
     </label>`
+  ).join("");
+
+  // Byg stationsvælger — eksisterende stationer
+  const stationer = (_enhedData || []).filter(e => e.type === "station");
+  const stationsOptions = stationer.map(s =>
+    `<option value="${_esc(s.id)}" ${enhed?.stationId === s.id ? "selected" : ""}>${_esc(s.navn)}</option>`
   ).join("");
 
   body.innerHTML = `
@@ -2075,12 +2082,18 @@ function _enhedShowForm(enhed) {
 
       <fieldset class="lev-fs">
         <legend>📋 Basisoplysninger</legend>
-        <label>Stationsnavn
+        <label>Navn
           <input id="ef-navn" type="text" value="${_esc(enhed?.navn || "")}"
-            placeholder="fx 423 Falck Fredericia">
+            placeholder="fx 8681 TMA Næstved">
         </label>
-        <div class="lev-form-label">Kategorier / kompetencer</div>
-        <div style="display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+        <label style="margin-top:8px">Station
+          <select id="ef-stationid" style="padding:8px;border:1px solid #cdd5df;border-radius:6px;font-size:13px;width:100%;margin-top:3px">
+            <option value="">— Ingen station —</option>
+            ${stationsOptions}
+          </select>
+        </label>
+        <div class="lev-form-label" style="margin-top:10px">Kategorier / kompetencer</div>
+        <div style="display:flex;flex-direction:column;gap:2px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
           ${katCheckboxes}
         </div>
       </fieldset>
@@ -2207,6 +2220,7 @@ function _enhedAppendVognRow(container, v = {}) {
 
 async function _enhedGem(existingId) {
   const navn       = document.getElementById("ef-navn").value.trim();
+  const stationId  = document.getElementById("ef-stationid")?.value.trim() || null;
   const kategorier = Array.from(document.querySelectorAll('input[name="ef-kat"]:checked')).map(el => el.value);
   const adresse    = document.getElementById("ef-adr-sok").value.trim();
   const lat        = parseFloat(document.getElementById("ef-lat").value) || null;
@@ -2215,8 +2229,7 @@ async function _enhedGem(existingId) {
   const bemærk     = document.getElementById("ef-bemaerk").value.trim();
   const status     = document.getElementById("ef-status");
 
-  if (!navn) { status.style.color = "#c0392b"; status.textContent = "Stationsnavn er påkrævet."; return; }
-  if (!kategorier.length) { status.style.color = "#c0392b"; status.textContent = "Vælg mindst én kategori."; return; }
+  if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
 
   const vogne = Array.from(document.querySelectorAll("#ef-vogne .lev-vogn-row")).map(row => ({
     id:          row.dataset.id,
@@ -2245,7 +2258,7 @@ async function _enhedGem(existingId) {
     const resp = await _levSpFetch("/enheder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: existingId, navn, kategorier, lat, lon, adresse, kontakt, bemærkning: bemærk, vogne })
+      body: JSON.stringify({ id: existingId, navn, stationId: stationId || undefined, kategorier, lat, lon, adresse, kontakt, bemærkning: bemærk, vogne })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
