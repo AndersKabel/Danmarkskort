@@ -1961,15 +1961,20 @@ function _enhedShowListe() {
   const body = document.getElementById("levPanelBody");
   const _aabne = new Set();
 
-  function _enhedRaekke(e) {
-    const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-    const katIkoner = kats.map(id => EGNE_KATEGORIER.find(k => k.id === id)?.ikon || "").filter(Boolean).join(" ");
+  // Enhed-række — viser stationsnavn som undertekst
+  function _enhedRaekke(e, stationer) {
     const uad = _erUAD(e);
+    const st = stationer.find(s => s.id === e.stationId);
+    const meta = [
+      e.vognnummer ? e.vognnummer : null,
+      st ? "🏠 " + st.navn : null,
+      e.adresse && !st ? e.adresse : null
+    ].filter(Boolean).join(" · ");
     return `
       <div class="lev-list-row" style="padding-left:20px;${uad ? "background:#fff5f5;" : ""}">
         <div class="lev-list-info">
           <span class="lev-list-navn" style="${uad ? "color:#e74c3c;" : ""}">${_esc(e.navn)}${uad ? " 🔴" : ""}</span>
-          <span class="lev-list-meta">${katIkoner}${e.vognnummer ? " · " + _esc(e.vognnummer) : ""}${e.adresse ? " · " + _esc(e.adresse) : ""}</span>
+          ${meta ? `<span class="lev-list-meta">${meta}</span>` : ""}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="lev-btn-secondary enhed-rediger-btn" data-id="${_esc(e.id)}" style="padding:4px 8px;font-size:12px">✏️</button>
@@ -1985,79 +1990,92 @@ function _enhedShowListe() {
     const alleEnheder = data.filter(e => e.type !== "station");
     let html = "";
 
-    stationer.forEach(st => {
+    // ── Kategori-sektioner ───────────────────────────────────────────
+    EGNE_KATEGORIER.forEach(kat => {
       const enheder = alleEnheder.filter(e => {
-        if (e.stationId !== st.id) return false;
+        const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+        if (!kats.includes(kat.id)) return false;
         if (!q) return true;
+        const st = stationer.find(s => s.id === e.stationId);
         return (e.navn || "").toLowerCase().includes(q)
-          || (e.adresse || "").toLowerCase().includes(q)
-          || (e.vognnummer || "").toLowerCase().includes(q);
+          || (e.vognnummer || "").toLowerCase().includes(q)
+          || (st?.navn || "").toLowerCase().includes(q)
+          || (e.adresse || "").toLowerCase().includes(q);
       });
-      if (q && !enheder.length && !(st.navn || "").toLowerCase().includes(q)) return;
+      if (q && !enheder.length) return;
 
-      const katIds = [...new Set(enheder.flatMap(e =>
-        e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : [])
-      ))];
-      const katIkoner = katIds.map(id => EGNE_KATEGORIER.find(k => k.id === id)?.ikon || "").filter(Boolean).join(" ");
       const harUAD = enheder.some(e => _erUAD(e));
-      const erAaben = _aabne.has(st.id) || q;
+      const erAaben = _aabne.has(kat.id) || q;
       const pil = erAaben ? "▾" : "▸";
 
       html += `
-        <div class="enhed-kat-header" data-katid="${_esc(st.id)}"
+        <div class="enhed-kat-header" data-katid="${_esc(kat.id)}"
           style="display:flex;align-items:center;justify-content:space-between;
-                 padding:8px 12px;cursor:pointer;background:#f0f4f8;
+                 padding:8px 12px;cursor:pointer;background:#f5f7fa;
                  border-bottom:1px solid #e0e6ef;user-select:none">
           <span style="font-weight:700;font-size:13px">
-            🏠 ${_esc(st.navn)}
-            ${katIkoner ? `<span style="font-weight:400;font-size:12px;margin-left:4px">${katIkoner}</span>` : ""}
+            ${kat.ikon} ${_esc(kat.navn)}
             ${harUAD ? `<span style="color:#e74c3c;font-size:11px;margin-left:4px">🔴 UAD</span>` : ""}
           </span>
           <span style="display:flex;align-items:center;gap:6px">
-            <button class="lev-btn-secondary enhed-rediger-station-btn" data-id="${_esc(st.id)}"
-              style="padding:2px 6px;font-size:11px" title="Rediger station">✏️</button>
             ${enheder.length > 0
               ? `<span style="background:#2471a3;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">${enheder.length}</span>`
               : `<span style="color:#bbb;font-size:11px">ingen</span>`}
             <span style="font-size:11px;color:#888">${pil}</span>
           </span>
         </div>
-        <div class="enhed-kat-body" data-katid="${_esc(st.id)}"
+        <div class="enhed-kat-body" data-katid="${_esc(kat.id)}"
           style="display:${erAaben ? "block" : "none"};border-bottom:2px solid #e0e6ef">
           ${enheder.length
-            ? enheder.map(_enhedRaekke).join("")
-            : `<p class="lev-empty" style="margin:8px 20px;font-size:12px;color:#aaa">Ingen enheder på denne station</p>`}
+            ? enheder.map(e => _enhedRaekke(e, stationer)).join("")
+            : `<p class="lev-empty" style="margin:8px 20px;font-size:12px;color:#aaa">Ingen enheder i denne kategori</p>`}
         </div>`;
     });
 
-    const udenStation = alleEnheder.filter(e => {
-      if (e.stationId) return false;
+    // ── Stationer-sektion ────────────────────────────────────────────
+    const filtStationer = stationer.filter(st => {
       if (!q) return true;
-      return (e.navn || "").toLowerCase().includes(q)
-        || (e.adresse || "").toLowerCase().includes(q)
-        || (e.vognnummer || "").toLowerCase().includes(q);
+      return (st.navn || "").toLowerCase().includes(q);
     });
-    if (udenStation.length > 0 || !q) {
-      const erAaben = _aabne.has("__ingen_station__") || q;
+    if (filtStationer.length > 0 || !q) {
+      const erAaben = _aabne.has("__stationer__") || q;
       const pil = erAaben ? "▾" : "▸";
       html += `
-        <div class="enhed-kat-header" data-katid="__ingen_station__"
+        <div class="enhed-kat-header" data-katid="__stationer__"
           style="display:flex;align-items:center;justify-content:space-between;
-                 padding:8px 12px;cursor:pointer;background:#f5f7fa;
+                 padding:8px 12px;cursor:pointer;background:#f0f4f8;
                  border-bottom:1px solid #e0e6ef;user-select:none;margin-top:4px">
-          <span style="font-weight:700;font-size:13px;color:#888">Uden station</span>
+          <span style="font-weight:700;font-size:13px">🏠 Stationer</span>
           <span style="display:flex;align-items:center;gap:6px">
-            ${udenStation.length > 0
-              ? `<span style="background:#95a5a6;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">${udenStation.length}</span>`
+            ${filtStationer.length > 0
+              ? `<span style="background:#27ae60;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">${filtStationer.length}</span>`
               : `<span style="color:#bbb;font-size:11px">ingen</span>`}
             <span style="font-size:11px;color:#888">${pil}</span>
           </span>
         </div>
-        <div class="enhed-kat-body" data-katid="__ingen_station__"
+        <div class="enhed-kat-body" data-katid="__stationer__"
           style="display:${erAaben ? "block" : "none"};border-bottom:2px solid #e0e6ef">
-          ${udenStation.length
-            ? udenStation.map(_enhedRaekke).join("")
-            : `<p class="lev-empty" style="margin:8px 12px;font-size:12px;color:#aaa">Ingen enheder uden station</p>`}
+          ${filtStationer.length
+            ? filtStationer.map(st => {
+                const antalEnheder = alleEnheder.filter(e => e.stationId === st.id).length;
+                const katIds = [...new Set(alleEnheder
+                  .filter(e => e.stationId === st.id)
+                  .flatMap(e => e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []))
+                )];
+                const katIkoner = katIds.map(id => EGNE_KATEGORIER.find(k => k.id === id)?.ikon || "").filter(Boolean).join(" ");
+                return `
+                  <div class="lev-list-row" style="padding-left:12px">
+                    <div class="lev-list-info">
+                      <span class="lev-list-navn">🏠 ${_esc(st.navn)}</span>
+                      <span class="lev-list-meta">${katIkoner}${st.adresse ? " · " + _esc(st.adresse) : ""}${antalEnheder ? " · " + antalEnheder + " enhed" + (antalEnheder !== 1 ? "er" : "") : ""}</span>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-shrink:0">
+                      <button class="lev-btn-secondary enhed-rediger-station-btn" data-id="${_esc(st.id)}" style="padding:4px 8px;font-size:12px">✏️</button>
+                      <button class="lev-btn-secondary enhed-slet-btn" data-id="${_esc(st.id)}" style="padding:4px 8px;font-size:12px;color:#c0392b">🗑️</button>
+                    </div>
+                  </div>`;
+              }).join("")
+            : `<p class="lev-empty" style="margin:8px 12px;font-size:12px;color:#aaa">Ingen stationer oprettet</p>`}
         </div>`;
     }
 
@@ -2093,7 +2111,7 @@ function _enhedShowListe() {
     });
   }
 
-  body.innerHTML = `
+    body.innerHTML = `
     <div class="lev-list-toolbar" style="flex-wrap:wrap;gap:6px">
       <button id="enhedNyStationBtn" class="lev-btn-secondary">+ Ny station</button>
       <button id="enhedNyBtn"        class="lev-btn-primary">+ Ny enhed</button>
