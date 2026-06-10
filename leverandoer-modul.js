@@ -220,11 +220,13 @@ function _levBuildEnhedRows() {
   const container = document.getElementById('levDispEnhedRows');
   if (!container) return;
 
-  // Gem hvilke lag der er aktivt tændt inden rebuild
+  // Gem hvilke lag der er aktivt tændt ved at tjekke Leaflet-kortets aktive lag
   const aktiveLag = new Set();
-  container.querySelectorAll('input[type=checkbox]:checked').forEach(cb => {
-    aktiveLag.add(cb.dataset.lag);
-  });
+  if (typeof map !== 'undefined' && typeof _enhedKatLag !== 'undefined') {
+    Object.entries(_enhedKatLag).forEach(([id, layer]) => {
+      if (map.hasLayer(layer)) aktiveLag.add('enhed-' + id);
+    });
+  }
 
   // Sikr at alle kategorier har et Leaflet-lag
   EGNE_KATEGORIER.forEach(k => {
