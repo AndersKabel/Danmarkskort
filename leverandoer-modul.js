@@ -1717,9 +1717,10 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
                 border-radius:4px;cursor:pointer;color:#2980b9;margin-top:6px">🔄 Flyt vogn</button>` : "";
   const uadBtn = maaFlytte
     ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(enhed.id)}"
-         style="font-size:11px;padding:3px 8px;background:${uad?"#fdecea":"#fef9e7"};
-                border:1px solid ${uad?"#e74c3c":"#f39c12"};border-radius:4px;cursor:pointer;
-                color:${uad?"#e74c3c":"#e67e22"};margin-top:6px">${uad?"✅ Sæt klar":"🔴 Sæt UAD"}</button>` : "";
+         style="font-size:11px;padding:3px 8px;
+                background:${uad?"#27ae60":"#e74c3c"};color:#fff;
+                border:none;border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">
+         ${uad?"✅ Sæt i drift":"🔴 Sæt UAD"}</button>` : "";
 
   const tlfHTML = enhed.kontakt
     ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a></div>` : "";
@@ -1860,10 +1861,11 @@ function _enhedRenderLag() {
                       border-radius:4px;cursor:pointer;color:#2980b9">🔄 Flyt</button>` : "";
         const uadBtn = maaFlytte
           ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}"
-               style="font-size:11px;padding:2px 6px;background:${uad?"#fdecea":"#fef9e7"};
-                      border:1px solid ${uad?"#e74c3c":"#f39c12"};border-radius:4px;cursor:pointer;
-                      color:${uad?"#e74c3c":"#e67e22"}">${uad?"✅ Klar":"🔴 UAD"}</button>` : "";
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f0f0f0">
+               style="font-size:11px;padding:2px 6px;
+                      background:${uad?"#27ae60":"#e74c3c"};color:#fff;
+                      border:none;border-radius:4px;cursor:pointer;font-weight:600">
+               ${uad?"✅ Sæt i drift":"🔴 UAD"}</button>` : "";
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid #f0f0f0;${uad?"background:#fff0f0;border-radius:4px;":""} ">
           <span style="font-size:12px;color:${uad?"#e74c3c":"inherit"}">
             ${_esc(e.navn)}${e.vognnummer ? ` <span style="color:#888">(${_esc(e.vognnummer)})</span>` : ""}
             ${uad ? _uadBadge(e) : ""}
@@ -1915,8 +1917,8 @@ function _enhedRenderLag() {
       const stNavn = e.stationId ? (alleEnheder.find(s => s.id === e.stationId)?.navn || "") : "";
       const uadBtn = maaFlytte
         ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}"
-             style="font-size:11px;padding:3px 8px;background:#fdecea;border:1px solid #e74c3c;
-                    border-radius:4px;cursor:pointer;color:#e74c3c;margin-top:6px">✅ Sæt klar igen</button>` : "";
+             style="font-size:11px;padding:3px 8px;background:#27ae60;color:#fff;
+                    border:none;border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">✅ Sæt i drift</button>` : "";
 
       const tlfHTML = e.kontakt
         ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+e.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(e.kontakt)}</a></div>` : "";
