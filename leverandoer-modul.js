@@ -1651,6 +1651,11 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
   if (enhed.lat == null || enhed.lon == null) return;
   const uad = _erUAD(enhed);
   const bgFarve = uad ? "#e74c3c" : "#2471a3";
+  const markerPos = (typeof currentMarker !== "undefined" && currentMarker?.getLatLng)
+    ? currentMarker.getLatLng() : null;
+  const afstand = markerPos ? map.distance(markerPos, L.latLng(enhed.lat, enhed.lon)) / 1000 : null;
+  const afstandTekst = afstand != null
+    ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${afstand.toFixed(1)} km fra søgt adresse</div>` : "";
 
   const icon = L.divIcon({
     className: "",
@@ -1677,6 +1682,7 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
       <b>${_esc(enhed.navn)}</b>${uad ? _uadBadge(enhed) : ""}
       <span class="lev-popup-sub">${kat.ikon} ${kat.navn}</span>
     </div>
+    ${afstandTekst}
     ${enhed.vognnummer ? `<div class="lev-popup-row">🚗 ${_esc(enhed.vognnummer)}</div>` : ""}
     ${tlfHTML}
     ${enhed.bemærkning ? `<div class="lev-popup-row"><em>${_esc(enhed.bemærkning)}</em></div>` : ""}
