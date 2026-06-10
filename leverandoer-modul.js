@@ -2387,6 +2387,21 @@ function _enhedShowForm(enhed) {
   const nyStationAnnuller = document.getElementById("ef-ny-station-annuller");
   const stationSelect     = document.getElementById("ef-stationid");
 
+  // Autofyld adresse og koordinater fra valgt station
+  stationSelect.addEventListener("change", () => {
+    const st = (_enhedData || []).find(s => s.id === stationSelect.value);
+    if (!st) return;
+    if (st.adresse) document.getElementById("ef-adr-sok").value = st.adresse;
+    if (st.lat != null) {
+      document.getElementById("ef-lat").value     = st.lat;
+      document.getElementById("ef-lat-vis").value = Number(st.lat).toFixed(6);
+    }
+    if (st.lon != null) {
+      document.getElementById("ef-lon").value     = st.lon;
+      document.getElementById("ef-lon-vis").value = Number(st.lon).toFixed(6);
+    }
+  });
+
   nyStationBtn.addEventListener("click", () => {
     nyStationFelt.style.display = "block";
     nyStationNavn.focus();
