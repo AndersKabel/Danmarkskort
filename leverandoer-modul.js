@@ -240,10 +240,10 @@ function _levBuildEnhedRows() {
     const under = boern.filter(b => b.foralderId === k.id);
     if (under.length) {
       html += `<div class="lev-disp-gruppe">`;
-      html += `<label class="lev-disp-row lev-disp-foraeld">
-        <input type="checkbox" data-lag="enhed-${k.id}" data-gruppe="${k.id}"${aktiveLag.has('enhed-'+k.id) ? ' checked' : ''}> ${k.ikon} ${k.navn} ▾
+      html += `<label class="lev-disp-row lev-disp-foraeld" style="cursor:pointer">
+        <input type="checkbox" data-lag="enhed-${k.id}" data-gruppe="${k.id}"${aktiveLag.has('enhed-'+k.id) ? ' checked' : ''}> ${k.ikon} ${k.navn} <span class="disp-pil">▸</span>
       </label>`;
-      html += `<div class="lev-disp-under" style="padding-left:14px">`;
+      html += `<div class="lev-disp-under" style="padding-left:14px;display:none">`;
       under.forEach(b => {
         html += `<label class="lev-disp-row" style="font-size:12px">
           <input type="checkbox" data-lag="enhed-${b.id}" data-foraeld="${k.id}"${aktiveLag.has('enhed-'+b.id) ? ' checked' : ''}> ${b.ikon} ${b.navn}
@@ -255,6 +255,22 @@ function _levBuildEnhedRows() {
     }
   });
   container.innerHTML = html;
+
+  // Toggle fold paa foraeldre-kategorier
+  container.querySelectorAll('.lev-disp-foraeld').forEach(function(lbl) {
+    lbl.addEventListener('click', function(e) {
+      // Klik paa selve checkbox skal ikke toggle fold
+      if (e.target.tagName === 'INPUT') return;
+      const gruppe = lbl.querySelector('input')?.dataset?.gruppe;
+      if (!gruppe) return;
+      const under = lbl.nextElementSibling;
+      if (!under) return;
+      const aaben = under.style.display !== 'none';
+      under.style.display = aaben ? 'none' : 'block';
+      const pil = lbl.querySelector('.disp-pil');
+      if (pil) pil.textContent = aaben ? '▸' : '▾';
+    });
+  });
 
   // Bind handlers
   container.querySelectorAll('input[type=checkbox]').forEach(function(cb) {
