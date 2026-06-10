@@ -242,11 +242,9 @@ function _levBuildEnhedRows() {
     const under = boern.filter(b => b.foralderId === k.id);
     if (under.length) {
       html += `<div class="lev-disp-gruppe">`;
-      const underAktive = under.filter(b => aktiveLag.has('enhed-'+b.id));
-      const foraeldIndeterminate = underAktive.length > 0 && underAktive.length < under.length;
-      html += `<label class="lev-disp-row lev-disp-foraeld" style="cursor:pointer">
-        <input type="checkbox" data-lag="enhed-${k.id}" data-gruppe="${k.id}"> ${k.ikon} ${k.navn} <span class="disp-pil">▸</span>
-      </label>`;
+      html += `<div class="lev-disp-row lev-disp-foraeld" style="cursor:pointer;user-select:none">
+        ${k.ikon} ${k.navn} <span class="disp-pil">▸</span>
+      </div>`;
       html += `<div class="lev-disp-under" style="padding-left:14px;display:none">`;
       under.forEach(b => {
         html += `<label class="lev-disp-row" style="font-size:12px">
@@ -260,27 +258,14 @@ function _levBuildEnhedRows() {
   });
   container.innerHTML = html;
 
-  // Seet indeterminate paa foraeldre baseret paa aktive boern
-  container.querySelectorAll('input[data-gruppe]').forEach(function(forCb) {
-    const gruppe = forCb.dataset.gruppe;
-    const under = [...container.querySelectorAll(`input[data-foraeld="${gruppe}"]`)];
-    const aktive = under.filter(u => u.checked);
-    forCb.checked       = false;
-    forCb.indeterminate = aktive.length > 0;
-  });
-
-  // Toggle fold paa foraeldre-kategorier
-  container.querySelectorAll('.lev-disp-foraeld').forEach(function(lbl) {
-    lbl.addEventListener('click', function(e) {
-      // Klik paa selve checkbox skal ikke toggle fold
-      if (e.target.tagName === 'INPUT') return;
-      const gruppe = lbl.querySelector('input')?.dataset?.gruppe;
-      if (!gruppe) return;
-      const under = lbl.nextElementSibling;
+  // Klik paa foraelder-div folder ud/ind
+  container.querySelectorAll('.lev-disp-foraeld').forEach(function(div) {
+    div.addEventListener('click', function() {
+      const under = div.nextElementSibling;
       if (!under) return;
       const aaben = under.style.display !== 'none';
       under.style.display = aaben ? 'none' : 'block';
-      const pil = lbl.querySelector('.disp-pil');
+      const pil = div.querySelector('.disp-pil');
       if (pil) pil.textContent = aaben ? '▸' : '▾';
     });
   });
@@ -289,31 +274,6 @@ function _levBuildEnhedRows() {
   container.querySelectorAll('input[type=checkbox]').forEach(function(cb) {
     cb.addEventListener('change', async function() {
       const lag = cb.dataset.lag;
-
-      // Forælder-checkbox: synkronisér underkategori-checkboxes
-      // Forælderen har ikke sit eget Leaflet-lag — kun børnene har lag
-      if (cb.dataset.gruppe) {
-        const under = container.querySelectorAll(`input[data-foraeld="${cb.dataset.gruppe}"]`);
-        under.forEach(u => {
-          if (u.checked !== cb.checked) {
-            u.checked = cb.checked;
-            u.dispatchEvent(new Event('change'));
-          }
-        });
-        return; // Stop her — børnene håndterer kortlagene selv
-      }
-
-      // Underkategori: synkronisér forælder-checkbox
-      if (cb.dataset.foraeld) {
-        const forCb = container.querySelector(`input[data-gruppe="${cb.dataset.foraeld}"]`);
-        if (forCb) {
-          const under = [...container.querySelectorAll(`input[data-foraeld="${cb.dataset.foraeld}"]`)];
-          const ingenValgt = under.every(u => !u.checked);
-          forCb.checked       = false; // Foraelder settes aldrig checked via boern
-          forCb.indeterminate = !ingenValgt; // Streg naar mindst eet boern er valgt
-        }
-      }
-
       const layer = _enhedKatLag[lag.slice(6)];
       if (!layer) return;
       if (cb.checked) {
