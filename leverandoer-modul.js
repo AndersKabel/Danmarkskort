@@ -2421,12 +2421,18 @@ function _enhedShowForm(enhed) {
                      border-radius:6px;font-size:12px;cursor:pointer;color:#2471a3">+ Ny</button>
           </div>
           <div id="ef-ny-station-felt" style="display:none;margin-top:8px;padding:10px;background:#f8fafc;border:1px solid #cdd5df;border-radius:6px">
-            <div style="font-size:12px;font-weight:600;color:#5a6a7a;margin-bottom:4px">Nyt stationsnavn</div>
-            <div style="display:flex;gap:6px">
-              <input id="ef-ny-station-navn" type="text" placeholder="fx 423 Falck Fredericia"
-                style="flex:1;padding:7px;border:1px solid #cdd5df;border-radius:6px;font-size:13px">
+            <div style="font-size:12px;font-weight:600;color:#5a6a7a;margin-bottom:6px">🏠 Ny station</div>
+            <input id="ef-ny-station-navn" type="text" placeholder="fx 423 Falck Fredericia"
+              style="width:100%;padding:7px;border:1px solid #cdd5df;border-radius:6px;font-size:13px;box-sizing:border-box;margin-bottom:6px">
+            <input id="ef-ny-station-adr" type="text" placeholder="Søg adresse..."
+              style="width:100%;padding:7px;border:1px solid #cdd5df;border-radius:6px;font-size:12px;box-sizing:border-box" autocomplete="off">
+            <div id="ef-ny-station-adr-liste" style="border:1px solid #ddd;border-radius:4px;background:#fff;max-height:120px;overflow-y:auto;display:none;font-size:12px"></div>
+            <input id="ef-ny-station-lat" type="hidden">
+            <input id="ef-ny-station-lon" type="hidden">
+            <div id="ef-ny-station-adr-valgt" style="font-size:11px;color:#27ae60;min-height:14px;margin-top:3px"></div>
+            <div style="display:flex;gap:6px;margin-top:6px">
               <button type="button" id="ef-ny-station-gem"
-                style="padding:7px 12px;background:#27ae60;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">Opret</button>
+                style="flex:1;padding:7px;background:#27ae60;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">Opret</button>
               <button type="button" id="ef-ny-station-annuller"
                 style="padding:7px 10px;background:#f5f7fa;border:1px solid #cdd5df;border-radius:6px;font-size:12px;cursor:pointer">✕</button>
             </div>
@@ -2528,6 +2534,42 @@ function _enhedShowForm(enhed) {
     }
   });
 
+  // DAWA-søgning til ny station
+  const nyStationAdrInput  = document.getElementById("ef-ny-station-adr");
+  const nyStationAdrListe  = document.getElementById("ef-ny-station-adr-liste");
+  const nyStationLatHid    = document.getElementById("ef-ny-station-lat");
+  const nyStationLonHid    = document.getElementById("ef-ny-station-lon");
+  const nyStationAdrValgt  = document.getElementById("ef-ny-station-adr-valgt");
+  let nyStationAdrTimer;
+  nyStationAdrInput.addEventListener("input", () => {
+    clearTimeout(nyStationAdrTimer);
+    const q = nyStationAdrInput.value.trim();
+    if (q.length < 3) { nyStationAdrListe.style.display = "none"; return; }
+    nyStationAdrTimer = setTimeout(async () => {
+      try {
+        const r = await fetch(`https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(q)}&per_side=5&struktur=mini`);
+        const items = await r.json();
+        if (!items.length) { nyStationAdrListe.style.display = "none"; return; }
+        nyStationAdrListe.innerHTML = items.map(it =>
+          `<div class="ef-adr-item" data-tekst="${_esc(it.tekst)}" data-lat="${it.adresse?.y ?? ""}" data-lon="${it.adresse?.x ?? ""}"
+            style="padding:6px 8px;cursor:pointer;border-bottom:1px solid #eee">${_esc(it.tekst)}</div>`
+        ).join("");
+        nyStationAdrListe.style.display = "block";
+        nyStationAdrListe.querySelectorAll(".ef-adr-item").forEach(div => {
+          div.addEventListener("mouseenter", () => div.style.background = "#f0f0f0");
+          div.addEventListener("mouseleave", () => div.style.background = "");
+          div.addEventListener("click", () => {
+            nyStationAdrInput.value = div.dataset.tekst;
+            nyStationLatHid.value   = div.dataset.lat;
+            nyStationLonHid.value   = div.dataset.lon;
+            nyStationAdrValgt.textContent = "✅ " + div.dataset.tekst;
+            nyStationAdrListe.style.display = "none";
+          });
+        });
+      } catch(e) { nyStationAdrListe.style.display = "none"; }
+    }, 300);
+  });
+
   nyStationBtn.addEventListener("click", () => {
     nyStationFelt.style.display = "block";
     nyStationNavn.focus();
@@ -2535,16 +2577,22 @@ function _enhedShowForm(enhed) {
   nyStationAnnuller.addEventListener("click", () => {
     nyStationFelt.style.display = "none";
     nyStationNavn.value = "";
+    nyStationAdrInput.value = "";
+    nyStationLatHid.value = ""; nyStationLonHid.value = "";
+    nyStationAdrValgt.textContent = "";
   });
   nyStationGem.addEventListener("click", async () => {
     const stNavn = nyStationNavn.value.trim();
+    const stAdr  = nyStationAdrInput.value.trim();
+    const stLat  = parseFloat(nyStationLatHid.value) || null;
+    const stLon  = parseFloat(nyStationLonHid.value) || null;
     if (!stNavn) { nyStationNavn.focus(); return; }
     nyStationGem.disabled = true; nyStationGem.textContent = "⏳";
     try {
       const resp = await _levSpFetch("/enheder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "station", navn: stNavn })
+        body: JSON.stringify({ type: "station", navn: stNavn, adresse: stAdr, lat: stLat, lon: stLon })
       });
       if (!resp.ok) throw new Error("Fejl");
       await _enhedLoad();
@@ -2553,9 +2601,15 @@ function _enhedShowForm(enhed) {
         const opt = document.createElement("option");
         opt.value = nyStation.id; opt.textContent = nyStation.navn; opt.selected = true;
         stationSelect.appendChild(opt);
+        // Autofyld enhedens adresse fra den nye station
+        if (stAdr) document.getElementById("ef-adr-sok").value = stAdr;
+        if (stLat) { document.getElementById("ef-lat").value = stLat; document.getElementById("ef-lat-vis").value = stLat.toFixed(6); }
+        if (stLon) { document.getElementById("ef-lon").value = stLon; document.getElementById("ef-lon-vis").value = stLon.toFixed(6); }
       }
       nyStationFelt.style.display = "none";
-      nyStationNavn.value = "";
+      nyStationNavn.value = ""; nyStationAdrInput.value = "";
+      nyStationLatHid.value = ""; nyStationLonHid.value = "";
+      nyStationAdrValgt.textContent = "";
       nyStationGem.disabled = false; nyStationGem.textContent = "Opret";
     } catch(e) {
       alert("Kunne ikke oprette station: " + e.message);
