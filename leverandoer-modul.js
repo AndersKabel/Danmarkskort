@@ -2658,7 +2658,12 @@ async function _enhedGem(existingId) {
         id: existingId, navn,
         vognnummer: vognnummer || undefined,
         stationId:  stationId  || undefined,
-        kategorier, lat, lon, adresse, kontakt,
+        kategorier,
+        // Bevar eksisterende koordinater hvis ingen nye er indtastet
+        lat:      lat  != null ? lat  : (existingId ? undefined : null),
+        lon:      lon  != null ? lon  : (existingId ? undefined : null),
+        adresse:  adresse || (existingId ? undefined : ""),
+        kontakt,
         bemærkning: bemærk
       })
     });
