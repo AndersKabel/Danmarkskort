@@ -1848,6 +1848,7 @@ function _enhedRenderLag() {
       const harUAD  = enheder.some(e => _erUAD(e));
       const alleUAD = enheder.every(e => _erUAD(e));
       const blandtUAD = harUAD && !alleUAD; // Nogle UAD, nogle i drift
+      const bgFarve = alleUAD ? "#e74c3c" : harUAD ? "#e67e22" : "#2471a3"; // Bruges i popup border
 
       // Baggrund: halvt blå halvt rød hvis blandet, ellers enkelt farve
       const bgStyle = blandtUAD
