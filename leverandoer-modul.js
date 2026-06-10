@@ -242,8 +242,10 @@ function _levBuildEnhedRows() {
     const under = boern.filter(b => b.foralderId === k.id);
     if (under.length) {
       html += `<div class="lev-disp-gruppe">`;
+      const underAktive = under.filter(b => aktiveLag.has('enhed-'+b.id));
+      const foraeldIndeterminate = underAktive.length > 0 && underAktive.length < under.length;
       html += `<label class="lev-disp-row lev-disp-foraeld" style="cursor:pointer">
-        <input type="checkbox" data-lag="enhed-${k.id}" data-gruppe="${k.id}"${aktiveLag.has('enhed-'+k.id) ? ' checked' : ''}> ${k.ikon} ${k.navn} <span class="disp-pil">▸</span>
+        <input type="checkbox" data-lag="enhed-${k.id}" data-gruppe="${k.id}"> ${k.ikon} ${k.navn} <span class="disp-pil">▸</span>
       </label>`;
       html += `<div class="lev-disp-under" style="padding-left:14px;display:none">`;
       under.forEach(b => {
@@ -257,6 +259,15 @@ function _levBuildEnhedRows() {
     }
   });
   container.innerHTML = html;
+
+  // Seet indeterminate paa foraeldre baseret paa aktive boern
+  container.querySelectorAll('input[data-gruppe]').forEach(function(forCb) {
+    const gruppe = forCb.dataset.gruppe;
+    const under = [...container.querySelectorAll(`input[data-foraeld="${gruppe}"]`)];
+    const aktive = under.filter(u => u.checked);
+    forCb.checked       = false;
+    forCb.indeterminate = aktive.length > 0;
+  });
 
   // Toggle fold paa foraeldre-kategorier
   container.querySelectorAll('.lev-disp-foraeld').forEach(function(lbl) {
@@ -297,10 +308,9 @@ function _levBuildEnhedRows() {
         const forCb = container.querySelector(`input[data-gruppe="${cb.dataset.foraeld}"]`);
         if (forCb) {
           const under = [...container.querySelectorAll(`input[data-foraeld="${cb.dataset.foraeld}"]`)];
-          const alleValgt  = under.every(u => u.checked);
           const ingenValgt = under.every(u => !u.checked);
-          forCb.checked       = alleValgt;
-          forCb.indeterminate = !alleValgt && !ingenValgt;
+          forCb.checked       = false; // Foraelder settes aldrig checked via boern
+          forCb.indeterminate = !ingenValgt; // Streg naar mindst eet boern er valgt
         }
       }
 
