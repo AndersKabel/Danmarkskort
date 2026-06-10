@@ -1550,14 +1550,15 @@ function _erUAD(e) {
 
 function _uadBadge(e) {
   if (!e?.uad) return "";
+  const aarsag = e.uad.aarsag ? ` — ${e.uad.aarsag}` : "";
   if (e.uad.type === "manuel")
-    return `<span style="background:#e74c3c;color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px">UAD</span>`;
+    return `<span style="background:#e74c3c;color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px">UAD${aarsag}</span>`;
   if (e.uad.type === "tidsrum") {
     const til = new Date(e.uad.til);
     const hh  = String(til.getHours()).padStart(2,"0");
     const mm  = String(til.getMinutes()).padStart(2,"0");
     const dd  = til.toLocaleDateString("da-DK", {day:"numeric",month:"short"});
-    return `<span style="background:#e67e22;color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px">UAD til ${dd} ${hh}:${mm}</span>`;
+    return `<span style="background:#e67e22;color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px">UAD til ${dd} ${hh}:${mm}${aarsag}</span>`;
   }
   return "";
 }
@@ -1606,6 +1607,10 @@ async function _enhedUADDialog(enhedId) {
               style="width:100%;padding:6px;border:1px solid #cdd5df;border-radius:6px;font-size:12px;margin-top:2px">
           </label>
         </div>
+        <label style="font-size:12px;font-weight:600;color:#5a6a7a;margin-top:14px;display:block">Årsag (valgfri)
+          <input type="text" id="uad-aarsag" placeholder="fx: service, havari, ferie..."
+            style="width:100%;padding:7px;border:1px solid #cdd5df;border-radius:6px;font-size:12px;margin-top:4px;box-sizing:border-box">
+        </label>
       </div>
       <div style="display:flex;gap:8px;margin-top:20px">
         <button id="uad-gem" style="flex:1;padding:10px;background:#e74c3c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🔴 Sæt UAD</button>
@@ -1626,16 +1631,17 @@ async function _enhedUADDialog(enhedId) {
   overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
 
   overlay.querySelector("#uad-gem").addEventListener("click", async () => {
-    const type = overlay.querySelector("input[name='uad-type']:checked").value;
+    const type    = overlay.querySelector("input[name='uad-type']:checked").value;
+    const aarsag  = overlay.querySelector("#uad-aarsag").value.trim() || undefined;
     let uad;
     if (type === "manuel") {
-      uad = { type: "manuel" };
+      uad = { type: "manuel", aarsag };
     } else {
       const fra = overlay.querySelector("#uad-fra").value;
       const til = overlay.querySelector("#uad-til").value;
       if (!fra || !til) { alert("Udfyld både fra og til."); return; }
       if (new Date(til) <= new Date(fra)) { alert("Til-tidspunkt skal være efter fra-tidspunkt."); return; }
-      uad = { type: "tidsrum", fra, til };
+      uad = { type: "tidsrum", fra, til, aarsag };
     }
     try {
       const opdateret = { ...enhed, uad };
