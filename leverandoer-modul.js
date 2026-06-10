@@ -1904,45 +1904,107 @@ function _enhedRenderLag() {
   }
 }
 
-// Flyt vogn (skift station) dialog
-async function _enhedFlytVognDialog(enhedId) {
+// Flyt vogn (skift station) dialog — overlay med søgefelt
+function _enhedFlytVognDialog(enhedId) {
   const enhed = (_enhedData || []).find(e => e.id === enhedId);
   if (!enhed) { alert("Enhed ikke fundet."); return; }
 
   const fraStation = enhed.stationId ? (_enhedData || []).find(s => s.id === enhed.stationId) : null;
-
-  // Destinationer: alle stationer undtagen nuværende
   const destinationer = (_enhedData || []).filter(e => e.type === "station" && e.id !== enhed.stationId);
   if (!destinationer.length) { alert("Ingen andre stationer at flytte til."); return; }
 
-  const fraLabel = fraStation ? fraStation.navn : "(ingen station)";
-  const valg = destinationer.map((s, i) => `${i}: ${s.navn}`).join("\n");
-  const input = prompt(
-    `Flyt ${enhed.navn} fra:\n${fraLabel}\n\nTil station (indtast nummer):\n${valg}`
-  );
-  if (input === null || input.trim() === "") return;
+  let valgtStation = null;
 
-  const idx = parseInt(input.trim());
-  if (isNaN(idx) || idx < 0 || idx >= destinationer.length) {
-    alert("Ugyldigt valg."); return;
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center";
+
+  function renderListe(q) {
+    const filtreret = q
+      ? destinationer.filter(s => (s.navn || "").toLowerCase().includes(q.toLowerCase()))
+      : destinationer;
+    return filtreret.map(s => `
+      <div class="flyt-st-item" data-id="${_esc(s.id)}"
+        style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px;
+               display:flex;align-items:center;gap:8px">
+        🏠 <span>${_esc(s.navn)}</span>
+        ${s.adresse ? `<span style="font-size:11px;color:#888">${_esc(s.adresse)}</span>` : ""}
+      </div>`).join("") || `<div style="padding:12px;color:#aaa;font-size:12px;text-align:center">Ingen stationer matcher</div>`;
   }
 
-  const tilStation = destinationer[idx];
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:24px;width:360px;max-height:80vh;
+                display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div style="font-weight:700;font-size:15px;margin-bottom:4px">🔄 Flyt vogn</div>
+      <div style="font-size:12px;color:#666;margin-bottom:12px">
+        <b>${_esc(enhed.navn)}</b> fra ${_esc(fraStation?.navn || "(ingen station)")}
+      </div>
+      <input id="flyt-soeg" type="search" placeholder="Søg station…"
+        style="padding:8px 10px;border:1px solid #cdd5df;border-radius:7px;font-size:13px;margin-bottom:8px;outline:none">
+      <div id="flyt-liste"
+        style="overflow-y:auto;flex:1;border:1px solid #e0e6ef;border-radius:7px;max-height:300px">
+        ${renderListe("")}
+      </div>
+      <div id="flyt-valgt" style="font-size:12px;color:#27ae60;min-height:18px;margin-top:8px;font-weight:600"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button id="flyt-gem" class="lev-btn-primary" disabled style="flex:1;opacity:.5">🔄 Flyt</button>
+        <button id="flyt-annuller" class="lev-btn-secondary" style="flex:1">Annuller</button>
+      </div>
+    </div>`;
 
-  // Sæt enhedens stationId til den nye station og gem
-  const opdateret = { ...enhed, stationId: tilStation.id };
-  try {
-    const r = await _levSpFetch("/enheder", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(opdateret)
+  document.body.appendChild(overlay);
+
+  const soegInput  = overlay.querySelector("#flyt-soeg");
+  const liste      = overlay.querySelector("#flyt-liste");
+  const valgtDiv   = overlay.querySelector("#flyt-valgt");
+  const gemBtn     = overlay.querySelector("#flyt-gem");
+
+  function bindItems() {
+    liste.querySelectorAll(".flyt-st-item").forEach(item => {
+      item.addEventListener("mouseenter", () => item.style.background = "#f0f4f8");
+      item.addEventListener("mouseleave", () => item.style.background = valgtStation?.id === item.dataset.id ? "#e8f4fd" : "");
+      item.addEventListener("click", () => {
+        valgtStation = destinationer.find(s => s.id === item.dataset.id);
+        liste.querySelectorAll(".flyt-st-item").forEach(i => i.style.background = "");
+        item.style.background = "#e8f4fd";
+        valgtDiv.textContent = "✅ Valgt: " + valgtStation.navn;
+        gemBtn.disabled = false;
+        gemBtn.style.opacity = "1";
+      });
     });
-    if (!r.ok) throw new Error("Gem fejlede");
-    await _enhedLoad();
-    alert(`✅ ${enhed.navn} flyttet til ${tilStation.navn}`);
-  } catch(err) {
-    alert("Flyt fejlede: " + err.message);
   }
+  bindItems();
+
+  soegInput.addEventListener("input", () => {
+    liste.innerHTML = renderListe(soegInput.value);
+    valgtStation = null;
+    valgtDiv.textContent = "";
+    gemBtn.disabled = true; gemBtn.style.opacity = ".5";
+    bindItems();
+  });
+
+  overlay.querySelector("#flyt-annuller").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  gemBtn.addEventListener("click", async () => {
+    if (!valgtStation) return;
+    gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
+    try {
+      const r = await _levSpFetch("/enheder", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...enhed, stationId: valgtStation.id })
+      });
+      if (!r.ok) throw new Error("Gem fejlede");
+      overlay.remove();
+      await _enhedLoad();
+    } catch(err) {
+      alert("Flyt fejlede: " + err.message);
+      gemBtn.disabled = false; gemBtn.textContent = "🔄 Flyt";
+    }
+  });
+
+  soegInput.focus();
 }
+
 
 
 let _enhedKeepAlive = null;
