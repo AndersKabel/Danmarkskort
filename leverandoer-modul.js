@@ -1718,8 +1718,10 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
   const uadBtn = maaFlytte
     ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(enhed.id)}"
          style="font-size:11px;padding:3px 8px;
-                background:${uad?"#27ae60":"#e74c3c"};color:#fff;
-                border:none;border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">
+                background:${uad?"#27ae60":"#f5f5f5"};
+                color:${uad?"#fff":"#333"};
+                border:1px solid ${uad?"#27ae60":"#ccc"};
+                border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">
          ${uad?"✅ Sæt i drift":"🔴 Sæt UAD"}</button>` : "";
 
   const tlfHTML = enhed.kontakt
@@ -1862,9 +1864,11 @@ function _enhedRenderLag() {
         const uadBtn = maaFlytte
           ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}"
                style="font-size:11px;padding:2px 6px;
-                      background:${uad?"#27ae60":"#e74c3c"};color:#fff;
-                      border:none;border-radius:4px;cursor:pointer;font-weight:600">
-               ${uad?"✅ Sæt i drift":"🔴 UAD"}</button>` : "";
+                      background:${uad?"#27ae60":"#f5f5f5"};
+                      color:${uad?"#fff":"#333"};
+                      border:1px solid ${uad?"#27ae60":"#ccc"};
+                      border-radius:4px;cursor:pointer;font-weight:600">
+               ${uad?"✅ Sæt i drift":"🔴 Sæt UAD"}</button>` : "";
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid #f0f0f0;${uad?"background:#fff0f0;border-radius:4px;":""} ">
           <span style="font-size:12px;color:${uad?"#e74c3c":"inherit"}">
             ${_esc(e.navn)}${e.vognnummer ? ` <span style="color:#888">(${_esc(e.vognnummer)})</span>` : ""}
