@@ -280,6 +280,7 @@ function _levBuildEnhedRows() {
       const lag = cb.dataset.lag;
 
       // Forælder-checkbox: synkronisér underkategori-checkboxes
+      // Forælderen har ikke sit eget Leaflet-lag — kun børnene har lag
       if (cb.dataset.gruppe) {
         const under = container.querySelectorAll(`input[data-foraeld="${cb.dataset.gruppe}"]`);
         under.forEach(u => {
@@ -288,6 +289,7 @@ function _levBuildEnhedRows() {
             u.dispatchEvent(new Event('change'));
           }
         });
+        return; // Stop her — børnene håndterer kortlagene selv
       }
 
       // Underkategori: synkronisér forælder-checkbox
