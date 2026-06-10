@@ -282,7 +282,13 @@ function _levBuildEnhedRows() {
           const ok = await _levEnsureDisponering();
           if (!ok) { map.removeLayer(layer); cb.checked = false; return; }
           await _katLoad();
+          // Genbyg Disp-panel men bevar det aktuelle lag på kortet
+          const aktivtLagId = lag;
           _levBuildEnhedRows();
+          // Sikr at det lag vi netop aktiverede stadig er på kortet og checked
+          if (!map.hasLayer(layer)) map.addLayer(layer);
+          const genCheckbox = container.querySelector(`input[data-lag="${aktivtLagId}"]`);
+          if (genCheckbox) genCheckbox.checked = true;
           await _enhedLoad();
         }
       } else {
