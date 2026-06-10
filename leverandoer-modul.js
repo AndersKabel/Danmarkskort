@@ -1663,7 +1663,9 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
     iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
   });
 
-  const flytBtn = maaFlytte
+  const kats = enhed.kategorier?.length ? enhed.kategorier : (enhed.kategori ? [enhed.kategori] : []);
+  const kanFlyttes = kats.some(k => EGNE_KATEGORIER.find(kat => kat.id === k)?.kraeverStation === true);
+  const flytBtn = maaFlytte && kanFlyttes
     ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(enhed.id)}"
          style="font-size:11px;padding:3px 8px;background:#e8f4fd;border:1px solid #2980b9;
                 border-radius:4px;cursor:pointer;color:#2980b9;margin-top:6px">🔄 Flyt vogn</button>` : "";
@@ -1804,7 +1806,9 @@ function _enhedRenderLag() {
 
       const enhedRaekker = enheder.map(e => {
         const uad = _erUAD(e);
-        const flytBtn = maaFlytte
+        const eKats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+        const eKanFlyttes = eKats.some(k => EGNE_KATEGORIER.find(kat => kat.id === k)?.kraeverStation === true);
+        const flytBtn = maaFlytte && eKanFlyttes
           ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(e.id)}"
                style="font-size:11px;padding:2px 6px;background:#e8f4fd;border:1px solid #2980b9;
                       border-radius:4px;cursor:pointer;color:#2980b9">🔄 Flyt</button>` : "";
