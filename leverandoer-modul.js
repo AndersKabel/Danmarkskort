@@ -227,15 +227,59 @@ function _levBuildEnhedRows() {
     if (!_enhedKatLag[k.id]) _enhedKatLag[k.id] = L.layerGroup();
   });
 
-  // Byg checkboxes
-  container.innerHTML = EGNE_KATEGORIER.map(k =>
-    `<label class="lev-disp-row"><input type="checkbox" data-lag="enhed-${k.id}"${aktiveLag.has('enhed-'+k.id) ? ' checked' : ''}> ${k.ikon} ${k.navn}</label>`
-  ).join('');
+  // Byg hierarkisk HTML: forældrekategorier øverst, underkategorier indrykket
+  const foraeldre = EGNE_KATEGORIER.filter(k => !k.foralderId);
+  const boern     = EGNE_KATEGORIER.filter(k =>  k.foralderId);
 
-  // Bind handlers på de nye checkboxes
+  let html = '';
+  foraeldre.forEach(k => {
+    const under = boern.filter(b => b.foralderId === k.id);
+    if (under.length) {
+      html += `<div class="lev-disp-gruppe">`;
+      html += `<label class="lev-disp-row lev-disp-foraeld">
+        <input type="checkbox" data-lag="enhed-${k.id}" data-gruppe="${k.id}"${aktiveLag.has('enhed-'+k.id) ? ' checked' : ''}> ${k.ikon} ${k.navn} ▾
+      </label>`;
+      html += `<div class="lev-disp-under" style="padding-left:14px">`;
+      under.forEach(b => {
+        html += `<label class="lev-disp-row" style="font-size:12px">
+          <input type="checkbox" data-lag="enhed-${b.id}" data-foraeld="${k.id}"${aktiveLag.has('enhed-'+b.id) ? ' checked' : ''}> ${b.ikon} ${b.navn}
+        </label>`;
+      });
+      html += `</div></div>`;
+    } else {
+      html += `<label class="lev-disp-row"><input type="checkbox" data-lag="enhed-${k.id}"${aktiveLag.has('enhed-'+k.id) ? ' checked' : ''}> ${k.ikon} ${k.navn}</label>`;
+    }
+  });
+  container.innerHTML = html;
+
+  // Bind handlers
   container.querySelectorAll('input[type=checkbox]').forEach(function(cb) {
     cb.addEventListener('change', async function() {
       const lag = cb.dataset.lag;
+
+      // Forælder-checkbox: synkronisér underkategori-checkboxes
+      if (cb.dataset.gruppe) {
+        const under = container.querySelectorAll(`input[data-foraeld="${cb.dataset.gruppe}"]`);
+        under.forEach(u => {
+          if (u.checked !== cb.checked) {
+            u.checked = cb.checked;
+            u.dispatchEvent(new Event('change'));
+          }
+        });
+      }
+
+      // Underkategori: synkronisér forælder-checkbox
+      if (cb.dataset.foraeld) {
+        const forCb = container.querySelector(`input[data-gruppe="${cb.dataset.foraeld}"]`);
+        if (forCb) {
+          const under = [...container.querySelectorAll(`input[data-foraeld="${cb.dataset.foraeld}"]`)];
+          const alleValgt  = under.every(u => u.checked);
+          const ingenValgt = under.every(u => !u.checked);
+          forCb.checked       = alleValgt;
+          forCb.indeterminate = !alleValgt && !ingenValgt;
+        }
+      }
+
       const layer = _enhedKatLag[lag.slice(6)];
       if (!layer) return;
       if (cb.checked) {
@@ -253,6 +297,8 @@ function _levBuildEnhedRows() {
     });
   });
 }
+
+
 
 // ── LAYER CONTROL HELPERS ───────────────────────────────────────
 function _levUncheckLayer(layer) {
@@ -2043,7 +2089,14 @@ function _enhedShowListe() {
   function _enhedRaekke(e, stationer) {
     const uad = _erUAD(e);
     const st = stationer.find(s => s.id === e.stationId);
+    const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+    // Vis underkategori-ikoner hvis enheden har underkategorier
+    const underIkoner = kats.map(kid => {
+      const k = EGNE_KATEGORIER.find(x => x.id === kid);
+      return (k && k.foralderId) ? k.ikon : null;
+    }).filter(Boolean).join(" ");
     const meta = [
+      underIkoner || null,
       e.vognnummer ? e.vognnummer : null,
       st ? "🏠 " + st.navn : null,
       e.adresse && !st ? e.adresse : null
@@ -2070,9 +2123,10 @@ function _enhedShowListe() {
 
     // ── Kategori-sektioner ───────────────────────────────────────────
     EGNE_KATEGORIER.forEach(kat => {
+      const katOgBoern = new Set([kat.id, ...EGNE_KATEGORIER.filter(k => k.foralderId === kat.id).map(k => k.id)]);
       const enheder = alleEnheder.filter(e => {
         const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-        if (!kats.includes(kat.id)) return false;
+        if (!kats.some(k => katOgBoern.has(k))) return false;
         if (!q) return true;
         const st = stationer.find(s => s.id === e.stationId);
         return (e.navn || "").toLowerCase().includes(q)
@@ -2651,6 +2705,14 @@ function _katShowForm(kat) {
           <input id="kat-id" type="text" value="${_esc(kat?.id || "")}"
             placeholder="fx tma_vogn" ${kat ? "readonly style=\"background:#f5f7fa;color:#888\"" : ""}>
         </label>
+        <label style="margin-top:6px">Tilhører kategori (valgfri — udfyld hvis dette er en underkategori)
+          <select id="kat-foraeld" style="padding:8px;border:1px solid #cdd5df;border-radius:6px;font-size:13px;width:100%;margin-top:4px">
+            <option value="">— Ingen (selvstændig kategori) —</option>
+            ${EGNE_KATEGORIER.filter(k => !k.foralderId && k.id !== kat?.id).map(k =>
+              `<option value="${_esc(k.id)}" ${kat?.foralderId === k.id ? "selected" : ""}>${k.ikon} ${_esc(k.navn)}</option>`
+            ).join("")}
+          </select>
+        </label>
         <label style="margin-top:6px">Visningsnavn
           <input id="kat-navn" type="text" value="${_esc(kat?.navn || "")}" placeholder="fx TMA vogn">
         </label>
@@ -2691,6 +2753,7 @@ async function _katGem(existingId) {
   const navn       = document.getElementById("kat-navn").value.trim();
   const ikon       = document.getElementById("kat-ikon").value.trim();
   const sortering  = parseInt(document.getElementById("kat-sortering").value) || 99;
+  const foralderId = document.getElementById("kat-foraeld")?.value.trim() || undefined;
   const kraeverStation = document.querySelector('input[name="kat-type"]:checked')?.value === "station";
   const status     = document.getElementById("kat-status");
 
@@ -2705,7 +2768,7 @@ async function _katGem(existingId) {
     const r = await _levSpFetch("/kategorier", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, navn, ikon, kraeverStation, aktiv: true, sortering })
+      body: JSON.stringify({ id, navn, ikon, kraeverStation, aktiv: true, sortering, foralderId })
     });
     if (!r.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
