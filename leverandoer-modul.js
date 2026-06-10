@@ -1847,7 +1847,12 @@ function _enhedRenderLag() {
 
       const harUAD  = enheder.some(e => _erUAD(e));
       const alleUAD = enheder.every(e => _erUAD(e));
-      const bgFarve = alleUAD ? "#e74c3c" : harUAD ? "#e67e22" : "#2471a3";
+      const blandtUAD = harUAD && !alleUAD; // Nogle UAD, nogle i drift
+
+      // Baggrund: halvt blå halvt rød hvis blandet, ellers enkelt farve
+      const bgStyle = blandtUAD
+        ? "background:linear-gradient(135deg, #2471a3 50%, #e74c3c 50%)"
+        : `background:${alleUAD ? "#e74c3c" : "#2471a3"}`;
 
       const afstand = markerPos ? map.distance(markerPos, L.latLng(st.lat, st.lon)) / 1000 : null;
       const afstandTekst = afstand != null
@@ -1855,7 +1860,7 @@ function _enhedRenderLag() {
 
       const icon = L.divIcon({
         className: "",
-        html: `<div class="lev-marker-icon" style="background:${bgFarve};font-size:14px;width:28px;height:28px;line-height:28px">${kat.ikon}</div>`,
+        html: `<div class="lev-marker-icon" style="${bgStyle};font-size:14px;width:28px;height:28px;line-height:28px">${kat.ikon}</div>`,
         iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
       });
 
