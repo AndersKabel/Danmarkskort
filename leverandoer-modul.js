@@ -17,40 +17,17 @@ const LEV_KATEGORIER = [
 ];
 
 // Egne enheder-kategorier (Falcks egne biler/reddere)
-// Kategorier loades dynamisk fra SharePoint ved login
-// Fallback: hardkodede kategorier bruges indtil SharePoint svarer
-let EGNE_KATEGORIER = [
-  { id: "tma_vogn",    navn: "TMA vogn",      ikon: "🚧", kraeverStation: true,  sortering: 1 },
-  { id: "tavletrailer",navn: "Tavletrailer",   ikon: "🪧", kraeverStation: true,  sortering: 2 },
-  { id: "dyr",         navn: "Dyreredning",    ikon: "🐾", kraeverStation: false, sortering: 3 },
-  { id: "dyr_ko",      navn: "Ko",             ikon: "🐄", kraeverStation: false, sortering: 1, foralderId: "dyr" },
-  { id: "dyr_hest",    navn: "Hest",           ikon: "🐴", kraeverStation: false, sortering: 2, foralderId: "dyr" },
-  { id: "dyr_smaadyr", navn: "Smådyr",         ikon: "🐾", kraeverStation: false, sortering: 3, foralderId: "dyr" },
-  { id: "dyr_riffel",  navn: "Riffelskytte",   ikon: "🦌", kraeverStation: false, sortering: 4, foralderId: "dyr" },
-  { id: "drift_hjem",  navn: "Drift fra hjem", ikon: "🏠", kraeverStation: false, sortering: 4 },
-  { id: "mors",        navn: "Mors biler",     ikon: "🚌", kraeverStation: true,  sortering: 5 },
-  { id: "liggende",    navn: "Liggende",       ikon: "🛏️", kraeverStation: true,  sortering: 6 },
-  { id: "forflytning", navn: "Forflytning",    ikon: "🚑", kraeverStation: true,  sortering: 7 },
-  { id: "vejrenser",   navn: "Vejrenser",      ikon: "🧹", kraeverStation: true,  sortering: 8 },
-  { id: "skytter",     navn: "Skytter",        ikon: "🎯", kraeverStation: false, sortering: 9 },
+const EGNE_KATEGORIER = [
+  { id: "tma_vogn",    navn: "TMA vogn",        ikon: "🚧" },
+  { id: "tavletrailer",navn: "Tavletrailer",     ikon: "🪧" },
+  { id: "dyr",         navn: "Dyreredning",      ikon: "🐾" },
+  { id: "drift_hjem",  navn: "Drift fra hjem",   ikon: "🏠" },
+  { id: "mors",        navn: "Mors biler",        ikon: "🚌" },
+  { id: "liggende",    navn: "Liggende",          ikon: "🛏️" },
+  { id: "forflytning", navn: "Forflytning",       ikon: "🚑" },
+  { id: "vejrenser",   navn: "Vejrenser",         ikon: "🧹" },
+  { id: "skytter",     navn: "Skytter",           ikon: "🎯" },
 ];
-
-// Load kategorier fra SharePoint og opdater lag
-async function _katLoad() {
-  try {
-    const r = await _levSpFetch("/kategorier");
-    if (!r.ok) return;
-    const data = await r.json();
-    if (!data.ok || !Array.isArray(data.kategorier) || !data.kategorier.length) return;
-    EGNE_KATEGORIER = data.kategorier;
-    // Opret Leaflet-lag for nye kategorier der ikke allerede har et lag
-    EGNE_KATEGORIER.forEach(k => {
-      if (!_enhedKatLag[k.id]) _enhedKatLag[k.id] = L.layerGroup();
-    });
-  } catch(e) {
-    console.warn("Kategorier: load fejlede, bruger fallback", e);
-  }
-}
 
 // ── LEAFLET LAG ──────────────────────────────────────────────────
 const _levKatLag = {};
@@ -108,6 +85,9 @@ function _levBuildControl() {
   const levRows = LEV_KATEGORIER.map(k =>
     `<label class="lev-disp-row"><input type="checkbox" data-lag="lev-${k.id}"> ${k.ikon} ${k.navn}</label>`
   ).join('');
+  const enhedRows = EGNE_KATEGORIER.map(k =>
+    `<label class="lev-disp-row"><input type="checkbox" data-lag="enhed-${k.id}"> ${k.ikon} ${k.navn}</label>`
+  ).join('');
 
   wrap.innerHTML = `
     <button class="lev-disp-toggle" id="levDispToggle">Disp</button>
@@ -116,7 +96,7 @@ function _levBuildControl() {
         <label class="lev-disp-row"><input type="checkbox" data-lag="tilgaengelig"> 🟢 Tilgængelige leverandører</label>
       </div>
       <div class="lev-disp-divider"></div>
-      <div class="lev-disp-section" id="levDispEnhedRows"></div>
+      <div class="lev-disp-section">${enhedRows}</div>
       <div class="lev-disp-divider"></div>
       <div class="lev-disp-section lev-disp-rediger">
         <button class="lev-disp-rediger-btn" id="levRedigerLev">✏️ Rediger leverandører</button>
@@ -125,7 +105,6 @@ function _levBuildControl() {
     </div>
   `;
   map.getContainer().appendChild(wrap);
-  _levBuildEnhedRows();
 
   const toggleBtn = document.getElementById('levDispToggle');
   const panel     = document.getElementById('levDispPanel');
@@ -213,92 +192,6 @@ function _levBuildControl() {
   _levLayerCtrl = wrap;
 
 }
-
-// Bygger/genbygger enhed-checkboxes i Disp-panelet
-// Kaldes ved init og efter _katLoad() så nye kategorier vises
-function _levBuildEnhedRows() {
-  const container = document.getElementById('levDispEnhedRows');
-  if (!container) return;
-
-  // Gem hvilke lag der er aktivt tændt ved at tjekke Leaflet-kortets aktive lag
-  const aktiveLag = new Set();
-  if (typeof map !== 'undefined' && typeof _enhedKatLag !== 'undefined') {
-    Object.entries(_enhedKatLag).forEach(([id, layer]) => {
-      if (map.hasLayer(layer)) aktiveLag.add('enhed-' + id);
-    });
-  }
-
-  // Sikr at alle kategorier har et Leaflet-lag
-  EGNE_KATEGORIER.forEach(k => {
-    if (!_enhedKatLag[k.id]) _enhedKatLag[k.id] = L.layerGroup();
-  });
-
-  // Byg hierarkisk HTML: forældrekategorier øverst, underkategorier indrykket
-  const foraeldre = EGNE_KATEGORIER.filter(k => !k.foralderId);
-  const boern     = EGNE_KATEGORIER.filter(k =>  k.foralderId);
-
-  let html = '';
-  foraeldre.forEach(k => {
-    const under = boern.filter(b => b.foralderId === k.id);
-    if (under.length) {
-      html += `<div class="lev-disp-gruppe">`;
-      html += `<div class="lev-disp-row lev-disp-foraeld" style="cursor:pointer;user-select:none">
-        ${k.ikon} ${k.navn} <span class="disp-pil">▸</span>
-      </div>`;
-      html += `<div class="lev-disp-under" style="padding-left:14px;display:none">`;
-      under.forEach(b => {
-        html += `<label class="lev-disp-row" style="font-size:12px">
-          <input type="checkbox" data-lag="enhed-${b.id}" data-foraeld="${k.id}"${aktiveLag.has('enhed-'+b.id) ? ' checked' : ''}> ${b.ikon} ${b.navn}
-        </label>`;
-      });
-      html += `</div></div>`;
-    } else {
-      html += `<label class="lev-disp-row"><input type="checkbox" data-lag="enhed-${k.id}"${aktiveLag.has('enhed-'+k.id) ? ' checked' : ''}> ${k.ikon} ${k.navn}</label>`;
-    }
-  });
-  container.innerHTML = html;
-
-  // Klik paa foraelder-div folder ud/ind
-  container.querySelectorAll('.lev-disp-foraeld').forEach(function(div) {
-    div.addEventListener('click', function() {
-      const under = div.nextElementSibling;
-      if (!under) return;
-      const aaben = under.style.display !== 'none';
-      under.style.display = aaben ? 'none' : 'block';
-      const pil = div.querySelector('.disp-pil');
-      if (pil) pil.textContent = aaben ? '▸' : '▾';
-    });
-  });
-
-  // Bind handlers
-  container.querySelectorAll('input[type=checkbox]').forEach(function(cb) {
-    cb.addEventListener('change', async function() {
-      const lag = cb.dataset.lag;
-      const layer = _enhedKatLag[lag.slice(6)];
-      if (!layer) return;
-      if (cb.checked) {
-        map.addLayer(layer);
-        if (!_enhedLoaded) {
-          const ok = await _levEnsureDisponering();
-          if (!ok) { map.removeLayer(layer); cb.checked = false; return; }
-          await _katLoad();
-          // Genbyg Disp-panel men bevar det aktuelle lag på kortet
-          const aktivtLagId = lag;
-          _levBuildEnhedRows();
-          // Sikr at det lag vi netop aktiverede stadig er på kortet og checked
-          if (!map.hasLayer(layer)) map.addLayer(layer);
-          const genCheckbox = container.querySelector(`input[data-lag="${aktivtLagId}"]`);
-          if (genCheckbox) genCheckbox.checked = true;
-          await _enhedLoad();
-        }
-      } else {
-        map.removeLayer(layer);
-      }
-    });
-  });
-}
-
-
 
 // ── LAYER CONTROL HELPERS ───────────────────────────────────────
 function _levUncheckLayer(layer) {
@@ -499,52 +392,6 @@ function _levBindPopupHandlers(el) {
     img.dataset.handlerBound = "1";
     img.addEventListener("click", e => { e.stopPropagation(); _levLightbox(img.src); });
   });
-  el.querySelectorAll(".lev-flyt-lev-vogn-btn").forEach(btn => {
-    if (btn.dataset.handlerBound) return;
-    btn.dataset.handlerBound = "1";
-    btn.addEventListener("click", () => _levFlytVognDialog(btn.dataset.levid, btn.dataset.vognid, btn.dataset.fraadrid));
-  });
-}
-
-// Flyt TMA-vogn fra ét depot til et andet inden for samme leverandør
-async function _levFlytVognDialog(levId, vognId, fraAdrId) {
-  const lev  = (_levData || []).find(l => l.id === levId);
-  const vogn = (lev?.vogne || []).find(v => v.id === vognId);
-  const fraAdr = (lev?.arbejdsAdresser || []).find(a => a.id === fraAdrId);
-  if (!lev || !vogn || !fraAdr) { alert("Vogn eller depot ikke fundet."); return; }
-
-  const destinationer = (lev.arbejdsAdresser || []).filter(a => a.id !== fraAdrId);
-  if (!destinationer.length) { alert("Ingen andre depoter at flytte til."); return; }
-
-  const valg = destinationer.map((a, i) => `${i}: ${a.label || a.vej || a.id}`).join("\n");
-  const input = prompt(
-    `Flyt vogn ${vogn.vognnummer || "?"} (${vogn.beskrivelse || ""}) fra:\n${fraAdr.label || fraAdr.vej}\n\nTil depot (indtast nummer):\n${valg}`
-  );
-  if (input === null || input.trim() === "") return;
-
-  const idx = parseInt(input.trim());
-  if (isNaN(idx) || idx < 0 || idx >= destinationer.length) { alert("Ugyldigt valg."); return; }
-
-  const tilAdr = destinationer[idx];
-
-  // Opdater vognens adresseIds til kun at pege på det nye depot
-  const opdateretVogne = (lev.vogne || []).map(v =>
-    v.id === vognId ? { ...v, adresseIds: [tilAdr.id] } : v
-  );
-  const opdateretLev = { ...lev, vogne: opdateretVogne };
-
-  try {
-    const r = await _levSpFetch("/leverandoerer", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(opdateretLev)
-    });
-    if (!r.ok) throw new Error("Gem fejlede");
-    await _levLoad();
-    alert(`✅ Vogn ${vogn.vognnummer || "?"} flyttet til ${tilAdr.label || tilAdr.vej}`);
-  } catch (e) {
-    alert("Flyt fejlede: " + e.message);
-  }
 }
 
 function _levBuildMarkers() {
@@ -770,8 +617,6 @@ function _levFullPopupHTML(lev, adr) {
   const vogne = alleVogne.filter(v =>
     !v.adresseIds?.length || v.adresseIds.includes(adr.id)
   );
-  const erTmaLev = (lev.kategorier || []).includes("tma_vogn");
-  const maaFlytLev = _levAktivRolle === "admin" || _levAktivRolle === "drift";
   if (vogne.length) {
     h += `<hr class="lev-hr"><div class="lev-popup-section-hdr">🚗 Vogne (${vogne.length})</div>`;
     vogne.forEach(v => {
@@ -794,14 +639,6 @@ function _levFullPopupHTML(lev, adr) {
         if (specs.length) h += `<div class="lev-popup-vogn-specs">${specs.join(' &nbsp;·&nbsp; ')}</div>`;
         if (v.infoTekst) h += `<div class="lev-popup-vogn-info">${_esc(v.infoTekst)}</div>`;
         h += `</div>`;
-      }
-      if (erTmaLev && maaFlytLev) {
-        h += `<button class="lev-flyt-lev-vogn-btn"
-          data-levid="${_esc(lev.id)}" data-vognid="${_esc(v.id)}" data-fraadrid="${_esc(adr.id)}"
-          style="font-size:11px;padding:2px 6px;background:#e8f4fd;border:1px solid #2980b9;
-                 border-radius:4px;cursor:pointer;color:#2980b9;margin-top:4px">
-          🔄 Flyt vogn
-        </button>`;
       }
       h += `</div>`;
     });
@@ -913,7 +750,10 @@ function _levShowListe() {
         || kats.includes(q)
         || (lev.arbejdsAdresser || []).some(a =>
             (a.vej || "").toLowerCase().includes(q) ||
-            (a.by  || "").toLowerCase().includes(q));
+            (a.by  || "").toLowerCase().includes(q))
+        || (lev.vogne || []).some(v =>
+            (v.vognnummer   || "").toLowerCase().includes(q) ||
+            (v.beskrivelse  || "").toLowerCase().includes(q));
     });
     const rækker = filtreret.map(_levRaekke).join("")
       || `<p class="lev-empty">${q ? "Ingen leverandører matcher søgningen." : "Ingen leverandører endnu.<br>Klik \"+ Ny leverandør\" for at starte."}</p>`;
@@ -1583,486 +1423,155 @@ async function _enhedLoad() {
   }
 }
 
-// ── UAD HJÆLPEFUNKTIONER ─────────────────────────────────────────
-function _erUAD(e) {
-  if (!e?.uad) return false;
-  if (e.uad.type === "manuel") return true;
-  if (e.uad.type === "tidsrum") {
-    const nu = Date.now();
-    return new Date(e.uad.fra).getTime() <= nu && nu <= new Date(e.uad.til).getTime();
-  }
-  return false;
-}
+function _enhedRenderLag() {
+  EGNE_KATEGORIER.forEach(k => _enhedKatLag[k.id].clearLayers());
 
-function _uadBadge(e) {
-  if (!e?.uad) return "";
-  const aarsag = e.uad.aarsag ? ` — ${e.uad.aarsag}` : "";
-  if (e.uad.type === "manuel")
-    return `<span style="background:#e74c3c;color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px">UAD${aarsag}</span>`;
-  if (e.uad.type === "tidsrum") {
-    const til = new Date(e.uad.til);
-    const hh  = String(til.getHours()).padStart(2,"0");
-    const mm  = String(til.getMinutes()).padStart(2,"0");
-    const dd  = til.toLocaleDateString("da-DK", {day:"numeric",month:"short"});
-    return `<span style="background:#e67e22;color:#fff;border-radius:8px;padding:1px 6px;font-size:10px;margin-left:4px">UAD til ${dd} ${hh}:${mm}${aarsag}</span>`;
-  }
-  return "";
-}
+  const markerPos = (typeof currentMarker !== "undefined" && currentMarker && currentMarker.getLatLng)
+    ? currentMarker.getLatLng() : null;
 
-// ── UAD DIALOG ───────────────────────────────────────────────────
-async function _enhedUADDialog(enhedId) {
-  const enhed = (_enhedData || []).find(e => e.id === enhedId);
-  if (!enhed) return;
+  let data = (_enhedData || []).map(enhed => {
+    const afstand = (markerPos && enhed.lat != null && enhed.lon != null)
+      ? (map.distance(markerPos, L.latLng(enhed.lat, enhed.lon)) / 1000)
+      : null;
+    return { ...enhed, _afstand: afstand };
+  });
+  if (markerPos) data.sort((a, b) => (a._afstand ?? Infinity) - (b._afstand ?? Infinity));
 
-  // Allerede UAD → tilbyd at sætte klar
-  if (_erUAD(enhed)) {
-    if (!confirm(`Sæt "${enhed.navn}" klar igen?`)) return;
-    const opdateret = { ...enhed, uad: null };
-    try {
-      await _levSpFetch("/enheder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opdateret) });
-      await _enhedLoad();
-    } catch(err) { alert("Fejl: " + err.message); }
-    return;
-  }
+  // Kategorier der alle må se "Flyt vogn" (ikke kun drift/admin)
+  const ALLE_MAA_FLYTTE = new Set(["tma_vogn", "tavletrailer"]);
 
-  // Byg overlay-dialog
-  const nu = new Date();
-  const lokalDato = `${nu.getFullYear()}-${String(nu.getMonth()+1).padStart(2,"0")}-${String(nu.getDate()).padStart(2,"0")}`;
-  const lokalTid  = `${String(nu.getHours()).padStart(2,"0")}:${String(nu.getMinutes()).padStart(2,"0")}`;
+  data.forEach(enhed => {
+    if (enhed.lat == null || enhed.lon == null) return;
+    const kats = enhed.kategorier?.length ? enhed.kategorier
+      : (enhed.kategori ? [enhed.kategori] : []);
+    if (!kats.length) return;
 
-  const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center";
-  overlay.innerHTML = `
-    <div style="background:#fff;border-radius:12px;padding:24px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
-      <div style="font-weight:700;font-size:15px;margin-bottom:4px">🔴 Sæt UAD</div>
-      <div style="font-size:12px;color:#666;margin-bottom:16px">${_esc(enhed.navn)}</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <label style="display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-          <input type="radio" name="uad-type" value="manuel" checked> Manuel — forbliver UAD indtil du sætter klar
-        </label>
-        <label style="display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-          <input type="radio" name="uad-type" value="tidsrum"> Tidsrum
-        </label>
-        <div id="uad-tidsrum-felter" style="display:none;padding-left:24px;flex-direction:column;gap:6px">
-          <label style="font-size:12px;font-weight:600;color:#5a6a7a">Fra
-            <input type="datetime-local" id="uad-fra" value="${lokalDato}T${lokalTid}"
-              style="width:100%;padding:6px;border:1px solid #cdd5df;border-radius:6px;font-size:12px;margin-top:2px">
-          </label>
-          <label style="font-size:12px;font-weight:600;color:#5a6a7a">Til
-            <input type="datetime-local" id="uad-til"
-              style="width:100%;padding:6px;border:1px solid #cdd5df;border-radius:6px;font-size:12px;margin-top:2px">
-          </label>
-        </div>
-        <label style="font-size:12px;font-weight:600;color:#5a6a7a;margin-top:14px;display:block">Årsag (valgfri)
-          <input type="text" id="uad-aarsag" placeholder="fx: service, havari, ferie..."
-            style="width:100%;padding:7px;border:1px solid #cdd5df;border-radius:6px;font-size:12px;margin-top:4px;box-sizing:border-box">
-        </label>
+    // Ikon: første kategoris emoji
+    const foersteKat = EGNE_KATEGORIER.find(k => k.id === kats[0]);
+    const ikon       = foersteKat?.ikon || "📍";
+    const ekstra     = kats.length > 1 ? `<sup style="font-size:9px">+${kats.length - 1}</sup>` : "";
+
+    const leafletIcon = L.divIcon({
+      className: "",
+      html: `<div class="lev-marker-icon" style="background:#2471a3;font-size:14px;width:28px;height:28px;line-height:28px">${ikon}${ekstra}</div>`,
+      iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16]
+    });
+
+    const marker = L.marker([enhed.lat, enhed.lon], { icon: leafletIcon });
+
+    // Byg popup
+    const afstandTekst = enhed._afstand != null
+      ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${enhed._afstand.toFixed(1)} km fra søgt adresse</div>` : "";
+
+    const katIkoner = kats.map(id => {
+      const k = EGNE_KATEGORIER.find(k => k.id === id);
+      return k ? `<span title="${k.navn}">${k.ikon}</span>` : "";
+    }).join(" ");
+
+    const vogne = enhed.vogne || [];
+    const maaFlytte = _levAktivRolle === "admin" || _levAktivRolle === "drift";
+
+    const vognHTML = vogne.length ? `
+      <hr class="lev-hr">
+      <div class="lev-popup-section-hdr">🚗 Vogne (${vogne.length})</div>
+      ${vogne.map(v => {
+        const kanFlytte = maaFlytte || kats.some(k => ALLE_MAA_FLYTTE.has(k));
+        const flytteBtn = kanFlytte
+          ? `<button class="lev-enhed-flyt-btn" data-vognid="${_esc(v.id)}" data-stationid="${_esc(enhed.id)}"
+               style="font-size:11px;padding:2px 6px;background:#e8f4fd;border:1px solid #2980b9;border-radius:4px;cursor:pointer;color:#2980b9;margin-top:4px">
+               🔄 Flyt vogn
+             </button>` : "";
+        return `<div class="lev-popup-vogn-row" style="padding:4px 0">
+          <strong>${_esc(v.nummer)}</strong>${v.beskrivelse ? " — " + _esc(v.beskrivelse) : ""}
+          ${v.telefon ? `<div style="font-size:12px;margin-top:2px">📞 <a href="tel:${_esc('+45'+v.telefon.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(v.telefon)}</a></div>` : ""}
+          ${v.detaljer ? `<div style="font-size:11px;color:#666;margin-top:2px">${_esc(v.detaljer)}</div>` : ""}
+          ${flytteBtn}
+        </div>`;
+      }).join('<hr class="lev-hr" style="margin:4px 0">')}` : "";
+
+    const tlfHTML = enhed.kontakt
+      ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45' + enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a></div>`
+      : "";
+
+    const popupHTML = `<div class="lev-popup">
+      <div class="lev-popup-top" style="border-left:4px solid #2471a3">
+        <b>${_esc(enhed.navn)}</b>
+        <span class="lev-popup-sub">${katIkoner}</span>
       </div>
-      <div style="display:flex;gap:8px;margin-top:20px">
-        <button id="uad-gem" style="flex:1;padding:10px;background:#e74c3c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🔴 Sæt UAD</button>
-        <button id="uad-annuller" style="flex:1;padding:10px;background:#f5f7fa;border:1px solid #cdd5df;border-radius:8px;font-size:13px;cursor:pointer">Annuller</button>
-      </div>
+      ${afstandTekst}
+      ${tlfHTML}
+      ${enhed.bemærkning ? `<div class="lev-popup-row"><em>${_esc(enhed.bemærkning)}</em></div>` : ""}
+      ${vognHTML}
     </div>`;
 
-  document.body.appendChild(overlay);
+    marker.bindPopup(popupHTML, { maxWidth: 300, className: "lev-leaflet-popup" });
 
-  overlay.querySelectorAll("input[name='uad-type']").forEach(r => {
-    r.addEventListener("change", () => {
-      const vis = overlay.querySelector("input[name='uad-type']:checked").value === "tidsrum";
-      overlay.querySelector("#uad-tidsrum-felter").style.display = vis ? "flex" : "none";
+    marker.on("popupopen", function() {
+      const el = this.getPopup().getElement();
+      if (!el) return;
+      el.querySelectorAll(".lev-enhed-flyt-btn").forEach(btn => {
+        btn.addEventListener("click", () => _enhedFlytVognDialog(btn.dataset.vognid, btn.dataset.stationid));
+      });
     });
-  });
 
-  overlay.querySelector("#uad-annuller").addEventListener("click", () => overlay.remove());
-  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
-
-  overlay.querySelector("#uad-gem").addEventListener("click", async () => {
-    const type    = overlay.querySelector("input[name='uad-type']:checked").value;
-    const aarsag  = overlay.querySelector("#uad-aarsag").value.trim() || undefined;
-    let uad;
-    if (type === "manuel") {
-      uad = { type: "manuel", aarsag };
-    } else {
-      const fra = overlay.querySelector("#uad-fra").value;
-      const til = overlay.querySelector("#uad-til").value;
-      if (!fra || !til) { alert("Udfyld både fra og til."); return; }
-      if (new Date(til) <= new Date(fra)) { alert("Til-tidspunkt skal være efter fra-tidspunkt."); return; }
-      uad = { type: "tidsrum", fra, til, aarsag };
-    }
-    try {
-      const opdateret = { ...enhed, uad };
-      await _levSpFetch("/enheder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opdateret) });
-      overlay.remove();
-      await _enhedLoad();
-    } catch(err) { alert("Fejl: " + err.message); }
+    kats.forEach(katId => {
+      if (_enhedKatLag[katId]) _enhedKatLag[katId].addLayer(marker);
+    });
   });
 }
 
-// ── HJÆLPEFUNKTION: Individuel enhed-markør (uden station) ───────
-function _renderEnhedMarker(enhed, kat, maaFlytte) {
-  if (enhed.lat == null || enhed.lon == null) return;
-  const uad = _erUAD(enhed);
-  const bgFarve = uad ? "#e74c3c" : "#2471a3";
-  const markerPos = (typeof currentMarker !== "undefined" && currentMarker?.getLatLng)
-    ? currentMarker.getLatLng() : null;
-  const afstand = markerPos ? map.distance(markerPos, L.latLng(enhed.lat, enhed.lon)) / 1000 : null;
-  const afstandTekst = afstand != null
-    ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${afstand.toFixed(1)} km fra søgt adresse</div>` : "";
+// Flyt vogn dialog
+async function _enhedFlytVognDialog(vognId, fraStationId) {
+  const fraStation = _enhedData.find(e => e.id === fraStationId);
+  const vogn       = fraStation?.vogne?.find(v => v.id === vognId);
+  if (!fraStation || !vogn) { alert("Vogn ikke fundet."); return; }
 
-  const icon = L.divIcon({
-    className: "",
-    html: `<div class="lev-marker-icon" style="background:${bgFarve};font-size:14px;width:28px;height:28px;line-height:28px">${kat.ikon}</div>`,
-    iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
-  });
-
-  const kats = enhed.kategorier?.length ? enhed.kategorier : (enhed.kategori ? [enhed.kategori] : []);
-  const kanFlyttes = kats.some(k => EGNE_KATEGORIER.find(kat => kat.id === k)?.kraeverStation === true);
-  const flytBtn = maaFlytte && kanFlyttes
-    ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(enhed.id)}"
-         style="font-size:11px;padding:3px 8px;background:#e8f4fd;border:1px solid #2980b9;
-                border-radius:4px;cursor:pointer;color:#2980b9;margin-top:6px">🔄 Flyt vogn</button>` : "";
-  const uadBtn = maaFlytte
-    ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(enhed.id)}"
-         style="font-size:11px;padding:3px 8px;
-                background:${uad?"#27ae60":"#f5f5f5"};
-                color:${uad?"#fff":"#333"};
-                border:1px solid ${uad?"#27ae60":"#ccc"};
-                border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">
-         ${uad?"✅ Sæt i drift":"🔴 Sæt UAD"}</button>` : "";
-
-  const tlfHTML = enhed.kontakt
-    ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a></div>` : "";
-
-  const marker = L.marker([enhed.lat, enhed.lon], { icon });
-  marker.bindPopup(`<div class="lev-popup">
-    <div class="lev-popup-top" style="border-left:4px solid ${bgFarve}">
-      <b>${_esc(enhed.navn)}</b>${uad ? _uadBadge(enhed) : ""}
-      <span class="lev-popup-sub">${kat.ikon} ${kat.navn}</span>
-    </div>
-    ${afstandTekst}
-    ${enhed.vognnummer ? `<div class="lev-popup-row">🚗 ${_esc(enhed.vognnummer)}</div>` : ""}
-    ${tlfHTML}
-    ${enhed.bemærkning ? `<div class="lev-popup-row"><em>${_esc(enhed.bemærkning)}</em></div>` : ""}
-    <div style="display:flex;gap:6px;flex-wrap:wrap">${flytBtn}${uadBtn}</div>
-  </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
-
-  marker.on("popupopen", function() {
-    const el = this.getPopup().getElement(); if (!el) return;
-    el.querySelectorAll(".lev-enhed-flyt-btn").forEach(b => b.addEventListener("click", () => _enhedFlytVognDialog(b.dataset.enhedid)));
-    el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
-  });
-
-  if (_enhedKatLag[kat.id]) _enhedKatLag[kat.id].addLayer(marker);
-}
-
-// ── HOVED RENDER-FUNKTION ────────────────────────────────────────
-function _enhedRenderLag() {
-  EGNE_KATEGORIER.forEach(k => _enhedKatLag[k.id]?.clearLayers());
-  if (typeof uadLayer !== "undefined") uadLayer.clearLayers();
-
-  const alleEnheder = _enhedData || [];
-  const markerPos = (typeof currentMarker !== "undefined" && currentMarker?.getLatLng)
-    ? currentMarker.getLatLng() : null;
-  const maaFlytte = _levAktivRolle === "admin" || _levAktivRolle === "drift";
-
-  // ── STATIONER LAG ─────────────────────────────────────────────
-  if (typeof stationerLayer !== "undefined") {
-    stationerLayer.clearLayers();
-    alleEnheder.filter(e => e.type === "station" && e.lat != null && e.lon != null).forEach(st => {
-      const afstand = markerPos ? map.distance(markerPos, L.latLng(st.lat, st.lon)) / 1000 : null;
-      const afstandTekst = afstand != null
-        ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${afstand.toFixed(1)} km fra søgt adresse</div>` : "";
-
-      // Tilknyttede enheder pr kategori
-      const katGrupper = EGNE_KATEGORIER.map(kat => {
-        const enheder = alleEnheder.filter(e => {
-          if (e.type === "station" || e.stationId !== st.id) return false;
-          const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-          return kats.includes(kat.id);
-        });
-        if (!enheder.length) return "";
-        return `<div style="margin-top:6px">
-          <div style="font-size:11px;font-weight:700;color:#5a6a7a">${kat.ikon} ${kat.navn}</div>
-          ${enheder.map(x => {
-            const uad = _erUAD(x);
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:12px">
-              <span style="color:${uad?"#e74c3c":"inherit"}">${_esc(x.navn)}${x.vognnummer ? ` <span style="font-size:11px;color:#888">(${_esc(x.vognnummer)})</span>` : ""}</span>
-              ${uad ? _uadBadge(x) : `<span style="color:#27ae60;font-size:11px">✓ Klar</span>`}
-            </div>`;
-          }).join("")}
-        </div>`;
-      }).join("");
-
-      const tlfHTML = st.kontakt
-        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+st.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(st.kontakt)}</a></div>` : "";
-
-      const icon = L.divIcon({
-        className: "",
-        html: `<div class="lev-marker-icon" style="background:#27ae60;font-size:14px;width:28px;height:28px;line-height:28px">🏠</div>`,
-        iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
-      });
-
-      const marker = L.marker([st.lat, st.lon], { icon });
-      marker.bindPopup(`<div class="lev-popup">
-        <div class="lev-popup-top" style="border-left:4px solid #27ae60">
-          <b>${_esc(st.navn)}</b><span class="lev-popup-sub">🏠 Station</span>
-        </div>
-        ${afstandTekst}
-        ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
-        ${tlfHTML}
-        ${st.bemærkning ? `<div class="lev-popup-row"><em>${_esc(st.bemærkning)}</em></div>` : ""}
-        ${katGrupper ? `<hr class="lev-hr"><div class="lev-popup-section-hdr">Tilknyttede enheder</div>${katGrupper}` : ""}
-      </div>`, { maxWidth: 320, className: "lev-leaflet-popup" });
-      stationerLayer.addLayer(marker);
-    });
-  }
-
-  // ── ENHEDER — grupperet per station per kategori-lag ──────────
-  EGNE_KATEGORIER.forEach(kat => {
-    if (!_enhedKatLag[kat.id]) return;
-
-    const enhederIKat = alleEnheder.filter(e => {
-      if (e.type === "station") return false;
-      const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-      return kats.includes(kat.id);
-    });
-
-    const medStation  = enhederIKat.filter(e => e.stationId);
-    const udenStation = enhederIKat.filter(e => !e.stationId);
-
-    // Grupper på stationId
-    const stationGrupper = new Map();
-    medStation.forEach(e => {
-      if (!stationGrupper.has(e.stationId)) stationGrupper.set(e.stationId, []);
-      stationGrupper.get(e.stationId).push(e);
-    });
-
-    // Én markør per station
-    stationGrupper.forEach((enheder, stId) => {
-      const st = alleEnheder.find(s => s.id === stId);
-      if (!st || st.lat == null || st.lon == null) {
-        enheder.forEach(e => _renderEnhedMarker(e, kat, maaFlytte));
-        return;
-      }
-
-      const harUAD  = enheder.some(e => _erUAD(e));
-      const alleUAD = enheder.every(e => _erUAD(e));
-      const blandtUAD = harUAD && !alleUAD; // Nogle UAD, nogle i drift
-      const bgFarve = alleUAD ? "#e74c3c" : harUAD ? "#e67e22" : "#2471a3"; // Bruges i popup border
-
-      // Baggrund: halvt blå halvt rød hvis blandet, ellers enkelt farve
-      const bgStyle = blandtUAD
-        ? "background:linear-gradient(135deg, #2471a3 50%, #e74c3c 50%)"
-        : `background:${alleUAD ? "#e74c3c" : "#2471a3"}`;
-
-      const afstand = markerPos ? map.distance(markerPos, L.latLng(st.lat, st.lon)) / 1000 : null;
-      const afstandTekst = afstand != null
-        ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${afstand.toFixed(1)} km fra søgt adresse</div>` : "";
-
-      const icon = L.divIcon({
-        className: "",
-        html: `<div class="lev-marker-icon" style="${bgStyle};font-size:14px;width:28px;height:28px;line-height:28px">${kat.ikon}</div>`,
-        iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
-      });
-
-      const enhedRaekker = enheder.map(e => {
-        const uad = _erUAD(e);
-        const eKats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-        const eKanFlyttes = eKats.some(k => EGNE_KATEGORIER.find(kat => kat.id === k)?.kraeverStation === true);
-        const flytBtn = maaFlytte && eKanFlyttes
-          ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(e.id)}"
-               style="font-size:11px;padding:2px 6px;background:#e8f4fd;border:1px solid #2980b9;
-                      border-radius:4px;cursor:pointer;color:#2980b9">🔄 Flyt</button>` : "";
-        const uadBtn = maaFlytte
-          ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}"
-               style="font-size:11px;padding:2px 6px;
-                      background:${uad?"#27ae60":"#f5f5f5"};
-                      color:${uad?"#fff":"#333"};
-                      border:1px solid ${uad?"#27ae60":"#ccc"};
-                      border-radius:4px;cursor:pointer;font-weight:600">
-               ${uad?"✅ Sæt i drift":"🔴 Sæt UAD"}</button>` : "";
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid #f0f0f0;${uad?"background:#fff0f0;border-radius:4px;":""} ">
-          <span style="font-size:12px;color:${uad?"#e74c3c":"inherit"}">
-            ${_esc(e.navn)}${e.vognnummer ? ` <span style="color:#888">(${_esc(e.vognnummer)})</span>` : ""}
-            ${uad ? _uadBadge(e) : ""}
-          </span>
-          <div style="display:flex;gap:4px">${flytBtn}${uadBtn}</div>
-        </div>`;
-      }).join("");
-
-      const stTlfHTML = st.kontakt
-        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+st.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(st.kontakt)}</a></div>` : "";
-
-      const marker = L.marker([st.lat, st.lon], { icon });
-      marker.bindPopup(`<div class="lev-popup">
-        <div class="lev-popup-top" style="border-left:4px solid ${bgFarve}">
-          <b>${_esc(st.navn)}</b><span class="lev-popup-sub">${kat.ikon} ${kat.navn}</span>
-        </div>
-        ${afstandTekst}
-        ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
-        ${stTlfHTML}
-        <hr class="lev-hr">${enhedRaekker}
-      </div>`, { maxWidth: 340, className: "lev-leaflet-popup" });
-
-      marker.on("popupopen", function() {
-        const el = this.getPopup().getElement(); if (!el) return;
-        el.querySelectorAll(".lev-enhed-flyt-btn").forEach(b => b.addEventListener("click", () => _enhedFlytVognDialog(b.dataset.enhedid)));
-        el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
-      });
-
-      _enhedKatLag[kat.id].addLayer(marker);
-    });
-
-    // Individuelle markører (ingen station)
-    udenStation.forEach(e => _renderEnhedMarker(e, kat, maaFlytte));
-  });
-
-  // ── UAD-LAG — alle UAD enheder samlet ────────────────────────
-  if (typeof uadLayer !== "undefined") {
-    alleEnheder.filter(e => e.type !== "station" && _erUAD(e) && e.lat != null && e.lon != null).forEach(e => {
-      const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-      const foersteKat = EGNE_KATEGORIER.find(k => kats.includes(k.id));
-      const ikon = foersteKat?.ikon || "📍";
-
-      const icon = L.divIcon({
-        className: "",
-        html: `<div class="lev-marker-icon" style="background:#e74c3c;font-size:14px;width:28px;height:28px;line-height:28px">${ikon}</div>`,
-        iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
-      });
-
-      const stNavn = e.stationId ? (alleEnheder.find(s => s.id === e.stationId)?.navn || "") : "";
-      const uadBtn = maaFlytte
-        ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}"
-             style="font-size:11px;padding:3px 8px;background:#27ae60;color:#fff;
-                    border:none;border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">✅ Sæt i drift</button>` : "";
-
-      const tlfHTML = e.kontakt
-        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+e.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(e.kontakt)}</a></div>` : "";
-
-      const marker = L.marker([e.lat, e.lon], { icon });
-      marker.bindPopup(`<div class="lev-popup">
-        <div class="lev-popup-top" style="border-left:4px solid #e74c3c">
-          <b>${_esc(e.navn)}</b>${_uadBadge(e)}
-          <span class="lev-popup-sub">${ikon} ${foersteKat?.navn || ""}</span>
-        </div>
-        ${stNavn ? `<div class="lev-popup-row">🏠 ${_esc(stNavn)}</div>` : ""}
-        ${e.vognnummer ? `<div class="lev-popup-row">🚗 ${_esc(e.vognnummer)}</div>` : ""}
-        ${tlfHTML}
-        ${e.bemærkning ? `<div class="lev-popup-row"><em>${_esc(e.bemærkning)}</em></div>` : ""}
-        ${uadBtn}
-      </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
-
-      marker.on("popupopen", function() {
-        const el = this.getPopup().getElement(); if (!el) return;
-        el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
-      });
-
-      uadLayer.addLayer(marker);
-    });
-  }
-}
-
-// Flyt vogn (skift station) dialog — overlay med søgefelt
-function _enhedFlytVognDialog(enhedId) {
-  const enhed = (_enhedData || []).find(e => e.id === enhedId);
-  if (!enhed) { alert("Enhed ikke fundet."); return; }
-
-  const fraStation = enhed.stationId ? (_enhedData || []).find(s => s.id === enhed.stationId) : null;
-  const destinationer = (_enhedData || []).filter(e => e.type === "station" && e.id !== enhed.stationId);
+  // Byg liste af mulige destinationer (alle stationer med vogne-understøttelse, undtagen kilden)
+  const destinationer = _enhedData.filter(e => e.id !== fraStationId);
   if (!destinationer.length) { alert("Ingen andre stationer at flytte til."); return; }
 
-  let valgtStation = null;
+  // Byg simpel select-dialog
+  const valg = destinationer.map((e, i) => `${i}: ${e.navn}`).join("\n");
+  const input = prompt(
+    `Flyt vogn ${vogn.nummer} (${vogn.beskrivelse || ""}) fra:\n${fraStation.navn}\n\nTil station (indtast nummer):\n${valg}`
+  );
+  if (input === null || input.trim() === "") return;
 
-  const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center";
-
-  function renderListe(q) {
-    const filtreret = q
-      ? destinationer.filter(s => (s.navn || "").toLowerCase().includes(q.toLowerCase()))
-      : destinationer;
-    return filtreret.map(s => `
-      <div class="flyt-st-item" data-id="${_esc(s.id)}"
-        style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px;
-               display:flex;align-items:center;gap:8px">
-        🏠 <span>${_esc(s.navn)}</span>
-        ${s.adresse ? `<span style="font-size:11px;color:#888">${_esc(s.adresse)}</span>` : ""}
-      </div>`).join("") || `<div style="padding:12px;color:#aaa;font-size:12px;text-align:center">Ingen stationer matcher</div>`;
+  const idx = parseInt(input.trim());
+  if (isNaN(idx) || idx < 0 || idx >= destinationer.length) {
+    alert("Ugyldigt valg."); return;
   }
 
-  overlay.innerHTML = `
-    <div style="background:#fff;border-radius:12px;padding:24px;width:360px;max-height:80vh;
-                display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.2)">
-      <div style="font-weight:700;font-size:15px;margin-bottom:4px">🔄 Flyt vogn</div>
-      <div style="font-size:12px;color:#666;margin-bottom:12px">
-        <b>${_esc(enhed.navn)}</b> fra ${_esc(fraStation?.navn || "(ingen station)")}
-      </div>
-      <input id="flyt-soeg" type="search" placeholder="Søg station…"
-        style="padding:8px 10px;border:1px solid #cdd5df;border-radius:7px;font-size:13px;margin-bottom:8px;outline:none">
-      <div id="flyt-liste"
-        style="overflow-y:auto;flex:1;border:1px solid #e0e6ef;border-radius:7px;max-height:300px">
-        ${renderListe("")}
-      </div>
-      <div id="flyt-valgt" style="font-size:12px;color:#27ae60;min-height:18px;margin-top:8px;font-weight:600"></div>
-      <div style="display:flex;gap:8px;margin-top:12px">
-        <button id="flyt-gem" class="lev-btn-primary" disabled style="flex:1;opacity:.5">🔄 Flyt</button>
-        <button id="flyt-annuller" class="lev-btn-secondary" style="flex:1">Annuller</button>
-      </div>
-    </div>`;
+  const tilStation = destinationer[idx];
 
-  document.body.appendChild(overlay);
+  // Advarsel hvis kildestation tømmes
+  if ((fraStation.vogne || []).length === 1) {
+    if (!confirm(`⚠️ ${fraStation.navn} vil ikke have nogen vogne tilbage.\n\nEr du sikker?`)) return;
+  }
 
-  const soegInput  = overlay.querySelector("#flyt-soeg");
-  const liste      = overlay.querySelector("#flyt-liste");
-  const valgtDiv   = overlay.querySelector("#flyt-valgt");
-  const gemBtn     = overlay.querySelector("#flyt-gem");
+  // Udfør flyt: fjern fra kilde, tilføj til destination
+  const fraVogne = (fraStation.vogne || []).filter(v => v.id !== vognId);
+  const tilVogne = [...(tilStation.vogne || []), vogn];
 
-  function bindItems() {
-    liste.querySelectorAll(".flyt-st-item").forEach(item => {
-      item.addEventListener("mouseenter", () => item.style.background = "#f0f4f8");
-      item.addEventListener("mouseleave", () => item.style.background = valgtStation?.id === item.dataset.id ? "#e8f4fd" : "");
-      item.addEventListener("click", () => {
-        valgtStation = destinationer.find(s => s.id === item.dataset.id);
-        liste.querySelectorAll(".flyt-st-item").forEach(i => i.style.background = "");
-        item.style.background = "#e8f4fd";
-        valgtDiv.textContent = "✅ Valgt: " + valgtStation.navn;
-        gemBtn.disabled = false;
-        gemBtn.style.opacity = "1";
-      });
+  try {
+    const r1 = await _levSpFetch("/enheder", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...fraStation, vogne: fraVogne })
     });
+    if (!r1.ok) throw new Error("Gem kildestation fejlede");
+
+    const r2 = await _levSpFetch("/enheder", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...tilStation, vogne: tilVogne })
+    });
+    if (!r2.ok) throw new Error("Gem destinationsstation fejlede");
+
+    await _enhedLoad();
+    alert(`✅ Vogn ${vogn.nummer} flyttet til ${tilStation.navn}`);
+  } catch(e) {
+    alert("Flyt fejlede: " + e.message);
   }
-  bindItems();
-
-  soegInput.addEventListener("input", () => {
-    liste.innerHTML = renderListe(soegInput.value);
-    valgtStation = null;
-    valgtDiv.textContent = "";
-    gemBtn.disabled = true; gemBtn.style.opacity = ".5";
-    bindItems();
-  });
-
-  overlay.querySelector("#flyt-annuller").addEventListener("click", () => overlay.remove());
-  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
-
-  gemBtn.addEventListener("click", async () => {
-    if (!valgtStation) return;
-    gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
-    try {
-      const r = await _levSpFetch("/enheder", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...enhed, stationId: valgtStation.id })
-      });
-      if (!r.ok) throw new Error("Gem fejlede");
-      overlay.remove();
-      await _enhedLoad();
-    } catch(err) {
-      alert("Flyt fejlede: " + err.message);
-      gemBtn.disabled = false; gemBtn.textContent = "🔄 Flyt";
-    }
-  });
-
-  soegInput.focus();
 }
-
 
 
 let _enhedKeepAlive = null;
@@ -2070,8 +1579,6 @@ let _enhedKeepAlive = null;
 async function _enhedOpenAdmin() {
   const ok = await _levEnsureLogin();
   if (!ok) return;
-  await _katLoad(); // Opdater kategorier fra SharePoint
-  _levBuildEnhedRows(); // Opdater Disp-panel med nye kategorier
   await _enhedLoad();
   document.getElementById("levAdminPanel").classList.add("lev-panel-open");
   _enhedShowListe();
@@ -2095,29 +1602,17 @@ async function _enhedOpenAdmin() {
 function _enhedShowListe() {
   document.getElementById("levPanelTitle").textContent = "📍 Egne enheder";
   const body = document.getElementById("levPanelBody");
-  const _aabne = new Set();
 
-  // Enhed-række — viser stationsnavn som undertekst
-  function _enhedRaekke(e, stationer) {
-    const uad = _erUAD(e);
-    const st = stationer.find(s => s.id === e.stationId);
-    const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-    // Vis underkategori-ikoner hvis enheden har underkategorier
-    const underIkoner = kats.map(kid => {
-      const k = EGNE_KATEGORIER.find(x => x.id === kid);
-      return (k && k.foralderId) ? k.ikon : null;
-    }).filter(Boolean).join(" ");
-    const meta = [
-      underIkoner || null,
-      e.vognnummer ? e.vognnummer : null,
-      st ? "🏠 " + st.navn : null,
-      e.adresse && !st ? e.adresse : null
-    ].filter(Boolean).join(" · ");
+  // Åbne sektioner (husker tilstand ved søgning)
+  const _aabne = new Set(EGNE_KATEGORIER.map(k => k.id)); // alle åbne som standard
+
+  // Byg én enhed-række
+  function _enhedRaekke(e) {
     return `
-      <div class="lev-list-row" style="padding-left:20px;${uad ? "background:#fff5f5;" : ""}">
+      <div class="lev-list-row" style="padding-left:12px">
         <div class="lev-list-info">
-          <span class="lev-list-navn" style="${uad ? "color:#e74c3c;" : ""}">${_esc(e.navn)}${uad ? " 🔴" : ""}</span>
-          ${meta ? `<span class="lev-list-meta">${meta}</span>` : ""}
+          <span class="lev-list-navn">${_esc(e.navn)}</span>
+          <span class="lev-list-meta">${e.adresse ? _esc(e.adresse) : ""}</span>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="lev-btn-secondary enhed-rediger-btn" data-id="${_esc(e.id)}" style="padding:4px 8px;font-size:12px">✏️</button>
@@ -2126,64 +1621,63 @@ function _enhedShowListe() {
       </div>`;
   }
 
+  // Render hele accordion-listen
   function _enhedRenderAccordion(q) {
     q = (q || "").toLowerCase().trim();
     const data = _enhedData || [];
-    const stationer = data.filter(e => e.type === "station");
-    const alleEnheder = data.filter(e => e.type !== "station");
     let html = "";
 
-    // ── Kategori-sektioner ───────────────────────────────────────────
+    // Kategori-sektioner
     EGNE_KATEGORIER.forEach(kat => {
-      const katOgBoern = new Set([kat.id, ...EGNE_KATEGORIER.filter(k => k.foralderId === kat.id).map(k => k.id)]);
-      const enheder = alleEnheder.filter(e => {
+      const enhederIKat = data.filter(e => {
         const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-        if (!kats.some(k => katOgBoern.has(k))) return false;
+        if (!kats.includes(kat.id)) return false;
         if (!q) return true;
-        const st = stationer.find(s => s.id === e.stationId);
         return (e.navn || "").toLowerCase().includes(q)
-          || (e.vognnummer || "").toLowerCase().includes(q)
-          || (st?.navn || "").toLowerCase().includes(q)
           || (e.adresse || "").toLowerCase().includes(q);
       });
-      if (q && !enheder.length) return;
 
-      const harUAD = enheder.some(e => _erUAD(e));
-      const erAaben = _aabne.has(kat.id) || q;
-      const pil = erAaben ? "▾" : "▸";
+      const erAaben = _aabne.has(kat.id) || q; // søgning åbner altid
+      const antal   = enhederIKat.length;
+      const pil     = erAaben ? "▾" : "▸";
 
       html += `
-        <div class="enhed-kat-header" data-katid="${_esc(kat.id)}"
+        <div class="enhed-kat-header" data-katid="${kat.id}"
           style="display:flex;align-items:center;justify-content:space-between;
                  padding:8px 12px;cursor:pointer;background:#f5f7fa;
                  border-bottom:1px solid #e0e6ef;user-select:none">
-          <span style="font-weight:700;font-size:13px">
-            ${kat.ikon} ${_esc(kat.navn)}
-            ${harUAD ? `<span style="color:#e74c3c;font-size:11px;margin-left:4px">🔴 UAD</span>` : ""}
-          </span>
+          <span style="font-weight:700;font-size:13px">${kat.ikon} ${kat.navn}</span>
           <span style="display:flex;align-items:center;gap:6px">
-            ${enheder.length > 0
-              ? `<span style="background:#2471a3;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">${enheder.length}</span>`
-              : `<span style="color:#bbb;font-size:11px">ingen</span>`}
+            ${antal > 0 ? `<span style="background:#2471a3;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">${antal}</span>` : `<span style="color:#bbb;font-size:11px">ingen</span>`}
             <span style="font-size:11px;color:#888">${pil}</span>
           </span>
         </div>
-        <div class="enhed-kat-body" data-katid="${_esc(kat.id)}"
+        <div class="enhed-kat-body" data-katid="${kat.id}"
           style="display:${erAaben ? "block" : "none"};border-bottom:2px solid #e0e6ef">
-          ${enheder.length
-            ? enheder.map(e => _enhedRaekke(e, stationer)).join("")
-            : `<p class="lev-empty" style="margin:8px 20px;font-size:12px;color:#aaa">Ingen enheder i denne kategori</p>`}
+          ${enhederIKat.length
+            ? enhederIKat.map(_enhedRaekke).join("")
+            : `<p class="lev-empty" style="margin:8px 12px;font-size:12px;color:#aaa">Ingen enheder i denne kategori</p>`}
         </div>`;
     });
 
-    // ── Stationer-sektion ────────────────────────────────────────────
-    const filtStationer = stationer.filter(st => {
-      if (!q) return true;
-      return (st.navn || "").toLowerCase().includes(q);
+    // Stationer-sektion (enheder med vogne[] — det nye format)
+    const stationer = data.filter(e => {
+      const harVogne = (e.vogne || []).length > 0;
+      // En "station" har enten vogne eller ingen kendte gamle kategorier
+      if (!q) return harVogne;
+      return harVogne && (
+        (e.navn || "").toLowerCase().includes(q) ||
+        (e.adresse || "").toLowerCase().includes(q) ||
+        (e.vogne || []).some(v =>
+          (v.nummer || "").toLowerCase().includes(q) ||
+          (v.beskrivelse || "").toLowerCase().includes(q)
+        )
+      );
     });
-    if (filtStationer.length > 0 || !q) {
-      const erAaben = _aabne.has("__stationer__") || q;
-      const pil = erAaben ? "▾" : "▸";
+
+    if (stationer.length > 0 || !q) {
+      const erAaben  = _aabne.has("__stationer__") || q;
+      const pil      = erAaben ? "▾" : "▸";
       html += `
         <div class="enhed-kat-header" data-katid="__stationer__"
           style="display:flex;align-items:center;justify-content:space-between;
@@ -2191,31 +1685,24 @@ function _enhedShowListe() {
                  border-bottom:1px solid #e0e6ef;user-select:none;margin-top:4px">
           <span style="font-weight:700;font-size:13px">🏠 Stationer</span>
           <span style="display:flex;align-items:center;gap:6px">
-            ${filtStationer.length > 0
-              ? `<span style="background:#27ae60;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">${filtStationer.length}</span>`
-              : `<span style="color:#bbb;font-size:11px">ingen</span>`}
+            ${stationer.length > 0 ? `<span style="background:#27ae60;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px">${stationer.length}</span>` : `<span style="color:#bbb;font-size:11px">ingen</span>`}
             <span style="font-size:11px;color:#888">${pil}</span>
           </span>
         </div>
         <div class="enhed-kat-body" data-katid="__stationer__"
           style="display:${erAaben ? "block" : "none"};border-bottom:2px solid #e0e6ef">
-          ${filtStationer.length
-            ? filtStationer.map(st => {
-                const antalEnheder = alleEnheder.filter(e => e.stationId === st.id).length;
-                const katIds = [...new Set(alleEnheder
-                  .filter(e => e.stationId === st.id)
-                  .flatMap(e => e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []))
-                )];
-                const katIkoner = katIds.map(id => EGNE_KATEGORIER.find(k => k.id === id)?.ikon || "").filter(Boolean).join(" ");
+          ${stationer.length
+            ? stationer.map(e => {
+                const vognTekst = (e.vogne || []).map(v => v.nummer + (v.beskrivelse ? " " + v.beskrivelse : "")).join(", ");
                 return `
                   <div class="lev-list-row" style="padding-left:12px">
                     <div class="lev-list-info">
-                      <span class="lev-list-navn">🏠 ${_esc(st.navn)}</span>
-                      <span class="lev-list-meta">${katIkoner}${st.adresse ? " · " + _esc(st.adresse) : ""}${antalEnheder ? " · " + antalEnheder + " enhed" + (antalEnheder !== 1 ? "er" : "") : ""}</span>
+                      <span class="lev-list-navn">${_esc(e.navn)}</span>
+                      <span class="lev-list-meta">${vognTekst ? "🚗 " + _esc(vognTekst) : ""}${e.adresse ? " · " + _esc(e.adresse) : ""}</span>
                     </div>
                     <div style="display:flex;gap:6px;flex-shrink:0">
-                      <button class="lev-btn-secondary enhed-rediger-station-btn" data-id="${_esc(st.id)}" style="padding:4px 8px;font-size:12px">✏️</button>
-                      <button class="lev-btn-secondary enhed-slet-btn" data-id="${_esc(st.id)}" style="padding:4px 8px;font-size:12px;color:#c0392b">🗑️</button>
+                      <button class="lev-btn-secondary enhed-rediger-btn" data-id="${_esc(e.id)}" style="padding:4px 8px;font-size:12px">✏️</button>
+                      <button class="lev-btn-secondary enhed-slet-btn"   data-id="${_esc(e.id)}" style="padding:4px 8px;font-size:12px;color:#c0392b">🗑️</button>
                     </div>
                   </div>`;
               }).join("")
@@ -2223,21 +1710,22 @@ function _enhedShowListe() {
         </div>`;
     }
 
-    if (!html) html = `<p class="lev-empty" style="padding:16px;color:#aaa;font-size:13px">Ingen resultater</p>`;
     document.getElementById("enhedListeContainer").innerHTML = html;
 
+    // Accordion toggle
     document.getElementById("enhedListeContainer").querySelectorAll(".enhed-kat-header").forEach(hdr => {
-      hdr.addEventListener("click", e => {
-        if (e.target.closest("button")) return;
+      hdr.addEventListener("click", () => {
         const kid  = hdr.dataset.katid;
-        const bdy  = document.querySelector(`.enhed-kat-body[data-katid="${kid}"]`);
+        const body = document.querySelector(`.enhed-kat-body[data-katid="${kid}"]`);
         const pil  = hdr.querySelector("span:last-child span:last-child");
-        const aaben = bdy.style.display !== "none";
-        bdy.style.display = aaben ? "none" : "block";
+        const aaben = body.style.display !== "none";
+        body.style.display = aaben ? "none" : "block";
         if (pil) pil.textContent = aaben ? "▸" : "▾";
         if (aaben) _aabne.delete(kid); else _aabne.add(kid);
       });
     });
+
+    // Knyt rediger/slet-handlers
     document.getElementById("enhedListeContainer").querySelectorAll(".enhed-rediger-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const enhed = _enhedData.find(e => e.id === btn.dataset.id);
@@ -2247,21 +1735,13 @@ function _enhedShowListe() {
     document.getElementById("enhedListeContainer").querySelectorAll(".enhed-slet-btn").forEach(btn => {
       btn.addEventListener("click", () => _enhedSlet(btn.dataset.id));
     });
-    document.getElementById("enhedListeContainer").querySelectorAll(".enhed-rediger-station-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const st = _enhedData.find(e => e.id === btn.dataset.id);
-        if (st) _enhedShowStationForm(st);
-      });
-    });
   }
 
-    body.innerHTML = `
+  body.innerHTML = `
     <div class="lev-list-toolbar" style="flex-wrap:wrap;gap:6px">
-      <button id="enhedNyStationBtn" class="lev-btn-secondary">+ Ny station</button>
-      <button id="enhedNyBtn"        class="lev-btn-primary">+ Ny enhed</button>
-      ${_levAktivRolle === "admin" ? `<button id="enhedNyKatBtn" class="lev-btn-secondary" style="color:#8e44ad;border-color:#8e44ad">⚙️ Kategorier</button>` : ""}
-      <button id="enhedRefreshBtn"   class="lev-btn-secondary">↻ Opdater</button>
-      <input id="enhedSoeg" type="search" placeholder="Søg navn, adresse…"
+      <button id="enhedNyBtn" class="lev-btn-primary">+ Ny enhed</button>
+      <button id="enhedRefreshBtn" class="lev-btn-secondary">↻ Opdater</button>
+      <input id="enhedSoeg" type="search" placeholder="Søg navn, adresse, vogn…"
         style="flex:1;min-width:80px;padding:8px;font-size:13px;border:1px solid #ccc;border-radius:7px">
     </div>
     <div id="enhedListeContainer" class="lev-list-container" style="padding:0"></div>`;
@@ -2272,11 +1752,10 @@ function _enhedShowListe() {
     _enhedRenderAccordion(this.value);
   });
   document.getElementById("enhedNyBtn").addEventListener("click", () => _enhedShowForm(null));
-  document.getElementById("enhedNyStationBtn").addEventListener("click", () => _enhedShowStationForm(null));
-  document.getElementById("enhedNyKatBtn")?.addEventListener("click", () => _katShowListe());
   document.getElementById("enhedRefreshBtn").addEventListener("click", async function() {
     const btn = this;
-    btn.disabled = true; btn.textContent = "⏳ Opdaterer...";
+    btn.disabled = true;
+    btn.textContent = "⏳ Opdaterer...";
     _enhedLoaded = false;
     await _enhedLoad();
     btn.textContent = "✅ Opdateret!";
@@ -2284,185 +1763,36 @@ function _enhedShowListe() {
   });
 }
 
-// ── Stationsformular ──────────────────────────────────────────────────────────
-function _enhedShowStationForm(station) {
-  document.getElementById("levPanelTitle").textContent = station ? "✏️ Rediger station" : "➕ Ny station";
-  const body = document.getElementById("levPanelBody");
-  body.innerHTML = `
-    <div class="lev-form">
-      <button class="lev-tilbage-btn" id="efTilbage" style="margin-bottom:12px">← Tilbage til liste</button>
-      <fieldset class="lev-fs">
-        <legend>🏠 Station</legend>
-        <label>Stationsnavn
-          <input id="sf-navn" type="text" value="${_esc(station?.navn || "")}"
-            placeholder="fx 102 Falck Næstved">
-        </label>
-      </fieldset>
-      <fieldset class="lev-fs">
-        <legend>📍 Adresse</legend>
-        <label>Søg adresse
-          <input id="sf-adr-sok" type="text" value="${_esc(station?.adresse || "")}"
-            placeholder="Skriv adresse og vælg fra listen..." autocomplete="off">
-          <div id="sf-adr-liste" style="border:1px solid #ddd;border-radius:4px;background:#fff;max-height:140px;overflow-y:auto;display:none;font-size:12px"></div>
-        </label>
-        <input id="sf-lat" type="hidden" value="${station?.lat ?? ""}">
-        <input id="sf-lon" type="hidden" value="${station?.lon ?? ""}">
-        <div class="lev-row" style="margin-top:6px;gap:8px">
-          <label class="lev-label-coord">Lat. <input id="sf-lat-vis" type="text" value="${station?.lat ?? ""}" placeholder="56.xxxx" style="font-size:12px"></label>
-          <label class="lev-label-coord">Lon. <input id="sf-lon-vis" type="text" value="${station?.lon ?? ""}" placeholder="10.xxxx" style="font-size:12px"></label>
-        </div>
-      </fieldset>
-      <fieldset class="lev-fs">
-        <legend>📞 Kontakt</legend>
-        <label>Telefon
-          <input id="sf-kontakt" type="text" value="${_esc(station?.kontakt || "")}" placeholder="fx 76 26 60 00">
-        </label>
-        <label>Bemærkning
-          <input id="sf-bemaerk" type="text" value="${_esc(station?.bemærkning || "")}" placeholder="valgfri">
-        </label>
-      </fieldset>
-      <div class="lev-form-footer">
-        <button id="sf-gem" class="lev-btn-primary">💾 Gem station</button>
-        ${station ? `<button id="sf-slet" class="lev-btn-danger">🗑️ Slet</button>` : ""}
-      </div>
-      <div id="sf-status" style="font-size:12px;color:#27ae60;min-height:18px;padding:4px 0"></div>
-    </div>`;
-
-  const adrInput = document.getElementById("sf-adr-sok");
-  const adrListe = document.getElementById("sf-adr-liste");
-  const latVis   = document.getElementById("sf-lat-vis");
-  const lonVis   = document.getElementById("sf-lon-vis");
-  const latHid   = document.getElementById("sf-lat");
-  const lonHid   = document.getElementById("sf-lon");
-  latVis.addEventListener("input", () => latHid.value = latVis.value);
-  lonVis.addEventListener("input", () => lonHid.value = lonVis.value);
-  let adrTimer;
-  adrInput.addEventListener("input", () => {
-    clearTimeout(adrTimer);
-    const q = adrInput.value.trim();
-    if (q.length < 3) { adrListe.style.display = "none"; return; }
-    adrTimer = setTimeout(async () => {
-      try {
-        const r = await fetch(`https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(q)}&per_side=6&struktur=mini`);
-        const items = await r.json();
-        if (!items.length) { adrListe.style.display = "none"; return; }
-        adrListe.innerHTML = items.map(it =>
-          `<div class="ef-adr-item" data-tekst="${_esc(it.tekst)}"
-            data-lat="${it.adresse?.y ?? ""}" data-lon="${it.adresse?.x ?? ""}"
-            style="padding:6px 8px;cursor:pointer;border-bottom:1px solid #eee">${_esc(it.tekst)}</div>`
-        ).join("");
-        adrListe.style.display = "block";
-        adrListe.querySelectorAll(".ef-adr-item").forEach(div => {
-          div.addEventListener("mouseenter", () => div.style.background = "#f0f0f0");
-          div.addEventListener("mouseleave", () => div.style.background = "");
-          div.addEventListener("click", () => {
-            adrInput.value = div.dataset.tekst;
-            latHid.value   = div.dataset.lat; lonHid.value = div.dataset.lon;
-            latVis.value   = parseFloat(div.dataset.lat).toFixed(6);
-            lonVis.value   = parseFloat(div.dataset.lon).toFixed(6);
-            adrListe.style.display = "none";
-          });
-        });
-      } catch(e) { adrListe.style.display = "none"; }
-    }, 300);
-  });
-  document.getElementById("efTilbage").addEventListener("click", _enhedShowListe);
-  document.getElementById("sf-gem").addEventListener("click", () => _enhedGemStation(station?.id || null));
-  document.getElementById("sf-slet")?.addEventListener("click", () => _enhedSlet(station.id));
-}
-
-// ── Gem station ───────────────────────────────────────────────────────────────
-async function _enhedGemStation(existingId) {
-  const navn    = document.getElementById("sf-navn").value.trim();
-  const adresse = document.getElementById("sf-adr-sok").value.trim();
-  const lat     = parseFloat(document.getElementById("sf-lat").value) || null;
-  const lon     = parseFloat(document.getElementById("sf-lon").value) || null;
-  const kontakt = document.getElementById("sf-kontakt").value.trim();
-  const bemærk  = document.getElementById("sf-bemaerk").value.trim();
-  const status  = document.getElementById("sf-status");
-  if (!navn) { status.style.color = "#c0392b"; status.textContent = "Stationsnavn er påkrævet."; return; }
-  const gemBtn = document.getElementById("sf-gem");
-  gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
-  try {
-    const resp = await _levSpFetch("/enheder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse, kontakt, bemærkning: bemærk })
-    });
-    if (!resp.ok) throw new Error("Gem fejlede");
-    status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
-    await _enhedLoad();
-    setTimeout(_enhedShowListe, 800);
-  } catch(e) {
-    status.style.color = "#c0392b"; status.textContent = "Fejl: " + e.message;
-    gemBtn.disabled = false; gemBtn.textContent = "💾 Gem station";
-  }
-}
-
-// ── Enhedsformular ────────────────────────────────────────────────────────────
 function _enhedShowForm(enhed) {
-  document.getElementById("levPanelTitle").textContent = enhed ? "✏️ Rediger enhed" : "➕ Ny enhed";
+  document.getElementById("levPanelTitle").textContent = enhed ? "✏️ Rediger station" : "➕ Ny station";
   const body = document.getElementById("levPanelBody");
-  const valgteKat = enhed?.kategorier?.length ? enhed.kategorier : (enhed?.kategori ? [enhed.kategori] : []);
+  const valgteKat = enhed?.kategorier?.length ? enhed.kategorier
+    : (enhed?.kategori ? [enhed.kategori] : []);
   const katCheckboxes = EGNE_KATEGORIER.map(k =>
-    `<label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin-top:4px">
-      <input type="checkbox" name="ef-kat" value="${k.id}" ${valgteKat.includes(k.id) ? "checked" : ""}
-        style="width:15px;height:15px;flex-shrink:0;margin:0">
+    `<label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
+      <input type="checkbox" name="ef-kat" value="${k.id}" ${valgteKat.includes(k.id) ? "checked" : ""}>
       ${k.ikon} ${k.navn}
     </label>`
   ).join("");
-  const stationer = (_enhedData || []).filter(e => e.type === "station");
-  const stationsOptions = stationer.map(s =>
-    `<option value="${_esc(s.id)}" ${enhed?.stationId === s.id ? "selected" : ""}>${_esc(s.navn)}</option>`
-  ).join("");
 
   body.innerHTML = `
     <div class="lev-form">
       <button class="lev-tilbage-btn" id="efTilbage" style="margin-bottom:12px">← Tilbage til liste</button>
+
       <fieldset class="lev-fs">
         <legend>📋 Basisoplysninger</legend>
-        <label>Navn
-          <input id="ef-navn" type="text" value="${_esc(enhed?.navn || "")}" placeholder="fx 8681 TMA Næstved">
+        <label>Stationsnavn
+          <input id="ef-navn" type="text" value="${_esc(enhed?.navn || "")}"
+            placeholder="fx 423 Falck Fredericia">
         </label>
-        <label style="margin-top:6px">Vognnummer
-          <input id="ef-vognnummer" type="text" value="${_esc(enhed?.vognnummer || "")}" placeholder="fx 8681">
-        </label>
-        <div style="margin-top:8px">
-          <div style="font-size:11.5px;font-weight:600;color:#5a6a7a;margin-bottom:4px">Station</div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <select id="ef-stationid" style="flex:1;padding:8px;border:1px solid #cdd5df;border-radius:6px;font-size:13px">
-              <option value="">— Ingen station —</option>
-              ${stationsOptions}
-            </select>
-            <button type="button" id="ef-ny-station-btn"
-              style="white-space:nowrap;padding:8px 10px;background:#f0f4f8;border:1px solid #cdd5df;
-                     border-radius:6px;font-size:12px;cursor:pointer;color:#2471a3">+ Ny</button>
-          </div>
-          <div id="ef-ny-station-felt" style="display:none;margin-top:8px;padding:10px;background:#f8fafc;border:1px solid #cdd5df;border-radius:6px">
-            <div style="font-size:12px;font-weight:600;color:#5a6a7a;margin-bottom:6px">🏠 Ny station</div>
-            <input id="ef-ny-station-navn" type="text" placeholder="fx 423 Falck Fredericia"
-              style="width:100%;padding:7px;border:1px solid #cdd5df;border-radius:6px;font-size:13px;box-sizing:border-box;margin-bottom:6px">
-            <input id="ef-ny-station-adr" type="text" placeholder="Søg adresse..."
-              style="width:100%;padding:7px;border:1px solid #cdd5df;border-radius:6px;font-size:12px;box-sizing:border-box" autocomplete="off">
-            <div id="ef-ny-station-adr-liste" style="border:1px solid #ddd;border-radius:4px;background:#fff;max-height:120px;overflow-y:auto;display:none;font-size:12px"></div>
-            <input id="ef-ny-station-lat" type="hidden">
-            <input id="ef-ny-station-lon" type="hidden">
-            <div id="ef-ny-station-adr-valgt" style="font-size:11px;color:#27ae60;min-height:14px;margin-top:3px"></div>
-            <div style="display:flex;gap:6px;margin-top:6px">
-              <button type="button" id="ef-ny-station-gem"
-                style="flex:1;padding:7px;background:#27ae60;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">Opret</button>
-              <button type="button" id="ef-ny-station-annuller"
-                style="padding:7px 10px;background:#f5f7fa;border:1px solid #cdd5df;border-radius:6px;font-size:12px;cursor:pointer">✕</button>
-            </div>
-          </div>
-        </div>
-        <div class="lev-form-label" style="margin-top:10px">Kategorier / kompetencer</div>
-        <div style="display:flex;flex-direction:column;gap:2px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
+        <div class="lev-form-label">Kategorier / kompetencer</div>
+        <div style="display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:13px">
           ${katCheckboxes}
         </div>
       </fieldset>
+
       <fieldset class="lev-fs">
-        <legend>📍 Adresse (hvis afviger fra station)</legend>
+        <legend>📍 Adresse</legend>
         <label>Søg adresse
           <input id="ef-adr-sok" type="text" value="${_esc(enhed?.adresse || "")}"
             placeholder="Skriv adresse og vælg fra listen..." autocomplete="off">
@@ -2475,6 +1805,7 @@ function _enhedShowForm(enhed) {
           <label class="lev-label-coord">Lon. <input id="ef-lon-vis" type="text" value="${enhed?.lon ?? ""}" placeholder="10.xxxx" style="font-size:12px"></label>
         </div>
       </fieldset>
+
       <fieldset class="lev-fs">
         <legend>📞 Kontakt</legend>
         <label>Telefon
@@ -2484,6 +1815,13 @@ function _enhedShowForm(enhed) {
           <input id="ef-bemaerk" type="text" value="${_esc(enhed?.bemærkning || "")}" placeholder="valgfri">
         </label>
       </fieldset>
+
+      <fieldset class="lev-fs">
+        <legend>🚗 Vogne</legend>
+        <div id="ef-vogne"></div>
+        <button type="button" id="efAddVogn" class="lev-btn-add">+ Tilføj vogn</button>
+      </fieldset>
+
       <div class="lev-form-footer">
         <button id="ef-gem" class="lev-btn-primary">💾 Gem</button>
         ${enhed ? `<button id="ef-slet" class="lev-btn-danger">🗑️ Slet</button>` : ""}
@@ -2491,14 +1829,20 @@ function _enhedShowForm(enhed) {
       <div id="ef-status" style="font-size:12px;color:#27ae60;min-height:18px;padding:4px 0"></div>
     </div>`;
 
+  const vognDiv = document.getElementById("ef-vogne");
+  (enhed?.vogne || []).forEach(v => _enhedAppendVognRow(vognDiv, v));
+
+  // DAWA adressesøgning
   const adrInput = document.getElementById("ef-adr-sok");
   const adrListe = document.getElementById("ef-adr-liste");
   const latVis   = document.getElementById("ef-lat-vis");
   const lonVis   = document.getElementById("ef-lon-vis");
   const latHid   = document.getElementById("ef-lat");
   const lonHid   = document.getElementById("ef-lon");
+
   latVis.addEventListener("input", () => latHid.value = latVis.value);
   lonVis.addEventListener("input", () => lonHid.value = lonVis.value);
+
   let adrTimer;
   adrInput.addEventListener("input", () => {
     clearTimeout(adrTimer);
@@ -2520,7 +1864,8 @@ function _enhedShowForm(enhed) {
           div.addEventListener("mouseleave", () => div.style.background = "");
           div.addEventListener("click", () => {
             adrInput.value = div.dataset.tekst;
-            latHid.value = div.dataset.lat; lonHid.value = div.dataset.lon;
+            latHid.value = div.dataset.lat;
+            lonHid.value = div.dataset.lon;
             latVis.value = parseFloat(div.dataset.lat).toFixed(6);
             lonVis.value = parseFloat(div.dataset.lon).toFixed(6);
             adrListe.style.display = "none";
@@ -2530,121 +1875,44 @@ function _enhedShowForm(enhed) {
     }, 300);
   });
 
-  const nyStationBtn      = document.getElementById("ef-ny-station-btn");
-  const nyStationFelt     = document.getElementById("ef-ny-station-felt");
-  const nyStationNavn     = document.getElementById("ef-ny-station-navn");
-  const nyStationGem      = document.getElementById("ef-ny-station-gem");
-  const nyStationAnnuller = document.getElementById("ef-ny-station-annuller");
-  const stationSelect     = document.getElementById("ef-stationid");
-
-  // Autofyld adresse og koordinater fra valgt station
-  stationSelect.addEventListener("change", () => {
-    const st = (_enhedData || []).find(s => s.id === stationSelect.value);
-    if (!st) return;
-    if (st.adresse) document.getElementById("ef-adr-sok").value = st.adresse;
-    if (st.lat != null) {
-      document.getElementById("ef-lat").value     = st.lat;
-      document.getElementById("ef-lat-vis").value = Number(st.lat).toFixed(6);
-    }
-    if (st.lon != null) {
-      document.getElementById("ef-lon").value     = st.lon;
-      document.getElementById("ef-lon-vis").value = Number(st.lon).toFixed(6);
-    }
-  });
-
-  // DAWA-søgning til ny station
-  const nyStationAdrInput  = document.getElementById("ef-ny-station-adr");
-  const nyStationAdrListe  = document.getElementById("ef-ny-station-adr-liste");
-  const nyStationLatHid    = document.getElementById("ef-ny-station-lat");
-  const nyStationLonHid    = document.getElementById("ef-ny-station-lon");
-  const nyStationAdrValgt  = document.getElementById("ef-ny-station-adr-valgt");
-  let nyStationAdrTimer;
-  nyStationAdrInput.addEventListener("input", () => {
-    clearTimeout(nyStationAdrTimer);
-    const q = nyStationAdrInput.value.trim();
-    if (q.length < 3) { nyStationAdrListe.style.display = "none"; return; }
-    nyStationAdrTimer = setTimeout(async () => {
-      try {
-        const r = await fetch(`https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(q)}&per_side=5&struktur=mini`);
-        const items = await r.json();
-        if (!items.length) { nyStationAdrListe.style.display = "none"; return; }
-        nyStationAdrListe.innerHTML = items.map(it =>
-          `<div class="ef-adr-item" data-tekst="${_esc(it.tekst)}" data-lat="${it.adresse?.y ?? ""}" data-lon="${it.adresse?.x ?? ""}"
-            style="padding:6px 8px;cursor:pointer;border-bottom:1px solid #eee">${_esc(it.tekst)}</div>`
-        ).join("");
-        nyStationAdrListe.style.display = "block";
-        nyStationAdrListe.querySelectorAll(".ef-adr-item").forEach(div => {
-          div.addEventListener("mouseenter", () => div.style.background = "#f0f0f0");
-          div.addEventListener("mouseleave", () => div.style.background = "");
-          div.addEventListener("click", () => {
-            nyStationAdrInput.value = div.dataset.tekst;
-            nyStationLatHid.value   = div.dataset.lat;
-            nyStationLonHid.value   = div.dataset.lon;
-            nyStationAdrValgt.textContent = "✅ " + div.dataset.tekst;
-            nyStationAdrListe.style.display = "none";
-          });
-        });
-      } catch(e) { nyStationAdrListe.style.display = "none"; }
-    }, 300);
-  });
-
-  nyStationBtn.addEventListener("click", () => {
-    nyStationFelt.style.display = "block";
-    nyStationNavn.focus();
-  });
-  nyStationAnnuller.addEventListener("click", () => {
-    nyStationFelt.style.display = "none";
-    nyStationNavn.value = "";
-    nyStationAdrInput.value = "";
-    nyStationLatHid.value = ""; nyStationLonHid.value = "";
-    nyStationAdrValgt.textContent = "";
-  });
-  nyStationGem.addEventListener("click", async () => {
-    const stNavn = nyStationNavn.value.trim();
-    const stAdr  = nyStationAdrInput.value.trim();
-    const stLat  = parseFloat(nyStationLatHid.value) || null;
-    const stLon  = parseFloat(nyStationLonHid.value) || null;
-    if (!stNavn) { nyStationNavn.focus(); return; }
-    nyStationGem.disabled = true; nyStationGem.textContent = "⏳";
-    try {
-      const resp = await _levSpFetch("/enheder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "station", navn: stNavn, adresse: stAdr, lat: stLat, lon: stLon })
-      });
-      if (!resp.ok) throw new Error("Fejl");
-      await _enhedLoad();
-      const nyStation = (_enhedData || []).find(e => e.type === "station" && e.navn === stNavn);
-      if (nyStation) {
-        const opt = document.createElement("option");
-        opt.value = nyStation.id; opt.textContent = nyStation.navn; opt.selected = true;
-        stationSelect.appendChild(opt);
-        // Autofyld enhedens adresse fra den nye station
-        if (stAdr) document.getElementById("ef-adr-sok").value = stAdr;
-        if (stLat) { document.getElementById("ef-lat").value = stLat; document.getElementById("ef-lat-vis").value = stLat.toFixed(6); }
-        if (stLon) { document.getElementById("ef-lon").value = stLon; document.getElementById("ef-lon-vis").value = stLon.toFixed(6); }
-      }
-      nyStationFelt.style.display = "none";
-      nyStationNavn.value = ""; nyStationAdrInput.value = "";
-      nyStationLatHid.value = ""; nyStationLonHid.value = "";
-      nyStationAdrValgt.textContent = "";
-      nyStationGem.disabled = false; nyStationGem.textContent = "Opret";
-    } catch(e) {
-      alert("Kunne ikke oprette station: " + e.message);
-      nyStationGem.disabled = false; nyStationGem.textContent = "Opret";
-    }
-  });
-
   document.getElementById("efTilbage").addEventListener("click", _enhedShowListe);
+  document.getElementById("efAddVogn").addEventListener("click", () => _enhedAppendVognRow(vognDiv, {}));
   document.getElementById("ef-gem").addEventListener("click", () => _enhedGem(enhed?.id || null));
   document.getElementById("ef-slet")?.addEventListener("click", () => _enhedSlet(enhed.id));
 }
 
-// ── Gem enhed ─────────────────────────────────────────────────────────────────
+// Tilføj en vogn-række i station-formularen
+function _enhedAppendVognRow(container, v = {}) {
+  const div = document.createElement("div");
+  div.className = "lev-vogn-row";
+  div.dataset.id = v.id || "evogn-" + Date.now();
+  div.innerHTML = `
+    <div class="lev-row lev-row-header">
+      <label class="lev-label-grow" style="font-weight:700;font-size:13px">
+        Vognnummer
+        <input type="text" class="ev-nummer" value="${_esc(v.nummer || v.vognnummer || "")}"
+          placeholder="fx 7088" style="font-weight:700">
+      </label>
+      <button type="button" class="lev-slet-row-btn">✕</button>
+    </div>
+    <label>Kort beskrivelse
+      <input type="text" class="ev-besk" value="${_esc(v.beskrivelse || "")}"
+        placeholder="fx Morsvogn">
+    </label>
+    <label>Telefon (vogn/redder)
+      <input type="tel" class="ev-tlf" value="${_esc(v.telefon || "")}"
+        placeholder="fx 70 70 08 00">
+    </label>
+    <label>Detaljer / lang beskrivelse
+      <textarea class="ev-detaljer lev-textarea" rows="2"
+        placeholder="fx 1x XL ST-Vogn, Timeredder tilkald...">${_esc(v.detaljer || "")}</textarea>
+    </label>`;
+  container.appendChild(div);
+  div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
+}
+
 async function _enhedGem(existingId) {
   const navn       = document.getElementById("ef-navn").value.trim();
-  const vognnummer = document.getElementById("ef-vognnummer")?.value.trim() || null;
-  const stationId  = document.getElementById("ef-stationid")?.value.trim() || null;
   const kategorier = Array.from(document.querySelectorAll('input[name="ef-kat"]:checked')).map(el => el.value);
   const adresse    = document.getElementById("ef-adr-sok").value.trim();
   const lat        = parseFloat(document.getElementById("ef-lat").value) || null;
@@ -2653,37 +1921,37 @@ async function _enhedGem(existingId) {
   const bemærk     = document.getElementById("ef-bemaerk").value.trim();
   const status     = document.getElementById("ef-status");
 
-  if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
+  if (!navn) { status.style.color = "#c0392b"; status.textContent = "Stationsnavn er påkrævet."; return; }
   if (!kategorier.length) { status.style.color = "#c0392b"; status.textContent = "Vælg mindst én kategori."; return; }
-  // Tjek om nogen valgt kategori kræver station (styres af SharePoint-data)
-  const kraeverStation = kategorier.some(k =>
-    (EGNE_KATEGORIER.find(kat => kat.id === k)?.kraeverStation === true)
-  );
-  if (kraeverStation && !stationId) { status.style.color = "#c0392b"; status.textContent = "Denne kategori kræver en station — vælg eller opret en."; return; }
+
+  const vogne = Array.from(document.querySelectorAll("#ef-vogne .lev-vogn-row")).map(row => ({
+    id:          row.dataset.id,
+    nummer:      row.querySelector(".ev-nummer")?.value.trim()   || "",
+    beskrivelse: row.querySelector(".ev-besk")?.value.trim()     || "",
+    telefon:     row.querySelector(".ev-tlf")?.value.trim()      || "",
+    detaljer:    row.querySelector(".ev-detaljer")?.value.trim() || ""
+  })).filter(v => v.nummer);
 
   if (!existingId && _enhedData?.length) {
-    const dup = _enhedData.filter(e => e.type !== "station" && (e.navn || "").toLowerCase() === navn.toLowerCase());
-    if (dup.length && !confirm(`"${navn}" findes allerede.\n\nVil du oprette den alligevel?`)) return;
+    const nytNavn = navn.toLowerCase();
+    const advarsler = _enhedData
+      .filter(e => (e.navn || "").toLowerCase() === nytNavn)
+      .map(e => `Advarsel: "${e.navn}" findes allerede`);
+    if (advarsler.length) {
+      if (!confirm(advarsler.join("\n") + "\n\nVil du oprette stationen alligevel?")) {
+        status.style.color = "#e67e22"; status.textContent = "Annulleret."; return;
+      }
+    }
   }
 
   const gemBtn = document.getElementById("ef-gem");
   gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
+
   try {
     const resp = await _levSpFetch("/enheder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: existingId, navn,
-        vognnummer: vognnummer || undefined,
-        stationId:  stationId  || undefined,
-        kategorier,
-        // Bevar eksisterende koordinater hvis ingen nye er indtastet
-        lat:      lat  != null ? lat  : (existingId ? undefined : null),
-        lon:      lon  != null ? lon  : (existingId ? undefined : null),
-        adresse:  adresse || (existingId ? undefined : ""),
-        kontakt,
-        bemærkning: bemærk
-      })
+      body: JSON.stringify({ id: existingId, navn, kategorier, lat, lon, adresse, kontakt, bemærkning: bemærk, vogne })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
@@ -2695,21 +1963,6 @@ async function _enhedGem(existingId) {
   }
 }
 
-// ── Bagudkompatibel vogn-række (bruges ikke aktivt i ny formular) ─────────────
-function _enhedAppendVognRow(container, v = {}) {
-  const div = document.createElement("div");
-  div.className = "lev-vogn-row";
-  div.dataset.id = v.id || "evogn-" + Date.now();
-  div.innerHTML = `<div class="lev-row lev-row-header">
-    <label class="lev-label-grow" style="font-weight:700;font-size:13px">
-      Vognnummer <input type="text" class="ev-nummer" value="${_esc(v.nummer || v.vognnummer || "")}" placeholder="fx 7088" style="font-weight:700">
-    </label>
-    <button type="button" class="lev-slet-row-btn">✕</button>
-  </div>`;
-  container.appendChild(div);
-  div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
-}
-
 async function _enhedSlet(id) {
   if (!confirm("Slet denne station? Alle vogne slettes også.")) return;
   try {
@@ -2717,161 +1970,6 @@ async function _enhedSlet(id) {
     if (!resp.ok) throw new Error("Slet fejlede");
     await _enhedLoad();
     _enhedShowListe();
-  } catch(e) {
-    alert("Fejl ved sletning: " + e.message);
-  }
-}
-// ── KATEGORI ADMIN ────────────────────────────────────────────────────────────
-function _katShowListe() {
-  document.getElementById("levPanelTitle").textContent = "⚙️ Kategorier";
-  const body = document.getElementById("levPanelBody");
-
-  function _katRaekke(k) {
-    return `
-      <div class="lev-list-row">
-        <div class="lev-list-info">
-          <span class="lev-list-navn">${k.ikon || "?"} ${_esc(k.navn)}</span>
-          <span class="lev-list-meta">${k.kraeverStation ? "🏠 Kræver station" : "📍 Hjemadresse"} · sortering: ${k.sortering ?? "?"}</span>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="lev-btn-secondary kat-rediger-btn" data-id="${_esc(k.id)}" style="padding:4px 8px;font-size:12px">✏️</button>
-          <button class="lev-btn-secondary kat-slet-btn"   data-id="${_esc(k.id)}" style="padding:4px 8px;font-size:12px;color:#c0392b">🗑️</button>
-        </div>
-      </div>`;
-  }
-
-  body.innerHTML = `
-    <div class="lev-list-toolbar" style="flex-wrap:wrap;gap:6px">
-      <button id="katTilbage"  class="lev-btn-secondary">← Tilbage</button>
-      <button id="katNyBtn"    class="lev-btn-primary">+ Ny kategori</button>
-    </div>
-    <div id="katListeContainer" class="lev-list-container" style="padding:0">
-      ${EGNE_KATEGORIER.map(_katRaekke).join("")}
-    </div>`;
-
-  document.getElementById("katTilbage").addEventListener("click", _enhedShowListe);
-  document.getElementById("katNyBtn").addEventListener("click", () => _katShowForm(null));
-
-  body.querySelectorAll(".kat-rediger-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const kat = EGNE_KATEGORIER.find(k => k.id === btn.dataset.id);
-      if (kat) _katShowForm(kat);
-    });
-  });
-  body.querySelectorAll(".kat-slet-btn").forEach(btn => {
-    btn.addEventListener("click", () => _katSlet(btn.dataset.id));
-  });
-}
-
-function _katShowForm(kat) {
-  document.getElementById("levPanelTitle").textContent = kat ? "✏️ Rediger kategori" : "➕ Ny kategori";
-  const body = document.getElementById("levPanelBody");
-
-  body.innerHTML = `
-    <div class="lev-form">
-      <button class="lev-tilbage-btn" id="katTilbage2" style="margin-bottom:12px">← Tilbage til kategorier</button>
-      <fieldset class="lev-fs">
-        <legend>⚙️ Kategori</legend>
-        <label>ID (unikt, ingen mellemrum)
-          <input id="kat-id" type="text" value="${_esc(kat?.id || "")}"
-            placeholder="fx tma_vogn" ${kat ? "readonly style=\"background:#f5f7fa;color:#888\"" : ""}>
-        </label>
-        <label style="margin-top:6px">Tilhører kategori (valgfri — udfyld hvis dette er en underkategori)
-          <select id="kat-foraeld" style="padding:8px;border:1px solid #cdd5df;border-radius:6px;font-size:13px;width:100%;margin-top:4px">
-            <option value="">— Ingen (selvstændig kategori) —</option>
-            ${EGNE_KATEGORIER.filter(k => !k.foralderId && k.id !== kat?.id).map(k =>
-              `<option value="${_esc(k.id)}" ${kat?.foralderId === k.id ? "selected" : ""}>${k.ikon} ${_esc(k.navn)}</option>`
-            ).join("")}
-          </select>
-        </label>
-        <label style="margin-top:6px">Visningsnavn
-          <input id="kat-navn" type="text" value="${_esc(kat?.navn || "")}" placeholder="fx TMA vogn">
-        </label>
-        <label style="margin-top:6px">Ikon (emoji)
-          <input id="kat-ikon" type="text" value="${_esc(kat?.ikon || "")}" placeholder="fx 🚧" style="font-size:20px;width:60px">
-        </label>
-        <label style="margin-top:6px">Sortering (lavest vises først)
-          <input id="kat-sortering" type="number" value="${kat?.sortering ?? ""}" placeholder="fx 10" style="width:80px">
-        </label>
-        <div style="margin-top:12px">
-          <div style="font-size:11.5px;font-weight:600;color:#5a6a7a;margin-bottom:8px">Tilknytning</div>
-          <label style="display:flex;flex-direction:row;align-items:center;gap:10px;cursor:pointer;font-size:13px">
-            <input type="radio" name="kat-type" value="station" ${kat?.kraeverStation !== false ? "checked" : ""}
-              style="width:15px;height:15px">
-            🏠 Kræver station — enheden kører fra en fast station (fx TMA, morsvogn)
-          </label>
-          <label style="display:flex;flex-direction:row;align-items:center;gap:10px;cursor:pointer;font-size:13px;margin-top:8px">
-            <input type="radio" name="kat-type" value="adresse" ${kat?.kraeverStation === false ? "checked" : ""}
-              style="width:15px;height:15px">
-            📍 Hjemadresse — enheden kører fra sin egen adresse (fx skytte, dyreredning)
-          </label>
-        </div>
-      </fieldset>
-      <div class="lev-form-footer">
-        <button id="kat-gem" class="lev-btn-primary">💾 Gem kategori</button>
-        ${kat ? `<button id="kat-slet" class="lev-btn-danger">🗑️ Slet</button>` : ""}
-      </div>
-      <div id="kat-status" style="font-size:12px;color:#27ae60;min-height:18px;padding:4px 0"></div>
-    </div>`;
-
-  document.getElementById("katTilbage2").addEventListener("click", _katShowListe);
-  document.getElementById("kat-gem").addEventListener("click", () => _katGem(kat?.id || null));
-  document.getElementById("kat-slet")?.addEventListener("click", () => _katSlet(kat.id));
-}
-
-async function _katGem(existingId) {
-  const id         = existingId || document.getElementById("kat-id").value.trim().replace(/\s+/g, "_").toLowerCase();
-  const navn       = document.getElementById("kat-navn").value.trim();
-  const ikon       = document.getElementById("kat-ikon").value.trim();
-  const sortering  = parseInt(document.getElementById("kat-sortering").value) || 99;
-  const foralderId = document.getElementById("kat-foraeld")?.value.trim() || undefined;
-  const kraeverStation = document.querySelector('input[name="kat-type"]:checked')?.value === "station";
-  const status     = document.getElementById("kat-status");
-
-  if (!id)   { status.style.color = "#c0392b"; status.textContent = "ID er påkrævet."; return; }
-  if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
-  if (!ikon) { status.style.color = "#c0392b"; status.textContent = "Vælg et ikon (emoji)."; return; }
-
-  const gemBtn = document.getElementById("kat-gem");
-  gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
-
-  try {
-    const r = await _levSpFetch("/kategorier", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, navn, ikon, kraeverStation, aktiv: true, sortering, foralderId })
-    });
-    if (!r.ok) throw new Error("Gem fejlede");
-    status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
-    await _katLoad(); // Opdater EGNE_KATEGORIER
-    setTimeout(_katShowListe, 800);
-  } catch(e) {
-    status.style.color = "#c0392b"; status.textContent = "Fejl: " + e.message;
-    gemBtn.disabled = false; gemBtn.textContent = "💾 Gem kategori";
-  }
-}
-
-async function _katSlet(katId) {
-  const kat = EGNE_KATEGORIER.find(k => k.id === katId);
-  if (!kat) return;
-
-  // Tjek om der er enheder med denne kategori
-  const iBrug = (_enhedData || []).filter(e => {
-    const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-    return kats.includes(katId);
-  });
-  if (iBrug.length) {
-    alert(`Kan ikke slette "${kat.navn}" — ${iBrug.length} enhed(er) bruger denne kategori.\n\nFlyt eller slet enhederne først.`);
-    return;
-  }
-
-  if (!confirm(`Slet kategorien "${kat.navn}"?\n\nDette kan ikke fortrydes.`)) return;
-
-  try {
-    const r = await _levSpFetch(`/kategorier/${encodeURIComponent(katId)}`, { method: "DELETE" });
-    if (!r.ok) throw new Error("Slet fejlede");
-    await _katLoad();
-    _katShowListe();
   } catch(e) {
     alert("Fejl ved sletning: " + e.message);
   }
