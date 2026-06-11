@@ -21,6 +21,10 @@ const EGNE_KATEGORIER = [
   { id: "tma_vogn",    navn: "TMA vogn",        ikon: "🚧" },
   { id: "tavletrailer",navn: "Tavletrailer",     ikon: "🪧" },
   { id: "dyr",         navn: "Dyreredning",      ikon: "🐾" },
+  { id: "dyr_ko",      navn: "Ko",               ikon: "🐄", foralderId: "dyr" },
+  { id: "dyr_hest",    navn: "Hest",             ikon: "🐴", foralderId: "dyr" },
+  { id: "dyr_smaadyr", navn: "Smådyr",           ikon: "🐾", foralderId: "dyr" },
+  { id: "dyr_riffel",  navn: "Riffelskytte",     ikon: "🦌", foralderId: "dyr" },
   { id: "drift_hjem",  navn: "Drift fra hjem",   ikon: "🏠" },
   { id: "mors",        navn: "Mors biler",        ikon: "🚌" },
   { id: "liggende",    navn: "Liggende",          ikon: "🛏️" },
@@ -85,9 +89,34 @@ function _levBuildControl() {
   const levRows = LEV_KATEGORIER.map(k =>
     `<label class="lev-disp-row"><input type="checkbox" data-lag="lev-${k.id}"> ${k.ikon} ${k.navn}</label>`
   ).join('');
-  const enhedRows = EGNE_KATEGORIER.map(k =>
-    `<label class="lev-disp-row"><input type="checkbox" data-lag="enhed-${k.id}"> ${k.ikon} ${k.navn}</label>`
-  ).join('');
+  // Byg hierarkisk enhed-liste med fold/unfold for forældre-kategorier
+  const _enhedBørn = {};
+  EGNE_KATEGORIER.forEach(k => {
+    if (k.foralderId) {
+      if (!_enhedBørn[k.foralderId]) _enhedBørn[k.foralderId] = [];
+      _enhedBørn[k.foralderId].push(k);
+    }
+  });
+  let enhedRows = '';
+  EGNE_KATEGORIER.forEach(k => {
+    if (k.foralderId) return; // børn håndteres under forælderen
+    const børn = _enhedBørn[k.id] || [];
+    if (børn.length > 0) {
+      // Forælder med børn — plain div, ingen checkbox, kun fold-pil
+      enhedRows += `<div class="lev-disp-foraeld" data-gruppe="${k.id}" style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px 4px 6px;cursor:pointer;user-select:none">
+        <span>${k.ikon} ${k.navn}</span>
+        <span class="disp-pil" style="font-size:11px;color:#888">▸</span>
+      </div>
+      <div class="lev-disp-under" data-gruppe="${k.id}" style="padding-left:14px;display:none">`;
+      børn.forEach(b => {
+        enhedRows += `<label class="lev-disp-row"><input type="checkbox" data-lag="enhed-${b.id}"> ${b.ikon} ${b.navn}</label>`;
+      });
+      enhedRows += `</div>`;
+    } else {
+      // Normal kategori uden børn
+      enhedRows += `<label class="lev-disp-row"><input type="checkbox" data-lag="enhed-${k.id}"> ${k.ikon} ${k.navn}</label>`;
+    }
+  });
 
   wrap.innerHTML = `
     <button class="lev-disp-toggle" id="levDispToggle">Disp</button>
@@ -136,6 +165,19 @@ function _levBuildControl() {
 
   // Stop klik inde i panelet fra at boble op til kortet
   L.DomEvent.disableClickPropagation(panel);
+
+  // Fold/unfold for forældre-kategorier
+  wrap.querySelectorAll('.lev-disp-foraeld').forEach(function (div) {
+    div.addEventListener('click', function () {
+      const gruppe = div.dataset.gruppe;
+      const under  = wrap.querySelector(`.lev-disp-under[data-gruppe="${gruppe}"]`);
+      if (!under) return;
+      const aaben = under.style.display !== 'none';
+      under.style.display = aaben ? 'none' : 'block';
+      const pil = div.querySelector('.disp-pil');
+      if (pil) pil.textContent = aaben ? '▸' : '▾';
+    });
+  });
 
   // Checkbox-handlers
   wrap.querySelectorAll('input[type=checkbox]').forEach(function (cb) {
