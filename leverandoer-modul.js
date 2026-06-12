@@ -103,8 +103,9 @@ function _levBuildControl() {
     const børn = _enhedBørn[k.id] || [];
     if (børn.length > 0) {
       // Forælder med børn — plain div, ingen checkbox, kun fold-pil
-      enhedRows += `<div class="lev-disp-foraeld" data-gruppe="${k.id}" style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px 4px 6px;cursor:pointer;user-select:none">
-        <span>${k.ikon} ${k.navn}</span>
+      enhedRows += `<div class="lev-disp-foraeld" data-gruppe="${k.id}" style="display:flex;align-items:center;padding:3px 0;padding-left:20px;cursor:pointer;user-select:none;gap:6px;font-size:13px;white-space:nowrap">
+        <span>${k.ikon}</span>
+        <span>${k.navn}</span>
         <span class="disp-pil" style="font-size:11px;color:#888">▸</span>
       </div>
       <div class="lev-disp-under" data-gruppe="${k.id}" style="padding-left:14px;display:none">`;
