@@ -131,16 +131,31 @@ function _levBuildControl() {
   const panel     = document.getElementById('levDispPanel');
 
   // Disp-knap: tjek session og åbn/luk panel
+  function _opdaterRedigerKnapper(rolle) {
+    const redigerSektion = panel.querySelector('.lev-disp-rediger');
+    if (!redigerSektion) return;
+    const maaSe = rolle === 'admin' || rolle === 'drift';
+    redigerSektion.style.display = maaSe ? '' : 'none';
+    const dividers = panel.querySelectorAll('.lev-disp-divider');
+    if (dividers.length >= 2) dividers[dividers.length - 1].style.display = maaSe ? '' : 'none';
+  }
+
   toggleBtn.addEventListener('click', async function (e) {
     e.stopPropagation();
     if (!panel.classList.contains('lev-disp-panel-aaben')) {
       try {
         const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: 'include' });
         if (me.ok) {
+          const meData = await me.json();
+          _levAktivRolle = meData.role || 'admin';
           panel.classList.add('lev-disp-panel-aaben');
+          _opdaterRedigerKnapper(_levAktivRolle);
         } else {
           const ok = await _levEnsureDisponering();
-          if (ok) panel.classList.add('lev-disp-panel-aaben');
+          if (ok) {
+            panel.classList.add('lev-disp-panel-aaben');
+            _opdaterRedigerKnapper(_levAktivRolle || 'read');
+          }
         }
       } catch (err) {
         console.warn('Disp session-tjek fejlede:', err);
@@ -220,6 +235,15 @@ function _levBuildEnhedRows() {
   const container = document.getElementById('levDispEnhedRows');
   if (!container) return;
 
+  // Gem hvilke grupper der aktuelt er foldet ud (så rebuild ikke nulstiller fold-tilstand)
+  const aabneGrupper = new Set();
+  container.querySelectorAll('.lev-disp-under').forEach(function(el) {
+    if (el.style.display !== 'none') {
+      const foraeld = el.previousElementSibling;
+      if (foraeld) aabneGrupper.add(foraeld.textContent.trim().slice(0, 10));
+    }
+  });
+
   // Gem hvilke lag der er aktivt tændt ved at tjekke Leaflet-kortets aktive lag
   const aktiveLag = new Set();
   if (typeof map !== 'undefined' && typeof _enhedKatLag !== 'undefined') {
@@ -242,7 +266,7 @@ function _levBuildEnhedRows() {
     const under = boern.filter(b => b.foralderId === k.id);
     if (under.length) {
       html += `<div class="lev-disp-gruppe">`;
-      html += `<div class="lev-disp-row lev-disp-foraeld" style="cursor:pointer;user-select:none">
+      html += `<div class="lev-disp-row lev-disp-foraeld" style="cursor:pointer;user-select:none;padding-left:22px">
         ${k.ikon} ${k.navn} <span class="disp-pil">▸</span>
       </div>`;
       html += `<div class="lev-disp-under" style="padding-left:14px;display:none">`;
@@ -260,6 +284,14 @@ function _levBuildEnhedRows() {
 
   // Klik paa foraelder-div folder ud/ind
   container.querySelectorAll('.lev-disp-foraeld').forEach(function(div) {
+    // Gendan fold-tilstand fra før rebuild
+    const under = div.nextElementSibling;
+    const noegle = div.textContent.trim().slice(0, 10);
+    if (under && aabneGrupper.has(noegle)) {
+      under.style.display = 'block';
+      const pil = div.querySelector('.disp-pil');
+      if (pil) pil.textContent = '▾';
+    }
     div.addEventListener('click', function() {
       const under = div.nextElementSibling;
       if (!under) return;
