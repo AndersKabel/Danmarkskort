@@ -360,7 +360,7 @@
 /* ── DISP PANEL (custom HTML — ingen Leaflet hover) ────────── */
 .lev-disp-ctrl {
   position: absolute;
-  top: 58px;
+  top: 64px;
   right: 4px;
   z-index: 900;
   display: flex;
@@ -384,7 +384,6 @@
   text-align: center;
   padding: 0;
   margin: 0;
-  margin-top: 5px;
   display: block;
 }
 .lev-disp-toggle:hover { background: #f0f0f0; }
