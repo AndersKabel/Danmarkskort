@@ -1216,8 +1216,12 @@ var frakorslerLayer = L.tileLayer.wms("https://geocloud.vd.dk/VM/wms", {
  ***************************************************/
 var falckAssLayer = L.geoJSON(null, {
   onEachFeature: function(feature, layer) {
-    let tekst = feature.properties.tekst || "Falck Ass";
-    layer.bindPopup("<strong>" + tekst + "</strong>");
+    const navn    = feature.properties.name || feature.properties.tekst || "Falck station";
+    const adresse = feature.properties.address || "";
+    const popup   = adresse
+      ? "<strong>" + navn + "</strong><br><span style='font-size:12px;color:#666'>" + adresse + "</span>"
+      : "<strong>" + navn + "</strong>";
+    layer.bindPopup(popup);
   },
   style: function() {
     return { color: "orange" };
