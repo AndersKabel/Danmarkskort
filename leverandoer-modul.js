@@ -124,7 +124,7 @@ function _levBuildControl() {
       </div>
     </div>
   `;
-  map._controlContainer.querySelector('.leaflet-top.leaflet-right').appendChild(wrap);
+  map.getContainer().appendChild(wrap);
   _levBuildEnhedRows();
 
   const toggleBtn = document.getElementById('levDispToggle');
@@ -155,7 +155,8 @@ function _levBuildControl() {
     panel.classList.remove('lev-disp-panel-aaben');
   });
 
-  // Stop klik inde i panelet fra at boble op til kortet
+  // Stop klik inde i wrapperen og panelet fra at boble op til Leaflet-kortet
+  L.DomEvent.disableClickPropagation(wrap);
   L.DomEvent.disableClickPropagation(panel);
 
   // Checkbox-handlers
