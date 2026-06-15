@@ -1216,12 +1216,8 @@ var frakorslerLayer = L.tileLayer.wms("https://geocloud.vd.dk/VM/wms", {
  ***************************************************/
 var falckAssLayer = L.geoJSON(null, {
   onEachFeature: function(feature, layer) {
-    const navn    = feature.properties.name || feature.properties.tekst || "Falck station";
-    const adresse = feature.properties.address || "";
-    const popup   = adresse
-      ? "<strong>" + navn + "</strong><br><span style='font-size:12px;color:#666'>" + adresse + "</span>"
-      : "<strong>" + navn + "</strong>";
-    layer.bindPopup(popup);
+    let tekst = feature.properties.tekst || "Falck Ass";
+    layer.bindPopup("<strong>" + tekst + "</strong>");
   },
   style: function() {
     return { color: "orange" };
@@ -2223,17 +2219,21 @@ searchInput.addEventListener("input", function() {
     const match = txt.match(coordRegex);
     const latNum = parseFloat(match[1]);
     const lonNum = parseFloat(match[2]);
+
+    // Sæt markør og zoom STRAKS — venter ikke på reverse geocoding
+    resultsList.innerHTML = "";
+    resultsList.style.display = "none";
+    placeMarkerAndZoom(
+      [latNum, lonNum],
+      `Koordinater: ${latNum.toFixed(5)}, ${lonNum.toFixed(5)}`
+    );
+    setCoordinateBox(latNum, lonNum);
+
+    // Reverse geocoding kører i baggrunden og opdaterer infobox når den er klar
     let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lonNum}&y=${latNum}&struktur=flad`;
     fetch(revUrl)
       .then(r => r.json())
       .then(data => {
-        resultsList.innerHTML = "";
-        resultsList.style.display = "none";
-        placeMarkerAndZoom(
-          [latNum, lonNum],
-          `Koordinater: ${latNum.toFixed(5)}, ${lonNum.toFixed(5)}`
-        );
-        setCoordinateBox(latNum, lonNum);
         updateInfoBox(data, latNum, lonNum);
       })
       .catch(err => console.error("Reverse geocoding fejl:", err));
