@@ -2219,21 +2219,17 @@ searchInput.addEventListener("input", function() {
     const match = txt.match(coordRegex);
     const latNum = parseFloat(match[1]);
     const lonNum = parseFloat(match[2]);
-
-    // Sæt markør og zoom STRAKS — venter ikke på reverse geocoding
-    resultsList.innerHTML = "";
-    resultsList.style.display = "none";
-    placeMarkerAndZoom(
-      [latNum, lonNum],
-      `Koordinater: ${latNum.toFixed(5)}, ${lonNum.toFixed(5)}`
-    );
-    setCoordinateBox(latNum, lonNum);
-
-    // Reverse geocoding kører i baggrunden og opdaterer infobox når den er klar
     let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lonNum}&y=${latNum}&struktur=flad`;
     fetch(revUrl)
       .then(r => r.json())
       .then(data => {
+        resultsList.innerHTML = "";
+        resultsList.style.display = "none";
+        placeMarkerAndZoom(
+          [latNum, lonNum],
+          `Koordinater: ${latNum.toFixed(5)}, ${lonNum.toFixed(5)}`
+        );
+        setCoordinateBox(latNum, lonNum);
         updateInfoBox(data, latNum, lonNum);
       })
       .catch(err => console.error("Reverse geocoding fejl:", err));
@@ -2825,7 +2821,7 @@ function quickStrandSearch(query) {
  ***************************************************/
 function doSearch(query, listElement) {
   console.log("doSearch:", JSON.stringify(query), "| customPlaces:", customPlaces.length, customPlaces.map(p=>p.navn));
-  let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=50`;
+  let addrUrl = `https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(query)}&per_side=50`;
   let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=50&token=a63a88838c24fc85d47f32cde0ec0144`;
   const queryWithWildcard = query.trim().split(/\s+/).map(w => w + "*").join(" ");
   let roadUrl = `https://api.dataforsyningen.dk/navngivneveje?q=${encodeURIComponent(queryWithWildcard)}&per_side=20`;
@@ -2956,11 +2952,12 @@ function doSearch(query, listElement) {
     searchItems = [];
     searchCurrentIndex = -1;
 
-    // Adresser (Dataforsyningen)
+    // Adresser (Dataforsyningen — /adresser/autocomplete)
+    // Svaret har strukturen: { tekst, adresse: { id, ... } }
     let addrResults = (addrData || []).map(item => ({
       type: "adresse",
       tekst: item.tekst,
-      adgangsadresse: item.adgangsadresse
+      adresseId: item.adresse?.id || null
     }));
 
     // Stednavne — efterfiltrer: behold kun hvis søgeord faktisk er substring af navnet
@@ -3075,34 +3072,34 @@ function doSearch(query, listElement) {
       li.appendChild(labelSpan);
 
       labelSpan.addEventListener("click", function() {
-                if (obj.type === "adresse" && obj.adgangsadresse && obj.adgangsadresse.id) {
-          fetch(`https://api.dataforsyningen.dk/adgangsadresser/${obj.adgangsadresse.id}`)
+                if (obj.type === "adresse" && obj.adresseId) {
+          // Ét kald til /adresser/{id} giver koordinater + adressedata i ét svar.
+          // Markøren sættes straks når svaret kommer — ingen ekstra reverse geocoding.
+          fetch(`https://api.dataforsyningen.dk/adresser/${obj.adresseId}`)
             .then(r => r.json())
             .then(addressData => {
-              let [lon, lat] = addressData.adgangspunkt.koordinater;
+              // Koordinater sidder på adgangsadresse.adgangspunkt.koordinater
+              const coords = addressData.adgangsadresse?.adgangspunkt?.koordinater;
+              if (!coords || coords.length < 2) {
+                console.error("Ingen koordinater i /adresser/{id}-svar:", addressData);
+                return;
+              }
+              const lon = coords[0];
+              const lat = coords[1];
+
+              // Markør og zoom sættes STRAKS
               setCoordinateBox(lat, lon);
               placeMarkerAndZoom([lat, lon], obj.tekst);
 
-              let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
-              fetch(revUrl)
-                .then(r => r.json())
-                .then(reverseData => {
-                  updateInfoBox(reverseData, lat, lon);
-                  resultsList.innerHTML = "";
-                  resultsList.style.display = "none";
-                  vej1List.innerHTML = "";
-                  vej2List.innerHTML = "";
-                })
-                .catch(err => {
-                  console.error("Reverse geocoding fejl:", err);
-                  updateInfoBox(addressData, lat, lon);
-                  resultsList.innerHTML = "";
-                  resultsList.style.display = "none";
-                  vej1List.innerHTML = "";
-                  vej2List.innerHTML = "";
-                });
+              // updateInfoBox bruger adresseData direkte — ingen ekstra fetch
+              updateInfoBox(addressData, lat, lon);
+
+              resultsList.innerHTML = "";
+              resultsList.style.display = "none";
+              vej1List.innerHTML = "";
+              vej2List.innerHTML = "";
             })
-            .catch(err => console.error("Fejl i /adgangsadresser/{id}:", err));
+            .catch(err => console.error("Fejl i /adresser/{id}:", err));
         } else if (obj.type === "stednavn" && obj.bbox && obj.bbox.coordinates && obj.bbox.coordinates[0] && obj.bbox.coordinates[0].length > 0) {
           let [x, y] = obj.bbox.coordinates[0][0];
           placeMarkerAndZoom([x, y], obj.navn);
