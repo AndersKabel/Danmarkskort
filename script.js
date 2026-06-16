@@ -1270,6 +1270,11 @@ var keepMarkersEnabled = false;
 // Global reference til "seneste" markør (bruges bl.a. til radius)
 var currentMarker;
 
+// Global position for seneste valgte punkt (adressesøgning eller klik)
+// Bruges bl.a. af matrikel-laget til at vide hvor det skal slå op
+var currentLat = null;
+var currentLon = null;
+
 var originalBorderCoords = [];
 fetch("dansk-tysk-grænse.geojson")
   .then(r => r.json())
@@ -1582,6 +1587,11 @@ map.on('overlayadd', function(e) {
       }
       keepMarkersLayer.addLayer(currentMarker);
     }
+  } else if (e.layer === matrikelLayer) {
+    // Når matrikel-laget slås til: vis matrikel for seneste kendte position
+    if (currentLat !== null && currentLon !== null) {
+      visMatrikel(currentLat, currentLon);
+    }
   }
 });
 
@@ -1633,6 +1643,10 @@ function resetCoordinateBox() {
 }
 
 function setCoordinateBox(lat, lon) {
+  // Gem position globalt så matrikel-laget kan bruge den
+  currentLat = lat;
+  currentLon = lon;
+
   const coordinateBox = document.getElementById("coordinateBox");
   let latFixed = lat.toFixed(6);
   let lonFixed = lon.toFixed(6);
@@ -1683,8 +1697,110 @@ function createSelectionMarker(lat, lon) {
 }
 
 /***************************************************
- * Strandposter – global cache
+ * visMatrikel – tegn alle jordstykker for en position
+ * Bruges fra både map.on('click') og overlayadd
+ * Kæde: koordinat → jordstykke → BFE → alle jordstykker på ejendommen
  ***************************************************/
+async function visMatrikel(lat, lon) {
+  matrikelLayer.clearLayers();
+
+  try {
+    // Trin 1: Find jordstykket under koordinatet
+    const resp = await fetch(
+      `https://api.dataforsyningen.dk/jordstykker?x=${lon}&y=${lat}&srid=4326&format=geojson`
+    );
+    const data = await resp.json();
+    if (!data?.features?.length) return;
+
+    const f = data.features[0];
+    const p = f.properties || {};
+
+    const matrikelStyle = {
+      color: "#e67e22", weight: 2.5,
+      fillColor: "#e67e22", fillOpacity: 0.15
+    };
+
+    function popupHtml(matrikelnr, ejerlav, kommune, areal, bfe, adresseStr) {
+      const bfeHtml = bfe
+        ? `<hr style="margin:4px 0"><span style="color:#888;font-size:11px">BFE: ${bfe}</span>` : "";
+      return `<strong>📐 Matrikel</strong><br>` +
+        `Matrikelnr: <strong>${matrikelnr}</strong><br>` +
+        `Ejerlav: ${ejerlav}<br>` +
+        (kommune ? `Kommune: ${kommune}<br>` : "") +
+        (areal   ? `Areal: ${areal}<br>`    : "") +
+        (adresseStr ? `📬 ${adresseStr}<br>` : "") +
+        bfeHtml;
+    }
+
+    // Trin 2: Har vi et BFE-nummer? → hent alle jordstykker på ejendommen
+    const bfe = p.bfenummer || "";
+    const matrikelNr = p.matrikelnr || "?";
+    const ejerlav    = p.ejerlavnavn || "?";
+    const kommune    = p.kommunenavn || "";
+    const areal      = p.registreretareal
+      ? `${Math.round(p.registreretareal).toLocaleString("da-DK")} m²` : "";
+
+    if (bfe) {
+      // Hent alle jordstykker med samme BFE (hele ejendommen)
+      const alleResp = await fetch(
+        `https://api.dataforsyningen.dk/jordstykker?bfenummer=${bfe}&format=geojson`
+      );
+      const alleData = await alleResp.json();
+      const features = alleData?.features || [];
+
+      if (features.length > 0) {
+        // Tegn alle jordstykker
+        features.forEach(feat => {
+          const fp = feat.properties || {};
+          const mnr   = fp.matrikelnr || "?";
+          const ejl   = fp.ejerlavnavn || "?";
+          const kom   = fp.kommunenavn || "";
+          const ar    = fp.registreretareal
+            ? `${Math.round(fp.registreretareal).toLocaleString("da-DK")} m²` : "";
+
+          L.geoJSON(feat, { style: matrikelStyle })
+            .bindPopup(popupHtml(mnr, ejl, kom, ar, bfe, ""))
+            .addTo(matrikelLayer);
+        });
+
+        // Hent adresse til popup på det jordstykke der blev klikket på
+        const cx = p.visueltcenter_x || "";
+        const cy = p.visueltcenter_y || "";
+        if (cx && cy) {
+          try {
+            const adrResp = await fetch(
+              `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${cx}&y=${cy}&struktur=mini`
+            );
+            const adr = await adrResp.json();
+            if (adr?.vejnavn) {
+              const adresseStr = `${adr.vejnavn} ${adr.husnr || ""}, ${adr.postnr} ${adr.postnrnavn}`;
+              // Opdater popup på det første jordstykke med adresse
+              const layers = matrikelLayer.getLayers();
+              if (layers.length > 0) {
+                layers[0].setPopupContent(
+                  popupHtml(matrikelNr, ejerlav, kommune, areal, bfe, adresseStr)
+                );
+              }
+            }
+          } catch(e) {
+            console.warn("Matrikel adresse-opslag fejl:", e);
+          }
+        }
+        return;
+      }
+    }
+
+    // Fallback: ingen BFE eller ingen resultater — tegn kun det ene jordstykke
+    L.geoJSON(f, { style: matrikelStyle })
+      .bindPopup(popupHtml(matrikelNr, ejerlav, kommune, areal, bfe, ""))
+      .addTo(matrikelLayer);
+
+  } catch(e) {
+    console.warn("Matrikel lookup fejl:", e);
+  }
+}
+
+
 var allStrandposter = [];
 var strandposterReady = false;
 function fetchAllStrandposter() {
@@ -1723,88 +1839,7 @@ map.on('click', function(e) {
 
   // ── Matrikel-opslag (kun hvis laget er aktivt) ───────────────
   if (map.hasLayer(matrikelLayer)) {
-    matrikelLayer.clearLayers();
-    (async () => {
-      try {
-        const resp = await fetch(`https://api.dataforsyningen.dk/jordstykker?x=${lon}&y=${lat}&srid=4326&format=geojson`);
-        const data = await resp.json();
-        if (!data?.features?.length) return;
-        const f = data.features[0];
-        const p = f.properties || {};
-
-        const matrikelNr = p.matrikelnr   || "?";
-        const ejerlav    = p.ejerlavnavn  || "?";
-        const kommune    = p.kommunenavn  || "";
-        const bfe        = p.bfenummer    || "";
-        const areal      = p.registreretareal
-          ? `${Math.round(p.registreretareal).toLocaleString("da-DK")} m²` : "";
-        const featureid  = p.featureid    || "";
-
-        const bfeHtml = bfe
-          ? `<hr style="margin:4px 0"><span style="color:#888;font-size:11px">BFE: ${bfe}</span>` : "";
-
-        function popupIndhold(adresseHtml) {
-          return `<strong>📐 Matrikel</strong><br>` +
-            `Matrikelnr: <strong>${matrikelNr}</strong><br>` +
-            `Ejerlav: ${ejerlav}<br>` +
-            (kommune ? `Kommune: ${kommune}<br>` : "") +
-            (areal   ? `Areal: ${areal}<br>`    : "") +
-            adresseHtml + bfeHtml;
-        }
-
-        // ── Tegn polygon straks ──────────────────────────────
-        const geoLayer = L.geoJSON(f, {
-          style: { color: "#e67e22", weight: 2.5, fillColor: "#e67e22", fillOpacity: 0.15 }
-        })
-        .bindPopup(popupIndhold(""))
-        .addTo(matrikelLayer)
-        .openPopup();
-
-        // ── Hent adresse via ejendomsregistrering ────────────
-        // Har matriklen bfenummer → den er selvstændig ejendom → brug eget centrum
-        // Har den ikke → følg moderjordstykke → brug modermatrikels centrum
-        const cx0 = p.visueltcenter_x || "";
-        const cy0 = p.visueltcenter_y || "";
-
-        async function hentAdresse(cx, cy) {
-          const r = await fetch(
-            `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${cx}&y=${cy}&struktur=mini`
-          );
-          const adr = await r.json();
-          if (!adr?.vejnavn) return null;
-          return `${adr.vejnavn} ${adr.husnr}, ${adr.postnr} ${adr.postnrnavn}`;
-        }
-
-        (async () => {
-          try {
-            let adresseStr = null;
-
-            if (p.bfenummer && cx0 && cy0) {
-              // Selvstændig ejendom — brug eget centrum
-              adresseStr = await hentAdresse(cx0, cy0);
-            } else if (p.moderjordstykke) {
-              // Dattermatrikel — slå modermatrikel op og brug dens centrum
-              const mResp = await fetch(
-                `https://api.dataforsyningen.dk/jordstykker?featureid=${p.moderjordstykke}&srid=4326&format=geojson`
-              );
-              const mData = await mResp.json();
-              const mp = mData?.features?.[0]?.properties || {};
-              const mcx = mp.visueltcenter_x || "";
-              const mcy = mp.visueltcenter_y || "";
-              if (mcx && mcy) adresseStr = await hentAdresse(mcx, mcy);
-            }
-
-            if (adresseStr) {
-              geoLayer.setPopupContent(popupIndhold(`<br>📬 ${adresseStr}`));
-            }
-          } catch(e) {
-            console.warn("Adresse-opslag fejl:", e);
-          }
-        })();
-      } catch(e) {
-        console.warn("Matrikel lookup fejl:", e);
-      }
-    })();
+    visMatrikel(lat, lon);
   }
 
   if (isInDenmarkByPolygon(lat, lon)) {
