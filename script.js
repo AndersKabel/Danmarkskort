@@ -1746,7 +1746,18 @@ async function visMatrikel(lat, lon) {
         `https://api.dataforsyningen.dk/jordstykker?bfenummer=${bfe}&format=geojson`
       );
       const alleData = await alleResp.json();
-      const features = alleData?.features || [];
+
+      // API kan returnere FeatureCollection ELLER plain array af features
+      let features = [];
+      if (Array.isArray(alleData)) {
+        features = alleData;
+      } else if (alleData?.type === "FeatureCollection") {
+        features = alleData.features || [];
+      } else if (alleData?.features) {
+        features = alleData.features;
+      }
+
+      console.log("Matrikel BFE-svar: features =", features.length);
 
       if (features.length > 0) {
         // Tegn alle jordstykker
