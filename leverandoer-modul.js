@@ -131,31 +131,16 @@ function _levBuildControl() {
   const panel     = document.getElementById('levDispPanel');
 
   // Disp-knap: tjek session og åbn/luk panel
-  function _opdaterRedigerKnapper(rolle) {
-    const redigerSektion = panel.querySelector('.lev-disp-rediger');
-    if (!redigerSektion) return;
-    const maaSe = rolle === 'admin' || rolle === 'drift';
-    redigerSektion.style.display = maaSe ? '' : 'none';
-    const dividers = panel.querySelectorAll('.lev-disp-divider');
-    if (dividers.length >= 2) dividers[dividers.length - 1].style.display = maaSe ? '' : 'none';
-  }
-
   toggleBtn.addEventListener('click', async function (e) {
     e.stopPropagation();
     if (!panel.classList.contains('lev-disp-panel-aaben')) {
       try {
         const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: 'include' });
         if (me.ok) {
-          const meData = await me.json();
-          _levAktivRolle = meData.role || 'admin';
           panel.classList.add('lev-disp-panel-aaben');
-          _opdaterRedigerKnapper(_levAktivRolle);
         } else {
           const ok = await _levEnsureDisponering();
-          if (ok) {
-            panel.classList.add('lev-disp-panel-aaben');
-            _opdaterRedigerKnapper(_levAktivRolle || 'read');
-          }
+          if (ok) panel.classList.add('lev-disp-panel-aaben');
         }
       } catch (err) {
         console.warn('Disp session-tjek fejlede:', err);
@@ -170,8 +155,7 @@ function _levBuildControl() {
     panel.classList.remove('lev-disp-panel-aaben');
   });
 
-  // Stop klik inde i wrapperen og panelet fra at boble op til Leaflet-kortet
-  L.DomEvent.disableClickPropagation(wrap);
+  // Stop klik inde i panelet fra at boble op til kortet
   L.DomEvent.disableClickPropagation(panel);
 
   // Checkbox-handlers
@@ -236,15 +220,6 @@ function _levBuildEnhedRows() {
   const container = document.getElementById('levDispEnhedRows');
   if (!container) return;
 
-  // Gem hvilke grupper der aktuelt er foldet ud (så rebuild ikke nulstiller fold-tilstand)
-  const aabneGrupper = new Set();
-  container.querySelectorAll('.lev-disp-under').forEach(function(el) {
-    if (el.style.display !== 'none') {
-      const foraeld = el.previousElementSibling;
-      if (foraeld) aabneGrupper.add(foraeld.textContent.trim().slice(0, 10));
-    }
-  });
-
   // Gem hvilke lag der er aktivt tændt ved at tjekke Leaflet-kortets aktive lag
   const aktiveLag = new Set();
   if (typeof map !== 'undefined' && typeof _enhedKatLag !== 'undefined') {
@@ -267,7 +242,7 @@ function _levBuildEnhedRows() {
     const under = boern.filter(b => b.foralderId === k.id);
     if (under.length) {
       html += `<div class="lev-disp-gruppe">`;
-      html += `<div class="lev-disp-row lev-disp-foraeld" style="cursor:pointer;user-select:none;padding-left:22px">
+      html += `<div class="lev-disp-row lev-disp-foraeld" style="cursor:pointer;user-select:none">
         ${k.ikon} ${k.navn} <span class="disp-pil">▸</span>
       </div>`;
       html += `<div class="lev-disp-under" style="padding-left:14px;display:none">`;
@@ -285,14 +260,6 @@ function _levBuildEnhedRows() {
 
   // Klik paa foraelder-div folder ud/ind
   container.querySelectorAll('.lev-disp-foraeld').forEach(function(div) {
-    // Gendan fold-tilstand fra før rebuild
-    const under = div.nextElementSibling;
-    const noegle = div.textContent.trim().slice(0, 10);
-    if (under && aabneGrupper.has(noegle)) {
-      under.style.display = 'block';
-      const pil = div.querySelector('.disp-pil');
-      if (pil) pil.textContent = '▾';
-    }
     div.addEventListener('click', function() {
       const under = div.nextElementSibling;
       if (!under) return;
@@ -1642,6 +1609,18 @@ function _uadBadge(e) {
   return "";
 }
 
+// ── Bygger telefon-rækker til popup: almindelig kontakt + evt. tilkaldsnummer ──
+// Viser kun tilkald-linjen hvis feltet faktisk er udfyldt.
+function _kontaktHTML(obj) {
+  const tlf = obj?.kontakt
+    ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+obj.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(obj.kontakt)}</a></div>`
+    : "";
+  const tilkald = obj?.kontaktTilkald
+    ? `<div class="lev-popup-row">📲 Tilkald: <a href="tel:${_esc('+45'+obj.kontaktTilkald.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(obj.kontaktTilkald)}</a></div>`
+    : "";
+  return tlf + tilkald;
+}
+
 // ── UAD DIALOG ───────────────────────────────────────────────────
 async function _enhedUADDialog(enhedId) {
   const enhed = (_enhedData || []).find(e => e.id === enhedId);
@@ -1763,8 +1742,7 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
                 border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">
          ${uad?"✅ Sæt i drift":"🔴 Sæt UAD"}</button>` : "";
 
-  const tlfHTML = enhed.kontakt
-    ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a></div>` : "";
+  const tlfHTML = _kontaktHTML(enhed);
 
   const marker = L.marker([enhed.lat, enhed.lon], { icon });
   marker.bindPopup(`<div class="lev-popup">
@@ -1826,8 +1804,7 @@ function _enhedRenderLag() {
         </div>`;
       }).join("");
 
-      const tlfHTML = st.kontakt
-        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+st.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(st.kontakt)}</a></div>` : "";
+      const tlfHTML = _kontaktHTML(st);
 
       const icon = L.divIcon({
         className: "",
@@ -1923,8 +1900,7 @@ function _enhedRenderLag() {
         </div>`;
       }).join("");
 
-      const stTlfHTML = st.kontakt
-        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+st.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(st.kontakt)}</a></div>` : "";
+      const stTlfHTML = _kontaktHTML(st);
 
       const marker = L.marker([st.lat, st.lon], { icon });
       marker.bindPopup(`<div class="lev-popup">
@@ -1969,8 +1945,7 @@ function _enhedRenderLag() {
              style="font-size:11px;padding:3px 8px;background:#27ae60;color:#fff;
                     border:none;border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">✅ Sæt i drift</button>` : "";
 
-      const tlfHTML = e.kontakt
-        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+e.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(e.kontakt)}</a></div>` : "";
+      const tlfHTML = _kontaktHTML(e);
 
       const marker = L.marker([e.lat, e.lon], { icon });
       marker.bindPopup(`<div class="lev-popup">
@@ -2350,6 +2325,9 @@ function _enhedShowStationForm(station) {
         <label>Telefon
           <input id="sf-kontakt" type="text" value="${_esc(station?.kontakt || "")}" placeholder="fx 76 26 60 00">
         </label>
+        <label style="margin-top:6px">Tilkald
+          <input id="sf-kontakt-tilkald" type="text" value="${_esc(station?.kontaktTilkald || "")}" placeholder="valgfri">
+        </label>
         <label>Bemærkning
           <input id="sf-bemaerk" type="text" value="${_esc(station?.bemærkning || "")}" placeholder="valgfri">
         </label>
@@ -2411,6 +2389,7 @@ async function _enhedGemStation(existingId) {
   const lat     = parseFloat(document.getElementById("sf-lat").value) || null;
   const lon     = parseFloat(document.getElementById("sf-lon").value) || null;
   const kontakt = document.getElementById("sf-kontakt").value.trim();
+  const kontaktTilkald = document.getElementById("sf-kontakt-tilkald").value.trim();
   const bemærk  = document.getElementById("sf-bemaerk").value.trim();
   const status  = document.getElementById("sf-status");
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Stationsnavn er påkrævet."; return; }
@@ -2420,7 +2399,7 @@ async function _enhedGemStation(existingId) {
     const resp = await _levSpFetch("/enheder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse, kontakt, bemærkning: bemærk })
+      body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse, kontakt, kontaktTilkald, bemærkning: bemærk })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
@@ -2512,6 +2491,9 @@ function _enhedShowForm(enhed) {
         <legend>📞 Kontakt</legend>
         <label>Telefon
           <input id="ef-kontakt" type="text" value="${_esc(enhed?.kontakt || "")}" placeholder="fx 76 26 60 00">
+        </label>
+        <label style="margin-top:6px">Tilkald
+          <input id="ef-kontakt-tilkald" type="text" value="${_esc(enhed?.kontaktTilkald || "")}" placeholder="valgfri">
         </label>
         <label>Bemærkning
           <input id="ef-bemaerk" type="text" value="${_esc(enhed?.bemærkning || "")}" placeholder="valgfri">
@@ -2683,6 +2665,7 @@ async function _enhedGem(existingId) {
   const lat        = parseFloat(document.getElementById("ef-lat").value) || null;
   const lon        = parseFloat(document.getElementById("ef-lon").value) || null;
   const kontakt    = document.getElementById("ef-kontakt").value.trim();
+  const kontaktTilkald = document.getElementById("ef-kontakt-tilkald").value.trim();
   const bemærk     = document.getElementById("ef-bemaerk").value.trim();
   const status     = document.getElementById("ef-status");
 
@@ -2715,6 +2698,7 @@ async function _enhedGem(existingId) {
         lon:      lon  != null ? lon  : (existingId ? undefined : null),
         adresse:  adresse || (existingId ? undefined : ""),
         kontakt,
+        kontaktTilkald,
         bemærkning: bemærk
       })
     });
