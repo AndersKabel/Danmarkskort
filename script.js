@@ -1903,12 +1903,17 @@ async function updateInfoBox(data, lat, lon) {
   
   if (data.adgangsadresse) {
     const adgAdr = data.adgangsadresse;
-    adresseStr = adgAdr.adressebetegnelse || 
-                 `${adgAdr.vejnavn || ""} ${adgAdr.husnr || ""}, ${adgAdr.postnr || ""} ${adgAdr.postnrnavn || ""}`;
-    evaFormat   = `${adgAdr.vejnavn || ""},${adgAdr.husnr || ""},${adgAdr.postnr || ""}`;
-    notesFormat = `${adgAdr.vejnavn || ""} ${adgAdr.husnr || ""}, ${adgAdr.postnr || ""} ${adgAdr.postnrnavn || ""}`;
-    // /adresser/{id} (DAR) returnerer kommune/vejstykke som objekter ({kode, navn}),
-    // mens /adgangsadresser/reverse returnerer flade felter (kommunekode, vejkode)
+    // /adresser/{id} (DAR) returnerer vejnavn/kommune/vejstykke/politikreds som objekter,
+    // mens /adgangsadresser/reverse returnerer flade felter. Vi understøtter begge.
+    const vejnavnRaw  = adgAdr.vejstykke?.navn    || adgAdr.vejnavn    || "";
+    const husnrRaw    = adgAdr.husnr               || adgAdr.husnummer || "";
+    const postnrRaw   = adgAdr.postnummer?.nr      || adgAdr.postnr     || "";
+    const postnavnRaw = adgAdr.postnummer?.navn    || adgAdr.postnrnavn || "";
+
+    adresseStr = adgAdr.adressebetegnelse ||
+                 `${vejnavnRaw} ${husnrRaw}, ${postnrRaw} ${postnavnRaw}`;
+    evaFormat   = `${vejnavnRaw},${husnrRaw},${postnrRaw}`;
+    notesFormat = `${vejnavnRaw} ${husnrRaw}, ${postnrRaw} ${postnavnRaw}`;
     vejkode     = adgAdr.vejstykke?.kode  || adgAdr.vejkode     || "?";
     kommunekode = adgAdr.kommune?.kode    || adgAdr.kommunekode || "?";
   } else if (data.adressebetegnelse) {
@@ -2002,12 +2007,10 @@ async function updateInfoBox(data, lat, lon) {
     }
   }
   
-  const politikredsNavn = data.adgangsadresse?.politikreds?.navn
-    ?? data.politikredsnavn
+  const politikredsNavn = data.politikredsnavn
     ?? data.adgangsadresse?.politikredsnavn
     ?? null;
-  const politikredsKode = data.adgangsadresse?.politikreds?.kode
-    ?? data.politikredskode
+  const politikredsKode = data.politikredskode
     ?? data.adgangsadresse?.politikredskode
     ?? null;
   if (politikredsNavn || politikredsKode) {
@@ -3143,9 +3146,7 @@ function doSearch(query, listElement) {
               placeMarkerAndZoom([lat, lon], obj.tekst);
 
               // updateInfoBox bruger adresseData direkte — ingen ekstra fetch
-              updateInfoBox(addressData, lat, lon).catch(err => {
-                console.error("updateInfoBox fejlede ved adressevalg:", err);
-              });
+              updateInfoBox(addressData, lat, lon);
 
               resultsList.innerHTML = "";
               resultsList.style.display = "none";
