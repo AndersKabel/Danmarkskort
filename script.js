@@ -4,7 +4,7 @@
 proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m +no_defs");
 
 // Cloudflare proxy til VD-reference
-const VD_PROXY = "https://vd-proxy.danmarkskortet.workers.dev";
+const VD_PROXY = "https://vd-proxy.anderskabel8.workers.dev";
 
 /*
  * OpenRouteService integration
@@ -1255,6 +1255,167 @@ fetch("https://api.dataforsyningen.dk/kommuner?format=geojson&token=a63a88838c24
   })
   .catch(err => console.error("Fejl ved hentning af kommunegrænser:", err));
 
+
+/***************************************************
+ * Disponeringsområder (postnumre)
+ * Viser 5 disponeringsområder som farvede flader med grå navne.
+ * Geometri hentes fra DAWA ved første aktivering af laget.
+ * BEMÆRK: fladerne er interactive:false, så kortklik (adresseopslag)
+ * stadig virker uhindret under laget.
+ ***************************************************/
+var dispOmrLayer   = L.layerGroup();
+var _dispRenderer  = L.canvas({ padding: 0.5 });
+var _dispIndlaest  = false;
+var _dispIndlaeser = false;
+
+function _dispToast(tekst, ms) {
+  try {
+    var t = document.getElementById("dispOmrToast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "dispOmrToast";
+      t.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);" +
+                        "background:rgba(44,62,80,0.94);color:#fff;padding:9px 20px;border-radius:8px;" +
+                        "z-index:9999;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.25);pointer-events:none;";
+      document.body.appendChild(t);
+    }
+    t.textContent = tekst;
+    t.style.display = "block";
+    if (t._dispTimer) clearTimeout(t._dispTimer);
+    if (ms) t._dispTimer = setTimeout(function() { t.style.display = "none"; }, ms);
+  } catch (e) {
+    console.warn("Disponeringsområder (toast):", e);
+  }
+}
+
+function _dispToastSkjul() {
+  var t = document.getElementById("dispOmrToast");
+  if (t) t.style.display = "none";
+}
+
+/**
+ * Henter postnummer-geometri fra DAWA i klumper à 150.
+ * landpostnumre = geometri afgrænset af kysten (ellers følger de havområderne).
+ */
+function _dispHentGeometri(nrListe) {
+  var chunks = [];
+  for (var i = 0; i < nrListe.length; i += 150) chunks.push(nrListe.slice(i, i + 150));
+  var faerdige = 0;
+
+  return Promise.all(chunks.map(function(c) {
+    var url = "https://api.dataforsyningen.dk/postnumre" +
+              "?format=geojson&landpostnumre&noformat&nr=" + c.join("|");
+    return fetch(url)
+      .then(function(r) {
+        if (!r.ok) throw new Error("DAWA HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(g) {
+        faerdige++;
+        _dispToast("Henter disponeringsområder … " + faerdige + "/" + chunks.length);
+        return (g && g.features) ? g.features : [];
+      });
+  })).then(function(lister) {
+    var samlet = {};
+    lister.forEach(function(fs) {
+      fs.forEach(function(f) {
+        var nr = parseInt(f.properties && f.properties.nr, 10);
+        if (!isNaN(nr)) samlet[nr] = f;
+      });
+    });
+    return samlet;
+  });
+}
+
+function _dispByg() {
+  if (_dispIndlaest || _dispIndlaeser) return;
+  _dispIndlaeser = true;
+  _dispToast("Henter disponeringsområder …");
+
+  fetch("disponeringsomraader.json")
+    .then(function(r) {
+      if (!r.ok) throw new Error("disponeringsomraader.json HTTP " + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      var omr = (data && data.omraader) || [];
+      var alle = [];
+      omr.forEach(function(o) {
+        (o.postnumre || []).forEach(function(p) {
+          // Tyske postnumre (24937/24983) findes ikke i DAWA – springes over
+          if (p >= 1000 && p <= 9999 && alle.indexOf(p) === -1) alle.push(p);
+        });
+      });
+      return _dispHentGeometri(alle).then(function(geo) {
+        return { omr: omr, geo: geo };
+      });
+    })
+    .then(function(res) {
+      dispOmrLayer.clearLayers();
+      var manglende = 0;
+
+      res.omr.forEach(function(o) {
+        var feats = [];
+        (o.postnumre || []).forEach(function(p) {
+          if (res.geo[p]) feats.push(res.geo[p]);
+          else if (p >= 1000 && p <= 9999) manglende++;
+        });
+
+        if (feats.length) {
+          // Ens streg- og fyldfarve = ingen synlige postnummergrænser inde i området
+          L.geoJSON({ type: "FeatureCollection", features: feats }, {
+            renderer: _dispRenderer,
+            interactive: false,
+            style: {
+              color: o.farve,
+              weight: 1,
+              opacity: 0.30,
+              fillColor: o.farve,
+              fillOpacity: 0.22
+            }
+          }).addTo(dispOmrLayer);
+        }
+
+        if (o.label && o.label.length === 2) {
+          L.marker([o.label[0], o.label[1]], {
+            interactive: false,
+            keyboard: false,
+            icon: L.divIcon({
+              className: "",
+              iconSize: [0, 0],
+              iconAnchor: [0, 0],
+              html: '<div style="position:absolute;left:0;top:0;transform:translate(-50%,-50%);' +
+                    'white-space:nowrap;pointer-events:none;font-size:15px;font-weight:600;' +
+                    'letter-spacing:0.5px;color:#6b6b6b;' +
+                    'text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff,0 0 4px #fff;">' +
+                    (o.navn || "") + '</div>'
+            })
+          }).addTo(dispOmrLayer);
+        }
+      });
+
+      _dispIndlaest  = true;
+      _dispIndlaeser = false;
+      _dispToast(manglende
+        ? "Disponeringsområder vist (" + manglende + " postnumre uden geometri)"
+        : "Disponeringsområder vist", 2500);
+      console.log("Disponeringsområder tegnet. Postnumre uden geometri:", manglende);
+    })
+    .catch(function(err) {
+      _dispIndlaeser = false;
+      console.error("Fejl ved indlæsning af disponeringsområder:", err);
+      _dispToast("Kunne ikke hente disponeringsområder", 4000);
+    });
+}
+
+// Egne handlere – rører ikke de eksisterende overlayadd/overlayremove-kæder
+map.on("overlayadd", function(e) {
+  if (e.layer === dispOmrLayer) _dispByg();
+});
+map.on("overlayremove", function(e) {
+  if (e.layer === dispOmrLayer) _dispToastSkjul();
+});
+
 /***************************************************
  * Lagkontrol / overlays
  ***************************************************/
@@ -1321,6 +1482,7 @@ const overlayMaps = {
   "Strandposter": redningsnrLayer,
   "Falck Ass": falckAssLayer,
   "Kommunegrænser": kommunegrænserLayer,
+  "Disponeringsområder": dispOmrLayer,
   "DB SMS kort": dbSmsLayer,
   "DB Journal": dbJournalLayer,
   "25 km grænse": border25Layer,
@@ -1902,20 +2064,12 @@ async function updateInfoBox(data, lat, lon) {
   let evaFormat, notesFormat;
   
   if (data.adgangsadresse) {
-    const adgAdr = data.adgangsadresse;
-    // /adresser/{id} (DAR) returnerer vejnavn/kommune/vejstykke/politikreds som objekter,
-    // mens /adgangsadresser/reverse returnerer flade felter. Vi understøtter begge.
-    const vejnavnRaw  = adgAdr.vejstykke?.navn    || adgAdr.vejnavn    || "";
-    const husnrRaw    = adgAdr.husnr               || adgAdr.husnummer || "";
-    const postnrRaw   = adgAdr.postnummer?.nr      || adgAdr.postnr     || "";
-    const postnavnRaw = adgAdr.postnummer?.navn    || adgAdr.postnrnavn || "";
-
-    adresseStr = adgAdr.adressebetegnelse ||
-                 `${vejnavnRaw} ${husnrRaw}, ${postnrRaw} ${postnavnRaw}`;
-    evaFormat   = `${vejnavnRaw},${husnrRaw},${postnrRaw}`;
-    notesFormat = `${vejnavnRaw} ${husnrRaw}, ${postnrRaw} ${postnavnRaw}`;
-    vejkode     = adgAdr.vejstykke?.kode  || adgAdr.vejkode     || "?";
-    kommunekode = adgAdr.kommune?.kode    || adgAdr.kommunekode || "?";
+    adresseStr = data.adgangsadresse.adressebetegnelse || 
+                 `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
+    evaFormat   = `${data.adgangsadresse.vejnavn || ""},${data.adgangsadresse.husnr || ""},${data.adgangsadresse.postnr || ""}`;
+    notesFormat = `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
+    vejkode     = data.adgangsadresse.vejkode || "?";
+    kommunekode = data.adgangsadresse.kommunekode || "?";
   } else if (data.adressebetegnelse) {
     adresseStr  = data.adressebetegnelse;
     evaFormat   = "?, ?, ?";
