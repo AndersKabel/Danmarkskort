@@ -1553,6 +1553,162 @@ function _levLightbox(src) {
   lb.style.display = "flex";
 }
 
+// ── ENHEDER: DELTE KONTAKT-/POPUP-HJÆLPERE ───────────────────────
+// Kun 8-cifrede danske numre bliver tel:-links. Alt andet (fx "Vagt 3"
+// eller udenlandske numre) vises som ren tekst.
+function _erDkTlf(v) {
+  const t = String(v || "").replace(/[\s\-\.\(\)]/g, "");
+  return /^(\+45)?\d{8}$/.test(t);
+}
+
+function _kontaktHTML(ikon, label, vaerdi) {
+  const v = String(vaerdi || "").trim();
+  if (!v) return "";
+  const mrk = `<span style="color:#8a97a5;font-size:11px">${_esc(label)}</span>`;
+  if (_erDkTlf(v)) {
+    const tel = "+45" + v.replace(/[\s\-\.\(\)]/g, "").replace(/^\+45/, "");
+    return `<div class="lev-popup-row">${ikon} ${mrk} <a href="tel:${_esc(tel)}">${_esc(v)}</a></div>`;
+  }
+  return `<div class="lev-popup-row">${ikon} ${mrk} ${_esc(v)}</div>`;
+}
+
+function _bemaerkHTML(v) {
+  const t = String(v || "").trim();
+  return t ? `<div class="lev-popup-row">💬 <em>${_esc(t)}</em></div>` : "";
+}
+
+function _fotoHTML(url) {
+  const u = String(url || "").trim();
+  return u ? `<div class="lev-popup-row"><img src="${_esc(u)}" class="lev-popup-vogn-img-full"
+      alt="" onerror="this.style.display='none'" title="Klik for fuld størrelse"></div>` : "";
+}
+
+function _fotoKnapHTML(url) {
+  const u = String(url || "").trim();
+  return u ? `<button type="button" class="lev-enhed-foto-btn" data-src="${_esc(u)}" title="Vis foto"
+      style="font-size:11px;padding:2px 6px;background:#f0f4f8;border:1px solid #cdd5df;
+             border-radius:4px;cursor:pointer">📷</button>` : "";
+}
+
+// Stationens egne oplysninger — altid tydeligt adskilt fra enhedens
+function _stationBlokHTML(st) {
+  if (!st) return "";
+  const rk = _kontaktHTML("📞", "Omstilling", st.kontakt)
+           + _kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)
+           + _bemaerkHTML(st.bemærkning);
+  return `<hr class="lev-hr">
+    <div class="lev-popup-row" style="font-weight:600">🏠 ${_esc(st.navn)}</div>
+    ${rk || `<div class="lev-popup-row" style="color:#8a97a5;font-size:11px">Ingen kontaktoplysninger på stationen</div>`}`;
+}
+
+// Én enhedsrække i en stationspopup — navn/knapper øverst, detaljer under
+function _enhedRaekkeHTML(e, hoejre) {
+  const uad = _erUAD(e);
+  const detaljer = _kontaktHTML("📞", "Bil", e.kontakt)
+                 + _kontaktHTML("📟", "Vagt/Tilkald", e.kontaktTilkald)
+                 + _bemaerkHTML(e.bemærkning);
+  return `<div style="padding:4px 6px;border-bottom:1px solid #f0f0f0;${uad ? "background:#fff0f0;border-radius:4px;" : ""}">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+      <span style="font-size:12px;color:${uad ? "#e74c3c" : "inherit"}">
+        ${_esc(e.navn)}${e.vognnummer ? ` <span style="color:#888">(${_esc(e.vognnummer)})</span>` : ""}
+        ${uad ? _uadBadge(e) : ""}
+      </span>
+      <div style="display:flex;gap:4px;align-items:center">${_fotoKnapHTML(e.billede)}${hoejre || ""}</div>
+    </div>
+    ${detaljer ? `<div style="margin-left:2px">${detaljer}</div>` : ""}
+  </div>`;
+}
+
+// Fælles binding af knapper i enheds-/stationspopups
+function _bindEnhedPopup(el) {
+  if (!el) return;
+  el.querySelectorAll(".lev-enhed-flyt-btn").forEach(b => {
+    if (b.dataset.handlerBound) return;
+    b.dataset.handlerBound = "1";
+    b.addEventListener("click", () => _enhedFlytVognDialog(b.dataset.enhedid));
+  });
+  el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => {
+    if (b.dataset.handlerBound) return;
+    b.dataset.handlerBound = "1";
+    b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid));
+  });
+  el.querySelectorAll(".lev-enhed-foto-btn").forEach(b => {
+    if (b.dataset.handlerBound) return;
+    b.dataset.handlerBound = "1";
+    b.addEventListener("click", ev => { ev.stopPropagation(); _levLightbox(b.dataset.src); });
+  });
+  el.querySelectorAll(".lev-popup-vogn-img-full").forEach(img => {
+    if (img.dataset.handlerBound) return;
+    img.dataset.handlerBound = "1";
+    img.addEventListener("click", ev => { ev.stopPropagation(); _levLightbox(img.src); });
+  });
+}
+
+// ── ENHEDSFORMULAR: FOTO-UPLOAD ──────────────────────────────────
+// Genbruger samme endpoint, resize-funktion og CSS-klasser som leverandørvogne
+function _enhedBindFoto() {
+  const inp    = document.getElementById("ef-foto");
+  const hidden = document.getElementById("ef-billede");
+  const fjern  = document.getElementById("ef-foto-fjern");
+  const status = document.getElementById("ef-foto-status");
+  const wrap   = hidden ? hidden.closest("fieldset")?.querySelector(".lev-vogn-foto-wrap") : null;
+  if (!inp || !hidden || !wrap) return;
+
+  function _visThumb(url) {
+    let thumb    = wrap.querySelector(".lev-vogn-thumb");
+    const nofoto = wrap.querySelector(".lev-vogn-nofoto");
+    if (url) {
+      if (!thumb) {
+        thumb = Object.assign(document.createElement("img"), { className: "lev-vogn-thumb", alt: "" });
+        if (nofoto) nofoto.replaceWith(thumb); else wrap.prepend(thumb);
+      }
+      thumb.src = url;
+      if (fjern) fjern.style.display = "";
+    } else {
+      if (thumb) {
+        thumb.replaceWith(Object.assign(document.createElement("div"),
+          { className: "lev-vogn-nofoto", textContent: "Intet foto" }));
+      }
+      if (fjern) fjern.style.display = "none";
+    }
+  }
+
+  inp.addEventListener("change", async ev => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    if (status) { status.style.color = "#8a97a5"; status.textContent = "⏳ Uploader…"; }
+    try {
+      const b64  = await _levResizeB64(file);
+      const navn = (document.getElementById("ef-vognnummer")?.value.trim()
+                 || document.getElementById("ef-navn")?.value.trim()
+                 || "").toString().toLowerCase().replace(/[^a-z0-9]+/g, "");
+      const filename = "enhed-" + (navn || Date.now()) + ".jpg";
+      const resp = await _levSpFetch("/leverandoerer/billeder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename, base64: b64 })
+      });
+      const data = await resp.json();
+      if (!data.ok || !data.url) throw new Error(data.error || "Upload fejlede");
+      hidden.value = data.url;
+      _visThumb(data.url);
+      if (status) { status.style.color = "#27ae60"; status.textContent = "✅ Foto uploadet — husk at gemme"; }
+    } catch (e) {
+      if (status) { status.style.color = "#c0392b"; status.textContent = "Fejl: " + e.message; }
+    } finally {
+      inp.value = "";
+    }
+  });
+
+  if (fjern) {
+    fjern.addEventListener("click", () => {
+      hidden.value = "";
+      _visThumb("");
+      if (status) { status.style.color = "#8a97a5"; status.textContent = "Foto fjernet — husk at gemme"; }
+    });
+  }
+}
+
 // ── HJÆLPER ──────────────────────────────────────────────────────
 function _esc(s) {
   return (s || "").toString()
@@ -1730,8 +1886,7 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
                 border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">
          ${uad?"✅ Sæt i drift":"🔴 Sæt UAD"}</button>` : "";
 
-  const tlfHTML = enhed.kontakt
-    ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+enhed.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(enhed.kontakt)}</a></div>` : "";
+  const stEnhed = enhed.stationId ? (_enhedData || []).find(s => s.id === enhed.stationId) : null;
 
   const marker = L.marker([enhed.lat, enhed.lon], { icon });
   marker.bindPopup(`<div class="lev-popup">
@@ -1741,15 +1896,16 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
     </div>
     ${afstandTekst}
     ${enhed.vognnummer ? `<div class="lev-popup-row">🚗 ${_esc(enhed.vognnummer)}</div>` : ""}
-    ${tlfHTML}
-    ${enhed.bemærkning ? `<div class="lev-popup-row"><em>${_esc(enhed.bemærkning)}</em></div>` : ""}
-    <div style="display:flex;gap:6px;flex-wrap:wrap">${flytBtn}${uadBtn}</div>
+    ${_kontaktHTML("📞", "Bil", enhed.kontakt)}
+    ${_kontaktHTML("📟", "Vagt/Tilkald", enhed.kontaktTilkald)}
+    ${_bemaerkHTML(enhed.bemærkning)}
+    ${_fotoHTML(enhed.billede)}
+    ${_stationBlokHTML(stEnhed)}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${flytBtn}${uadBtn}</div>
   </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
 
   marker.on("popupopen", function() {
-    const el = this.getPopup().getElement(); if (!el) return;
-    el.querySelectorAll(".lev-enhed-flyt-btn").forEach(b => b.addEventListener("click", () => _enhedFlytVognDialog(b.dataset.enhedid)));
-    el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
+    _bindEnhedPopup(this.getPopup().getElement());
   });
 
   if (_enhedKatLag[kat.id]) _enhedKatLag[kat.id].addLayer(marker);
@@ -1783,18 +1939,12 @@ function _enhedRenderLag() {
         if (!enheder.length) return "";
         return `<div style="margin-top:6px">
           <div style="font-size:11px;font-weight:700;color:#5a6a7a">${kat.ikon} ${kat.navn}</div>
-          ${enheder.map(x => {
-            const uad = _erUAD(x);
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:12px">
-              <span style="color:${uad?"#e74c3c":"inherit"}">${_esc(x.navn)}${x.vognnummer ? ` <span style="font-size:11px;color:#888">(${_esc(x.vognnummer)})</span>` : ""}</span>
-              ${uad ? _uadBadge(x) : `<span style="color:#27ae60;font-size:11px">✓ Klar</span>`}
-            </div>`;
-          }).join("")}
+          ${enheder.map(x => _enhedRaekkeHTML(
+            x,
+            _erUAD(x) ? "" : `<span style="color:#27ae60;font-size:11px">✓ Klar</span>`
+          )).join("")}
         </div>`;
       }).join("");
-
-      const tlfHTML = st.kontakt
-        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+st.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(st.kontakt)}</a></div>` : "";
 
       const icon = L.divIcon({
         className: "",
@@ -1809,10 +1959,14 @@ function _enhedRenderLag() {
         </div>
         ${afstandTekst}
         ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
-        ${tlfHTML}
-        ${st.bemærkning ? `<div class="lev-popup-row"><em>${_esc(st.bemærkning)}</em></div>` : ""}
+        ${_kontaktHTML("📞", "Omstilling", st.kontakt)}
+        ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
+        ${_bemaerkHTML(st.bemærkning)}
         ${katGrupper ? `<hr class="lev-hr"><div class="lev-popup-section-hdr">Tilknyttede enheder</div>${katGrupper}` : ""}
       </div>`, { maxWidth: 320, className: "lev-leaflet-popup" });
+      marker.on("popupopen", function() {
+        _bindEnhedPopup(this.getPopup().getElement());
+      });
       stationerLayer.addLayer(marker);
     });
   }
@@ -1881,17 +2035,8 @@ function _enhedRenderLag() {
                       border:1px solid ${uad?"#27ae60":"#ccc"};
                       border-radius:4px;cursor:pointer;font-weight:600">
                ${uad?"✅ Sæt i drift":"🔴 Sæt UAD"}</button>` : "";
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid #f0f0f0;${uad?"background:#fff0f0;border-radius:4px;":""} ">
-          <span style="font-size:12px;color:${uad?"#e74c3c":"inherit"}">
-            ${_esc(e.navn)}${e.vognnummer ? ` <span style="color:#888">(${_esc(e.vognnummer)})</span>` : ""}
-            ${uad ? _uadBadge(e) : ""}
-          </span>
-          <div style="display:flex;gap:4px">${flytBtn}${uadBtn}</div>
-        </div>`;
+        return _enhedRaekkeHTML(e, flytBtn + uadBtn);
       }).join("");
-
-      const stTlfHTML = st.kontakt
-        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+st.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(st.kontakt)}</a></div>` : "";
 
       const marker = L.marker([st.lat, st.lon], { icon });
       marker.bindPopup(`<div class="lev-popup">
@@ -1900,14 +2045,14 @@ function _enhedRenderLag() {
         </div>
         ${afstandTekst}
         ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
-        ${stTlfHTML}
+        ${_kontaktHTML("📞", "Omstilling", st.kontakt)}
+        ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
+        ${_bemaerkHTML(st.bemærkning)}
         <hr class="lev-hr">${enhedRaekker}
       </div>`, { maxWidth: 340, className: "lev-leaflet-popup" });
 
       marker.on("popupopen", function() {
-        const el = this.getPopup().getElement(); if (!el) return;
-        el.querySelectorAll(".lev-enhed-flyt-btn").forEach(b => b.addEventListener("click", () => _enhedFlytVognDialog(b.dataset.enhedid)));
-        el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
+        _bindEnhedPopup(this.getPopup().getElement());
       });
 
       _enhedKatLag[kat.id].addLayer(marker);
@@ -1930,14 +2075,11 @@ function _enhedRenderLag() {
         iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
       });
 
-      const stNavn = e.stationId ? (alleEnheder.find(s => s.id === e.stationId)?.navn || "") : "";
+      const stEnhedUad = e.stationId ? alleEnheder.find(s => s.id === e.stationId) : null;
       const uadBtn = maaFlytte
         ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}"
              style="font-size:11px;padding:3px 8px;background:#27ae60;color:#fff;
                     border:none;border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">✅ Sæt i drift</button>` : "";
-
-      const tlfHTML = e.kontakt
-        ? `<div class="lev-popup-row">📞 <a href="tel:${_esc('+45'+e.kontakt.replace(/\s/g,'').replace(/^\+45/,''))}">${_esc(e.kontakt)}</a></div>` : "";
 
       const marker = L.marker([e.lat, e.lon], { icon });
       marker.bindPopup(`<div class="lev-popup">
@@ -1945,16 +2087,17 @@ function _enhedRenderLag() {
           <b>${_esc(e.navn)}</b>${_uadBadge(e)}
           <span class="lev-popup-sub">${ikon} ${foersteKat?.navn || ""}</span>
         </div>
-        ${stNavn ? `<div class="lev-popup-row">🏠 ${_esc(stNavn)}</div>` : ""}
         ${e.vognnummer ? `<div class="lev-popup-row">🚗 ${_esc(e.vognnummer)}</div>` : ""}
-        ${tlfHTML}
-        ${e.bemærkning ? `<div class="lev-popup-row"><em>${_esc(e.bemærkning)}</em></div>` : ""}
-        ${uadBtn}
+        ${_kontaktHTML("📞", "Bil", e.kontakt)}
+        ${_kontaktHTML("📟", "Vagt/Tilkald", e.kontaktTilkald)}
+        ${_bemaerkHTML(e.bemærkning)}
+        ${_fotoHTML(e.billede)}
+        ${_stationBlokHTML(stEnhedUad)}
+        <div style="margin-top:6px">${uadBtn}</div>
       </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
 
       marker.on("popupopen", function() {
-        const el = this.getPopup().getElement(); if (!el) return;
-        el.querySelectorAll(".lev-enhed-uad-btn").forEach(b => b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid)));
+        _bindEnhedPopup(this.getPopup().getElement());
       });
 
       uadLayer.addLayer(marker);
@@ -2143,6 +2286,8 @@ function _enhedShowListe() {
         const st = stationer.find(s => s.id === e.stationId);
         return (e.navn || "").toLowerCase().includes(q)
           || (e.vognnummer || "").toLowerCase().includes(q)
+          || (e.kontakt || "").toLowerCase().includes(q)
+          || (e.kontaktTilkald || "").toLowerCase().includes(q)
           || (st?.navn || "").toLowerCase().includes(q)
           || (e.adresse || "").toLowerCase().includes(q);
       });
@@ -2314,8 +2459,11 @@ function _enhedShowStationForm(station) {
       </fieldset>
       <fieldset class="lev-fs">
         <legend>📞 Kontakt</legend>
-        <label>Telefon
+        <label>Telefon (omstilling)
           <input id="sf-kontakt" type="text" value="${_esc(station?.kontakt || "")}" placeholder="fx 76 26 60 00">
+        </label>
+        <label style="margin-top:6px">Vagt / Tilkald
+          <input id="sf-tilkald" type="text" value="${_esc(station?.kontaktTilkald || "")}" placeholder="nummeret der ringes til når en bil skal afsted">
         </label>
         <label>Bemærkning
           <input id="sf-bemaerk" type="text" value="${_esc(station?.bemærkning || "")}" placeholder="valgfri">
@@ -2378,6 +2526,7 @@ async function _enhedGemStation(existingId) {
   const lat     = parseFloat(document.getElementById("sf-lat").value) || null;
   const lon     = parseFloat(document.getElementById("sf-lon").value) || null;
   const kontakt = document.getElementById("sf-kontakt").value.trim();
+  const tilkald = document.getElementById("sf-tilkald")?.value.trim() || "";
   const bemærk  = document.getElementById("sf-bemaerk").value.trim();
   const status  = document.getElementById("sf-status");
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Stationsnavn er påkrævet."; return; }
@@ -2387,7 +2536,8 @@ async function _enhedGemStation(existingId) {
     const resp = await _levSpFetch("/enheder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse, kontakt, bemærkning: bemærk })
+      body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse,
+        kontakt, kontaktTilkald: tilkald, bemærkning: bemærk })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
@@ -2477,12 +2627,32 @@ function _enhedShowForm(enhed) {
       </fieldset>
       <fieldset class="lev-fs">
         <legend>📞 Kontakt</legend>
-        <label>Telefon
+        <label>Telefon (bilens)
           <input id="ef-kontakt" type="text" value="${_esc(enhed?.kontakt || "")}" placeholder="fx 76 26 60 00">
+        </label>
+        <label style="margin-top:6px">Vagt / Tilkald
+          <input id="ef-tilkald" type="text" value="${_esc(enhed?.kontaktTilkald || "")}" placeholder="ofte et andet nummer end bilens">
         </label>
         <label>Bemærkning
           <input id="ef-bemaerk" type="text" value="${_esc(enhed?.bemærkning || "")}" placeholder="valgfri">
         </label>
+      </fieldset>
+      <fieldset class="lev-fs">
+        <legend>📷 Foto</legend>
+        <input id="ef-billede" type="hidden" value="${_esc(enhed?.billede || "")}">
+        <div class="lev-vogn-foto-wrap">
+          ${enhed?.billede
+            ? `<img class="lev-vogn-thumb" src="${_esc(enhed.billede)}" alt="" onerror="this.style.display='none'">`
+            : `<div class="lev-vogn-nofoto">Intet foto</div>`}
+          <div class="lev-vogn-foto-btns">
+            <label class="lev-btn-add lev-file-label" style="cursor:pointer">
+              📷 Upload foto <input type="file" id="ef-foto" accept="image/*" style="display:none">
+            </label>
+            <button type="button" id="ef-foto-fjern"
+              style="${enhed?.billede ? "" : "display:none"}">✕ Fjern foto</button>
+          </div>
+        </div>
+        <div id="ef-foto-status" style="font-size:11px;color:#8a97a5;min-height:14px;margin-top:4px"></div>
       </fieldset>
       <div class="lev-form-footer">
         <button id="ef-gem" class="lev-btn-primary">💾 Gem</button>
@@ -2490,6 +2660,8 @@ function _enhedShowForm(enhed) {
       </div>
       <div id="ef-status" style="font-size:12px;color:#27ae60;min-height:18px;padding:4px 0"></div>
     </div>`;
+
+  _enhedBindFoto();
 
   const adrInput = document.getElementById("ef-adr-sok");
   const adrListe = document.getElementById("ef-adr-liste");
@@ -2650,6 +2822,8 @@ async function _enhedGem(existingId) {
   const lat        = parseFloat(document.getElementById("ef-lat").value) || null;
   const lon        = parseFloat(document.getElementById("ef-lon").value) || null;
   const kontakt    = document.getElementById("ef-kontakt").value.trim();
+  const tilkald    = document.getElementById("ef-tilkald")?.value.trim() || "";
+  const billede    = document.getElementById("ef-billede")?.value.trim() || "";
   const bemærk     = document.getElementById("ef-bemaerk").value.trim();
   const status     = document.getElementById("ef-status");
 
@@ -2682,6 +2856,8 @@ async function _enhedGem(existingId) {
         lon:      lon  != null ? lon  : (existingId ? undefined : null),
         adresse:  adresse || (existingId ? undefined : ""),
         kontakt,
+        kontaktTilkald: tilkald,
+        billede,
         bemærkning: bemærk
       })
     });
