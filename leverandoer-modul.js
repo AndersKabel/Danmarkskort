@@ -131,22 +131,38 @@ function _levBuildControl() {
   const panel     = document.getElementById('levDispPanel');
 
   // Disp-knap: tjek session og åbn/luk panel
+  // Session-tjekket har timeout — uden den kunne knappen hænge lydløst
+  // hvis kaldet til workeren blev stående i "Pending"
   toggleBtn.addEventListener('click', async function (e) {
     e.stopPropagation();
-    if (!panel.classList.contains('lev-disp-panel-aaben')) {
-      try {
-        const me = await fetch(`${LEV_SP_WORKER}/auth/me`, { credentials: 'include' });
-        if (me.ok) {
-          panel.classList.add('lev-disp-panel-aaben');
-        } else {
-          const ok = await _levEnsureDisponering();
-          if (ok) panel.classList.add('lev-disp-panel-aaben');
-        }
-      } catch (err) {
-        console.warn('Disp session-tjek fejlede:', err);
-      }
-    } else {
+
+    if (panel.classList.contains('lev-disp-panel-aaben')) {
       panel.classList.remove('lev-disp-panel-aaben');
+      return;
+    }
+    if (toggleBtn.dataset.venter === '1') return;   // ignorér dobbeltklik
+
+    toggleBtn.dataset.venter = '1';
+    toggleBtn.style.opacity  = '0.5';
+    toggleBtn.style.cursor   = 'wait';
+    try {
+      const me = await _levFetchMedTimeout(`${LEV_SP_WORKER}/auth/me`,
+        { credentials: 'include' }, LEV_TIMEOUT_MS, 'danmarkskort-sp/auth/me');
+      if (me.ok) {
+        panel.classList.add('lev-disp-panel-aaben');
+      } else {
+        const ok = await _levEnsureDisponering();
+        if (ok) panel.classList.add('lev-disp-panel-aaben');
+      }
+    } catch (err) {
+      console.warn('Disp session-tjek fejlede:', err);
+      _levDispBesked(err && err.erTimeout
+        ? '⚠️ Ingen forbindelse til serveren — prøv igen'
+        : '⚠️ Session-tjek fejlede — prøv igen');
+    } finally {
+      toggleBtn.dataset.venter = '';
+      toggleBtn.style.opacity  = '';
+      toggleBtn.style.cursor   = '';
     }
   });
 
@@ -314,6 +330,53 @@ function _levUncheckLayer(layer) {
 }
 
 // ── SP AUTH ──────────────────────────────────────────────────────
+// ── TIMEOUT + DIAGNOSTIK ─────────────────────────────────────────
+// Bevidst en selvstaendig kopi af hjaelperen i script.js, saa
+// leverandoer-modulet ikke bliver afhaengigt af at script.js er indlaest.
+const LEV_TIMEOUT_MS = 8000;
+
+async function _levFetchMedTimeout(url, opts, ms, etiket) {
+  const ctrl  = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  const t0    = performance.now();
+  try {
+    const resp = await fetch(url, Object.assign({}, opts || {}, { signal: ctrl.signal }));
+    if (typeof _netLog === "function") _netLog(etiket, performance.now() - t0, "HTTP " + resp.status);
+    return resp;
+  } catch (e) {
+    const varighed = performance.now() - t0;
+    if (e.name === "AbortError") {
+      if (typeof _netLog === "function") _netLog(etiket, varighed, "TIMEOUT efter " + ms + " ms");
+      const fejl = new Error("Timeout mod " + etiket);
+      fejl.erTimeout = true;
+      throw fejl;
+    }
+    if (typeof _netLog === "function") _netLog(etiket, varighed, "FEJL: " + e.message);
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Kort besked ved Disp-knappen naar noget gaar galt
+function _levDispBesked(tekst) {
+  try {
+    let el = document.getElementById("levDispBesked");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "levDispBesked";
+      el.style.cssText = "position:fixed;top:12px;left:50%;transform:translateX(-50%);" +
+        "background:rgba(192,57,43,0.95);color:#fff;padding:8px 18px;border-radius:8px;" +
+        "z-index:10000;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,0.25);pointer-events:none;";
+      document.body.appendChild(el);
+    }
+    el.textContent = tekst;
+    el.style.display = "block";
+    if (el._timer) clearTimeout(el._timer);
+    el._timer = setTimeout(function () { el.style.display = "none"; }, 4000);
+  } catch (e) { console.warn("_levDispBesked:", e); }
+}
+
 async function _levSpFetch(path, options) {
   const url  = LEV_SP_WORKER + path;
   const opts = Object.assign({}, options || {});
@@ -2221,7 +2284,10 @@ async function _enhedOpenAdmin() {
 
   // Keep-alive: ping worker hvert 60. sek for at holde sessionen aktiv
   // Bruger /auth/me — kræver ingen KV og returnerer blot session-status
-  _enhedKeepAlive = setInterval(() => fetch(LEV_SP_WORKER + "/auth/me", { credentials: "include" }), 60_000);
+  _enhedKeepAlive = setInterval(() => {
+    fetch(LEV_SP_WORKER + "/auth/me", { credentials: "include" })
+      .catch(err => console.debug("keepalive kunne ikke naa workeren:", err.message));
+  }, 60_000);
 
   // Stop keep-alive når panelet lukkes - korrekt knap-ID er levPanelLuk
   const closeBtn = document.getElementById("levPanelLuk");
