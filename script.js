@@ -3660,6 +3660,52 @@ function parseTextResponse(text) {
 }
 
 /***************************************************
+ * Netvaerks-diagnostik og timeout
+ * Kald til Cloudflare-workers kan haenge i "Pending" paa
+ * Falcks net. Uden timeout venter fetch i det uendelige,
+ * og brugeren faar hverken data eller fejlbesked.
+ * Log aflaeses i konsollen ved at skrive:  __netLog
+ ***************************************************/
+const VD_TIMEOUT_MS = 8000;
+
+if (!window.__netLog) window.__netLog = [];
+
+function _netLog(etiket, ms, resultat) {
+  try {
+    window.__netLog.push({
+      tid: new Date().toLocaleTimeString("da-DK"),
+      endpoint: etiket,
+      ms: Math.round(ms),
+      resultat: resultat
+    });
+    if (window.__netLog.length > 100) window.__netLog.shift();
+  } catch (e) { /* diagnostik maa aldrig vaelte noget */ }
+}
+
+async function _fetchMedTimeout(url, opts, ms, etiket) {
+  const ctrl  = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  const t0    = performance.now();
+  try {
+    const resp = await fetch(url, Object.assign({}, opts || {}, { signal: ctrl.signal }));
+    _netLog(etiket, performance.now() - t0, "HTTP " + resp.status);
+    return resp;
+  } catch (e) {
+    const varighed = performance.now() - t0;
+    if (e.name === "AbortError") {
+      _netLog(etiket, varighed, "TIMEOUT efter " + ms + " ms");
+      const fejl = new Error("Timeout mod " + etiket);
+      fejl.erTimeout = true;
+      throw fejl;
+    }
+    _netLog(etiket, varighed, "FEJL: " + e.message);
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/***************************************************
  * getKmAtPoint – henter km via Cloudflare-worker
  * Genbruger allerede hentede statsvej-data, hvis de er sendt med
  ***************************************************/
@@ -3680,7 +3726,8 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
       `&roadNumber=${roadNumber}` +
       (roadPart ? `&roadPart=${roadPart}` : "");
 
-    const resp = await fetch(url, { cache: "no-store" });
+    const resp = await _fetchMedTimeout(url, { cache: "no-store" },
+      VD_TIMEOUT_MS, "vd-proxy/reference");
     if (!resp.ok) return "__VD_NEDE__";
 
     const data = await resp.json();
@@ -3701,6 +3748,12 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
     }
     return "";
   } catch (e) {
+    // Timeout behandles som "VD nede", saa disponenten faar besked
+    // i stedet for en tom infoboks
+    if (e && e.erTimeout) {
+      console.warn("getKmAtPoint: timeout mod VD-proxy efter", VD_TIMEOUT_MS, "ms");
+      return "__VD_NEDE__";
+    }
     console.error("getKmAtPoint fejl:", e);
     return "";
   }
