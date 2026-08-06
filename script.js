@@ -1453,7 +1453,8 @@ fetch("dansk-tysk-grænse.geojson")
       weight: 2,
       dashArray: '5,5'
     }).addTo(border25Layer);
-  });
+  })
+  .catch(err => console.warn("Kunne ikke indlæse dansk-tysk grænse:", err.message));
 
 fetch("svensk-grænse.geojson")
   .then(r => r.json())
@@ -1471,7 +1472,8 @@ fetch("svensk-grænse.geojson")
       weight: 2,
       dashArray: '5,5'
     }).addTo(border25Layer);
-  });
+  })
+  .catch(err => console.warn("Kunne ikke indlæse svensk grænse:", err.message));
 
 const baseMaps = {
   "OpenStreetMap": osmLayer,
@@ -1503,6 +1505,10 @@ overlayMaps["🚧 Vejarbejder (VD)"] = vdTrafikLayer;
 overlayMaps["⚠️ Advarsler (VD)"] = vdAdvarselLayer;
 overlayMaps["📐 Matrikel"] = matrikelLayer;
 
+// Venter på at RainViewer-laget bliver klar. Uden en øvre grænse ville
+// timeren køre for evigt (2 gange i sekundet) hvis RainViewer aldrig svarer
+// — fx hvis api.rainviewer.com er blokeret. 60 forsøg = 30 sekunder.
+let _rvForsoeg = 0;
 const _rvInterval = setInterval(() => {
   if (rainViewerLayer) {
     clearInterval(_rvInterval);
@@ -1510,6 +1516,11 @@ const _rvInterval = setInterval(() => {
     if (typeof layerControl !== "undefined") {
       layerControl.addOverlay(rainViewerLayer, "🌧 Nedbørsradar");
     }
+    return;
+  }
+  if (++_rvForsoeg >= 60) {
+    clearInterval(_rvInterval);
+    console.warn("Nedbørsradar blev ikke klar inden for 30 sek. — laget vises ikke");
   }
 }, 500);
 const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
@@ -1662,9 +1673,14 @@ map.on('overlayadd', function(e) {
   } else if (e.layer === vdAdvarselLayer) {
     _startVdAdvarselInterval();
   } else if (e.layer === chargeMapLayer) {
-    if (!selectedRadius) {
-      alert("Vælg radius først");
+    // currentMarker og selectedRadius nulstilles ikke sammen — en ny
+    // søgning rydder markøren men lader radius stå. Derfor tjekkes begge.
+    if (!selectedRadius || !currentMarker) {
+      alert(!currentMarker
+        ? "Vælg en adresse eller klik på kortet først"
+        : "Vælg radius først");
       chargeMapLayer.clearLayers();
+      map.removeLayer(chargeMapLayer);
       return;
     }
 
