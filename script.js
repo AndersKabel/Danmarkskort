@@ -2069,6 +2069,47 @@ map.on('click', function(e) {
 /***************************************************
  * updateInfoBox for danske adresser
  ***************************************************/
+/***************************************************
+ * Adressefelter fra DAWA — ÉT sted i hele kodebasen
+ *
+ * DAWA leverer adresser i flere former:
+ *   /adresser/{id}         → nested:  adgangsadresse.vejstykke.navn
+ *   /adgangsadresser/{id}  → nested:  vejstykke.navn
+ *   ?struktur=flad|mini    → fladt:   vejnavn
+ *
+ * HVORFOR Eva.Net/Notes bliver ved med at gå i stykker:
+ * adressen på skærmen bruger `adressebetegnelse`, som findes i ALLE
+ * former og derfor altid ser rigtig ud. Kopiformaterne læste derimod
+ * enkeltfelter direkte, og de skifter navn og placering når man
+ * skifter endpoint. Fejlen er dermed usynlig i kortet — man opdager
+ * den først når nogen indsætter adressen i Eva.Net.
+ *
+ * REGEL: læs aldrig DAWA-felter direkte i kopifunktioner.
+ * Gå altid gennem _adrFelter(), så nye datastrukturer kun skal
+ * håndteres ét sted.
+ ***************************************************/
+function _adrFelter(data) {
+  const d = data || {};
+  const a = d.adgangsadresse || d;
+  return {
+    vejnavn:     a.vejnavn     || a.vejstykke?.navn  || "",
+    husnr:       a.husnr       || "",
+    postnr:      a.postnr      || a.postnummer?.nr   || "",
+    postnrnavn:  a.postnrnavn  || a.postnummer?.navn || "",
+    vejkode:     a.vejkode     || a.vejstykke?.kode  || "",
+    kommunekode: a.kommunekode || a.kommune?.kode    || "",
+    betegnelse:  a.adressebetegnelse || d.adressebetegnelse || ""
+  };
+}
+
+function _evaFormat(f) {
+  return `${f.vejnavn},${f.husnr},${f.postnr}`;
+}
+
+function _notesFormat(f) {
+  return `${f.vejnavn} ${f.husnr}, ${f.postnr} ${f.postnrnavn}`.replace(/\s+/g, " ").trim();
+}
+
 async function updateInfoBox(data, lat, lon) {
   const streetviewLink = document.getElementById("streetviewLink");
   const addressEl      = document.getElementById("address");
@@ -2079,26 +2120,13 @@ async function updateInfoBox(data, lat, lon) {
   let adresseStr, vejkode, kommunekode;
   let evaFormat, notesFormat;
   
-  if (data.adgangsadresse) {
-    adresseStr = data.adgangsadresse.adressebetegnelse || 
-                 `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
-    evaFormat   = `${data.adgangsadresse.vejnavn || ""},${data.adgangsadresse.husnr || ""},${data.adgangsadresse.postnr || ""}`;
-    notesFormat = `${data.adgangsadresse.vejnavn || ""} ${data.adgangsadresse.husnr || ""}, ${data.adgangsadresse.postnr || ""} ${data.adgangsadresse.postnrnavn || ""}`;
-    vejkode     = data.adgangsadresse.vejkode || "?";
-    kommunekode = data.adgangsadresse.kommunekode || "?";
-  } else if (data.adressebetegnelse) {
-    adresseStr  = data.adressebetegnelse;
-    evaFormat   = "?, ?, ?";
-    notesFormat = "?, ?, ?";
-    vejkode     = data.vejkode     || "?";
-    kommunekode = data.kommunekode || "?";
-  } else {
-    adresseStr  = `${data.vejnavn || "?"} ${data.husnr || ""}, ${data.postnr || "?"} ${data.postnrnavn || ""}`;
-    evaFormat   = `${data.vejnavn || ""},${data.husnr || ""},${data.postnr || ""}`;
-    notesFormat = `${data.vejnavn || ""} ${data.husnr || ""}, ${data.postnr || ""} ${data.postnrnavn || ""}`;
-    vejkode     = data.vejkode     || "?";
-    kommunekode = data.kommunekode || "?";
-  }
+  const f = _adrFelter(data);
+  evaFormat   = _evaFormat(f);
+  notesFormat = _notesFormat(f);
+  vejkode     = f.vejkode     || "?";
+  kommunekode = f.kommunekode || "?";
+  adresseStr  = f.betegnelse ||
+    `${f.vejnavn || "?"} ${f.husnr}, ${f.postnr || "?"} ${f.postnrnavn}`.replace(/\s+/g, " ").trim();
   
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
@@ -2981,8 +3009,9 @@ function handleStrandpostClick(obj, listElement) {
       const postnr      = revData?.adgangsadresse?.postnr      || revData?.postnr  || "?";
       const postnrnavn  = revData?.adgangsadresse?.postnrnavn  || revData?.postnrnavn || "";
       const adresseStr  = `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
-      const evaFormat   = `${vejnavn},${husnr},${postnr}`;
-      const notesFormat = `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
+      const _f          = _adrFelter(revData);
+      const evaFormat   = _evaFormat(_f);
+      const notesFormat = _notesFormat(_f);
 
       if (marker) {
         marker.bindPopup(`
@@ -3833,8 +3862,9 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
         let resp = await fetch(revUrl);
         let revData = await resp.json();
         let addressStr = `${revData.vejnavn || "Ukendt"} ${revData.husnr || ""}, ${revData.postnr || "?"} ${revData.postnrnavn || ""}`;
-        let evaFormat = `${revData.vejnavn || ""},${revData.husnr || ""},${revData.postnr || ""}`;
-        let notesFormat = `${revData.vejnavn || ""} ${revData.husnr || ""}, ${revData.postnr || ""} ${revData.postnrnavn || ""}`;
+        let _f = _adrFelter(revData);
+        let evaFormat = _evaFormat(_f);
+        let notesFormat = _notesFormat(_f);
         marker.bindPopup(`
           ${addressStr}<br>
           <a href="#" title="Kopier til Eva.net" onclick="(function(el){ el.style.color='red'; copyToClipboard('${evaFormat}'); showCopyPopup('Kopieret'); setTimeout(function(){ el.style.color=''; },1000); })(this); return false;">Eva.Net</a>
