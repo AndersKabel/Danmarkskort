@@ -2082,6 +2082,42 @@ function fetchAllStrandposter() {
 // Strandposter-logik håndteres i overlayadd-handleren ovenfor
 
 /***************************************************
+ * Klik uden for Danmark uden at Udland er slået til
+ *
+ * Viser koordinater i stedet for adresse, så der ikke bruges
+ * ORS-geokodningskald af kvoten uden at nogen har bedt om det.
+ *
+ * Sikkert nu, fordi danske-farvande.geojson fanger broer og indre
+ * farvande. Tidligere ville en afspærring her også have ramt fx
+ * Storebæltsbroen, da kommunegrænser slutter i vandkanten.
+ ***************************************************/
+function _visUdlandSlaaetFra(lat, lon) {
+  try {
+    const addressEl      = document.getElementById("address");
+    const extraInfoEl    = document.getElementById("extra-info");
+    const streetviewLink = document.getElementById("streetviewLink");
+    const skraafotoLink  = document.getElementById("skraafotoLink");
+    const overlay        = document.getElementById("kommuneOverlay");
+    const infoBox        = document.getElementById("infoBox");
+
+    if (addressEl)   addressEl.textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+    if (extraInfoEl) {
+      extraInfoEl.innerHTML =
+        '<span style="font-size:13px;color:#8a6d3b;">Uden for Danmark — sæt flueben ved ' +
+        '<strong>Udland</strong> i søgefeltet for at slå adressen op</span>';
+    }
+    if (streetviewLink) {
+      streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
+    }
+    if (skraafotoLink) skraafotoLink.style.display = "none";
+    if (overlay)       overlay.style.display = "none";
+    if (infoBox)       infoBox.style.display = "block";
+  } catch (e) {
+    console.warn("_visUdlandSlaaetFra:", e);
+  }
+}
+
+/***************************************************
  * Klik på kort => reverse geocoding
  ***************************************************/
 map.on('click', function(e) {
@@ -2109,8 +2145,14 @@ map.on('click', function(e) {
         fillRouteFieldsFromClick(data, lat, lon);
       })
       .catch(err => console.error("Reverse geocoding fejl:", err));
+  } else if (foreignSearchToggle && !foreignSearchToggle.checked) {
+    // Uden for Danmark og Udland er slået fra: ingen adresseopslag,
+    // så ORS-kvoten ikke bruges uden at nogen har bedt om det.
+    // Danske broer og farvande rammes ikke — de fanges af
+    // isInDenmarkByPolygon via danske-farvande.geojson.
+    _visUdlandSlaaetFra(lat, lon);
   } else {
-    // Udland ELLER vand/bro: ORS reverse geocoding
+    // Udland med flueben sat: ORS reverse geocoding
     reverseGeocodeORS(lat, lon)
       .then(feature => {
         if (!feature) return;
