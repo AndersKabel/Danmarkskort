@@ -2066,9 +2066,9 @@ async function visMatrikel(lat, lon) {
       fillColor: "#e67e22", fillOpacity: 0.15
     };
 
-    function popupHtml(matrikelnr, ejerlav, kommune, areal, bfe, adresseStr) {
-      const bfeHtml = bfe
-        ? `<hr style="margin:4px 0"><span style="color:#888;font-size:11px">BFE: ${bfe}</span>` : "";
+    function popupHtml(matrikelnr, ejerlav, kommune, areal, ejdNr, adresseStr) {
+      const bfeHtml = ejdNr
+        ? `<hr style="margin:4px 0"><span style="color:#888;font-size:11px">Ejendomsnr: ${ejdNr}</span>` : "";
       return `<strong>📐 Matrikel</strong><br>` +
         `Matrikelnr: <strong>${matrikelnr}</strong><br>` +
         `Ejerlav: ${ejerlav}<br>` +
@@ -2078,18 +2078,27 @@ async function visMatrikel(lat, lon) {
         bfeHtml;
     }
 
-    // Trin 2: Har vi et BFE-nummer? → hent alle jordstykker på ejendommen
+    // Trin 2: Hent alle jordstykker på ejendommen
+    //
+    // Vi slår op på sfeejendomsnr (samlet fast ejendom), IKKE bfenummer.
+    // bfenummer er tomt på udstykkede jordstykker: fx matr. 1æ i
+    // Oksenbjerge har moderjordstykke 1h, samme sfeejendomsnr 4355348,
+    // men bfenummer = null. Med det gamle BFE-opslag blev den halvdel
+    // af ejendommen lydløst udeladt fra kortet.
+    const sfe = String(p.sfeejendomsnr || "").trim();
     const bfe = p.bfenummer || "";
+    const ejdNr = sfe || String(bfe || "");
     const matrikelNr = p.matrikelnr || "?";
     const ejerlav    = p.ejerlavnavn || "?";
     const kommune    = p.kommunenavn || "";
     const areal      = p.registreretareal
       ? `${Math.round(p.registreretareal).toLocaleString("da-DK")} m²` : "";
 
-    if (bfe) {
-      // Hent alle jordstykker med samme BFE (hele ejendommen)
+    if (ejdNr) {
+      // sfeejendomsnr foretrækkes; bfenummer bruges kun hvis det første mangler
+      const param = sfe ? "sfeejendomsnr" : "bfenummer";
       const alleResp = await fetch(
-        `https://api.dataforsyningen.dk/jordstykker?bfenummer=${bfe}&format=geojson`
+        `https://api.dataforsyningen.dk/jordstykker?${param}=${encodeURIComponent(ejdNr)}&format=geojson`
       );
       const alleData = await alleResp.json();
 
@@ -2103,7 +2112,7 @@ async function visMatrikel(lat, lon) {
         features = alleData.features;
       }
 
-      console.log("Matrikel BFE-svar: features =", features.length);
+      console.log(`Matrikel ${sfe ? "SFE" : "BFE"}-svar: features = ${features.length}`);
 
       if (features.length > 0) {
         // Tegn alle jordstykker
@@ -2116,7 +2125,7 @@ async function visMatrikel(lat, lon) {
             ? `${Math.round(fp.registreretareal).toLocaleString("da-DK")} m²` : "";
 
           L.geoJSON(feat, { style: matrikelStyle })
-            .bindPopup(popupHtml(mnr, ejl, kom, ar, bfe, ""))
+            .bindPopup(popupHtml(mnr, ejl, kom, ar, ejdNr, ""))
             .addTo(matrikelLayer);
         });
 
@@ -2135,7 +2144,7 @@ async function visMatrikel(lat, lon) {
               const layers = matrikelLayer.getLayers();
               if (layers.length > 0) {
                 layers[0].setPopupContent(
-                  popupHtml(matrikelNr, ejerlav, kommune, areal, bfe, adresseStr)
+                  popupHtml(matrikelNr, ejerlav, kommune, areal, ejdNr, adresseStr)
                 );
               }
             }
@@ -2147,9 +2156,9 @@ async function visMatrikel(lat, lon) {
       }
     }
 
-    // Fallback: ingen BFE eller ingen resultater — tegn kun det ene jordstykke
+    // Fallback: intet ejendomsnummer eller ingen resultater — tegn kun det ene
     L.geoJSON(f, { style: matrikelStyle })
-      .bindPopup(popupHtml(matrikelNr, ejerlav, kommune, areal, bfe, ""))
+      .bindPopup(popupHtml(matrikelNr, ejerlav, kommune, areal, ejdNr, ""))
       .addTo(matrikelLayer);
 
   } catch(e) {
