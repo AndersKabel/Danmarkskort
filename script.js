@@ -1476,6 +1476,41 @@ function _dispByg() {
     });
 }
 
+/***************************************************
+ * Indlæsningsindikator for lag i hovedlagkontrollen
+ *
+ * WMS- og fliselag (CVF, strandposter, km-markeringer, rastepladser
+ * m.fl.) kan tage flere sekunder om at tegne. Uden en indikator ser
+ * det ud som om intet sker, og man slår laget til og fra igen.
+ *
+ * Leaflet fyrer "load" på et fliselag når alle synlige fliser er
+ * hentet — det er den vi lytter på. Genbruger toasten fra
+ * disponeringsområderne, så der kun er ét sted at vedligeholde.
+ ***************************************************/
+map.on("overlayadd", function(e) {
+  const lag = e.layer;
+  if (!lag || !(lag instanceof L.TileLayer)) return;
+
+  const navn = (e.name || "laget").replace(/^[^\p{L}\d]+/u, "").trim() || "laget";
+  _dispToast("Henter " + navn + " …");
+
+  let faerdig = false;
+  const slut = function() {
+    if (faerdig) return;
+    faerdig = true;
+    lag.off("load", slut);
+    _dispToastSkjul();
+  };
+  lag.on("load", slut);
+
+  // Sikkerhedsnet: hvis serveren aldrig svarer, må toasten ikke blive hængende
+  setTimeout(slut, 20000);
+});
+
+map.on("overlayremove", function(e) {
+  if (e.layer instanceof L.TileLayer) _dispToastSkjul();
+});
+
 // Egne handlere – rører ikke de eksisterende overlayadd/overlayremove-kæder
 map.on("overlayadd", function(e) {
   if (e.layer === dispOmrLayer) _dispByg();
@@ -3180,19 +3215,7 @@ function quickStrandSearch(query) {
  * doSearch => kombinerer adresser, stednavne, specialsteder,
  * navngivne veje, strandposter og udenlandske ORS-adresser
  ***************************************************/
-/***************************************************
- * Kapløbsspærre for søgeresultater
- *
- * Hvert tastetryk starter en ny søgning, men svarene kan komme retur i
- * en anden rækkefølge end de blev sendt. Uden spærren vandt det svar der
- * kom SIDST — ikke det der blev bedt om sidst. Et langsomt svar på
- * "osterstrasse" kunne dermed overskrive det rigtige svar på
- * "osterstrasse 2 24983" et par sekunder efter, at det var vist.
- ***************************************************/
-var _soegSekvens = 0;
-
 function doSearch(query, listElement) {
-  const _minSekvens = ++_soegSekvens;
   console.log("doSearch:", JSON.stringify(query), "| customPlaces:", customPlaces.length, customPlaces.map(p=>p.navn));
   let addrUrl = `https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(query)}&per_side=50`;
   let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=50&token=a63a88838c24fc85d47f32cde0ec0144`;
@@ -3242,7 +3265,7 @@ function doSearch(query, listElement) {
     });
 
   // Vis custom places ØJEBLIKKELIGT (inden DAWA svarer)
-  if (customResults.length > 0 && _minSekvens === _soegSekvens) {
+  if (customResults.length > 0) {
     listElement.innerHTML = "";
     searchItems = [];
     customResults.forEach(function(obj) {
@@ -3321,9 +3344,6 @@ function doSearch(query, listElement) {
     orsPromise
   ])
   .then(([addrData, stedData, roadData, strandData, orsData]) => {
-    // Et nyere søgeord er undervejs — kassér dette svar
-    if (_minSekvens !== _soegSekvens) return;
-
     listElement.innerHTML = "";
     searchItems = [];
     searchCurrentIndex = -1;
