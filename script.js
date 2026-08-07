@@ -989,7 +989,11 @@ var osmLayer = L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
     maxZoom: 19,
-    attribution: '© <a href="https://bykabel.dk" target="_blank">ByKabel</a> | © OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur, © CVR API | Google Analytics'
+    // Kildeangivelser for tjenester der leverer DATA, ikke fliser.
+    // Fliselag har hver sin egen attribution, som Leaflet viser når laget
+    // er tændt. ORS, OpenChargeMap og DMI har ingen sådan mekanisme og
+    // skal derfor stå fast her.
+    attribution: '© <a href="https://bykabel.dk" target="_blank">ByKabel</a> | © OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur, © CVR API, © <a href="https://openrouteservice.org/" target="_blank">openrouteservice</a>, © <a href="https://openchargemap.org/" target="_blank">OpenChargeMap</a>, © DMI'
   }
 ).addTo(map);
 
@@ -1074,7 +1078,7 @@ var weatherRainLayer = null;
 if (OWM_API_KEY && OWM_API_KEY.trim() !== "") {
   weatherTempLayer = L.tileLayer(
     `https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`,
-    { opacity: 0.5, attribution: "Temperatur © OpenWeatherMap" }
+    { opacity: 0.5 }   // OWM-laget er ikke i brug — ingen kildeangivelse nødvendig
   );
 }
 
