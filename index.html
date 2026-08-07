@@ -5,14 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Danmarkskort</title>
 
-  <!-- Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8D3TN9P90Y"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-8D3TN9P90Y');
-  </script>
+  <!-- Cloudflare Web Analytics
+       Erstatter Google Analytics. Saetter ingen cookies og indsamler ingen
+       personhenfoerbare data, og kraever derfor ikke samtykkebanner.
+       INDSAET DIT TOKEN nedenfor: Cloudflare -> Web Analytics -> Add a site -->
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon='{"token": "997926f4348745fca6117d2c525a522a"}'></script>
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="lib/leaflet.css" />
