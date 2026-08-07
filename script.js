@@ -3180,7 +3180,19 @@ function quickStrandSearch(query) {
  * doSearch => kombinerer adresser, stednavne, specialsteder,
  * navngivne veje, strandposter og udenlandske ORS-adresser
  ***************************************************/
+/***************************************************
+ * Kapløbsspærre for søgeresultater
+ *
+ * Hvert tastetryk starter en ny søgning, men svarene kan komme retur i
+ * en anden rækkefølge end de blev sendt. Uden spærren vandt det svar der
+ * kom SIDST — ikke det der blev bedt om sidst. Et langsomt svar på
+ * "osterstrasse" kunne dermed overskrive det rigtige svar på
+ * "osterstrasse 2 24983" et par sekunder efter, at det var vist.
+ ***************************************************/
+var _soegSekvens = 0;
+
 function doSearch(query, listElement) {
+  const _minSekvens = ++_soegSekvens;
   console.log("doSearch:", JSON.stringify(query), "| customPlaces:", customPlaces.length, customPlaces.map(p=>p.navn));
   let addrUrl = `https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(query)}&per_side=50`;
   let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=50&token=a63a88838c24fc85d47f32cde0ec0144`;
@@ -3230,7 +3242,7 @@ function doSearch(query, listElement) {
     });
 
   // Vis custom places ØJEBLIKKELIGT (inden DAWA svarer)
-  if (customResults.length > 0) {
+  if (customResults.length > 0 && _minSekvens === _soegSekvens) {
     listElement.innerHTML = "";
     searchItems = [];
     customResults.forEach(function(obj) {
@@ -3309,6 +3321,9 @@ function doSearch(query, listElement) {
     orsPromise
   ])
   .then(([addrData, stedData, roadData, strandData, orsData]) => {
+    // Et nyere søgeord er undervejs — kassér dette svar
+    if (_minSekvens !== _soegSekvens) return;
+
     listElement.innerHTML = "";
     searchItems = [];
     searchCurrentIndex = -1;
