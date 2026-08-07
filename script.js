@@ -2227,9 +2227,18 @@ function updateInfoBoxForeign(feature, lat, lon) {
   const postnr  = p.postalcode || "";
   const by      = p.locality || p.region || p.country || "";
 
-  const label =
-    p.label ||
-    `${vejnavn} ${husnr}, ${postnr} ${by}`.replace(/\s+/g, " ").trim();
+  // Pelias' eget label udelader postnummeret — det giver fx
+  // "Siedlungsstraße 7, Handewitt, SH, Germany". Vi bygger derfor selv
+  // adressen i samme format som de danske: vej husnr, postnr by, land.
+  // p.label bruges kun som reserve, hvis vi mangler felter til det.
+  const land = (p.country && p.country !== by) ? p.country : "";
+  const egetLabel = [
+    `${vejnavn} ${husnr}`.trim(),
+    `${postnr} ${by}`.trim(),
+    land
+  ].filter(Boolean).join(", ").replace(/\s+/g, " ").trim();
+
+  const label = (vejnavn && postnr) ? egetLabel : (p.label || egetLabel);
 
   const evaFormat   = `${vejnavn},${husnr},${postnr}`;
   const notesFormat = `${vejnavn} ${husnr}, ${postnr} ${by}`;
