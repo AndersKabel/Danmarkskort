@@ -14,18 +14,24 @@ jobs:
         run: |
           FAILED=""
 
+          # $4 = ekstra HTTP-koder der også regnes som "servicen lever",
+          # fx 401 fra et endpoint der kræver login. Uden det ville et
+          # korrekt afvist kald blive rapporteret som nedbrud.
           check_url() {
             local name="$1"
             local url="$2"
             local expect="$3"
+            local extra_ok="$4"
 
             http_code=$(curl -s -o /tmp/resp.txt -w "%{http_code}" \
               --max-time 15 --retry 2 "$url" 2>/dev/null)
 
+            local ok_codes="200 400 404 $extra_ok"
+
             if [ "$http_code" = "000" ]; then
-              FAILED="${FAILED}\n❌ ${name}: Ingen forbindelse (timeout)"
-              echo "FEJL: $name → timeout"
-            elif [ "$http_code" != "200" ] && [ "$http_code" != "400" ] && [ "$http_code" != "404" ]; then
+              FAILED="${FAILED}\n❌ ${name}: Ingen forbindelse (timeout eller ukendt domæne)"
+              echo "FEJL: $name → ingen forbindelse"
+            elif ! echo " $ok_codes " | grep -q " $http_code "; then
               FAILED="${FAILED}\n❌ ${name}: HTTP ${http_code}"
               echo "FEJL: $name → HTTP $http_code"
             elif [ -n "$expect" ] && ! grep -q "$expect" /tmp/resp.txt; then
@@ -36,50 +42,67 @@ jobs:
             fi
           }
 
-          # CVF WMS — tjek at serveren svarer (accepter hvad som helst der ikke er 5xx/timeout)
+          # CVF WMS — tjek at serveren svarer
           check_url "CVF WMS (statsveje)" \
             "https://geocloud.vd.dk/CVF/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetCapabilities" \
-            ""
+            "" ""
 
-          # VD Proxy — tjek et rigtigt endpoint
+          # VD Proxy — km-pæle
           check_url "VD Proxy (km-pæle)" \
-            "https://vd-proxy.anderskabel8.workers.dev/reference?geometry=POINT(683573%206095809)&roadNumber=700&roadPart=0" \
-            ""
+            "https://vd-proxy.danmarkskortet.workers.dev/reference?geometry=POINT(683573%206095809)&roadNumber=700&roadPart=0" \
+            "" ""
 
-          # ORS-OWM Proxy
-          check_url "ORS-OWM Proxy (routing + vejr)" \
-            "https://ors-owm-proxy.anderskabel8.workers.dev/" \
-            ""
+          # ORS gennem vd-proxy — tjekker domæne, API-nøgle og kvote i ét.
+          # Kræver "Hamburg" i svaret: en opbrugt kvote eller ugyldig nøgle
+          # giver 403/429 og fanges dermed, i stedet for at gå ubemærket hen.
+          check_url "ORS via VD Proxy (rute + udland)" \
+            "https://vd-proxy.danmarkskortet.workers.dev/ors/geocode/search?text=Hamburg&size=1" \
+            "Hamburg" ""
 
-          # Danmarkskort-SP Proxy — tjek et rigtigt endpoint
-          check_url "Danmarkskort-SP Proxy (leverandører)" \
-            "https://danmarkskort-sp.anderskabel8.workers.dev/leverandoerer" \
-            ""
+          # Danmarkskort-SP Proxy — /auth/me svarer 401 uden cookie.
+          # 401 betyder at workeren kører og afviser korrekt.
+          check_url "Danmarkskort-SP Proxy (enheder + leverandører)" \
+            "https://danmarkskort-sp.danmarkskortet.workers.dev/auth/me" \
+            "" "401"
 
           # Dataforsyningen Ortofoto WMS
           check_url "Dataforsyningen Ortofoto WMS" \
             "https://api.dataforsyningen.dk/orto_foraar_DAF?service=WMS&request=GetCapabilities&token=${{ secrets.DATAFORSYNINGEN_TOKEN }}" \
-            "WMS_Capabilities"
+            "WMS_Capabilities" ""
 
           # Dataforsyningen Kommuner API
           check_url "Dataforsyningen Kommuner API" \
             "https://api.dataforsyningen.dk/kommuner?format=json&token=${{ secrets.DATAFORSYNINGEN_TOKEN }}" \
-            ""
+            "" ""
 
           # DAWA Adresser API
           check_url "DAWA Adresser API" \
             "https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=Falck&per_side=1" \
-            ""
+            "" ""
+
+          # DAWA Postnumre — grundlaget for disponeringsområde-laget
+          check_url "DAWA Postnumre API" \
+            "https://api.dataforsyningen.dk/postnumre?nr=8660" \
+            "" ""
 
           # OpenChargemap API
           check_url "OpenChargemap API" \
             "https://api.openchargemap.io/v3/poi/?output=json&countrycode=DK&maxresults=1&key=${{ secrets.OPENCHARGEMAP_KEY }}" \
-            ""
+            "" ""
 
           # Selve kortsiden
           check_url "Danmarkskort GitHub Pages" \
             "https://anderskabel.github.io/Danmarkskort/" \
-            "Danmarkskort"
+            "Danmarkskort" ""
+
+          # Datafiler siden er afhængig af
+          check_url "danske-farvande.geojson" \
+            "https://anderskabel.github.io/Danmarkskort/danske-farvande.geojson" \
+            "FeatureCollection" ""
+
+          check_url "disponeringsomraader.json" \
+            "https://anderskabel.github.io/Danmarkskort/disponeringsomraader.json" \
+            "omraader" ""
 
           if [ -n "$FAILED" ]; then
             echo ""
