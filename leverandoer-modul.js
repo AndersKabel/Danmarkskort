@@ -149,6 +149,9 @@ function _levBuildControl() {
       const me = await _levFetchMedTimeout(`${LEV_SP_WORKER}/auth/me`,
         { credentials: 'include' }, LEV_TIMEOUT_MS, 'danmarkskort-sp/auth/me');
       if (me.ok) {
+        const meData = await me.json().catch(() => ({}));
+        _levAktivRolle = meData.role || _levAktivRolle;
+        _levVisAdminKnapper(_levAktivRolle);
         panel.classList.add('lev-disp-panel-aaben');
       } else {
         const ok = await _levEnsureDisponering();
@@ -464,6 +467,7 @@ async function _levEnsureDrift() {
     if (me.ok) {
       const data = await me.json();
       _levAktivRolle = data.role || null;
+      _levVisAdminKnapper(_levAktivRolle);
       if (data.role === "admin" || data.role === "drift") return true;
       // Har kun læse-session — bed om driftkoordinator-kode
     }
@@ -506,6 +510,7 @@ async function _levEnsureDisponering() {
     if (me.ok) {
       const meData = await me.json().catch(() => ({}));
       _levAktivRolle = meData.role || null;
+      _levVisAdminKnapper(_levAktivRolle);
       return true; // enhver gyldig session
     }
 
@@ -534,9 +539,26 @@ async function _levEnsureDisponering() {
   }
 }
 
+/***************************************************
+ * Knapper der kun må ses af administrator
+ *
+ * "Nyt sted" gemmer via GitHub API med et personligt token i
+ * localStorage. Andre brugere har intet token, og gem fejlede
+ * derfor lydløst. Knappen er nu skjult i HTML og vises kun her.
+ ***************************************************/
+function _levVisAdminKnapper(role) {
+  try {
+    const stjerne = document.getElementById("cpOpenBtn");
+    if (stjerne) stjerne.style.display = (role === "admin") ? "" : "none";
+  } catch (e) {
+    console.warn("_levVisAdminKnapper:", e);
+  }
+}
+
 // Velkomst-toast ved login
 function _levVelkomst(role) {
   _levAktivRolle = role || null;
+  _levVisAdminKnapper(_levAktivRolle);
   const beskeder = {
     admin:  "Velkommen, administrator 👋",
     drift:  "Velkommen, driftkoordinator 👋",
