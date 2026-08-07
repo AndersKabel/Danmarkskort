@@ -1219,16 +1219,27 @@ async function loadVdAdvarsler() {
 }
 
 // Start lag-indlæsning ved overlayadd
+// Indikatoren vises KUN ved manuel aktivering — ikke ved de
+// automatiske genindlæsninger hvert 5.-10. minut, som ellers ville
+// give en toast på skærmen flere gange i timen uden anledning.
+function _medIndikator(navn, indlaes) {
+  _dispToast("Henter " + navn + " …");
+  return Promise.resolve()
+    .then(indlaes)
+    .catch(err => console.warn("Indlæsning af " + navn + " fejlede:", err))
+    .finally(() => _dispToastSkjul());
+}
+
 function _startDmiInterval() {
-  loadDmiTemperatur();
+  _medIndikator("Temperatur (DMI)", loadDmiTemperatur);
   if (!dmiTempInterval) dmiTempInterval = setInterval(loadDmiTemperatur, 10 * 60 * 1000);
 }
 function _startVdInterval() {
-  loadVdTrafik();
+  _medIndikator("Vejarbejder (VD)", loadVdTrafik);
   if (!vdTrafikInterval) vdTrafikInterval = setInterval(loadVdTrafik, 5 * 60 * 1000);
 }
 function _startVdAdvarselInterval() {
-  loadVdAdvarsler();
+  _medIndikator("Advarsler (VD)", loadVdAdvarsler);
   if (!vdAdvarselInterval) vdAdvarselInterval = setInterval(loadVdAdvarsler, 5 * 60 * 1000);
 }
 
@@ -1630,6 +1641,51 @@ const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'toprig
 
 // ── Km-markerings forklaring ──────────────────────────────────────
 // Vises kun når "Km-markeringer (VD)"-laget er aktivt
+/***************************************************
+ * Forklaringsboks til lag med symboler
+ * Bygges ud fra lagets egen fil-liste, så boksen ikke kan
+ * komme ud af trit med de farver og ikoner der faktisk tegnes.
+ ***************************************************/
+function _byggForklaring(titel, kantfarve, poster) {
+  const ctrl = L.control({ position: "bottomleft" });
+  ctrl.onAdd = function() {
+    const div = L.DomUtil.create("div", "");
+    div.style.cssText = [
+      "background:rgba(255,255,255,0.93)",
+      "border:1px solid " + kantfarve,
+      "border-radius:6px",
+      "padding:8px 11px",
+      "font-size:12px",
+      "line-height:1.6",
+      "max-width:230px",
+      "box-shadow:0 2px 6px rgba(0,0,0,0.18)"
+    ].join(";");
+
+    // Samme etiket kan optræde flere gange (linje og område) — vis den én gang
+    const set = [];
+    poster.forEach(function(p) {
+      if (!set.some(x => x.label === p.label)) set.push(p);
+    });
+
+    div.innerHTML =
+      "<strong style='color:" + kantfarve + "'>" + titel + "</strong>" +
+      "<hr style='margin:4px 0;border-color:#eee'>" +
+      "<table style='font-size:11px;border-collapse:collapse'>" +
+      set.map(function(p) {
+        return "<tr><td style='padding-right:6px'>" + p.ikon + "</td>" +
+               "<td><span style='display:inline-block;width:16px;height:3px;" +
+               "background:" + p.color + ";vertical-align:middle;margin-right:6px'></span>" +
+               p.label + "</td></tr>";
+      }).join("") +
+      "</table>";
+    return div;
+  };
+  return ctrl;
+}
+
+const vdTrafikForklaringCtrl   = _byggForklaring("🚧 Vejarbejder (VD)", "#e67e22", VD_VEJARBEJDE_FILER);
+const vdAdvarselForklaringCtrl = _byggForklaring("⚠️ Advarsler (VD)",   "#e74c3c", VD_ADVARSEL_FILER);
+
 const kmForklaringCtrl = L.control({ position: "bottomleft" });
 kmForklaringCtrl.onAdd = function() {
   const div = L.DomUtil.create("div", "");
@@ -1657,16 +1713,22 @@ kmForklaringCtrl.onAdd = function() {
   return div;
 };
 
+function _visForklaring(ctrl) {
+  ctrl.addTo(map);
+  // Flyt boksen op så den ikke dækker kommunekode-baren i bunden
+  const el = ctrl.getContainer();
+  if (el) el.style.marginBottom = "28px";
+}
+
 map.on("overlayadd", function(e) {
-  if (e.layer === kmMaerkerLayer) {
-    kmForklaringCtrl.addTo(map);
-    // Flyt boksen op så den ikke dækker kommunekode-baren i bunden
-    const el = kmForklaringCtrl.getContainer();
-    if (el) el.style.marginBottom = "28px";
-  }
+  if      (e.layer === kmMaerkerLayer)  _visForklaring(kmForklaringCtrl);
+  else if (e.layer === vdTrafikLayer)   _visForklaring(vdTrafikForklaringCtrl);
+  else if (e.layer === vdAdvarselLayer) _visForklaring(vdAdvarselForklaringCtrl);
 });
 map.on("overlayremove", function(e) {
-  if (e.layer === kmMaerkerLayer) kmForklaringCtrl.remove();
+  if      (e.layer === kmMaerkerLayer)  kmForklaringCtrl.remove();
+  else if (e.layer === vdTrafikLayer)   vdTrafikForklaringCtrl.remove();
+  else if (e.layer === vdAdvarselLayer) vdAdvarselForklaringCtrl.remove();
 });
 layerControl.getContainer().classList.add("main-ar-ctrl");
 
@@ -1792,6 +1854,8 @@ map.on('overlayadd', function(e) {
     const lat = center.lat, lon = center.lng;
     const distKm = selectedRadius / 1000;
 
+    _dispToast("Henter Ladestandere …");
+
     fetch(
       'https://api.openchargemap.io/v3/poi/?output=json' +
       '&countrycode=DK' +
@@ -1856,7 +1920,8 @@ map.on('overlayadd', function(e) {
         }
       });
     })
-    .catch(err => console.error('Fejl ved hentning af ladestandere:', err));
+    .catch(err => console.error('Fejl ved hentning af ladestandere:', err))
+    .finally(() => _dispToastSkjul());
   } else if (e.layer === keepMarkersLayer) {
     // Når "Behold markører" slås til, går vi i multi-markør-tilstand
     keepMarkersEnabled = true;
