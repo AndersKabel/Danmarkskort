@@ -186,20 +186,31 @@ function _levBuildControl() {
 
       if (cb.checked) {
         map.addLayer(layer);
-        // Tilgængelige leverandører
-        if (lag === 'tilgaengelig') {
-          await _levTilgLoad();
-          _levTilgInterval = setInterval(_levTilgLoad, 180_000);
-        }
-        // Leverandør-kategorier
-        const erLevKat = lag.startsWith('lev-');
-        if (erLevKat && !_levLoaded) await _levLoad();
-        // Egne enheder
-        const erEnhedKat = lag.startsWith('enhed-');
-        if (erEnhedKat && !_enhedLoaded) {
-          const ok = await _levEnsureDisponering();
-          if (!ok) { map.removeLayer(layer); cb.checked = false; }
-          else await _enhedLoad();
+        // Vis kun indikator når der faktisk skal hentes noget
+        const skalHente =
+          lag === 'tilgaengelig' ||
+          (lag.startsWith('lev-')   && !_levLoaded) ||
+          (lag.startsWith('enhed-') && !_enhedLoaded);
+        if (skalHente) _levLagIndikator(cb, true);
+        try {
+          // Tilgængelige leverandører
+          if (lag === 'tilgaengelig') {
+            await _levTilgLoad();
+            _levTilgInterval = setInterval(_levTilgLoad, 180_000);
+          }
+          // Leverandør-kategorier
+          const erLevKat = lag.startsWith('lev-');
+          if (erLevKat && !_levLoaded) await _levLoad();
+          // Egne enheder
+          const erEnhedKat = lag.startsWith('enhed-');
+          if (erEnhedKat && !_enhedLoaded) {
+            const ok = await _levEnsureDisponering();
+            if (!ok) { map.removeLayer(layer); cb.checked = false; }
+            else await _enhedLoad();
+          }
+        } finally {
+          // finally sikrer at spinneren altid fjernes, også ved fejl
+          if (skalHente) _levLagIndikator(cb, false);
         }
       } else {
         map.removeLayer(layer);
@@ -295,17 +306,28 @@ function _levBuildEnhedRows() {
       if (cb.checked) {
         map.addLayer(layer);
         if (!_enhedLoaded) {
-          const ok = await _levEnsureDisponering();
-          if (!ok) { map.removeLayer(layer); cb.checked = false; return; }
-          await _katLoad();
-          // Genbyg Disp-panel men bevar det aktuelle lag på kortet
-          const aktivtLagId = lag;
-          _levBuildEnhedRows();
-          // Sikr at det lag vi netop aktiverede stadig er på kortet og checked
-          if (!map.hasLayer(layer)) map.addLayer(layer);
-          const genCheckbox = container.querySelector(`input[data-lag="${aktivtLagId}"]`);
-          if (genCheckbox) genCheckbox.checked = true;
-          await _enhedLoad();
+          let aktivCb = cb;
+          _levLagIndikator(aktivCb, true);
+          try {
+            const ok = await _levEnsureDisponering();
+            if (!ok) { map.removeLayer(layer); cb.checked = false; return; }
+            await _katLoad();
+            // Genbyg Disp-panel men bevar det aktuelle lag på kortet
+            const aktivtLagId = lag;
+            _levLagIndikator(aktivCb, false);   // det gamle element forsvinder nu
+            _levBuildEnhedRows();
+            // Sikr at det lag vi netop aktiverede stadig er på kortet og checked
+            if (!map.hasLayer(layer)) map.addLayer(layer);
+            const genCheckbox = container.querySelector(`input[data-lag="${aktivtLagId}"]`);
+            if (genCheckbox) {
+              genCheckbox.checked = true;
+              aktivCb = genCheckbox;            // flyt indikatoren til det nye element
+              _levLagIndikator(aktivCb, true);
+            }
+            await _enhedLoad();
+          } finally {
+            _levLagIndikator(aktivCb, false);
+          }
         }
       } else {
         map.removeLayer(layer);
@@ -315,6 +337,47 @@ function _levBuildEnhedRows() {
 }
 
 
+
+// ── INDIKATOR VED LAG-INDLÆSNING ────────────────────────────────
+// Første gang et lag aktiveres hentes data fra SharePoint, og det kan
+// tage et par sekunder. Uden en indikator ser det ud som om intet sker,
+// og man kommer til at klikke igen.
+function _levSpinnerCSS() {
+  if (document.getElementById("levSpinnerStyle")) return;
+  const st = document.createElement("style");
+  st.id = "levSpinnerStyle";
+  st.textContent =
+    "@keyframes levSpin{to{transform:rotate(360deg)}}" +
+    ".lev-lag-spinner{display:inline-block;width:11px;height:11px;margin-left:6px;" +
+    "border:2px solid rgba(0,0,0,0.15);border-top-color:#2980b9;border-radius:50%;" +
+    "vertical-align:-1px;animation:levSpin 0.7s linear infinite}";
+  document.head.appendChild(st);
+}
+
+function _levLagIndikator(cb, aktiv) {
+  try {
+    if (!cb) return;
+    const label = cb.closest("label") || cb.parentElement;
+    if (!label) return;
+    if (aktiv) {
+      _levSpinnerCSS();
+      if (!label.querySelector(".lev-lag-spinner")) {
+        const sp = document.createElement("span");
+        sp.className = "lev-lag-spinner";
+        label.appendChild(sp);
+      }
+      label.style.opacity = "0.6";
+      cb.disabled = true;
+    } else {
+      const sp = label.querySelector(".lev-lag-spinner");
+      if (sp) sp.remove();
+      label.style.opacity = "";
+      cb.disabled = false;
+    }
+  } catch (e) {
+    console.warn("_levLagIndikator:", e);
+  }
+}
 
 // ── LAYER CONTROL HELPERS ───────────────────────────────────────
 function _levUncheckLayer(layer) {
