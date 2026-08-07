@@ -447,6 +447,43 @@ async function reverseGeocodeORS(lat, lon) {
 function isInDenmark(lat, lon) {
   return lat >= 54.3 && lat <= 58.0 && lon >= 7.5 && lon <= 15.5;
 }
+/***************************************************
+ * Danske farvande — Danmark inkl. havområder og broer
+ *
+ * Kommunegrænser slutter i vandkanten jf. Lov om Afgrænsning af
+ * Søterritoriet. Derfor falder fx Storebæltsbroen uden for
+ * kommunepolygonerne, selvom den er dansk. Denne polygon er
+ * DAWA's postnumre smeltet sammen UDEN parameteren landpostnumre,
+ * som netop medtager havområderne, og den er korrekt afgrænset
+ * mod Tyskland og Sverige.
+ ***************************************************/
+var farvandGeoJSON = null;
+
+fetch("danske-farvande.geojson")
+  .then(function(r) {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  })
+  .then(function(g) {
+    farvandGeoJSON = g;
+    console.log("Danske farvande indlæst");
+  })
+  .catch(function(err) {
+    console.warn("Kunne ikke indlæse danske farvande:", err.message);
+  });
+
+function _erIDanskeFarvande(point) {
+  if (!farvandGeoJSON || !farvandGeoJSON.features) return false;
+  try {
+    for (var i = 0; i < farvandGeoJSON.features.length; i++) {
+      if (turf.booleanPointInPolygon(point, farvandGeoJSON.features[i])) return true;
+    }
+  } catch (e) {
+    console.warn("Fejl i farvandstjek:", e);
+  }
+  return false;
+}
+
 function isInDenmarkByPolygon(lat, lon) {
   if (!kommuneGeoJSON || !kommuneGeoJSON.features) {
     // Fallback til simpel bounding box, hvis kommunedata ikke er klar endnu
@@ -460,7 +497,8 @@ function isInDenmarkByPolygon(lat, lon) {
         return true;
       }
     }
-    return false;
+    // Ikke i nogen kommune: kan stadig være dansk farvand eller en bro
+    return _erIDanskeFarvande(point);
   } catch (e) {
     console.error("Fejl i isInDenmarkByPolygon:", e);
     return isInDenmark(lat, lon);
