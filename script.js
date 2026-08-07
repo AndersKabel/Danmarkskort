@@ -363,7 +363,7 @@ async function geocodeORSForSearch(query) {
     const data = await resp.json();
     if (!data.features || data.features.length === 0) return [];
 
-    return data.features
+    const resultater = data.features
       .filter(feat => {
         const p = feat.properties || {};
         const country = (p.country || p.country_a || "").toString().toLowerCase();
@@ -380,9 +380,25 @@ async function geocodeORSForSearch(query) {
           label,
           lat,
           lon,
+          postnr: p.postalcode || "",
           feature: feat
         };
       });
+
+    // Indeholder søgningen et femcifret tal, behandles det som postnummer:
+    // træf med samme postnummer lægges øverst. ORS/Pelias filtrerer IKKE på
+    // postnummer — den rangerer frit på tekstlighed — så uden dette kan den
+    // rigtige adresse ligge langt nede blandt enslydende vejnavne i andre byer.
+    // De øvrige fjernes ikke, da postnummeret kan være tastet forkert.
+    // Danske postnumre er firecifrede og udløser derfor ikke sorteringen.
+    const postnrIQuery = (String(query).match(/(?<!\d)\d{5}(?!\d)/) || [])[0];
+    if (postnrIQuery) {
+      // Array.prototype.sort er stabil, så indbyrdes rækkefølge bevares
+      resultater.sort((a, b) =>
+        (a.postnr === postnrIQuery ? 0 : 1) - (b.postnr === postnrIQuery ? 0 : 1));
+    }
+
+    return resultater;
   } catch (err) {
     console.error("Fejl i geocodeORSForSearch:", err);
     return [];
