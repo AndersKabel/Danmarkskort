@@ -273,6 +273,32 @@ async function requestORSRoute(coordsArray, profile, preference) {
 /**
  * Hjælper: ORS geocoding (første resultat) til rute-felter
  */
+/***************************************************
+ * Adresselabel for udenlandske ORS/Pelias-resultater — ÉT sted
+ *
+ * Pelias' eget `label` udelader postnummeret og giver fx
+ * "Osterstraße 2, Handewitt, SH, Germany". Vi bygger derfor selv
+ * strengen i samme format som de danske: vej husnr, postnr by, land.
+ * p.label bruges kun som reserve når felterne ikke rækker.
+ *
+ * Bruges BÅDE i søgeresultatlisten og i infoboksen — hold dem samlet
+ * her, så de to visninger ikke kan komme ud af trit.
+ ***************************************************/
+function _udlandLabel(p) {
+  const o = p || {};
+  const vejnavn = o.street || o.name || "";
+  const husnr   = o.housenumber || "";
+  const postnr  = o.postalcode || "";
+  const by      = o.locality || o.region || o.country || "";
+  const land    = (o.country && o.country !== by) ? o.country : "";
+  const eget = [
+    `${vejnavn} ${husnr}`.trim(),
+    `${postnr} ${by}`.trim(),
+    land
+  ].filter(Boolean).join(", ").replace(/\s+/g, " ").trim();
+  return (vejnavn && postnr) ? eget : (o.label || eget);
+}
+
 async function geocodeORSFirst(text) {
   try {
     const url = `${ORS_PROXY}/geocode/search?text=${encodeURIComponent(text)}&size=1`;
@@ -348,11 +374,7 @@ async function geocodeORSForSearch(query) {
         const coords = feat.geometry && feat.geometry.coordinates;
         const lon = coords?.[0];
         const lat = coords?.[1];
-        let label =
-          p.label ||
-          `${p.street || p.name || ""} ${p.housenumber || ""}, ${p.postalcode || ""} ${p.locality || p.region || p.country || ""}`
-            .replace(/\s+/g, " ")
-            .trim();
+        let label = _udlandLabel(p);
         return {
           type: "ors_foreign",
           label,
@@ -2227,18 +2249,7 @@ function updateInfoBoxForeign(feature, lat, lon) {
   const postnr  = p.postalcode || "";
   const by      = p.locality || p.region || p.country || "";
 
-  // Pelias' eget label udelader postnummeret — det giver fx
-  // "Siedlungsstraße 7, Handewitt, SH, Germany". Vi bygger derfor selv
-  // adressen i samme format som de danske: vej husnr, postnr by, land.
-  // p.label bruges kun som reserve, hvis vi mangler felter til det.
-  const land = (p.country && p.country !== by) ? p.country : "";
-  const egetLabel = [
-    `${vejnavn} ${husnr}`.trim(),
-    `${postnr} ${by}`.trim(),
-    land
-  ].filter(Boolean).join(", ").replace(/\s+/g, " ").trim();
-
-  const label = (vejnavn && postnr) ? egetLabel : (p.label || egetLabel);
+  const label = _udlandLabel(p);
 
   const evaFormat   = `${vejnavn},${husnr},${postnr}`;
   const notesFormat = `${vejnavn} ${husnr}, ${postnr} ${by}`;
