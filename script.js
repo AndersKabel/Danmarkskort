@@ -13,13 +13,14 @@ const VD_PROXY = "https://vd-proxy.danmarkskortet.workers.dev";
  * integreret OpenRouteService (ORS). ORS tilbyder en gratis plan med
  * 2.000 ruteopslag pr. dag og 40 pr. minut. Før du kan
  * anvende tjenesten skal du oprette en gratis konto og hente en API-nøgle.
- * Besøg https://openrouteservice.org/, opret en konto og generér en nøgle
- * under sektionen "API Keys" i din brugerprofil. Indsæt nøglen i
- * konstanten ORS_API_KEY nedenfor.
+ * Nøglen ligger IKKE i denne fil. Den er en miljøvariabel (ORS_API_KEY)
+ * på vd-proxy-workeren i Cloudflare, og kaldene går gennem /ors/*.
+ * Læg aldrig nøglen tilbage her — alt i frontend-JavaScript er offentligt.
  */
 
-// TODO: Indsæt din ORS API-nøgle her
-const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImU2ZTA5ODhhNDE5MDQ1MjNiY2QwM2QyZjcyNWViZmU5IiwiaCI6Im11cm11cjY0In0=";
+// ORS kaldes gennem vd-proxy. Nøglen ligger som miljøvariabel i
+// Cloudflare og når aldrig browseren.
+const ORS_PROXY = VD_PROXY + "/ors";
 
 // Lag til at vise ruter fra ORS. Tilføjes til overlayMaps senere.
 var routeLayer = L.layerGroup();
@@ -197,7 +198,7 @@ async function requestORSRoute(coordsArray, profile, preference) {
     profile ||
     (document.getElementById("routeProfile")?.value || "driving-car");
 
-  const url = `https://api.openrouteservice.org/v2/directions/${usedProfile}/geojson`;
+  const url = `${ORS_PROXY}/directions/${usedProfile}`;
 
   const bodyObj = { coordinates: coordsArray };
   if (preference) {
@@ -211,7 +212,6 @@ async function requestORSRoute(coordsArray, profile, preference) {
 
   const headers = {
     "Accept": "application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8",
-    "Authorization": ORS_API_KEY,
     "Content-Type": "application/json; charset=utf-8"
   };
 
@@ -274,9 +274,8 @@ async function requestORSRoute(coordsArray, profile, preference) {
  * Hjælper: ORS geocoding (første resultat) til rute-felter
  */
 async function geocodeORSFirst(text) {
-  if (!ORS_API_KEY || ORS_API_KEY.includes("YOUR_ORS_API_KEY")) return null;
   try {
-    const url = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(text)}&size=1`;
+    const url = `${ORS_PROXY}/geocode/search?text=${encodeURIComponent(text)}&size=1`;
     const resp = await fetch(url);
     if (!resp.ok) {
       console.error("ORS geocode fejl:", resp.status, resp.statusText);
@@ -315,9 +314,8 @@ async function geocodeORSFirst(text) {
  * Hjælper: ORS geocoding til søgelisten (kun udenlandske adresser)
  */
 async function geocodeORSForSearch(query) {
-  if (!ORS_API_KEY || ORS_API_KEY.includes("YOUR_ORS_API_KEY")) return [];
   try {
-    const url = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(query)}&size=5`;
+    const url = `${ORS_PROXY}/geocode/search?text=${encodeURIComponent(query)}&size=5`;
     const resp = await fetch(url);
 
     // Opdater geocode-tæller ud fra headers (hvis de findes)
@@ -376,9 +374,8 @@ async function geocodeORSForSearch(query) {
  * Hjælper: ORS reverse geocoding (til klik i udlandet)
  */
 async function reverseGeocodeORS(lat, lon) {
-  if (!ORS_API_KEY || ORS_API_KEY.includes("YOUR_ORS_API_KEY")) return null;
   try {
-    const url = `https://api.openrouteservice.org/geocode/reverse?api_key=${ORS_API_KEY}&point.lat=${lat}&point.lon=${lon}&size=1`;
+    const url = `${ORS_PROXY}/geocode/reverse?point.lat=${lat}&point.lon=${lon}&size=1`;
     const resp = await fetch(url);
 
     // Opdater geocode-tæller ud fra headers (hvis de findes)
@@ -477,11 +474,6 @@ async function resolveRouteCoord(text, cachedCoord) {
  * Bruger OpenRouteService og tegner ruten på routeLayer.
  */
 async function planRouteORS() {
-  if (!ORS_API_KEY || ORS_API_KEY.includes("YOUR_ORS_API_KEY")) {
-    alert("ORS API-nøgle mangler. Indsæt din nøgle i konstanten ORS_API_KEY i script.js.");
-    return;
-  }
-
   try {
     const fromText = routeFromInput ? routeFromInput.value.trim() : "";
     const toText   = routeToInput   ? routeToInput.value.trim()   : "";
@@ -4001,11 +3993,12 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 
-    // Deaktivér "Udland"-søgning hvis ORS-nøgle mangler
-  if (foreignSearchToggle && (!ORS_API_KEY || ORS_API_KEY.includes("YOUR_ORS_API_KEY"))) {
+    // Udland-søgning går gennem vd-proxy og kræver ingen nøgle i browseren.
+    // Deaktivér kun hvis proxy-adressen af en eller anden grund mangler.
+  if (foreignSearchToggle && !ORS_PROXY) {
     foreignSearchToggle.checked = false;
     foreignSearchToggle.disabled = true;
-    foreignSearchToggle.title = "Udland-søgning kræver en gyldig OpenRouteService API-nøgle";
+    foreignSearchToggle.title = "Udland-søgning er ikke tilgængelig";
 
     // Sørg for at infoboksen ikke vises, hvis Udland ikke kan bruges
     if (foreignInfoBox) {
