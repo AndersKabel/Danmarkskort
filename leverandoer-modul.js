@@ -141,7 +141,41 @@ function _prioParseInput(txt) {
   return [...new Set(ud)].sort();
 }
 
+// Blivende boks der viser hvilken station og hvilket lag fladerne hører til.
+// Erstatter den tidligere toast, som forsvandt efter fire sekunder.
+function _prioLegendVis(st, kat, niveauer) {
+  let boks = document.getElementById("prioLegend");
+  if (!boks) {
+    boks = document.createElement("div");
+    boks.id = "prioLegend";
+    boks.style.cssText = "position:fixed;left:10px;bottom:42px;z-index:1200;"
+      + "background:rgba(255,255,255,0.96);border:1px solid #cdd5df;border-radius:8px;"
+      + "padding:8px 10px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,0.18);"
+      + "max-width:260px;line-height:1.6";
+    document.body.appendChild(boks);
+  }
+  const raekker = niveauer.map(x =>
+    `<div><span style="display:inline-block;width:11px;height:11px;border-radius:2px;`
+    + `background:${PRIO_FARVER[x.niveau]};margin-right:6px;vertical-align:middle"></span>`
+    + `${PRIO_NAVNE[x.niveau]} · ${x.numre.length} postnumre</div>`).join("");
+  boks.innerHTML =
+      `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">`
+    + `<b>${kat.ikon} ${_esc(kat.navn)}</b>`
+    + `<span id="prioLegendLuk" style="cursor:pointer;color:#8a97a5;font-weight:700">×</span></div>`
+    + `<div style="color:#5a6b7b;margin-bottom:4px">🏠 ${_esc(st.navn)}</div>`
+    + raekker;
+  boks.style.display = "block";
+  const luk = document.getElementById("prioLegendLuk");
+  if (luk) luk.addEventListener("click", _prioRyd);
+}
+
+function _prioLegendSkjul() {
+  const boks = document.getElementById("prioLegend");
+  if (boks) boks.style.display = "none";
+}
+
 function _prioRyd() {
+  _prioLegendSkjul();
   _prioLag.forEach(l => { try { map.removeLayer(l); } catch(e) {} });
   _prioLag = [];
   _prioAktivStation = null;
@@ -149,7 +183,7 @@ function _prioRyd() {
 }
 
 // Tegner én stations områder for den aktive kategori.
-async function _prioToggle(stationId) {
+async function _prioToggle(stationId, btn) {
   // Samme station igen = sluk
   if (_prioAktivStation === stationId) { _prioRyd(); return; }
 
@@ -185,6 +219,12 @@ async function _prioToggle(stationId) {
   // Hent kun den geometri vi ikke har i forvejen
   const mangler = [...new Set(niveauer.flatMap(x => x.numre))]
     .filter(nr => !_prioGeoCache[nr]);
+  const btnTekst = btn ? btn.innerHTML : null;
+  if (mangler.length && btn) {
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    btn.innerHTML = "⏳ Henter " + mangler.length + " postnumre…";
+  }
   if (mangler.length) {
     if (typeof _dispHentGeometri !== "function") {
       alert("Kunne ikke hente postnummer-geometri (script.js ikke indlæst).");
@@ -201,6 +241,11 @@ async function _prioToggle(stationId) {
     } finally {
       // _dispHentGeometri viser sin egen toast uden selv at skjule den
       if (typeof _dispToastSkjul === "function") _dispToastSkjul();
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = "";
+        if (btnTekst !== null) btn.innerHTML = btnTekst;
+      }
     }
   }
 
@@ -219,9 +264,10 @@ async function _prioToggle(stationId) {
     });
   });
 
-  const dele = niveauer.map(x => PRIO_NAVNE[x.niveau] + ": " + x.numre.length);
-  _dispToast(kat.ikon + " " + st.navn + " — " + dele.join(" · ")
-    + (manglendeGeo ? " (" + manglendeGeo + " uden geometri)" : ""), 4000);
+  _prioLegendVis(st, kat, niveauer);
+  if (manglendeGeo) {
+    _dispToast(manglendeGeo + " postnumre kunne ikke hentes fra DAWA", 4000);
+  }
 }
 
 // ── BOOT ─────────────────────────────────────────────────────────
@@ -262,6 +308,19 @@ async function initLeverandoerModul() {
   map.on("layerremove", function(e) {
     if (!_prioAktivKat) return;
     if (e.layer === _enhedKatLag[_prioAktivKat]) _prioRyd();
+  });
+
+  // Tændes der et kategorilag mere, er visningen ikke længere entydig —
+  // fladerne hører til én kategori. Ryd med besked frem for at lade dem
+  // stå og se ud som om de gælder begge lag.
+  map.on("layeradd", function(e) {
+    if (!_prioAktivKat) return;
+    const ny = EGNE_KATEGORIER.find(k =>
+      k.id !== _prioAktivKat && _enhedKatLag[k.id] === e.layer);
+    if (!ny) return;
+    _prioRyd();
+    _dispToast("Prioritetsvisning ryddet — " + ny.navn
+      + " blev tændt. Vis kun ét lag ad gangen.", 5000);
   });
 }
 
@@ -1981,7 +2040,7 @@ function _bindEnhedPopup(el) {
     b.dataset.handlerBound = "1";
     b.addEventListener("click", ev => {
       ev.stopPropagation();
-      _prioToggle(b.dataset.stationid);
+      _prioToggle(b.dataset.stationid, b);
     });
   });
   el.querySelectorAll(".lev-enhed-foto-btn").forEach(b => {
