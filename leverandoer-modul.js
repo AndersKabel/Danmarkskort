@@ -76,6 +76,19 @@ let _enhedLoaded = false;
 let _levLayerCtrl  = null; // Reference til Leaflet layer control (bruges til at afmarker checkboxes)
 let _levAktivRolle = null; // Aktiv session-rolle: "admin" | "drift" | "read" | null
 
+// Fælles debounce for gen-rendering af enhedslag. Én delt timer betyder at
+// fjernelse+placering af en markør (placeMarkerAndZoom fjerner den gamle før
+// den sætter den nye) smelter sammen til én rendering i stedet for to.
+let _enhedRenderTimer = null;
+function _enhedRenderDebounced(delay) {
+  if (!_enhedLoaded) return;
+  clearTimeout(_enhedRenderTimer);
+  _enhedRenderTimer = setTimeout(function() {
+    _enhedRenderTimer = null;
+    _enhedRenderLag();
+  }, delay || 200);
+}
+
 // ── BOOT ─────────────────────────────────────────────────────────
 async function initLeverandoerModul() {
   _levLoadPostnrMap();
@@ -87,14 +100,26 @@ async function initLeverandoerModul() {
     const _orig = window.placeMarkerAndZoom;
     window.placeMarkerAndZoom = function() {
       const r = _orig.apply(this, arguments);
-      if (_enhedLoaded) setTimeout(_enhedRenderLag, 150);
+      _enhedRenderDebounced(150);
       return r;
     };
   }
 
   // Opdater afstande også ved direkte klik på kortet
   map.on("click", function() {
-    if (_enhedLoaded) setTimeout(_enhedRenderLag, 300);
+    _enhedRenderDebounced(300);
+  });
+
+  // Nulstil afstande når den søgte adresse fjernes. currentMarker sættes
+  // til null otte forskellige steder i script.js (luk-knapper, ny søgning,
+  // popupclose, "Behold markører" fra m.fl.), men alle kalder først
+  // map.removeLayer(currentMarker). layerremove fyrer synkront FØR
+  // nulstillingen, så sammenligningen nedenfor rammer stadig.
+  map.on("layerremove", function(e) {
+    // Guarden skal stå først: _enhedRenderLag() kalder selv clearLayers()
+    // på lag der ligger på kortet, hvilket udløser layerremove pr. markør.
+    if (typeof currentMarker === "undefined" || e.layer !== currentMarker) return;
+    _enhedRenderDebounced(200);
   });
 }
 
@@ -1725,6 +1750,16 @@ function _bemaerkHTML(v) {
   return t ? `<div class="lev-popup-row">💬 <em>${_esc(t)}</em></div>` : "";
 }
 
+// Link til vejledning e.l. — vises kun når der faktisk er et link.
+// Kun http/https accepteres, så javascript:-URL'er ikke kan smugles ind via
+// SharePoint-feltet. target=_blank + rel=noopener, ellers erstattes kortet.
+function _linkHTML(url, tekst) {
+  const u = String(url || "").trim();
+  if (!u || !/^https?:\/\//i.test(u)) return "";
+  const t = String(tekst || "").trim() || "Åbn link";
+  return `<div class="lev-popup-row">🔗 <a href="${_esc(u)}" target="_blank" rel="noopener noreferrer">${_esc(t)}</a></div>`;
+}
+
 function _fotoHTML(url) {
   const u = String(url || "").trim();
   return u ? `<div class="lev-popup-row"><img src="${_esc(u)}" class="lev-popup-vogn-img-full"
@@ -1743,7 +1778,8 @@ function _stationBlokHTML(st) {
   if (!st) return "";
   const rk = _kontaktHTML("📞", "Omstilling", st.kontakt)
            + _kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)
-           + _bemaerkHTML(st.bemærkning);
+           + _bemaerkHTML(st.bemærkning)
+           + _linkHTML(st.link, st.linkTekst);
   return `<hr class="lev-hr">
     <div class="lev-popup-row" style="font-weight:600">🏠 ${_esc(st.navn)}</div>
     ${rk || `<div class="lev-popup-row" style="color:#8a97a5;font-size:11px">Ingen kontaktoplysninger på stationen</div>`}`;
@@ -1754,7 +1790,8 @@ function _enhedRaekkeHTML(e, hoejre) {
   const uad = _erUAD(e);
   const detaljer = _kontaktHTML("📞", "Bil", e.kontakt)
                  + _kontaktHTML("📟", "Vagt/Tilkald", e.kontaktTilkald)
-                 + _bemaerkHTML(e.bemærkning);
+                 + _bemaerkHTML(e.bemærkning)
+                 + _linkHTML(e.link, e.linkTekst);
   return `<div style="padding:4px 6px;border-bottom:1px solid #f0f0f0;${uad ? "background:#fff0f0;border-radius:4px;" : ""}">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
       <span style="font-size:12px;color:${uad ? "#e74c3c" : "inherit"}">
@@ -2047,6 +2084,7 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
     ${_kontaktHTML("📞", "Bil", enhed.kontakt)}
     ${_kontaktHTML("📟", "Vagt/Tilkald", enhed.kontaktTilkald)}
     ${_bemaerkHTML(enhed.bemærkning)}
+    ${_linkHTML(enhed.link, enhed.linkTekst)}
     ${_fotoHTML(enhed.billede)}
     ${_stationBlokHTML(stEnhed)}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${flytBtn}${uadBtn}</div>
@@ -2110,6 +2148,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📞", "Omstilling", st.kontakt)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
+        ${_linkHTML(st.link, st.linkTekst)}
         ${katGrupper ? `<hr class="lev-hr"><div class="lev-popup-section-hdr">Tilknyttede enheder</div>${katGrupper}` : ""}
       </div>`, { maxWidth: 320, className: "lev-leaflet-popup" });
       marker.on("popupopen", function() {
@@ -2196,6 +2235,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📞", "Omstilling", st.kontakt)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
+        ${_linkHTML(st.link, st.linkTekst)}
         <hr class="lev-hr">${enhedRaekker}
       </div>`, { maxWidth: 340, className: "lev-leaflet-popup" });
 
@@ -2239,6 +2279,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📞", "Bil", e.kontakt)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", e.kontaktTilkald)}
         ${_bemaerkHTML(e.bemærkning)}
+        ${_linkHTML(e.link, e.linkTekst)}
         ${_fotoHTML(e.billede)}
         ${_stationBlokHTML(stEnhedUad)}
         <div style="margin-top:6px">${uadBtn}</div>
@@ -2620,6 +2661,15 @@ function _enhedShowStationForm(station) {
           <input id="sf-bemaerk" type="text" value="${_esc(station?.bemærkning || "")}" placeholder="valgfri">
         </label>
       </fieldset>
+      <fieldset class="lev-fs">
+        <legend>🔗 Link</legend>
+        <label>URL
+          <input id="sf-link" type="text" value="${_esc(station?.link || "")}" placeholder="https://...">
+        </label>
+        <label style="margin-top:6px">Linktekst
+          <input id="sf-linktekst" type="text" value="${_esc(station?.linkTekst || "")}" placeholder="fx Instruks for stationen">
+        </label>
+      </fieldset>
       <div class="lev-form-footer">
         <button id="sf-gem" class="lev-btn-primary">💾 Gem station</button>
         ${station ? `<button id="sf-slet" class="lev-btn-danger">🗑️ Slet</button>` : ""}
@@ -2679,6 +2729,8 @@ async function _enhedGemStation(existingId) {
   const kontakt = document.getElementById("sf-kontakt").value.trim();
   const tilkald = document.getElementById("sf-tilkald")?.value.trim() || "";
   const bemærk  = document.getElementById("sf-bemaerk").value.trim();
+  const link      = document.getElementById("sf-link")?.value.trim() || "";
+  const linkTekst = document.getElementById("sf-linktekst")?.value.trim() || "";
   const status  = document.getElementById("sf-status");
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Stationsnavn er påkrævet."; return; }
   const gemBtn = document.getElementById("sf-gem");
@@ -2688,7 +2740,7 @@ async function _enhedGemStation(existingId) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse,
-        kontakt, kontaktTilkald: tilkald, bemærkning: bemærk })
+        kontakt, kontaktTilkald: tilkald, bemærkning: bemærk, link, linkTekst })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
@@ -2786,6 +2838,15 @@ function _enhedShowForm(enhed) {
         </label>
         <label>Bemærkning
           <input id="ef-bemaerk" type="text" value="${_esc(enhed?.bemærkning || "")}" placeholder="valgfri">
+        </label>
+      </fieldset>
+      <fieldset class="lev-fs">
+        <legend>🔗 Link</legend>
+        <label>URL
+          <input id="ef-link" type="text" value="${_esc(enhed?.link || "")}" placeholder="https://...">
+        </label>
+        <label style="margin-top:6px">Linktekst
+          <input id="ef-linktekst" type="text" value="${_esc(enhed?.linkTekst || "")}" placeholder="fx Vejledning ved kotransport">
         </label>
       </fieldset>
       <fieldset class="lev-fs">
@@ -2976,6 +3037,8 @@ async function _enhedGem(existingId) {
   const tilkald    = document.getElementById("ef-tilkald")?.value.trim() || "";
   const billede    = document.getElementById("ef-billede")?.value.trim() || "";
   const bemærk     = document.getElementById("ef-bemaerk").value.trim();
+  const link       = document.getElementById("ef-link")?.value.trim() || "";
+  const linkTekst  = document.getElementById("ef-linktekst")?.value.trim() || "";
   const status     = document.getElementById("ef-status");
 
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
@@ -3009,7 +3072,8 @@ async function _enhedGem(existingId) {
         kontakt,
         kontaktTilkald: tilkald,
         billede,
-        bemærkning: bemærk
+        bemærkning: bemærk,
+        link, linkTekst
       })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
