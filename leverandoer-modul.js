@@ -89,6 +89,141 @@ function _enhedRenderDebounced(delay) {
   }, delay || 200);
 }
 
+// ── PRIORITETSOMRÅDER ──────────────────
+// Områderne ligger på stationen, opdelt per kategori. Nøglen "*" bruges af
+// workerens fallback når nogen har tastet en flad liste direkte i SharePoint.
+const PRIO_FARVER = { "1": "#27ae60", "2": "#f1c40f", "3": "#ff8fbf" };
+const PRIO_NAVNE  = { "1": "1. prioritet", "2": "2. prioritet", "3": "3. prioritet" };
+
+let _prioLag          = [];   // tegnede Leaflet-lag
+let _prioAktivStation = null; // id på den station der vises lige nu
+let _prioAktivKat     = null; // kategori-id visningen hører til
+let _prioGeoCache     = {};   // postnummer -> GeoJSON-feature
+
+// Kategorier der kan tildeles områder: kun dem der kører fra en station.
+function _prioKategorier() {
+  return EGNE_KATEGORIER.filter(k => k.kraeverStation === true);
+}
+
+// Kategorilag der er tændt lige nu. stationerLayer tæller ikke med — den er
+// ikke en kategori og må gerne være tændt samtidig.
+function _prioAktiveKategorier() {
+  return EGNE_KATEGORIER.filter(k =>
+    _enhedKatLag[k.id] && map.hasLayer(_enhedKatLag[k.id]));
+}
+
+// Postnumre for én station, én kategori, ét niveau.
+function _prioNumre(st, katId, niveau) {
+  const saet = st?.prioPnr?.[String(niveau)];
+  if (!saet) return [];
+  const egne = Array.isArray(saet[katId]) ? saet[katId] : [];
+  const alle = Array.isArray(saet["*"])   ? saet["*"]   : [];
+  return [...new Set([...egne, ...alle])].map(String);
+}
+
+// Fritekst → liste af postnumre. "4700-4736, 4750 4760" udfoldes.
+// Ingen validering mod rigtige postnumre — to stationer må gerne overlappe.
+function _prioParseInput(txt) {
+  const ud = [];
+  String(txt || "").split(/[^0-9\-]+/).filter(Boolean).forEach(token => {
+    const iv = token.match(/^(\d{4})-(\d{4})$/);
+    if (iv) {
+      let fra = parseInt(iv[1], 10), til = parseInt(iv[2], 10);
+      if (fra > til) { const t = fra; fra = til; til = t; }
+      // Loft på 1000 numre pr. interval, så en tastefejl ikke fylder feltet
+      for (let n = fra; n <= til && n - fra < 1000; n++) {
+        ud.push(String(n).padStart(4, "0"));
+      }
+      return;
+    }
+    if (/^\d{4}$/.test(token)) ud.push(token);
+  });
+  return [...new Set(ud)].sort();
+}
+
+function _prioRyd() {
+  _prioLag.forEach(l => { try { map.removeLayer(l); } catch(e) {} });
+  _prioLag = [];
+  _prioAktivStation = null;
+  _prioAktivKat     = null;
+}
+
+// Tegner én stations områder for den aktive kategori.
+async function _prioToggle(stationId) {
+  // Samme station igen = sluk
+  if (_prioAktivStation === stationId) { _prioRyd(); return; }
+
+  const st = (_enhedData || []).find(e => e.id === stationId);
+  if (!st) { alert("Stationen blev ikke fundet."); return; }
+
+  const aktive = _prioAktiveKategorier();
+  if (!aktive.length) {
+    alert("Tænd først ét kategorilag — fx Mors biler — så systemet ved\nhvilken kategoris områder der skal vises.");
+    return;
+  }
+  if (aktive.length > 1) {
+    alert("Prioritetsområder kan kun vises med ét aktivt kategorilag.\n\n"
+      + "Aktive lige nu: " + aktive.map(k => k.navn).join(", ")
+      + "\n\nSluk de øvrige og prøv igen.");
+    return;
+  }
+
+  const kat = aktive[0];
+  const niveauer = ["1", "2", "3"]
+    .map(n => ({ niveau: n, numre: _prioNumre(st, kat.id, n) }))
+    .filter(x => x.numre.length);
+
+  if (!niveauer.length) {
+    alert("Der er ikke angivet prioritetsområder for " + kat.navn + "\npå " + st.navn + ".");
+    return;
+  }
+
+  _prioRyd();
+  _prioAktivStation = stationId;
+  _prioAktivKat     = kat.id;
+
+  // Hent kun den geometri vi ikke har i forvejen
+  const mangler = [...new Set(niveauer.flatMap(x => x.numre))]
+    .filter(nr => !_prioGeoCache[nr]);
+  if (mangler.length) {
+    if (typeof _dispHentGeometri !== "function") {
+      alert("Kunne ikke hente postnummer-geometri (script.js ikke indlæst).");
+      _prioRyd(); return;
+    }
+    try {
+      const hentet = await _dispHentGeometri(mangler.map(n => parseInt(n, 10)));
+      Object.keys(hentet || {}).forEach(nr => {
+        _prioGeoCache[String(nr).padStart(4, "0")] = hentet[nr];
+      });
+    } catch(e) {
+      alert("Kunne ikke hente postnummer-geometri: " + e.message);
+      _prioRyd(); return;
+    } finally {
+      // _dispHentGeometri viser sin egen toast uden selv at skjule den
+      if (typeof _dispToastSkjul === "function") _dispToastSkjul();
+    }
+  }
+
+  // Tegn 3 først, så 1 ligger øverst hvis et postnummer optræder flere gange
+  let manglendeGeo = 0;
+  niveauer.slice().reverse().forEach(({ niveau, numre }) => {
+    const farve = PRIO_FARVER[niveau];
+    numre.forEach(nr => {
+      const feat = _prioGeoCache[nr];
+      if (!feat) { manglendeGeo++; return; }
+      const lag = L.geoJSON(feat, {
+        style: { color: farve, weight: 1, fillColor: farve, fillOpacity: 0.35 },
+        interactive: false
+      }).addTo(map);
+      _prioLag.push(lag);
+    });
+  });
+
+  const dele = niveauer.map(x => PRIO_NAVNE[x.niveau] + ": " + x.numre.length);
+  _dispToast(kat.ikon + " " + st.navn + " — " + dele.join(" · ")
+    + (manglendeGeo ? " (" + manglendeGeo + " uden geometri)" : ""), 4000);
+}
+
 // ── BOOT ─────────────────────────────────────────────────────────
 async function initLeverandoerModul() {
   _levLoadPostnrMap();
@@ -120,6 +255,13 @@ async function initLeverandoerModul() {
     // på lag der ligger på kortet, hvilket udløser layerremove pr. markør.
     if (typeof currentMarker === "undefined" || e.layer !== currentMarker) return;
     _enhedRenderDebounced(200);
+  });
+
+  // Slukkes det kategorilag prioritetsvisningen hører til, ryddes fladerne.
+  // De ligger direkte på kortet og ville ellers blive hængende.
+  map.on("layerremove", function(e) {
+    if (!_prioAktivKat) return;
+    if (e.layer === _enhedKatLag[_prioAktivKat]) _prioRyd();
   });
 }
 
@@ -1760,6 +1902,23 @@ function _linkHTML(url, tekst) {
   return `<div class="lev-popup-row">🔗 <a href="${_esc(u)}" target="_blank" rel="noopener noreferrer">${_esc(t)}</a></div>`;
 }
 
+// Knap i stationspopup. Vises kun hvis stationen faktisk har områder tastet
+// ind — på en vilkårlig kategori, da vi ikke kender det aktive lag her.
+function _prioKnapHTML(st) {
+  if (!st?.prioPnr) return "";
+  const harNoget = ["1", "2", "3"].some(n => {
+    const s = st.prioPnr[n];
+    return s && Object.keys(s).some(k => (s[k] || []).length);
+  });
+  if (!harNoget) return "";
+  const aktiv = _prioAktivStation === st.id;
+  return `<button class="lev-prio-btn" data-stationid="${_esc(st.id)}"
+    style="font-size:11px;padding:3px 8px;margin-top:6px;border-radius:4px;cursor:pointer;
+           background:${aktiv ? "#27ae60" : "#f0f4f8"};color:${aktiv ? "#fff" : "#2980b9"};
+           border:1px solid ${aktiv ? "#27ae60" : "#2980b9"};font-weight:600">
+    🎨 ${aktiv ? "Skjul" : "Vis"} prioritetsområde</button>`;
+}
+
 function _fotoHTML(url) {
   const u = String(url || "").trim();
   return u ? `<div class="lev-popup-row"><img src="${_esc(u)}" class="lev-popup-vogn-img-full"
@@ -1816,6 +1975,14 @@ function _bindEnhedPopup(el) {
     if (b.dataset.handlerBound) return;
     b.dataset.handlerBound = "1";
     b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid));
+  });
+  el.querySelectorAll(".lev-prio-btn").forEach(b => {
+    if (b.dataset.handlerBound) return;
+    b.dataset.handlerBound = "1";
+    b.addEventListener("click", ev => {
+      ev.stopPropagation();
+      _prioToggle(b.dataset.stationid);
+    });
   });
   el.querySelectorAll(".lev-enhed-foto-btn").forEach(b => {
     if (b.dataset.handlerBound) return;
@@ -2149,6 +2316,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
         ${_linkHTML(st.link, st.linkTekst)}
+        ${_prioKnapHTML(st)}
         ${katGrupper ? `<hr class="lev-hr"><div class="lev-popup-section-hdr">Tilknyttede enheder</div>${katGrupper}` : ""}
       </div>`, { maxWidth: 320, className: "lev-leaflet-popup" });
       marker.on("popupopen", function() {
@@ -2236,6 +2404,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
         ${_linkHTML(st.link, st.linkTekst)}
+        ${_prioKnapHTML(st)}
         <hr class="lev-hr">${enhedRaekker}
       </div>`, { maxWidth: 340, className: "lev-leaflet-popup" });
 
@@ -2670,6 +2839,26 @@ function _enhedShowStationForm(station) {
           <input id="sf-linktekst" type="text" value="${_esc(station?.linkTekst || "")}" placeholder="fx Instruks for stationen">
         </label>
       </fieldset>
+      <fieldset class="lev-fs">
+        <legend>🎨 Prioritetsområder</legend>
+        <label>Kategori
+          <select id="pf-kat" style="padding:8px;border:1px solid #cdd5df;border-radius:6px;font-size:13px;width:100%;margin-top:4px"></select>
+        </label>
+        <div style="font-size:11px;color:#8a97a5;margin-top:6px;line-height:1.5">
+          Postnumre adskilt af komma eller mellemrum. Intervaller udfoldes:
+          <b>4700-4736</b> bliver til alle numre imellem.
+        </div>
+        <label style="margin-top:6px">🟢 1. prioritet
+          <textarea id="pf-p1" class="lev-textarea" rows="3" placeholder="fx 4700-4736, 4750"></textarea>
+        </label>
+        <label style="margin-top:6px">🟡 2. prioritet
+          <textarea id="pf-p2" class="lev-textarea" rows="2" placeholder="valgfri"></textarea>
+        </label>
+        <label style="margin-top:6px">🟣 3. prioritet
+          <textarea id="pf-p3" class="lev-textarea" rows="2" placeholder="valgfri"></textarea>
+        </label>
+        <div id="pf-info" style="font-size:11px;color:#8a97a5;min-height:14px;margin-top:4px"></div>
+      </fieldset>
       <div class="lev-form-footer">
         <button id="sf-gem" class="lev-btn-primary">💾 Gem station</button>
         ${station ? `<button id="sf-slet" class="lev-btn-danger">🗑️ Slet</button>` : ""}
@@ -2715,9 +2904,80 @@ function _enhedShowStationForm(station) {
       } catch(e) { adrListe.style.display = "none"; }
     }, 300);
   });
+  _prioFormBind(station);
+
   document.getElementById("efTilbage").addEventListener("click", _enhedShowListe);
   document.getElementById("sf-gem").addEventListener("click", () => _enhedGemStation(station?.id || null));
   document.getElementById("sf-slet")?.addEventListener("click", () => _enhedSlet(station.id));
+}
+
+// Prioritetsfelterne i stationsformularen. Hele sættet holdes i _prioFormData
+// mens du redigerer, så du kan skifte mellem kategorier uden at gemme imellem.
+let _prioFormData = null;
+let _prioFormKat  = null;
+
+function _prioFormBind(station) {
+  const vaelger = document.getElementById("pf-kat");
+  if (!vaelger) return;
+
+  // Dyb kopi, så annullering ikke ændrer det indlæste data
+  _prioFormData = { "1": {}, "2": {}, "3": {} };
+  ["1", "2", "3"].forEach(n => {
+    const kilde = station?.prioPnr?.[n] || {};
+    Object.keys(kilde).forEach(k => {
+      _prioFormData[n][k] = (kilde[k] || []).map(String);
+    });
+  });
+  _prioFormKat = null;
+
+  function optioner() {
+    return _prioKategorier().map(k => {
+      const antal = ["1", "2", "3"]
+        .reduce((s, n) => s + ((_prioFormData[n][k.id] || []).length), 0);
+      return `<option value="${_esc(k.id)}" ${k.id === _prioFormKat ? "selected" : ""}>`
+        + `${k.ikon} ${_esc(k.navn)}${antal ? " ✓ (" + antal + ")" : ""}</option>`;
+    }).join("");
+  }
+
+  function visKat(katId) {
+    _prioFormKat = katId;
+    ["1", "2", "3"].forEach(n => {
+      const felt = document.getElementById("pf-p" + n);
+      if (felt) felt.value = (_prioFormData[n][katId] || []).join(", ");
+    });
+    const info = document.getElementById("pf-info");
+    const kat  = EGNE_KATEGORIER.find(k => k.id === katId);
+    if (info && kat) info.textContent = "Redigerer områder for " + kat.navn + ".";
+  }
+
+  const foerste = _prioKategorier()[0];
+  if (!foerste) {
+    vaelger.innerHTML = `<option value="">Ingen kategorier kræver station</option>`;
+    return;
+  }
+  _prioFormKat = foerste.id;
+  vaelger.innerHTML = optioner();
+  visKat(foerste.id);
+
+  vaelger.addEventListener("change", () => {
+    _prioFormGem();          // gem den kategori vi forlader
+    const ny = vaelger.value;
+    vaelger.innerHTML = optioner();   // opdater fluebenene
+    vaelger.value = ny;
+    visKat(ny);
+  });
+}
+
+// Skriver de tre tekstfelter tilbage i _prioFormData for den viste kategori
+function _prioFormGem() {
+  if (!_prioFormData || !_prioFormKat) return;
+  ["1", "2", "3"].forEach(n => {
+    const felt = document.getElementById("pf-p" + n);
+    if (!felt) return;
+    const numre = _prioParseInput(felt.value);
+    if (numre.length) _prioFormData[n][_prioFormKat] = numre;
+    else              delete _prioFormData[n][_prioFormKat];
+  });
 }
 
 // ── Gem station ───────────────────────────────────────────────────────────────
@@ -2732,6 +2992,8 @@ async function _enhedGemStation(existingId) {
   const link      = document.getElementById("sf-link")?.value.trim() || "";
   const linkTekst = document.getElementById("sf-linktekst")?.value.trim() || "";
   const status  = document.getElementById("sf-status");
+  _prioFormGem();  // få den viste kategori med inden vi sender
+  const prioPnr = _prioFormData || undefined;
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Stationsnavn er påkrævet."; return; }
   const gemBtn = document.getElementById("sf-gem");
   gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
@@ -2740,7 +3002,7 @@ async function _enhedGemStation(existingId) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse,
-        kontakt, kontaktTilkald: tilkald, bemærkning: bemærk, link, linkTekst })
+        kontakt, kontaktTilkald: tilkald, bemærkning: bemærk, link, linkTekst, prioPnr })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
