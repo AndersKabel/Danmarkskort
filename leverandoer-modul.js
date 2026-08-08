@@ -348,6 +348,8 @@ function _levBuildControl() {
         <button class="lev-disp-rediger-btn" id="levRedigerLev">✏️ Rediger leverandører</button>
         <button class="lev-disp-rediger-btn" id="levRedigerEnheder">✏️ Rediger egne enheder</button>
       </div>
+      <div class="lev-disp-divider" id="levStatDivider" style="display:none"></div>
+      <div class="lev-disp-section" id="levStatBoks" style="display:none"></div>
     </div>
   `;
   map.getContainer().appendChild(wrap);
@@ -772,10 +774,87 @@ async function _levEnsureDisponering() {
  * localStorage. Andre brugere har intet token, og gem fejlede
  * derfor lydløst. Knappen er nu skjult i HTML og vises kun her.
  ***************************************************/
+// — BRUGSSTATISTIK —─────────────────
+// Kun admin. Workeren tæller logins pr. døgn (dansk midnat) i KV.
+let _levStatHentet = false;
+
+async function _levHentStat() {
+  const boks = document.getElementById("levStatBoks");
+  const del  = document.getElementById("levStatDivider");
+  if (!boks) return;
+
+  boks.style.display = "";
+  if (del) del.style.display = "";
+  boks.innerHTML = `<div style="font-size:11.5px;color:#8a97a5;padding:2px 0">⏳ Henter statistik…</div>`;
+
+  try {
+    const r = await _levFetchMedTimeout(`${LEV_SP_WORKER}/stats?dage=14`,
+      { credentials: "include" }, LEV_TIMEOUT_MS, "danmarkskort-sp/stats");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || "ukendt fejl");
+    _levStatVis(data);
+    _levStatHentet = true;
+  } catch (e) {
+    boks.innerHTML = `<div style="font-size:11.5px;color:#c0392b;padding:2px 0">`
+      + `⚠️ Statistik kunne ikke hentes</div>`;
+    console.warn("Statistik:", e);
+  }
+}
+
+function _levStatVis(data) {
+  const boks = document.getElementById("levStatBoks");
+  if (!boks) return;
+
+  const dage  = data.dage || [];
+  const idag  = data.idag || { logins: 0, roller: {} };
+  const total = dage.reduce((s, d) => s + (d.logins || 0), 0);
+  const top   = Math.max(1, ...dage.map(d => d.logins || 0));
+
+  const rolleTekst = Object.keys(idag.roller || {})
+    .map(r => `${r}: ${idag.roller[r]}`).join(" · ") || "ingen endnu";
+
+  // Ældst til venstre, så i dag står yderst til højre
+  const soejler = dage.slice().reverse().map(dg => {
+    const h = Math.round(((dg.logins || 0) / top) * 22);
+    const iDag = dg.dato === idag.dato;
+    return `<div title="${dg.dato}: ${dg.logins || 0} logins"
+      style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:24px">
+      <div style="height:${Math.max(h, 1)}px;border-radius:2px 2px 0 0;
+        background:${iDag ? "#27ae60" : "#9fb3c8"}"></div></div>`;
+  }).join("");
+
+  boks.innerHTML =
+      `<div style="font-size:11.5px;font-weight:700;color:#5a6a7a;margin-bottom:4px">📊 Brug i dag</div>`
+    + `<div style="display:flex;align-items:baseline;gap:6px">`
+    + `<span style="font-size:22px;font-weight:700;color:#27ae60">${idag.logins || 0}</span>`
+    + `<span style="font-size:11px;color:#8a97a5">logins</span></div>`
+    + `<div style="font-size:10.5px;color:#8a97a5;margin-bottom:6px">${_esc(rolleTekst)}</div>`
+    + `<div style="display:flex;gap:2px;align-items:flex-end">${soejler}</div>`
+    + `<div style="display:flex;justify-content:space-between;font-size:10px;color:#a8b4c0;margin-top:2px">`
+    + `<span>14 dage siden</span><span>i dag</span></div>`
+    + `<div style="font-size:10.5px;color:#8a97a5;margin-top:4px">`
+    + `${total} logins over 14 døgn</div>`
+    + `<div style="font-size:10px;color:#a8b4c0;margin-top:2px;line-height:1.4">`
+    + `Døgn fra midnat dansk tid. Tæller logins, ikke personer.</div>`;
+}
+
 function _levVisAdminKnapper(role) {
   try {
     const stjerne = document.getElementById("cpOpenBtn");
     if (stjerne) stjerne.style.display = (role === "admin") ? "" : "none";
+
+    // Statistik er admin-only. Hentes første gang panelet åbnes,
+    // så disponenter aldrig udløser kaldet.
+    const boks = document.getElementById("levStatBoks");
+    const del  = document.getElementById("levStatDivider");
+    if (role === "admin") {
+      if (!_levStatHentet) _levHentStat();
+      else { if (boks) boks.style.display = ""; if (del) del.style.display = ""; }
+    } else {
+      if (boks) boks.style.display = "none";
+      if (del)  del.style.display  = "none";
+    }
   } catch (e) {
     console.warn("_levVisAdminKnapper:", e);
   }
@@ -1602,7 +1681,7 @@ function _levAppendAdrRow(container, a = {}) {
       </div>
       <div class="a-kategorier" style="display:flex;flex-direction:column;gap:3px">
         ${LEV_KATEGORIER.map(k => `
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+          <label class="lev-kat-check-label" style="font-size:12px">
             <input type="checkbox" class="a-kat-check" value="${k.id}"
               ${(a.kategorier||[]).includes(k.id) ? "checked" : ""}>
             ${k.ikon} ${k.navn}
