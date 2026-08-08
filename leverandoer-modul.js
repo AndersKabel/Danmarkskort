@@ -157,7 +157,7 @@ function _prioLegendVis(st, kat, niveauer) {
   const raekker = niveauer.map(x =>
     `<div><span style="display:inline-block;width:11px;height:11px;border-radius:2px;`
     + `background:${PRIO_FARVER[x.niveau]};margin-right:6px;vertical-align:middle"></span>`
-    + `${PRIO_NAVNE[x.niveau]} · ${x.numre.length} postnumre</div>`).join("");
+    + `${PRIO_NAVNE[x.niveau]}</div>`).join("");
   boks.innerHTML =
       `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">`
     + `<b>${kat.ikon} ${_esc(kat.navn)}</b>`
