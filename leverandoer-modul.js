@@ -2057,6 +2057,57 @@ function _prioKnapHTML(st) {
     🎨 ${aktiv ? "Skjul" : "Vis"} prioritetsområde</button>`;
 }
 
+// BucketPlan/SPX har ingen deep link — feltet er en opslags-dropdown og
+// URL'en ændrer sig ikke ved søgning. Derfor kopieres mandskabsnummeret
+// til udklipsholderen, og BucketPlan åbnes, så der kun mangler Ctrl+V.
+const SPX_URL = "https://planning.falckcorp.com/bucketplan/";
+
+// Mandskabsnummer = de første fire cifre i navnet. Vogne har vognnummer
+// sat og er ikke personer, så de udelades. Stationer kaldes aldrig herind.
+function _spxNummer(e) {
+  if (!e || e.type === "station" || e.vognnummer) return null;
+  const m = String(e.navn || "").match(/^(\d{4})\b/);
+  return m ? m[1] : null;
+}
+
+function _spxKnapHTML(e) {
+  const nr = _spxNummer(e);
+  if (!nr) return "";
+  return `<button class="lev-spx-btn" data-mnr="${nr}"
+    title="Kopiér ${nr} og åbn BucketPlan"
+    style="font-size:11px;padding:2px 7px;border-radius:4px;cursor:pointer;
+           background:#f0f4f8;color:#2980b9;border:1px solid #2980b9;font-weight:600;
+           white-space:nowrap">📋 SPX</button>`;
+}
+
+async function _spxAaben(nr, btn) {
+  let kopieret = false;
+  try {
+    await navigator.clipboard.writeText(nr);
+    kopieret = true;
+  } catch (err) {
+    // Fallback hvis Clipboard API afvises af browser eller politik
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = nr;
+      ta.style.cssText = "position:fixed;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      kopieret = document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch (e2) { /* opgiver — åbner alligevel */ }
+  }
+
+  if (btn) {
+    const org = btn.innerHTML;
+    btn.innerHTML = kopieret ? "✓ " + nr : "⚠️ " + nr;
+    setTimeout(() => { btn.innerHTML = org; }, 2000);
+  }
+
+  // Fast vinduesnavn: samme fane genbruges i stedet for at samle dubletter
+  window.open(SPX_URL, "bucketplan");
+}
+
 function _fotoHTML(url) {
   const u = String(url || "").trim();
   return u ? `<div class="lev-popup-row"><img src="${_esc(u)}" class="lev-popup-vogn-img-full"
@@ -2095,7 +2146,7 @@ function _enhedRaekkeHTML(e, hoejre) {
         ${_esc(e.navn)}${e.vognnummer ? ` <span style="color:#888">(${_esc(e.vognnummer)})</span>` : ""}
         ${uad ? _uadBadge(e) : ""}
       </span>
-      <div style="display:flex;gap:4px;align-items:center">${_fotoKnapHTML(e.billede)}${hoejre || ""}</div>
+      <div style="display:flex;gap:4px;align-items:center">${_spxKnapHTML(e)}${_fotoKnapHTML(e.billede)}${hoejre || ""}</div>
     </div>
     ${detaljer ? `<div style="margin-left:2px">${detaljer}</div>` : ""}
   </div>`;
@@ -2114,6 +2165,15 @@ function _bindEnhedPopup(el) {
     b.dataset.handlerBound = "1";
     b.addEventListener("click", () => _enhedUADDialog(b.dataset.enhedid));
   });
+  el.querySelectorAll(".lev-spx-btn").forEach(b => {
+    if (b.dataset.handlerBound) return;
+    b.dataset.handlerBound = "1";
+    b.addEventListener("click", ev => {
+      ev.stopPropagation();
+      _spxAaben(b.dataset.mnr, b);
+    });
+  });
+
   el.querySelectorAll(".lev-prio-btn").forEach(b => {
     if (b.dataset.handlerBound) return;
     b.dataset.handlerBound = "1";
@@ -2392,7 +2452,7 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
     ${_linkHTML(enhed.link, enhed.linkTekst)}
     ${_fotoHTML(enhed.billede)}
     ${_stationBlokHTML(stEnhed)}
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${flytBtn}${uadBtn}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${_spxKnapHTML(enhed)}${flytBtn}${uadBtn}</div>
   </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
 
   marker.on("popupopen", function() {
@@ -2587,6 +2647,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📟", "Vagt/Tilkald", e.kontaktTilkald)}
         ${_bemaerkHTML(e.bemærkning)}
         ${_linkHTML(e.link, e.linkTekst)}
+        ${_spxKnapHTML(e) ? `<div style="margin-top:6px">${_spxKnapHTML(e)}</div>` : ""}
         ${_fotoHTML(e.billede)}
         ${_stationBlokHTML(stEnhedUad)}
         <div style="margin-top:6px">${uadBtn}</div>
