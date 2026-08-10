@@ -24,10 +24,16 @@
 .lev-leaflet-popup .leaflet-popup-content { margin: 0; }
 .lev-popup { font-size: 13px; font-family: Arial, sans-serif; min-width: 210px; }
 .lev-popup-top {
-  padding: 6px 8px; margin-bottom: 6px;
+  /* Ekstra luft i højre side: Leaflets luk-knap ligger oven på hjørnet,
+     og lange navne løb ellers ind under den. */
+  padding: 6px 26px 6px 8px; margin-bottom: 6px;
   background: #f8f9fa; border-radius: 4px;
 }
-.lev-popup-top b { display: block; font-size: 14px; color: #1a1a2e; }
+.lev-popup-top b {
+  display: block; font-size: 14px; color: #1a1a2e;
+  /* Meget lange navne uden mellemrum skal brydes frem for at flyde ud */
+  overflow-wrap: break-word; word-break: break-word;
+}
 .lev-popup-sub { color: #666; font-size: 12px; }
 .lev-popup-row { margin: 3px 0; font-size: 13px; color: #333; }
 .lev-popup-row a { color: #2980b9; text-decoration: none; }
