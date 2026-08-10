@@ -313,6 +313,15 @@ async function initLeverandoerModul() {
   // Tændes der et kategorilag mere, er visningen ikke længere entydig —
   // fladerne hører til én kategori. Ryd med besked frem for at lade dem
   // stå og se ud som om de gælder begge lag.
+  // Tændes et kategorilag, skal nærmeste-markøren beregnes på ny. Uden
+  // dette virkede den gule markering kun når adressen blev valgt EFTER laget.
+  // e.layer er selve laggruppen her — de enkelte markører som
+  // _enhedRenderLag lægger i gruppen matcher ikke, så der er ingen løkke.
+  map.on("layeradd", function(e) {
+    const erKatLag = EGNE_KATEGORIER.some(k => _enhedKatLag[k.id] === e.layer);
+    if (erKatLag) _enhedRenderDebounced(150);
+  });
+
   map.on("layeradd", function(e) {
     if (!_prioAktivKat) return;
     const ny = EGNE_KATEGORIER.find(k =>
