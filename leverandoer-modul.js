@@ -2408,17 +2408,21 @@ async function _enhedUADDialog(enhedId) {
 function _renderEnhedMarker(enhed, kat, maaFlytte) {
   if (enhed.lat == null || enhed.lon == null) return;
   const uad = _erUAD(enhed);
-  const bgFarve = uad ? "#e74c3c" : "#2471a3";
+  const naermest = _naermesteIds.has(enhed.id);
+  const bgFarve = uad ? "#e74c3c" : (naermest ? "#f1c40f" : "#2471a3");
   const markerPos = (typeof currentMarker !== "undefined" && currentMarker?.getLatLng)
     ? currentMarker.getLatLng() : null;
   const afstand = markerPos ? map.distance(markerPos, L.latLng(enhed.lat, enhed.lon)) / 1000 : null;
   const afstandTekst = afstand != null
     ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${afstand.toFixed(1)} km fra søgt adresse</div>` : "";
 
+  // Nærmeste får gul baggrund og en kraftigere kant, så den kan ses
+  // også blandt mange markører i samme område.
   const icon = L.divIcon({
     className: "",
-    html: `<div class="lev-marker-icon" style="background:${bgFarve};font-size:14px;width:28px;height:28px;line-height:28px">${kat.ikon}</div>`,
-    iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
+    html: `<div class="lev-marker-icon" style="background:${bgFarve};font-size:14px;width:28px;height:28px;line-height:28px${naermest && !uad ? ";box-shadow:0 0 0 3px #b7950b, 0 2px 6px rgba(0,0,0,0.4)" : ""}">${kat.ikon}</div>`,
+    iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16],
+    zIndexOffset: naermest ? 1000 : 0
   });
 
   const kats = enhed.kategorier?.length ? enhed.kategorier : (enhed.kategori ? [enhed.kategori] : []);
@@ -2444,6 +2448,7 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
       <b>${_esc(enhed.navn)}</b>${uad ? _uadBadge(enhed) : ""}
       <span class="lev-popup-sub">${kat.ikon} ${kat.navn}</span>
     </div>
+    ${naermest && !uad ? `<div class="lev-popup-row" style="color:#b7950b;font-weight:700">⭐ Nærmeste ${_esc(kat.navn)}</div>` : ""}
     ${afstandTekst}
     ${enhed.vognnummer ? `<div class="lev-popup-row">🚗 ${_esc(enhed.vognnummer)}</div>` : ""}
     ${_kontaktHTML("📞", "Bil", enhed.kontakt)}
@@ -2463,6 +2468,34 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
 }
 
 // ── HOVED RENDER-FUNKTION ────────────────────────────────────────
+// Nærmeste redder pr. kategori, markeret gult når en adresse er valgt.
+// Kun kategorier uden station (skytter, dyreredning, drift fra hjem) —
+// biler under en station har allerede stationsvisningen.
+let _naermesteIds = new Set();
+
+function _beregnNaermeste(alleEnheder, markerPos) {
+  const ud = new Set();
+  if (!markerPos) return ud;
+
+  EGNE_KATEGORIER.forEach(kat => {
+    if (kat.kraeverStation === true) return;
+    if (!_enhedKatLag[kat.id] || !map.hasLayer(_enhedKatLag[kat.id])) return;
+
+    let bedst = null, bedstAfstand = Infinity;
+    alleEnheder.forEach(e => {
+      if (e.type === "station" || e.lat == null || e.lon == null) return;
+      // UAD springes over — en enhed der ikke kan køre er ikke nærmeste ressource
+      if (_erUAD(e)) return;
+      const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+      if (!kats.includes(kat.id)) return;
+      const afstand = map.distance(markerPos, L.latLng(e.lat, e.lon));
+      if (afstand < bedstAfstand) { bedstAfstand = afstand; bedst = e; }
+    });
+    if (bedst) ud.add(bedst.id);
+  });
+  return ud;
+}
+
 function _enhedRenderLag() {
   EGNE_KATEGORIER.forEach(k => _enhedKatLag[k.id]?.clearLayers());
   if (typeof uadLayer !== "undefined") uadLayer.clearLayers();
@@ -2471,6 +2504,7 @@ function _enhedRenderLag() {
   const markerPos = (typeof currentMarker !== "undefined" && currentMarker?.getLatLng)
     ? currentMarker.getLatLng() : null;
   const maaFlytte = _levAktivRolle === "admin" || _levAktivRolle === "drift";
+  _naermesteIds = _beregnNaermeste(alleEnheder, markerPos);
 
   // ── STATIONER LAG ─────────────────────────────────────────────
   if (typeof stationerLayer !== "undefined") {
