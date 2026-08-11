@@ -101,8 +101,14 @@ let _prioAktivKat     = null; // kategori-id visningen hører til
 let _prioGeoCache     = {};   // postnummer -> GeoJSON-feature
 
 // Kategorier der kan tildeles områder: kun dem der kører fra en station.
-function _prioKategorier() {
-  return EGNE_KATEGORIER.filter(k => k.kraeverStation === true);
+// Uden argument (stationsformular): alle kategorier der kører fra station.
+// Med en enhed: kun dens egne kategorier, så man ikke skal forbi mors og
+// TMA for at finde døde dyr.
+function _prioKategorier(enhed) {
+  if (!enhed) return EGNE_KATEGORIER.filter(k => k.kraeverStation === true);
+  const kats = enhed.kategorier?.length ? enhed.kategorier
+    : (enhed.kategori ? [enhed.kategori] : []);
+  return EGNE_KATEGORIER.filter(k => kats.includes(k.id));
 }
 
 // Kategorilag der er tændt lige nu. stationerLayer tæller ikke med — den er
@@ -2049,6 +2055,34 @@ function _linkHTML(url, tekst) {
   return `<div class="lev-popup-row">🔗 <a href="${_esc(u)}" target="_blank" rel="noopener noreferrer">${_esc(t)}</a></div>`;
 }
 
+// — DØDE DYR —────────────────────
+// Falck-stationer markeres med fryser/kadaverboks. Eksterne steder (ADA,
+// private modtagere) oprettes som enheder i kategorien "doede_dyr".
+const DOEDE_DYR_KAT = "doede_dyr";
+
+function _harDyrData(e) {
+  return !!(e && (e.dyrFryser || e.dyrKadaver || String(e.dyrTekst || "").trim()));
+}
+
+// Kompakte mærkater — vises også når stationen åbnes i anden sammenhæng
+function _dyrMaerkatHTML(e) {
+  if (!e?.dyrFryser && !e?.dyrKadaver) return "";
+  const dele = [];
+  if (e.dyrFryser)  dele.push("🧊 Fryser");
+  if (e.dyrKadaver) dele.push("📦 Kadaverboks");
+  return `<div class="lev-popup-row" style="color:#6c3483;font-weight:600">${dele.join(" · ")}</div>`;
+}
+
+// Fuld visning — kun i døde dyr-laget, ikke i den almindelige stationspopup
+function _dyrFuldHTML(e) {
+  if (!_harDyrData(e)) return "";
+  const tekst = String(e.dyrTekst || "").trim();
+  return _dyrMaerkatHTML(e)
+    + (tekst ? `<div class="lev-popup-row" style="white-space:pre-wrap">${_esc(tekst)}</div>` : "")
+    + (e.opdateret ? `<div class="lev-popup-row" style="font-size:11px;color:#8a97a5">`
+        + `Opdateret ${_esc(String(e.opdateret).slice(0, 10))}</div>` : "");
+}
+
 // Knap i stationspopup. Vises kun hvis stationen faktisk har områder tastet
 // ind — på en vilkårlig kategori, da vi ikke kender det aktive lag her.
 function _prioKnapHTML(st) {
@@ -2136,7 +2170,8 @@ function _stationBlokHTML(st) {
   const rk = _kontaktHTML("📞", "Omstilling", st.kontakt)
            + _kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)
            + _bemaerkHTML(st.bemærkning)
-           + _linkHTML(st.link, st.linkTekst);
+           + _linkHTML(st.link, st.linkTekst)
+           + _dyrMaerkatHTML(st);
   return `<hr class="lev-hr">
     <div class="lev-popup-row" style="font-weight:600">🏠 ${_esc(st.navn)}</div>
     ${rk || `<div class="lev-popup-row" style="color:#8a97a5;font-size:11px">Ingen kontaktoplysninger på stationen</div>`}`;
@@ -2464,8 +2499,10 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
     ${_kontaktHTML("📟", "Vagt/Tilkald", enhed.kontaktTilkald)}
     ${_bemaerkHTML(enhed.bemærkning)}
     ${_linkHTML(enhed.link, enhed.linkTekst)}
+    ${_dyrFuldHTML(enhed)}
     ${_fotoHTML(enhed.billede)}
     ${_stationBlokHTML(stEnhed)}
+    ${_prioKnapHTML(enhed)}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${_spxKnapHTML(enhed)}${flytBtn}${uadBtn}</div>
   </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
 
@@ -2557,6 +2594,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
         ${_linkHTML(st.link, st.linkTekst)}
+        ${_dyrMaerkatHTML(st)}
         ${_prioKnapHTML(st)}
         ${katGrupper ? `<hr class="lev-hr"><div class="lev-popup-section-hdr">Tilknyttede enheder</div>${katGrupper}` : ""}
       </div>`, { maxWidth: 320, className: "lev-leaflet-popup" });
@@ -2564,6 +2602,44 @@ function _enhedRenderLag() {
         _bindEnhedPopup(this.getPopup().getElement());
       });
       stationerLayer.addLayer(marker);
+    });
+  }
+
+  // ── DØDE DYR — stationer med fryser/kadaverboks ──────
+  // Stationer hører ikke til kategorien, men skal vises i laget ved siden af
+  // de eksterne modtagesteder. De får deres egen markør med fuld tekst;
+  // den almindelige stationspopup viser kun mærkaterne.
+  const dyrKat = EGNE_KATEGORIER.find(k => k.id === DOEDE_DYR_KAT);
+  if (dyrKat && _enhedKatLag[DOEDE_DYR_KAT]) {
+    alleEnheder.forEach(st => {
+      if (st.type !== "station") return;
+      if (!st.dyrFryser && !st.dyrKadaver) return;
+      if (st.lat == null || st.lon == null) return;
+
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="lev-marker-icon" style="background:#6c3483;font-size:14px;width:28px;height:28px;line-height:28px">${dyrKat.ikon}</div>`,
+        iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
+      });
+
+      const marker = L.marker([st.lat, st.lon], { icon });
+      marker.bindPopup(`<div class="lev-popup">
+        <div class="lev-popup-top" style="border-left:4px solid #6c3483">
+          <b>${_esc(st.navn)}</b>
+          <span class="lev-popup-sub">${dyrKat.ikon} ${_esc(dyrKat.navn)}</span>
+        </div>
+        ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
+        ${_dyrFuldHTML(st)}
+        ${_linkHTML(st.link, st.linkTekst)}
+        ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
+        ${_prioKnapHTML(st)}
+      </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
+
+      marker.on("popupopen", function() {
+        _bindEnhedPopup(this.getPopup().getElement());
+      });
+
+      _enhedKatLag[DOEDE_DYR_KAT].addLayer(marker);
     });
   }
 
@@ -2645,6 +2721,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
         ${_linkHTML(st.link, st.linkTekst)}
+        ${_dyrMaerkatHTML(st)}
         ${_prioKnapHTML(st)}
         <hr class="lev-hr">${enhedRaekker}
       </div>`, { maxWidth: 340, className: "lev-leaflet-popup" });
@@ -3082,6 +3159,21 @@ function _enhedShowStationForm(station) {
         </label>
       </fieldset>
       <fieldset class="lev-fs">
+        <legend>☠️ Døde dyr</legend>
+        <label class="lev-kat-check-label" style="font-size:12px">
+          <input id="sf-fryser" type="checkbox" ${station?.dyrFryser ? "checked" : ""}>
+          🧊 Fryser (råvildt og mindre dyr)
+        </label>
+        <label class="lev-kat-check-label" style="font-size:12px;margin-top:4px">
+          <input id="sf-kadaver" type="checkbox" ${station?.dyrKadaver ? "checked" : ""}>
+          📦 Kadaverboks (større dyr)
+        </label>
+        <label style="margin-top:6px">Vejledende tekst
+          <textarea id="sf-dyrtekst" class="lev-textarea" rows="3"
+            placeholder="fx portkode, åbningstider, hvem der kontaktes">${_esc(station?.dyrTekst || "")}</textarea>
+        </label>
+      </fieldset>
+      <fieldset class="lev-fs">
         <legend>🎨 Prioritetsområder</legend>
         <label>Kategori
           <select id="pf-kat" style="padding:8px;border:1px solid #cdd5df;border-radius:6px;font-size:13px;width:100%;margin-top:4px"></select>
@@ -3158,9 +3250,10 @@ function _enhedShowStationForm(station) {
 let _prioFormData = null;
 let _prioFormKat  = null;
 
-function _prioFormBind(station) {
+function _prioFormBind(station, erEnhed) {
   const vaelger = document.getElementById("pf-kat");
   if (!vaelger) return;
+  const katListe = () => _prioKategorier(erEnhed ? station : null);
 
   // Dyb kopi, så annullering ikke ændrer det indlæste data
   _prioFormData = { "1": {}, "2": {}, "3": {} };
@@ -3173,7 +3266,7 @@ function _prioFormBind(station) {
   _prioFormKat = null;
 
   function optioner() {
-    return _prioKategorier().map(k => {
+    return katListe().map(k => {
       const antal = ["1", "2", "3"]
         .reduce((s, n) => s + ((_prioFormData[n][k.id] || []).length), 0);
       return `<option value="${_esc(k.id)}" ${k.id === _prioFormKat ? "selected" : ""}>`
@@ -3192,9 +3285,9 @@ function _prioFormBind(station) {
     if (info && kat) info.textContent = "Redigerer områder for " + kat.navn + ".";
   }
 
-  const foerste = _prioKategorier()[0];
+  const foerste = katListe()[0];
   if (!foerste) {
-    vaelger.innerHTML = `<option value="">Ingen kategorier kræver station</option>`;
+    vaelger.innerHTML = `<option value="">Ingen kategorier tilgængelige</option>`;
     return;
   }
   _prioFormKat = foerste.id;
@@ -3233,6 +3326,9 @@ async function _enhedGemStation(existingId) {
   const bemærk  = document.getElementById("sf-bemaerk").value.trim();
   const link      = document.getElementById("sf-link")?.value.trim() || "";
   const linkTekst = document.getElementById("sf-linktekst")?.value.trim() || "";
+  const dyrFryser  = !!document.getElementById("sf-fryser")?.checked;
+  const dyrKadaver = !!document.getElementById("sf-kadaver")?.checked;
+  const dyrTekst   = document.getElementById("sf-dyrtekst")?.value.trim() || "";
   const status  = document.getElementById("sf-status");
   _prioFormGem();  // få den viste kategori med inden vi sender
   const prioPnr = _prioFormData || undefined;
@@ -3244,7 +3340,8 @@ async function _enhedGemStation(existingId) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse,
-        kontakt, kontaktTilkald: tilkald, bemærkning: bemærk, link, linkTekst, prioPnr })
+        kontakt, kontaktTilkald: tilkald, bemærkning: bemærk, link, linkTekst, prioPnr,
+        dyrFryser, dyrKadaver, dyrTekst })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
@@ -3352,6 +3449,41 @@ function _enhedShowForm(enhed) {
         <label style="margin-top:6px">Linktekst
           <input id="ef-linktekst" type="text" value="${_esc(enhed?.linkTekst || "")}" placeholder="fx Vejledning ved kotransport">
         </label>
+      </fieldset>
+      <fieldset class="lev-fs">
+        <legend>☠️ Døde dyr</legend>
+        <label class="lev-kat-check-label" style="font-size:12px">
+          <input id="ef-fryser" type="checkbox" ${enhed?.dyrFryser ? "checked" : ""}>
+          🧊 Fryser (råvildt og mindre dyr)
+        </label>
+        <label class="lev-kat-check-label" style="font-size:12px;margin-top:4px">
+          <input id="ef-kadaver" type="checkbox" ${enhed?.dyrKadaver ? "checked" : ""}>
+          📦 Kadaverboks (større dyr)
+        </label>
+        <label style="margin-top:6px">Vejledende tekst
+          <textarea id="ef-dyrtekst" class="lev-textarea" rows="3"
+            placeholder="fx portkode, åbningstider, hvem der kontaktes">${_esc(enhed?.dyrTekst || "")}</textarea>
+        </label>
+      </fieldset>
+      <fieldset class="lev-fs">
+        <legend>🎨 Prioritetsområder</legend>
+        <label>Kategori
+          <select id="pf-kat" style="padding:8px;border:1px solid #cdd5df;border-radius:6px;font-size:13px;width:100%;margin-top:4px"></select>
+        </label>
+        <div style="font-size:11px;color:#8a97a5;margin-top:6px;line-height:1.5">
+          Postnumre adskilt af komma eller mellemrum. Intervaller udfoldes:
+          <b>4700-4736</b> bliver til alle numre imellem.
+        </div>
+        <label style="margin-top:6px">🟢 1. prioritet
+          <textarea id="pf-p1" class="lev-textarea" rows="3" placeholder="fx 4700-4736, 4750"></textarea>
+        </label>
+        <label style="margin-top:6px">🟡 2. prioritet
+          <textarea id="pf-p2" class="lev-textarea" rows="2" placeholder="valgfri"></textarea>
+        </label>
+        <label style="margin-top:6px">🟣 3. prioritet
+          <textarea id="pf-p3" class="lev-textarea" rows="2" placeholder="valgfri"></textarea>
+        </label>
+        <div id="pf-info" style="font-size:11px;color:#8a97a5;min-height:14px;margin-top:4px"></div>
       </fieldset>
       <fieldset class="lev-fs">
         <legend>📷 Foto</legend>
@@ -3524,6 +3656,8 @@ function _enhedShowForm(enhed) {
   });
 
   document.getElementById("efTilbage").addEventListener("click", _enhedShowListe);
+  _prioFormBind(enhed, true);
+
   document.getElementById("ef-gem").addEventListener("click", () => _enhedGem(enhed?.id || null));
   document.getElementById("ef-slet")?.addEventListener("click", () => _enhedSlet(enhed.id));
 }
@@ -3543,6 +3677,11 @@ async function _enhedGem(existingId) {
   const bemærk     = document.getElementById("ef-bemaerk").value.trim();
   const link       = document.getElementById("ef-link")?.value.trim() || "";
   const linkTekst  = document.getElementById("ef-linktekst")?.value.trim() || "";
+  const dyrFryser  = !!document.getElementById("ef-fryser")?.checked;
+  const dyrKadaver = !!document.getElementById("ef-kadaver")?.checked;
+  const dyrTekst   = document.getElementById("ef-dyrtekst")?.value.trim() || "";
+  _prioFormGem();
+  const prioPnr    = _prioFormData || undefined;
   const status     = document.getElementById("ef-status");
 
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Navn er påkrævet."; return; }
@@ -3577,7 +3716,8 @@ async function _enhedGem(existingId) {
         kontaktTilkald: tilkald,
         billede,
         bemærkning: bemærk,
-        link, linkTekst
+        link, linkTekst,
+        dyrFryser, dyrKadaver, dyrTekst, prioPnr
       })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
@@ -3739,6 +3879,7 @@ async function _katGem(existingId) {
     if (!r.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
     await _katLoad(); // Opdater EGNE_KATEGORIER
+    _levBuildEnhedRows(); // Ny kategori skal med i lagvælgeren med det samme
     setTimeout(_katShowListe, 800);
   } catch(e) {
     status.style.color = "#c0392b"; status.textContent = "Fejl: " + e.message;
