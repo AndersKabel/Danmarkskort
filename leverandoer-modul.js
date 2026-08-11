@@ -282,6 +282,18 @@ async function initLeverandoerModul() {
   _levBuildControl();
   _levBuildUI();
 
+  // Hent kategorier fra SharePoint ved opstart. Uden dette bygges
+  // lagvælgeren fra den hårdkodede fallback-liste, og kategorier oprettet
+  // senere dukker først op når admin-panelet åbnes.
+  //
+  // Bevidst UDEN await: /kategorier kræver session, og et hængende kald
+  // ville ellers forsinke hooksene nedenfor med hele timeout-perioden.
+  // Uden login giver kaldet 401, _katLoad beholder fallback, og kortet
+  // virker som før.
+  _katLoad()
+    .then(() => _levBuildEnhedRows())
+    .catch(e => console.warn("Kategorier ved opstart:", e));
+
   // Hook ind i placeMarkerAndZoom så afstande opdateres når ny adresse søges
   if (typeof placeMarkerAndZoom === "function") {
     const _orig = window.placeMarkerAndZoom;
