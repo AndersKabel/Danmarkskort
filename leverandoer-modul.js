@@ -2067,21 +2067,71 @@ function _linkHTML(url, tekst) {
   return `<div class="lev-popup-row">🔗 <a href="${_esc(u)}" target="_blank" rel="noopener noreferrer">${_esc(t)}</a></div>`;
 }
 
+// Flere links pr. enhed. Falder tilbage til det gamle enkeltfelt, så
+// data der endnu ikke er gemt om, stadig vises.
+function _linksHTML(e) {
+  const liste = Array.isArray(e?.links) && e.links.length
+    ? e.links
+    : (e?.link ? [{ url: e.link, tekst: e.linkTekst }] : []);
+  return liste.map(l => _linkHTML(l.url, l.tekst)).join("");
+}
+
+// Række i formularen. Følger samme mønster som telefonrækkerne.
+function _linkAppendRow(container, l = {}) {
+  const div = document.createElement("div");
+  div.className = "lev-link-row";
+  div.style.cssText = "display:flex;gap:4px;align-items:center;margin-bottom:4px";
+  div.innerHTML = `
+    <input type="text" class="l-url" value="${_esc(l.url || "")}" placeholder="https://..."
+      style="flex:2;padding:6px;border:1px solid #cdd5df;border-radius:4px;font-size:12px">
+    <input type="text" class="l-tekst" value="${_esc(l.tekst || "")}" placeholder="Linktekst"
+      style="flex:1;padding:6px;border:1px solid #cdd5df;border-radius:4px;font-size:12px">
+    <button type="button" class="lev-slet-row-btn" title="Fjern">✕</button>`;
+  container.appendChild(div);
+  div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
+}
+
+// Læser rækkerne. Tomme rækker og alt uden http(s) frasorteres.
+function _linkLaesRows(containerId) {
+  const c = document.getElementById(containerId);
+  if (!c) return [];
+  return Array.from(c.querySelectorAll(".lev-link-row")).map(r => ({
+    url:   r.querySelector(".l-url")?.value.trim()   || "",
+    tekst: r.querySelector(".l-tekst")?.value.trim() || ""
+  })).filter(l => /^https?:\/\//i.test(l.url));
+}
+
+// Bygger rækkerne og knytter "tilføj"-knappen
+function _linkBindRows(praefiks, obj) {
+  const c = document.getElementById(praefiks + "-links");
+  if (!c) return;
+  c.innerHTML = "";
+  const liste = Array.isArray(obj?.links) && obj.links.length
+    ? obj.links
+    : (obj?.link ? [{ url: obj.link, tekst: obj.linkTekst }] : []);
+  liste.forEach(l => _linkAppendRow(c, l));
+  if (!liste.length) _linkAppendRow(c, {});
+  const knap = document.getElementById(praefiks + "-link-add");
+  if (knap) knap.addEventListener("click", () => _linkAppendRow(c, {}));
+}
+
 // — DØDE DYR —────────────────────
 // Falck-stationer markeres med fryser/kadaverboks. Eksterne steder (ADA,
 // private modtagere) oprettes som enheder i kategorien "doede_dyr".
 const DOEDE_DYR_KAT = "doede_dyr";
 
 function _harDyrData(e) {
-  return !!(e && (e.dyrFryser || e.dyrKadaver || String(e.dyrTekst || "").trim()));
+  return !!(e && (e.dyrFryser || e.dyrKadaver || e.dyrEkstern
+    || String(e.dyrTekst || "").trim()));
 }
 
 // Kompakte mærkater — vises også når stationen åbnes i anden sammenhæng
 function _dyrMaerkatHTML(e) {
-  if (!e?.dyrFryser && !e?.dyrKadaver) return "";
+  if (!e?.dyrFryser && !e?.dyrKadaver && !e?.dyrEkstern) return "";
   const dele = [];
   if (e.dyrFryser)  dele.push("🧊 Fryser");
   if (e.dyrKadaver) dele.push("📦 Kadaverboks");
+  if (e.dyrEkstern) dele.push("📍 Ekstern modtager");
   return `<div class="lev-popup-row" style="color:#6c3483;font-weight:600">${dele.join(" · ")}</div>`;
 }
 
@@ -2182,7 +2232,7 @@ function _stationBlokHTML(st) {
   const rk = _kontaktHTML("📞", "Omstilling", st.kontakt)
            + _kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)
            + _bemaerkHTML(st.bemærkning)
-           + _linkHTML(st.link, st.linkTekst)
+           + _linksHTML(st)
            + _dyrMaerkatHTML(st);
   return `<hr class="lev-hr">
     <div class="lev-popup-row" style="font-weight:600">🏠 ${_esc(st.navn)}</div>
@@ -2195,7 +2245,7 @@ function _enhedRaekkeHTML(e, hoejre) {
   const detaljer = _kontaktHTML("📞", "Bil", e.kontakt)
                  + _kontaktHTML("📟", "Vagt/Tilkald", e.kontaktTilkald)
                  + _bemaerkHTML(e.bemærkning)
-                 + _linkHTML(e.link, e.linkTekst);
+                 + _linksHTML(e);
   return `<div style="padding:4px 6px;border-bottom:1px solid #f0f0f0;${uad ? "background:#fff0f0;border-radius:4px;" : ""}">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
       <span style="font-size:12px;color:${uad ? "#e74c3c" : "inherit"}">
@@ -2510,7 +2560,7 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
     ${_kontaktHTML("📞", "Bil", enhed.kontakt)}
     ${_kontaktHTML("📟", "Vagt/Tilkald", enhed.kontaktTilkald)}
     ${_bemaerkHTML(enhed.bemærkning)}
-    ${_linkHTML(enhed.link, enhed.linkTekst)}
+    ${_linksHTML(enhed)}
     ${_dyrFuldHTML(enhed)}
     ${_fotoHTML(enhed.billede)}
     ${_stationBlokHTML(stEnhed)}
@@ -2605,7 +2655,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📞", "Omstilling", st.kontakt)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
-        ${_linkHTML(st.link, st.linkTekst)}
+        ${_linksHTML(st)}
         ${_dyrMaerkatHTML(st)}
         ${_prioKnapHTML(st)}
         ${katGrupper ? `<hr class="lev-hr"><div class="lev-popup-section-hdr">Tilknyttede enheder</div>${katGrupper}` : ""}
@@ -2625,7 +2675,7 @@ function _enhedRenderLag() {
   if (dyrKat && _enhedKatLag[DOEDE_DYR_KAT]) {
     alleEnheder.forEach(st => {
       if (st.type !== "station") return;
-      if (!st.dyrFryser && !st.dyrKadaver) return;
+      if (!st.dyrFryser && !st.dyrKadaver && !st.dyrEkstern) return;
       if (st.lat == null || st.lon == null) return;
 
       const icon = L.divIcon({
@@ -2642,7 +2692,7 @@ function _enhedRenderLag() {
         </div>
         ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
         ${_dyrFuldHTML(st)}
-        ${_linkHTML(st.link, st.linkTekst)}
+        ${_linksHTML(st)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_prioKnapHTML(st)}
       </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
@@ -2732,7 +2782,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📞", "Omstilling", st.kontakt)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
-        ${_linkHTML(st.link, st.linkTekst)}
+        ${_linksHTML(st)}
         ${_dyrMaerkatHTML(st)}
         ${_prioKnapHTML(st)}
         <hr class="lev-hr">${enhedRaekker}
@@ -2778,7 +2828,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📞", "Bil", e.kontakt)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", e.kontaktTilkald)}
         ${_bemaerkHTML(e.bemærkning)}
-        ${_linkHTML(e.link, e.linkTekst)}
+        ${_linksHTML(e)}
         ${_spxKnapHTML(e) ? `<div style="margin-top:6px">${_spxKnapHTML(e)}</div>` : ""}
         ${_fotoHTML(e.billede)}
         ${_stationBlokHTML(stEnhedUad)}
@@ -3163,12 +3213,8 @@ function _enhedShowStationForm(station) {
       </fieldset>
       <fieldset class="lev-fs">
         <legend>🔗 Link</legend>
-        <label>URL
-          <input id="sf-link" type="text" value="${_esc(station?.link || "")}" placeholder="https://...">
-        </label>
-        <label style="margin-top:6px">Linktekst
-          <input id="sf-linktekst" type="text" value="${_esc(station?.linkTekst || "")}" placeholder="fx Instruks for stationen">
-        </label>
+        <div id="sf-links"></div>
+        <button type="button" id="sf-link-add" class="lev-btn-add">+ Tilføj link</button>
       </fieldset>
       <fieldset class="lev-fs">
         <legend>☠️ Døde dyr</legend>
@@ -3179,6 +3225,10 @@ function _enhedShowStationForm(station) {
         <label class="lev-kat-check-label" style="font-size:12px;margin-top:4px">
           <input id="sf-kadaver" type="checkbox" ${station?.dyrKadaver ? "checked" : ""}>
           📦 Kadaverboks (større dyr)
+        </label>
+        <label class="lev-kat-check-label" style="font-size:12px;margin-top:4px">
+          <input id="sf-ekstern" type="checkbox" ${station?.dyrEkstern ? "checked" : ""}>
+          📍 Ekstern modtager
         </label>
         <label style="margin-top:6px">Vejledende tekst
           <textarea id="sf-dyrtekst" class="lev-textarea" rows="3"
@@ -3250,6 +3300,7 @@ function _enhedShowStationForm(station) {
       } catch(e) { adrListe.style.display = "none"; }
     }, 300);
   });
+  _linkBindRows("sf", station);
   _prioFormBind(station);
 
   document.getElementById("efTilbage").addEventListener("click", _enhedShowListe);
@@ -3265,7 +3316,15 @@ let _prioFormKat  = null;
 function _prioFormBind(station, erEnhed) {
   const vaelger = document.getElementById("pf-kat");
   if (!vaelger) return;
-  const katListe = () => _prioKategorier(erEnhed ? station : null);
+  // På en enhed følger listen de flueben der er sat i formularen lige nu —
+  // ikke det der stod da formularen blev åbnet. Ellers ville en ny enhed
+  // vise stationskategorierne, fordi den endnu ikke har nogen.
+  const katListe = () => {
+    if (!erEnhed) return _prioKategorier(null);
+    const valgte = Array.from(document.querySelectorAll('input[name="ef-kat"]:checked'))
+      .map(el => el.value);
+    return EGNE_KATEGORIER.filter(k => valgte.includes(k.id));
+  };
 
   // Dyb kopi, så annullering ikke ændrer det indlæste data
   _prioFormData = { "1": {}, "2": {}, "3": {} };
@@ -3297,14 +3356,28 @@ function _prioFormBind(station, erEnhed) {
     if (info && kat) info.textContent = "Redigerer områder for " + kat.navn + ".";
   }
 
-  const foerste = katListe()[0];
-  if (!foerste) {
-    vaelger.innerHTML = `<option value="">Ingen kategorier tilgængelige</option>`;
-    return;
-  }
-  _prioFormKat = foerste.id;
-  vaelger.innerHTML = optioner();
-  visKat(foerste.id);
+  // Eksponer genopbygning, så kategori-fluebenene kan kalde den
+  _prioFormOpdaterVaelger = function() {
+    const liste = katListe();
+    if (!liste.length) {
+      vaelger.innerHTML = `<option value="">Vælg først en kategori ovenfor</option>`;
+      ["1", "2", "3"].forEach(n => {
+        const felt = document.getElementById("pf-p" + n);
+        if (felt) { felt.value = ""; felt.disabled = true; }
+      });
+      _prioFormKat = null;
+      return;
+    }
+    ["1", "2", "3"].forEach(n => {
+      const felt = document.getElementById("pf-p" + n);
+      if (felt) felt.disabled = false;
+    });
+    const beholdt = liste.some(k => k.id === _prioFormKat) ? _prioFormKat : liste[0].id;
+    _prioFormKat = beholdt;
+    vaelger.innerHTML = optioner();
+    vaelger.value = beholdt;
+    visKat(beholdt);
+  };
 
   vaelger.addEventListener("change", () => {
     _prioFormGem();          // gem den kategori vi forlader
@@ -3313,7 +3386,14 @@ function _prioFormBind(station, erEnhed) {
     vaelger.value = ny;
     visKat(ny);
   });
+
+  _prioFormOpdaterVaelger();   // fyld vælgeren fra start
 }
+
+// Genopbygger kategorivalget i enhedsformularen efter ændrede flueben.
+// _prioFormData røres ikke, så allerede tastede områder bevares selv om
+// en kategori midlertidigt fravaelges.
+let _prioFormOpdaterVaelger = function() {};
 
 // Skriver de tre tekstfelter tilbage i _prioFormData for den viste kategori
 function _prioFormGem() {
@@ -3336,10 +3416,10 @@ async function _enhedGemStation(existingId) {
   const kontakt = document.getElementById("sf-kontakt").value.trim();
   const tilkald = document.getElementById("sf-tilkald")?.value.trim() || "";
   const bemærk  = document.getElementById("sf-bemaerk").value.trim();
-  const link      = document.getElementById("sf-link")?.value.trim() || "";
-  const linkTekst = document.getElementById("sf-linktekst")?.value.trim() || "";
+  const links     = _linkLaesRows("sf-links");
   const dyrFryser  = !!document.getElementById("sf-fryser")?.checked;
   const dyrKadaver = !!document.getElementById("sf-kadaver")?.checked;
+  const dyrEkstern = !!document.getElementById("sf-ekstern")?.checked;
   const dyrTekst   = document.getElementById("sf-dyrtekst")?.value.trim() || "";
   const status  = document.getElementById("sf-status");
   _prioFormGem();  // få den viste kategori med inden vi sender
@@ -3352,8 +3432,8 @@ async function _enhedGemStation(existingId) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse,
-        kontakt, kontaktTilkald: tilkald, bemærkning: bemærk, link, linkTekst, prioPnr,
-        dyrFryser, dyrKadaver, dyrTekst })
+        kontakt, kontaktTilkald: tilkald, bemærkning: bemærk, links, prioPnr,
+        dyrFryser, dyrKadaver, dyrEkstern, dyrTekst })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
@@ -3455,12 +3535,8 @@ function _enhedShowForm(enhed) {
       </fieldset>
       <fieldset class="lev-fs">
         <legend>🔗 Link</legend>
-        <label>URL
-          <input id="ef-link" type="text" value="${_esc(enhed?.link || "")}" placeholder="https://...">
-        </label>
-        <label style="margin-top:6px">Linktekst
-          <input id="ef-linktekst" type="text" value="${_esc(enhed?.linkTekst || "")}" placeholder="fx Vejledning ved kotransport">
-        </label>
+        <div id="ef-links"></div>
+        <button type="button" id="ef-link-add" class="lev-btn-add">+ Tilføj link</button>
       </fieldset>
       <fieldset class="lev-fs">
         <legend>☠️ Døde dyr</legend>
@@ -3471,6 +3547,10 @@ function _enhedShowForm(enhed) {
         <label class="lev-kat-check-label" style="font-size:12px;margin-top:4px">
           <input id="ef-kadaver" type="checkbox" ${enhed?.dyrKadaver ? "checked" : ""}>
           📦 Kadaverboks (større dyr)
+        </label>
+        <label class="lev-kat-check-label" style="font-size:12px;margin-top:4px">
+          <input id="ef-ekstern" type="checkbox" ${enhed?.dyrEkstern ? "checked" : ""}>
+          📍 Ekstern modtager
         </label>
         <label style="margin-top:6px">Vejledende tekst
           <textarea id="ef-dyrtekst" class="lev-textarea" rows="3"
@@ -3668,7 +3748,16 @@ function _enhedShowForm(enhed) {
   });
 
   document.getElementById("efTilbage").addEventListener("click", _enhedShowListe);
+  _linkBindRows("ef", enhed);
   _prioFormBind(enhed, true);
+
+  // Skifter man kategori, skal prioritetsvælgeren følge med
+  document.querySelectorAll('input[name="ef-kat"]').forEach(cb => {
+    cb.addEventListener("change", () => {
+      _prioFormGem();          // behold det tastede for den viste kategori
+      _prioFormOpdaterVaelger();
+    });
+  });
 
   document.getElementById("ef-gem").addEventListener("click", () => _enhedGem(enhed?.id || null));
   document.getElementById("ef-slet")?.addEventListener("click", () => _enhedSlet(enhed.id));
@@ -3687,10 +3776,10 @@ async function _enhedGem(existingId) {
   const tilkald    = document.getElementById("ef-tilkald")?.value.trim() || "";
   const billede    = document.getElementById("ef-billede")?.value.trim() || "";
   const bemærk     = document.getElementById("ef-bemaerk").value.trim();
-  const link       = document.getElementById("ef-link")?.value.trim() || "";
-  const linkTekst  = document.getElementById("ef-linktekst")?.value.trim() || "";
+  const links      = _linkLaesRows("ef-links");
   const dyrFryser  = !!document.getElementById("ef-fryser")?.checked;
   const dyrKadaver = !!document.getElementById("ef-kadaver")?.checked;
+  const dyrEkstern = !!document.getElementById("ef-ekstern")?.checked;
   const dyrTekst   = document.getElementById("ef-dyrtekst")?.value.trim() || "";
   _prioFormGem();
   const prioPnr    = _prioFormData || undefined;
@@ -3728,8 +3817,8 @@ async function _enhedGem(existingId) {
         kontaktTilkald: tilkald,
         billede,
         bemærkning: bemærk,
-        link, linkTekst,
-        dyrFryser, dyrKadaver, dyrTekst, prioPnr
+        links,
+        dyrFryser, dyrKadaver, dyrEkstern, dyrTekst, prioPnr
       })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
