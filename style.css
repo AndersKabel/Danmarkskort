@@ -616,17 +616,19 @@ input[type="search"]::-webkit-search-decoration { display: none; }
 }
 /* ──────────────────── Måleværktøj ──────────────────── */
 .maal-btn {
-  /* Nederst til højre, over zoom-knapperne */
+  /* Står på højkant som Disp-knappen, så højre side er symmetrisk */
   position: fixed; bottom: 96px; right: 10px; z-index: 1100;
+  writing-mode: vertical-rl; text-orientation: mixed;
   background: #fff; border: 1px solid #cdd5df; border-radius: 6px;
-  padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 12px 6px; font-size: 13px; font-weight: 600; cursor: pointer;
   box-shadow: 0 1px 4px rgba(0,0,0,0.2); color: #2c3e50;
+  line-height: 1;
 }
 .maal-btn:hover { background: #f0f4f8; }
 .maal-btn-aktiv { background: #e67e22; color: #fff; border-color: #d35400; }
 
 .maal-panel {
-  position: fixed; bottom: 134px; right: 10px; z-index: 1100; width: 250px;
+  position: fixed; bottom: 96px; right: 52px; z-index: 1100; width: 250px;
   background: rgba(255,255,255,0.97); border: 1px solid #cdd5df;
   border-radius: 8px; padding: 10px 12px; font-size: 13px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.2);
@@ -683,6 +685,6 @@ input[type="search"]::-webkit-search-decoration { display: none; }
 }
 
 @media (max-width: 768px) {
-  .maal-btn   { bottom: 90px; right: 8px; padding: 5px 9px; font-size: 12px; }
-  .maal-panel { width: auto; left: 8px; right: 8px; bottom: 128px; }
+  .maal-btn   { bottom: 90px; right: 8px; padding: 10px 5px; font-size: 12px; }
+  .maal-panel { width: auto; left: 8px; right: 44px; bottom: 90px; }
 }
