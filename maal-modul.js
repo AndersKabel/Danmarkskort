@@ -23,6 +23,7 @@ var _maalLukket    = false;   // er formen lukket til en polygon
 var _maalLag       = null;    // L.layerGroup med alt tegnet
 var _maalRedigerer = null;    // index paa segment der redigeres netop nu
 var _maalForhaand  = null;    // L.layerGroup med stiplet linje der foelger musen
+var _maalVisTal    = true;    // maaletal paa segmenterne til/fra
 
 // ── Projektion ───────────────────────────────────────────────────
 // Alle beregninger sker i meter i EPSG:25832.
@@ -150,8 +151,9 @@ function _maalTegn() {
     }).addTo(_maalLag);
   }
 
-  // Måletal midt på hvert segment
-  var antal = _maalLukket ? _maalPunkter.length : _maalPunkter.length - 1;
+  // Maaletal midt paa hvert segment. Kan skjules, saa selve stregerne
+  // er lettere at se paa smaa tegninger.
+  var antal = _maalVisTal ? (_maalLukket ? _maalPunkter.length : _maalPunkter.length - 1) : 0;
   for (var i = 0; i < antal; i++) {
     var a = _maalPunkter[i];
     var b = _maalPunkter[(i + 1) % _maalPunkter.length];
@@ -313,6 +315,8 @@ function _maalMusBevaeger(e) {
     opacity: 0.8, interactive: false
   }).addTo(_maalForhaand);
 
+  if (!_maalVisTal) return;
+
   L.marker([(sidste.lat + mus.lat) / 2, (sidste.lon + mus.lon) / 2], {
     interactive: false, keyboard: false,
     icon: L.divIcon({ className: "", iconSize: null,
@@ -363,6 +367,16 @@ function maalStop() {
   if (typeof window.__maalPauseKortKlik === "function") window.__maalPauseKortKlik(false);
 }
 
+function maalToggleTal() {
+  _maalVisTal = !_maalVisTal;
+  var b = document.getElementById("maalTalBtn");
+  if (b) {
+    b.textContent = _maalVisTal ? "\uD83D\uDC41\uFE0F Skjul m\u00e5l" : "\uD83D\uDC41\uFE0F Vis m\u00e5l";
+    b.classList.toggle("maal-pbtn-fra", !_maalVisTal);
+  }
+  _maalTegn();
+}
+
 function maalRyd() {
   _maalRydForhaand();
   _maalPunkter = [];
@@ -384,6 +398,8 @@ function initMaalModul() {
   if (knap) knap.addEventListener("click", function() {
     _maalAktiv ? maalStop() : maalStart();
   });
+  var tal = document.getElementById("maalTalBtn");
+  if (tal) tal.addEventListener("click", maalToggleTal);
   var ryd = document.getElementById("maalRydBtn");
   if (ryd) ryd.addEventListener("click", maalRyd);
   var luk = document.getElementById("maalLukBtn");
