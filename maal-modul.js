@@ -112,6 +112,19 @@ function _maalAreal() {
   return Math.abs(sum / 2);
 }
 
+// Opdaterer kun selve linjen under traek, saa haandtagene ikke
+// genskabes midt i en traekbevaegelse (det ville afbryde traekket).
+var _maalLiveLinje = null;
+function _maalTegnLinjer() {
+  if (_maalLiveLinje) { map.removeLayer(_maalLiveLinje); _maalLiveLinje = null; }
+  if (_maalPunkter.length < 2) return;
+  var latlngs = _maalPunkter.map(function(p) { return [p.lat, p.lon]; });
+  if (_maalLukket) latlngs.push(latlngs[0]);
+  _maalLiveLinje = L.polyline(latlngs, {
+    color: "#e67e22", weight: 3, opacity: 0.6, interactive: false
+  }).addTo(map);
+}
+
 /***************************************************
  * Tegner alt forfra. Enkelt og hurtigt nok ved de
  * få punkter der er i spil.
@@ -119,6 +132,7 @@ function _maalAreal() {
 function _maalTegn() {
   if (!_maalLag) return;
   _maalLag.clearLayers();
+  if (_maalLiveLinje) { map.removeLayer(_maalLiveLinje); _maalLiveLinje = null; }
   if (!_maalPunkter.length) { _maalOpdaterPanel(); return; }
 
   var latlngs = _maalPunkter.map(function(p) { return [p.lat, p.lon]; });
@@ -162,25 +176,30 @@ function _maalTegn() {
     }).addTo(_maalLag);
   }
 
-  // Trækbare hjørnehåndtag
+  // Traekbare punkter. Nummereret, saa det er tydeligt hvilket punkt der
+  // flyttes, og stoerre end en almindelig markoer for at kunne rammes.
   _maalPunkter.forEach(function(p, idx) {
     var m = L.marker([p.lat, p.lon], {
       draggable: true,
-      icon: L.divIcon({ className: "", html: '<div class="maal-handle"></div>',
-        iconSize: [14, 14], iconAnchor: [7, 7] })
+      zIndexOffset: 1000,
+      icon: L.divIcon({ className: "", iconSize: [20, 20], iconAnchor: [10, 10],
+        html: '<div class="maal-handle" title="Traek for at flytte \u00B7 hoejreklik for at fjerne">'
+          + (idx + 1) + '</div>' })
     }).addTo(_maalLag);
 
+    m.on("dragstart", function() { _maalRydForhaand(); });
     m.on("drag", function(e) {
       _maalPunkter[idx] = { lat: e.latlng.lat, lon: e.latlng.lng };
+      // Tegn linjerne med mens der traekkes, uden at genskabe haandtagene
+      _maalTegnLinjer();
       _maalOpdaterPanel();
     });
     m.on("dragend", function(e) {
       _maalPunkter[idx] = { lat: e.latlng.lat, lon: e.latlng.lng };
-      // Et flyttet punkt kan bryde en låst længde længere fremme
+      // Et flyttet punkt kan bryde en laast laengde laengere fremme
       _maalGenoprettLaase(Math.max(0, idx - 1));
       _maalTegn();
     });
-    // Højreklik fjerner punktet
     m.on("contextmenu", function(ev) {
       if (ev.originalEvent) ev.originalEvent.preventDefault();
       _maalPunkter.splice(idx, 1);
@@ -194,26 +213,45 @@ function _maalTegn() {
   _maalBindLabels();
 }
 
-// Klik på et måletal åbner indtastning
+// Klik paa et maaletal aabner indtastning.
+// Bindingen sker paa selve DOM-elementet, og kortets klik/tastatur slaas
+// fra imens — ellers panorerer kortet og tastene naar aldrig feltet.
 function _maalBindLabels() {
   document.querySelectorAll(".maal-label[data-seg]").forEach(function(el) {
+    if (el.dataset.bundet) return;
+    el.dataset.bundet = "1";
+    if (window.L && L.DomEvent) {
+      L.DomEvent.disableClickPropagation(el);
+      L.DomEvent.disableScrollPropagation(el);
+    }
     el.addEventListener("click", function(ev) {
+      ev.stopPropagation();
       if (ev.target.classList.contains("maal-laas-fra")) {
-        ev.stopPropagation();
         _maalLaas[parseInt(ev.target.dataset.seg, 10)] = null;
         _maalTegn();
         return;
       }
       _maalRedigerer = parseInt(el.dataset.seg, 10);
       _maalTegn();
-      var input = document.querySelector(".maal-input");
-      if (input) { input.focus(); input.select(); }
     });
   });
 
+  var boks  = document.querySelector(".maal-label-rediger");
   var input = document.querySelector(".maal-input");
-  if (!input) return;
+  if (!input || input.dataset.bundet) return;
+  input.dataset.bundet = "1";
+
+  if (window.L && L.DomEvent && boks) {
+    L.DomEvent.disableClickPropagation(boks);
+    L.DomEvent.disableScrollPropagation(boks);
+  }
+  if (map.keyboard) map.keyboard.disable();
+
+  var afsluttet = false;
   var afslut = function(gem) {
+    if (afsluttet) return;
+    afsluttet = true;
+    if (map.keyboard) map.keyboard.enable();
     var i = _maalRedigerer;
     var v = parseFloat(String(input.value).replace(",", "."));
     _maalRedigerer = null;
@@ -221,13 +259,16 @@ function _maalBindLabels() {
     else _maalTegn();
   };
   input.addEventListener("keydown", function(e) {
+    e.stopPropagation();
     if (e.key === "Enter")  { e.preventDefault(); afslut(true); }
     if (e.key === "Escape") { e.preventDefault(); afslut(false); }
   });
   input.addEventListener("blur", function() { afslut(true); });
-  // Klik i feltet må ikke sætte et nyt punkt på kortet
-  input.addEventListener("click", function(e) { e.stopPropagation(); });
+
+  // Fokus efter at Leaflet har placeret ikonet
+  setTimeout(function() { try { input.focus(); input.select(); } catch (e) {} }, 30);
 }
+
 
 function _maalOpdaterPanel() {
   var el = document.getElementById("maalStatus");
@@ -253,6 +294,36 @@ function _maalOpdaterPanel() {
 }
 
 /***************************************************
+ * Forhaandsvisning: stiplet linje fra sidste punkt til musen med
+ * loebende maal, saa man kan sigte inden man klikker.
+ ***************************************************/
+function _maalMusBevaeger(e) {
+  if (!_maalAktiv || _maalLukket || !_maalPunkter.length) return;
+  if (_maalRedigerer !== null) return;   // indtastning i gang
+  if (!_maalForhaand) _maalForhaand = L.layerGroup().addTo(map);
+  _maalForhaand.clearLayers();
+
+  var sidste = _maalPunkter[_maalPunkter.length - 1];
+  var mus    = { lat: e.latlng.lat, lon: e.latlng.lng };
+  var laengde = _maalAfstand(sidste, mus);
+
+  L.polyline([[sidste.lat, sidste.lon], [mus.lat, mus.lon]], {
+    color: "#e67e22", weight: 2, dashArray: "6,6",
+    opacity: 0.8, interactive: false
+  }).addTo(_maalForhaand);
+
+  L.marker([(sidste.lat + mus.lat) / 2, (sidste.lon + mus.lon) / 2], {
+    interactive: false, keyboard: false,
+    icon: L.divIcon({ className: "", iconSize: null,
+      html: '<div class="maal-label maal-label-forhaand">' + _maalFormat(laengde) + '</div>' })
+  }).addTo(_maalForhaand);
+}
+
+function _maalRydForhaand() {
+  if (_maalForhaand) { _maalForhaand.clearLayers(); }
+}
+
+/***************************************************
  * Til/fra og panel
  ***************************************************/
 function _maalKlikPaaKort(e) {
@@ -260,6 +331,7 @@ function _maalKlikPaaKort(e) {
   if (_maalLukket) return;   // formen er lukket; ryd eller åbn et nyt
   _maalPunkter.push({ lat: e.latlng.lat, lon: e.latlng.lng });
   _maalLaas.push(null);
+  _maalRydForhaand();
   _maalTegn();
 }
 
@@ -268,6 +340,7 @@ function maalStart() {
   _maalAktiv = true;
   if (!_maalLag) _maalLag = L.layerGroup().addTo(map);
   map.on("click", _maalKlikPaaKort);
+  map.on("mousemove", _maalMusBevaeger);
   document.getElementById("maalPanel").style.display = "block";
   var btn = document.getElementById("maalToggleBtn");
   if (btn) btn.classList.add("maal-btn-aktiv");
@@ -279,6 +352,8 @@ function maalStart() {
 function maalStop() {
   _maalAktiv = false;
   map.off("click", _maalKlikPaaKort);
+  map.off("mousemove", _maalMusBevaeger);
+  _maalRydForhaand();
   document.getElementById("maalPanel").style.display = "none";
   var btn = document.getElementById("maalToggleBtn");
   if (btn) btn.classList.remove("maal-btn-aktiv");
@@ -286,6 +361,7 @@ function maalStop() {
 }
 
 function maalRyd() {
+  _maalRydForhaand();
   _maalPunkter = [];
   _maalLaas = [];
   _maalLukket = false;
@@ -296,6 +372,7 @@ function maalRyd() {
 function maalLuk() {
   if (_maalPunkter.length < 3) return;
   _maalLukket = !_maalLukket;
+  _maalRydForhaand();
   _maalTegn();
 }
 
