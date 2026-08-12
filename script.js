@@ -3776,21 +3776,42 @@ function visStatsvejBox(statsvejData, lat, lon) {
 
     if (hasStatsvej) {
       document.getElementById("statsvejInfoBox").style.display = "block";
+
+      // Pladsholder mens km hentes. Opslaget kan tage op til 8 sekunder
+      // hvis VD ikke svarer, og uden dette ser boksen faerdig ud imens.
+      // Unik id pr. opslag: klikker man et nyt sted undervejs, skriver
+      // det gamle svar ikke i den nye boks.
+      const kmId = "kmFelt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+      statsvejInfoEl.innerHTML +=
+        '<br><span id="' + kmId + '"><strong>Km:</strong> '
+        + '<span style="color:#8a97a5">henter' + "\u2026" + '</span></span>';
+
+      const saetKm = (html) => {
+        const el = document.getElementById(kmId);
+        if (!el) return;   // boksen er lukket eller erstattet imens
+        if (html === null) { el.remove(); return; }
+        el.innerHTML = html;
+      };
+
       getKmAtPoint(lat, lon, statsvejData).then(kmText => {
         if (kmText === "__VD_NEDE__") {
-          statsvejInfoEl.innerHTML += `<br><span style="color:#e67e22;font-size:11px">⚠️ Km-pæle utilgængelige — VD's API er midlertidigt nede<br>Brug kortlaget 📍 <em>Km-markeringer (VD)</em> som alternativ</span>`;
+          saetKm('<span style="color:#e67e22;font-size:11px">'
+            + "\u26a0\ufe0f Km-p\u00e6le utilg\u00e6ngelige \u2014 VD's API er midlertidigt nede<br>"
+            + 'Brug kortlaget \ud83d\udccd <em>Km-markeringer (VD)</em> som alternativ</span>');
         } else if (kmText) {
           // Stjerne = beregnet lokalt fordi VD's referencetjeneste ikke
           // svarede. Vaerdien er interpoleret og kan afvige fra paelen.
           const beregnet = kmText.endsWith(" *");
           const vis = beregnet ? kmText.slice(0, -2) : kmText;
-          let kmHtml = "<br><strong>Km:</strong> " + vis;
+          let kmHtml = "<strong>Km:</strong> " + vis;
           if (beregnet) {
             kmHtml += ' <span style="color:#b7950b;font-size:11px" title="Referencetjenesten hos VD svarede ikke. Km er beregnet ud fra vejens geometri og kan afvige nogle meter.">≈ beregnet</span>';
           }
-          statsvejInfoEl.innerHTML += kmHtml;
+          saetKm(kmHtml);
+        } else {
+          saetKm(null);   // ingen km for dette punkt — fjern pladsholderen
         }
-      });
+      }).catch(() => saetKm(null));
     }
   } else {
     statsvejInfoEl.innerHTML = "";
