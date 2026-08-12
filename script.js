@@ -3780,7 +3780,15 @@ function visStatsvejBox(statsvejData, lat, lon) {
         if (kmText === "__VD_NEDE__") {
           statsvejInfoEl.innerHTML += `<br><span style="color:#e67e22;font-size:11px">⚠️ Km-pæle utilgængelige — VD's API er midlertidigt nede<br>Brug kortlaget 📍 <em>Km-markeringer (VD)</em> som alternativ</span>`;
         } else if (kmText) {
-          statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
+          // Stjerne = beregnet lokalt fordi VD's referencetjeneste ikke
+          // svarede. Vaerdien er interpoleret og kan afvige fra paelen.
+          const beregnet = kmText.endsWith(" *");
+          const vis = beregnet ? kmText.slice(0, -2) : kmText;
+          let kmHtml = "<br><strong>Km:</strong> " + vis;
+          if (beregnet) {
+            kmHtml += ' <span style="color:#b7950b;font-size:11px" title="Referencetjenesten hos VD svarede ikke. Km er beregnet ud fra vejens geometri og kan afvige nogle meter.">≈ beregnet</span>';
+          }
+          statsvejInfoEl.innerHTML += kmHtml;
         }
       });
     }
@@ -3878,6 +3886,10 @@ async function checkForStatsvej(lat, lon) {
       const props = jsonData.features[0].properties || {};
       const result = {
         ...props,
+        // Geometrien gemmes til lokal km-beregning, hvis VD's
+        // referencetjeneste er nede. Underscore markerer at feltet er
+        // internt og ikke kommer fra CVF.
+        _GEOMETRI: jsonData.features[0].geometry || null,
         ADM_NR:       props.ADM_NR       ?? props.adm_nr       ?? null,
         FORGRENING:   props.FORGRENING   ?? props.forgrening   ?? null,
         BETEGNELSE:   props.BETEGNELSE   ?? props.betegnelse   ?? null,
@@ -3975,9 +3987,98 @@ async function _fetchMedTimeout(url, opts, ms, etiket) {
  * getKmAtPoint – henter km via Cloudflare-worker
  * Genbruger allerede hentede statsvej-data, hvis de er sendt med
  ***************************************************/
-async function getKmAtPoint(lat, lon, statsvejData = null) {
+/***************************************************
+ * Km-beregning uden VD's referencetjeneste
+ *
+ * CVF's WMS-svar indeholder baade vejens geometri og FRAKMT/TILKMT.
+ * Punktet projiceres ned paa linjen, afstanden langs linjen maales,
+ * og der interpoleres mellem fra- og til-km.
+ *
+ * Kontrolmaaling paa vej 13 (Hilleroedmotorvejen): geometriens laengde
+ * var 5011,2 m mod TILKMT-FRAKMT paa 5011 m — 20 cm fra hinanden.
+ * LANGDE-feltet var 19 m ved siden af og bruges derfor IKKE.
+ *
+ * Forbehold: metoden antager jaevn kilometrering. Hvor paelene ikke er
+ * jaevnt fordelt (fx efter vejomlaegning) vil resultatet afvige. Derfor
+ * kun fallback — referencetjenesten er stadig primaer.
+ ***************************************************/
+function _kmtTilMeter(kmt) {
+  const m = String(kmt || "").match(/^(\d+)\s*\/\s*(\d+)$/);
+  return m ? parseInt(m[1], 10) * 1000 + parseInt(m[2], 10) : null;
+}
+
+function _meterTilKmt(meter) {
+  const samlet = Math.max(0, Math.round(meter));
+  const km = Math.floor(samlet / 1000);
+  return km + "/" + String(samlet % 1000).padStart(4, "0");
+}
+
+// Naermeste punkt paa linjestykket AB. Returnerer [afstand, andel 0-1].
+function _punktPaaSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const laengde2 = dx * dx + dy * dy;
+  if (laengde2 === 0) return [Math.hypot(px - ax, py - ay), 0];
+  let t = ((px - ax) * dx + (py - ay) * dy) / laengde2;
+  t = Math.max(0, Math.min(1, t));
+  return [Math.hypot(px - (ax + t * dx), py - (ay + t * dy)), t];
+}
+
+function beregnKmLokalt(x, y, stats) {
   try {
-    const stats = statsvejData || await checkForStatsvej(lat, lon);
+    const geo = stats?._GEOMETRI;
+    if (!geo) return null;
+
+    // Baade LineString og MultiLineString kan forekomme
+    const linjer = geo.type === "LineString" ? [geo.coordinates]
+      : (geo.type === "MultiLineString" ? geo.coordinates : null);
+    if (!linjer || !linjer.length) return null;
+
+    const fra = _kmtTilMeter(stats.FRAKMT ?? stats.frakmt);
+    const til = _kmtTilMeter(stats.TILKMT ?? stats.tilkmt);
+    if (fra == null || til == null) return null;
+
+    // Find naermeste punkt paa tvaers af alle linjer, og afstanden
+    // dertil maalt langs linjen
+    let bedstAfstand = Infinity, bedstLangs = 0, samletLaengde = 0;
+    linjer.forEach(coords => {
+      let langs = 0;
+      for (let i = 0; i < coords.length - 1; i++) {
+        const ax = coords[i][0],     ay = coords[i][1];
+        const bx = coords[i + 1][0], by = coords[i + 1][1];
+        const stykke = Math.hypot(bx - ax, by - ay);
+        const res = _punktPaaSegment(x, y, ax, ay, bx, by);
+        if (res[0] < bedstAfstand) {
+          bedstAfstand = res[0];
+          bedstLangs   = samletLaengde + langs + res[1] * stykke;
+        }
+        langs += stykke;
+      }
+      samletLaengde += langs;
+    });
+    if (!samletLaengde || !isFinite(bedstAfstand)) return null;
+
+    // Ligger punktet langt fra straekningen, er det formentlig en anden
+    // vej — saa hellere intet svar end et forkert
+    if (bedstAfstand > 150) return null;
+
+    // Kilometreringen kan loebe modsat koordinatlistens retning
+    const andel = bedstLangs / samletLaengde;
+    const meter = (til >= fra)
+      ? fra + andel * (til - fra)
+      : fra - andel * (fra - til);
+
+    return _meterTilKmt(meter);
+  } catch (e) {
+    console.warn("beregnKmLokalt:", e);
+    return null;
+  }
+}
+
+async function getKmAtPoint(lat, lon, statsvejData = null) {
+  // Hoistet, saa catch-blokken kan bruge den ved timeout
+  let stats = statsvejData;
+  try {
+    stats = statsvejData || await checkForStatsvej(lat, lon);
     if (!stats) return "";
 
     const roadNumber = stats?.ADM_NR   ?? stats?.adm_nr   ?? null;
@@ -3994,7 +4095,10 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
 
     const resp = await _fetchMedTimeout(url, { cache: "no-store" },
       VD_TIMEOUT_MS, "vd-proxy/reference");
-    if (!resp.ok) return "__VD_NEDE__";
+    if (!resp.ok) {
+      const lokal = beregnKmLokalt(x, y, stats);
+      return lokal ? lokal + " *" : "__VD_NEDE__";
+    }
 
     const data = await resp.json();
 
@@ -4012,12 +4116,22 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
     if (from?.km != null && from?.m != null) {
       return `${from.km}/${String(from.m).padStart(4, "0")}`;
     }
-    return "";
+    // Svar uden km — proev den lokale beregning
+    const lokalt = beregnKmLokalt(x, y, stats);
+    return lokalt ? lokalt + " *" : "";
   } catch (e) {
     // Timeout behandles som "VD nede", saa disponenten faar besked
     // i stedet for en tom infoboks
     if (e && e.erTimeout) {
-      console.warn("getKmAtPoint: timeout mod VD-proxy efter", VD_TIMEOUT_MS, "ms");
+      console.warn("getKmAtPoint: timeout mod VD-proxy efter", VD_TIMEOUT_MS,
+        "ms — falder tilbage til lokal beregning");
+      try {
+        if (stats) {
+          const [lx, ly] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
+          const lokal = beregnKmLokalt(lx, ly, stats);
+          if (lokal) return lokal + " *";
+        }
+      } catch (e2) { /* falder igennem til __VD_NEDE__ */ }
       return "__VD_NEDE__";
     }
     console.error("getKmAtPoint fejl:", e);
