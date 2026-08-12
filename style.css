@@ -663,13 +663,22 @@ input[type="search"]::-webkit-search-decoration { display: none; }
   font-weight: 600; color: #2980b9; background: transparent;
 }
 
-/* Trækbare hjørnehåndtag */
+/* Trækbare punkter — nummererede, så de kan skelnes */
 .maal-handle {
-  width: 14px; height: 14px; border-radius: 50%;
+  width: 20px; height: 20px; border-radius: 50%;
   background: #fff; border: 3px solid #e67e22;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.35); cursor: move;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4); cursor: grab;
+  font-size: 10px; font-weight: 700; color: #d35400;
+  line-height: 14px; text-align: center;
+  -webkit-user-select: none; user-select: none;
 }
-.maal-handle:hover { background: #ffe0c2; }
+.maal-handle:hover  { background: #ffe0c2; transform: scale(1.15); }
+.maal-handle:active { cursor: grabbing; }
+
+/* Mål der følger musen inden klik */
+.maal-label-forhaand {
+  opacity: 0.85; border-style: dashed; pointer-events: none;
+}
 
 @media (max-width: 768px) {
   .maal-btn   { top: 58px; right: 8px; padding: 5px 9px; font-size: 12px; }
