@@ -177,6 +177,23 @@
     <button id="btn100" class="distance-btn">100 km</button>
   </div>
 
+  <!-- Måleværktøj -->
+  <button id="maalToggleBtn" class="maal-btn" title="Mål afstande og areal">📏 Mål</button>
+  <div id="maalPanel" class="maal-panel" style="display:none">
+    <div class="maal-panel-hdr">📏 Måleværktøj</div>
+    <div id="maalStatus" class="maal-status"></div>
+    <div class="maal-hjaelp">
+      Klik for at sætte punkter. Klik på et måletal for at taste en
+      præcis længde — retningen bevares. Træk i et håndtag for at
+      flytte, højreklik for at fjerne det.
+    </div>
+    <div class="maal-knapper">
+      <button id="maalLukBtn" class="maal-pbtn">⬡ Luk form</button>
+      <button id="maalRydBtn" class="maal-pbtn">🗑️ Ryd</button>
+      <button id="maalAfslutBtn" class="maal-pbtn maal-pbtn-luk">Afslut</button>
+    </div>
+  </div>
+
   <!-- Map-hint: vises når man vælger koordinat ved klik på kortet -->
   <div id="cpMapHint" style="display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.78); color:#fff; padding:12px 22px; border-radius:8px; z-index:5000; font-size:15px; pointer-events:none;">
     📍 Klik på kortet for at sætte koordinaterne &nbsp;
@@ -222,6 +239,7 @@
   <!-- Din egen script-fil -->
   <script src="script.js"></script>
   <script src="leverandoer-modul.js"></script>
+  <script src="maal-modul.js"></script>
   
   <!-- Overlay til kommunekode og vejkode (gennemsigtigt designet i CSS) -->
   <div id="kommuneOverlay"></div>
