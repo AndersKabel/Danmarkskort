@@ -2167,10 +2167,17 @@ function _prioKnapHTML(st) {
 // til udklipsholderen, og BucketPlan åbnes, så der kun mangler Ctrl+V.
 const SPX_URL = "https://planning.falckcorp.com/bucketplan/";
 
-// Mandskabsnummer = de første fire cifre i navnet. Vogne har vognnummer
-// sat og er ikke personer, så de udelades. Stationer kaldes aldrig herind.
+// Kategorier hvor SPX-knappen giver mening: reddere der tilkaldes og
+// derfor skal slås op i BucketPlan. "Drift fra hjem" er mønstret på
+// forhånd og har ikke brug for opslaget — og køretøjskategorier som
+// TMA og mors er slet ikke personer.
+const SPX_KATEGORIER = ["skytter", "dyr_riffel", "dyr", "dyr_ko", "dyr_hest", "dyr_smaadyr"];
+
+// Mandskabsnummer = de første fire cifre i navnet.
 function _spxNummer(e) {
   if (!e || e.type === "station" || e.vognnummer) return null;
+  const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+  if (!kats.some(k => SPX_KATEGORIER.includes(k))) return null;
   const m = String(e.navn || "").match(/^(\d{4})\b/);
   return m ? m[1] : null;
 }
