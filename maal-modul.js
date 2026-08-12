@@ -22,6 +22,7 @@ var _maalLaas      = [];      // laast laengde i meter for segment i (null = fri
 var _maalLukket    = false;   // er formen lukket til en polygon
 var _maalLag       = null;    // L.layerGroup med alt tegnet
 var _maalRedigerer = null;    // index paa segment der redigeres netop nu
+var _maalForhaand  = null;    // L.layerGroup med stiplet linje der foelger musen
 
 // ── Projektion ───────────────────────────────────────────────────
 // Alle beregninger sker i meter i EPSG:25832.
@@ -341,7 +342,8 @@ function maalStart() {
   if (!_maalLag) _maalLag = L.layerGroup().addTo(map);
   map.on("click", _maalKlikPaaKort);
   map.on("mousemove", _maalMusBevaeger);
-  document.getElementById("maalPanel").style.display = "block";
+  var panel = document.getElementById("maalPanel");
+  if (panel) panel.style.display = "block";
   var btn = document.getElementById("maalToggleBtn");
   if (btn) btn.classList.add("maal-btn-aktiv");
   // Kortets egen klikhåndtering må ikke sætte markører imens
@@ -354,7 +356,8 @@ function maalStop() {
   map.off("click", _maalKlikPaaKort);
   map.off("mousemove", _maalMusBevaeger);
   _maalRydForhaand();
-  document.getElementById("maalPanel").style.display = "none";
+  var panel = document.getElementById("maalPanel");
+  if (panel) panel.style.display = "none";
   var btn = document.getElementById("maalToggleBtn");
   if (btn) btn.classList.remove("maal-btn-aktiv");
   if (typeof window.__maalPauseKortKlik === "function") window.__maalPauseKortKlik(false);
