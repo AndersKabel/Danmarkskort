@@ -2233,7 +2233,13 @@ function _visUdlandSlaaetFra(lat, lon) {
 /***************************************************
  * Klik på kort => reverse geocoding
  ***************************************************/
+// Naar maalevaerktoejet er aktivt, skal klik paa kortet saette maalepunkter
+// i stedet for markoerer. Modulet slaar flaget til og fra.
+var _maalPauserKortKlik = false;
+window.__maalPauseKortKlik = function(paa) { _maalPauserKortKlik = !!paa; };
+
 map.on('click', function(e) {
+  if (_maalPauserKortKlik) return; // Maalevaerktoej aktivt
   if (_cpPickMode) return; // Koordinat-valg aktiv
   let lat = e.latlng.lat;
   let lon = e.latlng.lng;
@@ -4396,4 +4402,7 @@ document.addEventListener("DOMContentLoaded", function() {
   } else {
     console.error("initLeverandoerModul ikke fundet — tjek at leverandoer-modul.js er indlæst");
   }
+
+  // Maalevaerktoej
+  if (typeof initMaalModul === "function") initMaalModul();
 });
