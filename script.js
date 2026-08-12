@@ -2236,7 +2236,22 @@ function _visUdlandSlaaetFra(lat, lon) {
 // Naar maalevaerktoejet er aktivt, skal klik paa kortet saette maalepunkter
 // i stedet for markoerer. Modulet slaar flaget til og fra.
 var _maalPauserKortKlik = false;
-window.__maalPauseKortKlik = function(paa) { _maalPauserKortKlik = !!paa; };
+window.__maalPauseKortKlik = function(paa) {
+  _maalPauserKortKlik = !!paa;
+  // Matrikelpolygonerne ligger oven paa kortet og opfanger klik. Under
+  // maaling slaas de fra, saa man kan saette punkter inde i en matrikel.
+  try {
+    matrikelLayer.eachLayer(function(lag) {
+      if (lag.eachLayer) {
+        lag.eachLayer(function(sub) {
+          if (sub._path) sub._path.style.pointerEvents = paa ? "none" : "";
+        });
+      } else if (lag._path) {
+        lag._path.style.pointerEvents = paa ? "none" : "";
+      }
+    });
+  } catch (e) { /* matrikellaget er maaske ikke aktivt */ }
+};
 
 map.on('click', function(e) {
   if (_maalPauserKortKlik) return; // Maalevaerktoej aktivt
