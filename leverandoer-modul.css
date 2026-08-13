@@ -24,16 +24,10 @@
 .lev-leaflet-popup .leaflet-popup-content { margin: 0; }
 .lev-popup { font-size: 13px; font-family: Arial, sans-serif; min-width: 210px; }
 .lev-popup-top {
-  /* Ekstra luft i højre side: Leaflets luk-knap ligger oven på hjørnet,
-     og lange navne løb ellers ind under den. */
-  padding: 6px 26px 6px 8px; margin-bottom: 6px;
+  padding: 6px 8px; margin-bottom: 6px;
   background: #f8f9fa; border-radius: 4px;
 }
-.lev-popup-top b {
-  display: block; font-size: 14px; color: #1a1a2e;
-  /* Meget lange navne uden mellemrum skal brydes frem for at flyde ud */
-  overflow-wrap: break-word; word-break: break-word;
-}
+.lev-popup-top b { display: block; font-size: 14px; color: #1a1a2e; }
 .lev-popup-sub { color: #666; font-size: 12px; }
 .lev-popup-row { margin: 3px 0; font-size: 13px; color: #333; }
 .lev-popup-row a { color: #2980b9; text-decoration: none; }
@@ -505,3 +499,44 @@
 }
 .lev-vogn-toggle-btn:hover { text-decoration: underline; }
 .lev-vogn-specs-wrap { margin-top: 4px; }
+
+/* ────────────── KODEDIALOG ────────────── */
+.lev-kode-overlay {
+  position: fixed; inset: 0; z-index: 100000;
+  background: rgba(20,28,38,0.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.lev-kode-boks {
+  background: #fff; border-radius: 10px; padding: 18px 20px;
+  width: 300px; max-width: calc(100vw - 32px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  font-family: Arial, sans-serif;
+}
+.lev-kode-hdr {
+  font-size: 14px; font-weight: 700; color: #2c3e50; margin-bottom: 12px;
+}
+.lev-kode-felt { display: flex; gap: 6px; align-items: center; }
+.lev-kode-felt input {
+  flex: 1; padding: 9px 10px; font-size: 15px; letter-spacing: 2px;
+  border: 1px solid #cdd5df; border-radius: 6px; outline: none;
+}
+.lev-kode-felt input:focus { border-color: #2980b9; }
+.lev-kode-felt button {
+  padding: 8px 10px; font-size: 15px; cursor: pointer; line-height: 1;
+  border: 1px solid #cdd5df; border-radius: 6px; background: #f7f9fb;
+}
+.lev-kode-felt button:hover { background: #e9eff5; }
+.lev-kode-knapper {
+  display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px;
+}
+.lev-kode-knapper button {
+  padding: 7px 14px; font-size: 13px; cursor: pointer;
+  border: 1px solid #cdd5df; border-radius: 6px; background: #f7f9fb;
+  color: #2c3e50;
+}
+.lev-kode-knapper button:hover { background: #e9eff5; }
+.lev-kode-ok {
+  background: #2980b9 !important; border-color: #2471a3 !important;
+  color: #fff !important; font-weight: 600;
+}
+.lev-kode-ok:hover { background: #2471a3 !important; }
