@@ -192,13 +192,17 @@ function _maalTegn() {
 
     m.on("dragstart", function() { _maalRydForhaand(); });
     m.on("drag", function(e) {
-      _maalPunkter[idx] = { lat: e.latlng.lat, lon: e.latlng.lng };
+      var pos = e.latlng || e.target.getLatLng();
+      _maalPunkter[idx] = { lat: pos.lat, lon: pos.lng };
       // Tegn linjerne med mens der traekkes, uden at genskabe haandtagene
       _maalTegnLinjer();
       _maalOpdaterPanel();
     });
     m.on("dragend", function(e) {
-      _maalPunkter[idx] = { lat: e.latlng.lat, lon: e.latlng.lng };
+      // dragend-eventet baerer IKKE latlng (kun drag goer) — hent den fra
+      // markoeren selv, ellers fejler opslaget hver gang et punkt slippes
+      var pos = e.target.getLatLng();
+      _maalPunkter[idx] = { lat: pos.lat, lon: pos.lng };
       // Et flyttet punkt kan bryde en laast laengde laengere fremme
       _maalGenoprettLaase(Math.max(0, idx - 1));
       _maalTegn();
