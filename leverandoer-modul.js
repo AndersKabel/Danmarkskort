@@ -726,7 +726,7 @@ async function _levEnsureDrift() {
       if (data.role === "admin" || data.role === "drift") return true;
       // Har kun læse-session — bed om driftkoordinator-kode
     }
-    const code = prompt("Redigering kræver driftkoordinatorkode:");
+    const code = await _levSpoergKode("Redigering kræver driftkoordinatorkode");
     if (!code?.trim()) return false;
     const login = await fetch(`${LEV_SP_WORKER}/auth/login`, {
       method: "POST", credentials: "include",
@@ -757,6 +757,71 @@ async function _levEnsureDrift() {
 const _levEnsureLogin = _levEnsureDrift;
 
 // Disponering-login: accepterer admin eller read-session
+/***************************************************
+ * Kodedialog med skjult indtastning.
+ *
+ * Browserens prompt() viser altid teksten i klartekst, hvilket gjorde
+ * det muligt at aflure koden over skulderen. Derfor en egen dialog med
+ * type="password" og mulighed for at vise koden bevidst.
+ *
+ * Returnerer koden, eller null hvis der annulleres.
+ ***************************************************/
+function _levSpoergKode(besked) {
+  return new Promise(function(resolve) {
+    var eksisterende = document.getElementById("levKodeOverlay");
+    if (eksisterende) eksisterende.remove();
+
+    var overlay = document.createElement("div");
+    overlay.id = "levKodeOverlay";
+    overlay.className = "lev-kode-overlay";
+    overlay.innerHTML =
+        '<div class="lev-kode-boks">'
+      +   '<div class="lev-kode-hdr">\uD83D\uDD11 ' + _esc(besked) + '</div>'
+      +   '<div class="lev-kode-felt">'
+      +     '<input type="password" id="levKodeInput" autocomplete="off'
+      +       '" placeholder="Adgangskode">'
+      +     '<button type="button" id="levKodeVis" title="Vis kode">\uD83D\uDC41\uFE0F</button>'
+      +   '</div>'
+      +   '<div class="lev-kode-knapper">'
+      +     '<button type="button" id="levKodeAnnuller">Annuller</button>'
+      +     '<button type="button" id="levKodeOk" class="lev-kode-ok">Log ind</button>'
+      +   '</div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+
+    var input = document.getElementById("levKodeInput");
+    var lukket = false;
+    function luk(svar) {
+      if (lukket) return;
+      lukket = true;
+      overlay.remove();
+      resolve(svar);
+    }
+
+    document.getElementById("levKodeOk").addEventListener("click", function() {
+      luk(input.value);
+    });
+    document.getElementById("levKodeAnnuller").addEventListener("click", function() {
+      luk(null);
+    });
+    document.getElementById("levKodeVis").addEventListener("click", function() {
+      input.type = (input.type === "password") ? "text" : "password";
+      input.focus();
+    });
+    input.addEventListener("keydown", function(e) {
+      e.stopPropagation();   // kortets tastaturgenveje maa ikke reagere
+      if (e.key === "Enter")  { e.preventDefault(); luk(input.value); }
+      if (e.key === "Escape") { e.preventDefault(); luk(null); }
+    });
+    // Klik uden for boksen annullerer
+    overlay.addEventListener("click", function(e) {
+      if (e.target === overlay) luk(null);
+    });
+
+    setTimeout(function() { try { input.focus(); } catch (e) {} }, 40);
+  });
+}
+
 async function _levEnsureDisponering() {
   if (_levLoginProgress) return false;
   _levLoginProgress = true;
@@ -769,7 +834,7 @@ async function _levEnsureDisponering() {
       return true; // enhver gyldig session
     }
 
-    const code = prompt("Disponering kræver login — indtast adgangskoden:");
+    const code = await _levSpoergKode("Disponering kræver login");
     if (!code?.trim()) return false;
     const login = await fetch(`${LEV_SP_WORKER}/auth/login`, {
       method: "POST", credentials: "include",
