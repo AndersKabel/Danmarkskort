@@ -540,3 +540,11 @@
   color: #fff !important; font-weight: 600;
 }
 .lev-kode-ok:hover { background: #2471a3 !important; }
+
+/* Vigtig info på leverandør — gul stribe så den ikke overses */
+.lev-popup-info {
+  background: #fef9e7; border-left: 4px solid #f1c40f;
+  padding: 6px 8px; margin: 6px 0; border-radius: 3px;
+  font-size: 12px; color: #7d6608; line-height: 1.45;
+  white-space: pre-wrap;
+}
