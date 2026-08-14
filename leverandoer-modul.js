@@ -1270,6 +1270,14 @@ function _levIcon(lev, katId) {
   });
 }
 
+// Vigtig info om leverandoeren. Vises baade paa hovedadressen og alle
+// depoter, og med gul stribe saa den ikke overses under udkald.
+function _levInfoHTML(lev) {
+  const t = String(lev?.info || "").trim();
+  if (!t) return "";
+  return `<div class="lev-popup-info">\u2139\uFE0F ${_esc(t)}</div>`;
+}
+
 // Mini popup (hover): kun navn, tlf, email
 function _levMiniPopupHTML(lev, adr) {
   const c = lev.farve || "#3498db";
@@ -1277,7 +1285,8 @@ function _levMiniPopupHTML(lev, adr) {
     <div class="lev-popup-top" style="border-left:4px solid ${c}">
       <b>${_esc(lev.navn)}</b>
       ${adr.label ? `<span class="lev-popup-sub">${_esc(adr.label)}</span>` : ""}
-    </div>`;
+    </div>
+    ${_levInfoHTML(lev)}`;
   // Sorter: prioritet 1 (lavest tal) = vises foerst = hoejest prioritet
   const tlf = [...(lev.kontakt?.telefonnumre || [])].sort((a,b) => (a.prioritet||99)-(b.prioritet||99));
   tlf.forEach(t => {
@@ -1301,6 +1310,7 @@ function _levFullPopupHTML(lev, adr) {
       <b>${_esc(lev.navn)}</b>
       ${adr.label ? `<span class="lev-popup-sub">${_esc(adr.label)}</span>` : ""}
     </div>
+    ${_levInfoHTML(lev)}
     <div class="lev-popup-row">📍 ${_esc(adr.vej)}, ${_esc(adr.postnr)} ${_esc(adr.by)}</div>`;
 
   // Sorter: prioritet 1 = hoejest prioritet = vises foerst
@@ -1556,6 +1566,10 @@ function _levShowForm(id) {
             <input type="text" id="lf-kode" value="${_esc(lev.kode || '')}" placeholder="Vælg en kode til leverandøren" style="flex:1">
             <button type="button" id="levGenKode" class="lev-btn-secondary" style="white-space:nowrap">🎲 Generer</button>
           </div>
+        </label>
+        <label style="margin-top:8px">ℹ️ Vigtig info
+          <textarea id="lf-info" class="lev-textarea" rows="3"
+            placeholder="Vises på alle leverandørens markører — fx særlige aftaler eller begrænsninger">${_esc(lev.info || "")}</textarea>
         </label>
       </fieldset>
 
@@ -1958,6 +1972,7 @@ async function _levGem(template) {
       kategorier: Array.from(document.querySelectorAll('#lf-kategorier input[name="lf-kat"]:checked')).map(el => el.value),
       aktiv:    document.getElementById("lf-aktiv").checked,
       kode:     document.getElementById("lf-kode").value.trim(),
+      info:     document.getElementById("lf-info")?.value.trim() || "",
       kontakt: {
         navn:         document.getElementById("lf-knavn").value.trim(),
         email:        document.getElementById("lf-kemail").value.trim(),
