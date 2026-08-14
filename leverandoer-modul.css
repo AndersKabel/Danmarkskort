@@ -548,3 +548,10 @@
   font-size: 12px; color: #7d6608; line-height: 1.45;
   white-space: pre-wrap;
 }
+
+/* Telefonnummer på leverandørvogn — uden for det sammenklappelige */
+.lev-popup-vogn-tlf {
+  font-size: 12px; margin: 2px 0 4px 18px;
+}
+.lev-popup-vogn-tlf a { color: #2980b9; text-decoration: none; font-weight: 600; }
+.lev-popup-vogn-tlf a:hover { text-decoration: underline; }
