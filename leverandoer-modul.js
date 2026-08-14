@@ -1343,6 +1343,13 @@ function _levFullPopupHTML(lev, adr) {
       h += `</span>`;
       if (harDetaljer) h += `<span class="lev-popup-vogn-toggle">▶</span>`;
       h += `</div>`;
+      // Telefonnummeret staar uden for det sammenklappelige, saa man kan
+      // ringe uden at folde detaljerne ud foerst.
+      if (v.telefon) {
+        const tlfRen = String(v.telefon).replace(/\s/g, "").replace(/^\+45/, "");
+        h += `<div class="lev-popup-vogn-tlf">📞 `
+          + `<a href="tel:${_esc("+45" + tlfRen)}">${_esc(v.telefon)}</a></div>`;
+      }
       if (harDetaljer) {
         h += `<div class="lev-popup-vogn-detail">`;
         if (v.billede) h += `<img src="${_esc(v.billede)}" class="lev-popup-vogn-img-full" alt="" onerror="this.style.display='none'" title="Klik for fuld størrelse">`;
@@ -1856,6 +1863,9 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
     <label>Kort beskrivelse
       <input type="text" class="v-besk" value="${_esc(v.beskrivelse)}" placeholder="Ladvogn – 5 kundepladser">
     </label>
+    <label>📞 Telefon (vognens eget nummer)
+      <input type="text" class="v-telefon" value="${_esc(v.telefon)}" placeholder="fx 20 12 34 56">
+    </label>
     ${depotChecks}
     <button type="button" class="lev-vogn-toggle-btn">${harDetaljer ? "▾" : "▸"} Reg.nr. &amp; specifikationer</button>
     <div class="lev-vogn-specs-wrap" style="display:${harDetaljer ? "block" : "none"}">
@@ -2020,6 +2030,7 @@ async function _levGem(template) {
       lev.vogne.push({
         id:          row.dataset.id,
         reg:         row.querySelector(".v-reg")?.value.trim()       || "",
+        telefon:     row.querySelector(".v-telefon")?.value.trim()   || "",
         beskrivelse: row.querySelector(".v-besk")?.value.trim()      || "",
         vognnummer:  row.querySelector(".v-vognr")?.value.trim()     || "",
         ladhøjde:   row.querySelector(".v-ladhøjde")?.value.trim()  || "",
