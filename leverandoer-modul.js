@@ -36,9 +36,14 @@ let EGNE_KATEGORIER = [
 ];
 
 // Load kategorier fra SharePoint og opdater lag
-async function _katLoad() {
+// stille = hent uden at bede om login hvis der ikke er en session.
+// Bruges ved opstart, hvor kodedialogen først må komme når brugeren
+// selv trykker Disp — ikke bare fordi kortet åbnes.
+async function _katLoad(stille) {
   try {
-    const r = await _levSpFetch("/kategorier");
+    const r = stille
+      ? await fetch(LEV_SP_WORKER + "/kategorier", { credentials: "include" })
+      : await _levSpFetch("/kategorier");
     if (!r.ok) return;
     const data = await r.json();
     if (!data.ok || !Array.isArray(data.kategorier) || !data.kategorier.length) return;
@@ -290,7 +295,7 @@ async function initLeverandoerModul() {
   // ville ellers forsinke hooksene nedenfor med hele timeout-perioden.
   // Uden login giver kaldet 401, _katLoad beholder fallback, og kortet
   // virker som før.
-  _katLoad()
+  _katLoad(true)
     .then(() => _levBuildEnhedRows())
     .catch(e => console.warn("Kategorier ved opstart:", e));
 
