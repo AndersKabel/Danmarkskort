@@ -1033,6 +1033,7 @@ async function _levLoadPostnrMap() {
 // Bindes både ved popupopen OG ved setPopupContent (klik -> fuld popup)
 function _levBindPopupHandlers(el) {
   if (!el) return;
+  _levBindUadKnapper(el);
   el.querySelectorAll(".lev-popup-vogn-hdr-click").forEach(hdr => {
     if (hdr.dataset.handlerBound) return;
     hdr.dataset.handlerBound = "1";
@@ -1321,7 +1322,11 @@ function _levFullPopupHTML(lev, adr) {
     </div>
     ${_levUadHTML(_levUadStatus(lev, adr, null))}
     ${_levInfoHTML(lev)}
-    <div class="lev-popup-row">📍 ${_esc(adr.vej)}, ${_esc(adr.postnr)} ${_esc(adr.by)}</div>`;
+    <div class="lev-popup-row">📍 ${_esc(adr.vej)}, ${_esc(adr.postnr)} ${_esc(adr.by)}</div>
+    <div class="lev-uad-knapper">
+      ${_levUadKnapHTML("lev", lev.id, "Leverandør: " + (lev.navn || ""), _erUAD(lev))}
+      ${adr.id ? _levUadKnapHTML("depot", adr.id, "Depot: " + (adr.label || adr.vej || ""), _erUAD(adr)) : ""}
+    </div>`;
 
   // Sorter: prioritet 1 = hoejest prioritet = vises foerst
   const tlf = [...(lev.kontakt?.telefonnumre || [])].sort((a,b) => (a.prioritet||99)-(b.prioritet||99));
@@ -1357,6 +1362,12 @@ function _levFullPopupHTML(lev, adr) {
       h += _levUadHTML(_levUadStatus(lev, adr, v));
       if (_levHarMeldtLedig(v)) {
         h += `<div class="lev-popup-ledig">🟢 Meldt tilgængelig</div>`;
+      }
+      if (v.id) {
+        h += `<div class="lev-uad-knapper" style="margin-left:18px">`
+          + _levUadKnapHTML("vogn", v.id,
+              "Vogn: " + (v.vognnummer || v.reg || ""), _erUAD(v))
+          + `</div>`;
       }
       // Telefonnummeret staar uden for det sammenklappelige, saa man kan
       // ringe uden at folde detaljerne ud foerst.
@@ -2583,6 +2594,54 @@ function _levUadHTML(status) {
   return `<div class="lev-popup-uad">🔴 <b>${_esc(status.tekst)} er UAD</b>${_esc(naar)}`
     + (u.aarsag ? `<br><span class="lev-popup-uad-aarsag">${_esc(u.aarsag)}</span>` : "")
     + `</div>`;
+}
+
+// Knap i popup. Alle roller maa saette UAD, saa den vises altid naar
+// man er logget ind — ogsaa for laeseadgang.
+function _levUadKnapHTML(type, id, navn, erUad) {
+  if (!id) return "";
+  return `<button class="lev-uad-btn" data-uadtype="${_esc(type)}"
+    data-uadid="${_esc(id)}" data-uadnavn="${_esc(navn || "")}"
+    data-uadaktiv="${erUad ? "1" : "0"}">`
+    + (erUad ? "✅ Sæt i drift" : "🔴 Sæt UAD") + `</button>`;
+}
+
+// Bindes efter hver popup-aabning
+function _levBindUadKnapper(rod) {
+  (rod || document).querySelectorAll(".lev-uad-btn").forEach(b => {
+    if (b.dataset.bundet) return;
+    b.dataset.bundet = "1";
+    b.addEventListener("click", async ev => {
+      ev.stopPropagation();
+      const type   = b.dataset.uadtype;
+      const id     = b.dataset.uadid;
+      const navn   = b.dataset.uadnavn;
+      const aktiv  = b.dataset.uadaktiv === "1";
+
+      const svar = await _uadVaelg(navn || "Ude af drift", aktiv ? { aarsag: "" } : null);
+      if (svar === undefined) return;   // annulleret
+
+      const org = b.innerHTML;
+      b.disabled = true;
+      b.innerHTML = "⏳ Gemmer…";
+      try {
+        const r = await _levSpFetch("/leverandoerer/uad", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type, id, uad: svar })
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const data = await r.json();
+        if (!data.ok) throw new Error(data.error || "ukendt fejl");
+        map.closePopup();
+        await _levLoad();          // hent friske data og gentegn
+      } catch (e) {
+        alert("Kunne ikke gemme: " + e.message);
+        b.disabled = false;
+        b.innerHTML = org;
+      }
+    });
+  });
 }
 
 function _erUAD(e) {
