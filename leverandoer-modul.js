@@ -1324,8 +1324,8 @@ function _levFullPopupHTML(lev, adr) {
     ${_levInfoHTML(lev)}
     <div class="lev-popup-row">📍 ${_esc(adr.vej)}, ${_esc(adr.postnr)} ${_esc(adr.by)}</div>
     <div class="lev-uad-knapper">
-      ${_levUadKnapHTML("lev", lev.id, "Leverandør: " + (lev.navn || ""), _erUAD(lev))}
-      ${adr.id ? _levUadKnapHTML("depot", adr.id, "Depot: " + (adr.label || adr.vej || ""), _erUAD(adr)) : ""}
+      <button class="lev-uad-btn" data-uadlev="${_esc(lev.id)}"
+        data-uadadr="${_esc(adr.id || "")}">🔴 Ude af drift…</button>
     </div>`;
 
   // Sorter: prioritet 1 = hoejest prioritet = vises foerst
@@ -1362,12 +1362,6 @@ function _levFullPopupHTML(lev, adr) {
       h += _levUadHTML(_levUadStatus(lev, adr, v));
       if (_levHarMeldtLedig(v)) {
         h += `<div class="lev-popup-ledig">🟢 Meldt tilgængelig</div>`;
-      }
-      if (v.id) {
-        h += `<div class="lev-uad-knapper" style="margin-left:18px">`
-          + _levUadKnapHTML("vogn", v.id,
-              "Vogn: " + (v.vognnummer || v.reg || ""), _erUAD(v))
-          + `</div>`;
       }
       // Telefonnummeret staar uden for det sammenklappelige, saa man kan
       // ringe uden at folde detaljerne ud foerst.
@@ -2596,53 +2590,177 @@ function _levUadHTML(status) {
     + `</div>`;
 }
 
-// Knap i popup. Alle roller maa saette UAD, saa den vises altid naar
-// man er logget ind — ogsaa for laeseadgang.
-function _levUadKnapHTML(type, id, navn, erUad) {
-  if (!id) return "";
-  return `<button class="lev-uad-btn" data-uadtype="${_esc(type)}"
-    data-uadid="${_esc(id)}" data-uadnavn="${_esc(navn || "")}"
-    data-uadaktiv="${erUad ? "1" : "0"}">`
-    + (erUad ? "✅ Sæt i drift" : "🔴 Sæt UAD") + `</button>`;
-}
-
-// Bindes efter hver popup-aabning
+/***************************************************
+ * UAD-dialog med niveauvalg
+ *
+ * Et enkelt valg af hvad der skal saettes ude af drift:
+ *   Leverandoer  = hele firmaet, alle depoter og alle biler
+ *   Depot        = dette depot og de biler der koerer derfra
+ *   Bil          = kun den valgte bil, uafhaengigt af de oevrige
+ *
+ * Alle tre roller maa bruge den. Den skriver via /leverandoerer/uad,
+ * som kun kan aendre Uad-feltet.
+ ***************************************************/
 function _levBindUadKnapper(rod) {
   (rod || document).querySelectorAll(".lev-uad-btn").forEach(b => {
     if (b.dataset.bundet) return;
     b.dataset.bundet = "1";
-    b.addEventListener("click", async ev => {
+    b.addEventListener("click", ev => {
       ev.stopPropagation();
-      const type   = b.dataset.uadtype;
-      const id     = b.dataset.uadid;
-      const navn   = b.dataset.uadnavn;
-      const aktiv  = b.dataset.uadaktiv === "1";
-
-      const svar = await _uadVaelg(navn || "Ude af drift", aktiv ? { aarsag: "" } : null);
-      if (svar === undefined) return;   // annulleret
-
-      const org = b.innerHTML;
-      b.disabled = true;
-      b.innerHTML = "⏳ Gemmer…";
-      try {
-        const r = await _levSpFetch("/leverandoerer/uad", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type, id, uad: svar })
-        });
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        const data = await r.json();
-        if (!data.ok) throw new Error(data.error || "ukendt fejl");
-        map.closePopup();
-        await _levLoad();          // hent friske data og gentegn
-      } catch (e) {
-        alert("Kunne ikke gemme: " + e.message);
-        b.disabled = false;
-        b.innerHTML = org;
-      }
+      const lev = (_levData || []).find(l => String(l.id) === b.dataset.uadlev);
+      if (!lev) { alert("Leverandøren blev ikke fundet."); return; }
+      const adr = (lev.arbejdsAdresser || [])
+        .find(a => String(a.id) === b.dataset.uadadr) || null;
+      _levUadDialog(lev, adr);
     });
   });
 }
+
+function _levUadDialog(lev, adr) {
+  // Biler der hoerer til dette depot; ellers alle leverandoerens biler
+  const vogne = (lev.vogne || []).filter(v => {
+    if (!adr || !adr.id) return true;
+    const ids = v.adresseIds || [];
+    return !ids.length || ids.includes(adr.id);
+  });
+
+  const nu = new Date();
+  const p2 = n => String(n).padStart(2, "0");
+  const dato = `${nu.getFullYear()}-${p2(nu.getMonth()+1)}-${p2(nu.getDate())}`;
+  const tid  = `${p2(nu.getHours())}:${p2(nu.getMinutes())}`;
+
+  const o = document.createElement("div");
+  o.className = "lev-uad-overlay";
+  o.innerHTML = `
+    <div class="lev-uad-boks">
+      <div class="lev-uad-hdr">🔴 Ude af drift</div>
+
+      <div class="lev-uad-label">Hvad skal sættes ude af drift?</div>
+      <label class="lev-uad-valg">
+        <input type="radio" name="ud-niveau" value="lev" checked>
+        <span><b>Leverandør</b><br><small>${_esc(lev.navn || "")} — alle depoter og alle biler</small></span>
+      </label>
+      ${adr && adr.id ? `<label class="lev-uad-valg">
+        <input type="radio" name="ud-niveau" value="depot">
+        <span><b>Depot</b><br><small>${_esc(adr.label || adr.vej || "")} — og biler herfra</small></span>
+      </label>` : ""}
+      ${vogne.length ? `<label class="lev-uad-valg">
+        <input type="radio" name="ud-niveau" value="vogn">
+        <span><b>Bil</b><br><small>Kun den valgte bil</small></span>
+      </label>
+      <select id="ud-vogn" class="lev-uad-select" style="display:none">
+        ${vogne.map(v => `<option value="${_esc(v.id)}">`
+          + `${_esc(v.vognnummer || v.reg || "Bil")}`
+          + `${v.beskrivelse ? " — " + _esc(v.beskrivelse) : ""}`
+          + `${_erUAD(v) ? "  🔴 UAD" : ""}</option>`).join("")}
+      </select>` : ""}
+
+      <div id="ud-status" class="lev-uad-nu"></div>
+
+      <div class="lev-uad-label" style="margin-top:12px">Hvor længe?</div>
+      <label class="lev-uad-valg">
+        <input type="radio" name="ud-type" value="manuel" checked>
+        <span>Indtil den sættes i drift igen</span>
+      </label>
+      <label class="lev-uad-valg">
+        <input type="radio" name="ud-type" value="tidsrum">
+        <span>Bestemt tidsrum</span>
+      </label>
+      <div id="ud-felter" style="display:none;gap:6px;margin:6px 0 0">
+        <input type="datetime-local" id="ud-fra" value="${dato}T${tid}">
+        <input type="datetime-local" id="ud-til" value="${dato}T23:59">
+      </div>
+
+      <input type="text" id="ud-aarsag" class="lev-uad-aarsag"
+        placeholder="Årsag — fx værksted, ferie, mandskab" maxlength="120">
+
+      <div class="lev-uad-knaprk">
+        <button id="ud-drift" class="lev-uad-drift" style="display:none">✅ Sæt i drift</button>
+        <button id="ud-gem" class="lev-uad-gem">🔴 Sæt UAD</button>
+        <button id="ud-annuller" class="lev-uad-annuller">Annuller</button>
+      </div>
+    </div>`;
+  document.body.appendChild(o);
+
+  const q = s => o.querySelector(s);
+  const valgtNiveau = () => o.querySelector("input[name='ud-niveau']:checked").value;
+
+  // Hvad er valgt lige nu, og er det allerede UAD?
+  function maal() {
+    const n = valgtNiveau();
+    if (n === "lev")   return { type: "lev",   id: lev.id, obj: lev,
+                                navn: lev.navn || "Leverandøren" };
+    if (n === "depot") return { type: "depot", id: adr.id, obj: adr,
+                                navn: adr.label || adr.vej || "Depotet" };
+    const vid = q("#ud-vogn") ? q("#ud-vogn").value : null;
+    const v = vogne.find(x => String(x.id) === String(vid));
+    return { type: "vogn", id: vid, obj: v,
+             navn: v ? (v.vognnummer || v.reg || "Bilen") : "Bilen" };
+  }
+
+  function opdater() {
+    const m = maal();
+    const erUad = m.obj ? _erUAD(m.obj) : false;
+    if (q("#ud-vogn")) q("#ud-vogn").style.display = (valgtNiveau() === "vogn") ? "" : "none";
+    q("#ud-drift").style.display = erUad ? "" : "none";
+    q("#ud-status").innerHTML = erUad
+      ? `<span class="lev-uad-nu-ude">🔴 ${_esc(m.navn)} er ude af drift`
+        + (m.obj.uad && m.obj.uad.aarsag ? ` · ${_esc(m.obj.uad.aarsag)}` : "") + `</span>`
+      : `<span class="lev-uad-nu-drift">✅ ${_esc(m.navn)} er i drift</span>`;
+    if (erUad && m.obj.uad && m.obj.uad.aarsag) q("#ud-aarsag").value = m.obj.uad.aarsag;
+  }
+
+  o.querySelectorAll("input[name='ud-niveau']").forEach(r =>
+    r.addEventListener("change", opdater));
+  if (q("#ud-vogn")) q("#ud-vogn").addEventListener("change", opdater);
+  o.querySelectorAll("input[name='ud-type']").forEach(r =>
+    r.addEventListener("change", () => {
+      const vis = o.querySelector("input[name='ud-type']:checked").value === "tidsrum";
+      q("#ud-felter").style.display = vis ? "flex" : "none";
+    }));
+  opdater();
+
+  const luk = () => o.remove();
+  q("#ud-annuller").addEventListener("click", luk);
+  o.addEventListener("click", e => { if (e.target === o) luk(); });
+
+  async function gem(uad) {
+    const m = maal();
+    if (!m.id) { alert("Vælg hvad der skal sættes."); return; }
+    const knapper = o.querySelectorAll("button");
+    knapper.forEach(k => k.disabled = true);
+    q("#ud-gem").textContent = "⏳ Gemmer…";
+    try {
+      const r = await _levSpFetch("/leverandoerer/uad", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: m.type, id: m.id, uad })
+      });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || "ukendt fejl");
+      luk();
+      map.closePopup();
+      await _levLoad();
+    } catch (e) {
+      alert("Kunne ikke gemme: " + e.message);
+      knapper.forEach(k => k.disabled = false);
+      q("#ud-gem").textContent = "🔴 Sæt UAD";
+    }
+  }
+
+  q("#ud-drift").addEventListener("click", () => gem(null));
+  q("#ud-gem").addEventListener("click", () => {
+    const type   = o.querySelector("input[name='ud-type']:checked").value;
+    const aarsag = q("#ud-aarsag").value.trim() || undefined;
+    if (type === "manuel") { gem({ type: "manuel", aarsag }); return; }
+    const fra = q("#ud-fra").value, til = q("#ud-til").value;
+    if (!fra || !til) { alert("Udfyld både fra og til."); return; }
+    if (new Date(til) <= new Date(fra)) { alert("Til skal være efter fra."); return; }
+    gem({ type: "tidsrum", fra, til, aarsag });
+  });
+}
+
 
 function _erUAD(e) {
   if (!e?.uad) return false;
