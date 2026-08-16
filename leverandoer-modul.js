@@ -1118,7 +1118,7 @@ function _levBuildMarkers() {
 
         let closeTimer = null;
         let isFullOpen = false;
-        const marker = L.marker([adr.lat, adr.lon], { icon: _levIcon(lev, katId) })
+        const marker = L.marker([adr.lat, adr.lon], { icon: _levIcon(lev, katId, adr) })
           .bindPopup(_levMiniPopupHTML(lev, adr), { maxWidth: 280, className: "lev-leaflet-popup" })
           .on("mouseover", function () {
             if (isFullOpen) return;
@@ -1177,6 +1177,10 @@ async function _levTilgLoad() {
     if (!resp.ok) { console.warn("Tilgængelighed: fejl", resp.status); return; }
     const data = await resp.json();
     const aktive = data.aktive || [];
+    // Bruges til at lade en ledigmelding tilsidesaette arvet UAD
+    _levTilgVognNumre = new Set(aktive
+      .map(a => String(a.vognNr || "").trim().toLowerCase())
+      .filter(Boolean));
     _levTilgBuildMarkers(aktive);
 
     // Vis besked hvis ingen er tilgængelige
@@ -1259,13 +1263,17 @@ function _levTilgBuildMarkers(aktive) {
   });
 }
 
-function _levIcon(lev, katId) {
+function _levIcon(lev, katId, adr) {
   const kat     = LEV_KATEGORIER.find(k => k.id === (katId || lev.kategorier?.[0] || lev.kategori));
   const initial = kat ? kat.ikon : (lev.navn || "?")[0].toUpperCase();
-  const color   = lev.farve || "#3498db";
+  // UAD slaar leverandoerens egen farve, saa det ses paa afstand.
+  // Depotets markering taeller med, saa ét lukket depot bliver roedt
+  // uden at resten af leverandoeren goer det.
+  const uadStatus = _levUadStatus(lev, adr || null, null);
+  const color   = uadStatus ? "#e74c3c" : (lev.farve || "#3498db");
   return L.divIcon({
     className:   "",
-    html:        `<div class="lev-marker-icon" style="background:${color}">${initial}</div>`,
+    html:        `<div class="lev-marker-icon" style="background:${color}"${uadStatus ? ' title="Ude af drift"' : ""}>${initial}</div>`,
     iconSize:    [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -14]
   });
 }
@@ -1286,6 +1294,7 @@ function _levMiniPopupHTML(lev, adr) {
       <b>${_esc(lev.navn)}</b>
       ${adr.label ? `<span class="lev-popup-sub">${_esc(adr.label)}</span>` : ""}
     </div>
+    ${_levUadHTML(_levUadStatus(lev, adr, null))}
     ${_levInfoHTML(lev)}`;
   // Sorter: prioritet 1 (lavest tal) = vises foerst = hoejest prioritet
   const tlf = [...(lev.kontakt?.telefonnumre || [])].sort((a,b) => (a.prioritet||99)-(b.prioritet||99));
@@ -1310,6 +1319,7 @@ function _levFullPopupHTML(lev, adr) {
       <b>${_esc(lev.navn)}</b>
       ${adr.label ? `<span class="lev-popup-sub">${_esc(adr.label)}</span>` : ""}
     </div>
+    ${_levUadHTML(_levUadStatus(lev, adr, null))}
     ${_levInfoHTML(lev)}
     <div class="lev-popup-row">📍 ${_esc(adr.vej)}, ${_esc(adr.postnr)} ${_esc(adr.by)}</div>`;
 
@@ -1343,6 +1353,11 @@ function _levFullPopupHTML(lev, adr) {
       h += `</span>`;
       if (harDetaljer) h += `<span class="lev-popup-vogn-toggle">▶</span>`;
       h += `</div>`;
+      // Arver fra depot og leverandoer, medmindre vognen har meldt sig ledig
+      h += _levUadHTML(_levUadStatus(lev, adr, v));
+      if (_levHarMeldtLedig(v)) {
+        h += `<div class="lev-popup-ledig">🟢 Meldt tilgængelig</div>`;
+      }
       // Telefonnummeret staar uden for det sammenklappelige, saa man kan
       // ringe uden at folde detaljerne ud foerst.
       if (v.telefon) {
@@ -1574,6 +1589,12 @@ function _levShowForm(id) {
             <button type="button" id="levGenKode" class="lev-btn-secondary" style="white-space:nowrap">🎲 Generer</button>
           </div>
         </label>
+        <div style="margin-top:10px">
+          <div class="lev-form-label">🔴 Ude af drift</div>
+          <div id="lf-uad-status" class="lev-uad-status"></div>
+          <button type="button" id="lf-uad-btn" class="lev-btn-secondary"
+            style="margin-top:4px">Sæt / ændr UAD</button>
+        </div>
         <label style="margin-top:8px">ℹ️ Vigtig info
           <textarea id="lf-info" class="lev-textarea" rows="3"
             placeholder="Vises på alle leverandørens markører — fx særlige aftaler eller begrænsninger">${_esc(lev.info || "")}</textarea>
@@ -1747,6 +1768,26 @@ function _levShowForm(id) {
   });
   document.getElementById("levGemBtn") .addEventListener("click", () => _levGem(lev));
   document.getElementById("levSletBtn")?.addEventListener("click", () => _levSlet(lev.id));
+  // UAD paa selve leverandoeren
+  let _lfUad = lev.uad || null;
+  const _lfVisUad = () => {
+    const el = document.getElementById("lf-uad-status");
+    if (!el) return;
+    el.innerHTML = _lfUad
+      ? `<span style="color:#c0392b;font-weight:600">🔴 UAD</span>`
+        + (_lfUad.aarsag ? ` · ${_esc(_lfUad.aarsag)}` : "")
+      : `<span style="color:#27ae60">✅ I drift</span>`;
+  };
+  _lfVisUad();
+  const _lfUadBtn = document.getElementById("lf-uad-btn");
+  if (_lfUadBtn) _lfUadBtn.addEventListener("click", async () => {
+    const svar = await _uadVaelg("Leverandør: " + (lev.navn || "ny"), _lfUad);
+    if (svar === undefined) return;   // annulleret
+    _lfUad = svar;
+    _lfVisUad();
+  });
+  window.__lfHentUad = () => _lfUad;
+
   document.getElementById("levGenKode").addEventListener("click", () => {
     const tegn = "abcdefghjkmnpqrstuvwxyz23456789";
     let kode = "";
@@ -1983,6 +2024,7 @@ async function _levGem(template) {
       aktiv:    document.getElementById("lf-aktiv").checked,
       kode:     document.getElementById("lf-kode").value.trim(),
       info:     document.getElementById("lf-info")?.value.trim() || "",
+      uad:      (typeof window.__lfHentUad === "function") ? window.__lfHentUad() : (lev.uad || null),
       kontakt: {
         navn:         document.getElementById("lf-knavn").value.trim(),
         email:        document.getElementById("lf-kemail").value.trim(),
@@ -2499,6 +2541,50 @@ async function _enhedLoad() {
 }
 
 // ── UAD HJÆLPEFUNKTIONER ─────────────────────────────────────────
+/***************************************************
+ * UAD paa leverandoerer, depoter og vogne
+ *
+ * En vogn er ude af drift hvis vognen selv, dens depot eller
+ * leverandoeren er markeret. Aarsagen foelger med ned, saa popup'en
+ * kan vise HVORFOR og ikke bare farve markoeren roed.
+ *
+ * Undtagelse: en vogn der aktivt har meldt sig tilgaengelig er i drift
+ * uanset arven. At melde sig ledig er en nyere og staerkere handling
+ * end en markering sat af nogen andre.
+ ***************************************************/
+let _levTilgVognNumre = new Set();   // vogne der har meldt sig ledige
+
+// Returnerer null hvis i drift, ellers {uad, niveau, tekst}
+function _levUadStatus(lev, adr, vogn) {
+  if (vogn && _levHarMeldtLedig(vogn)) return null;
+
+  if (vogn && _erUAD(vogn))  return { uad: vogn.uad, niveau: "vogn",  tekst: "Vognen" };
+  if (adr  && _erUAD(adr))   return { uad: adr.uad,  niveau: "depot", tekst: "Depotet" };
+  if (lev  && _erUAD(lev))   return { uad: lev.uad,  niveau: "lev",   tekst: "Leverandøren" };
+  return null;
+}
+
+function _levHarMeldtLedig(vogn) {
+  const nr = String(vogn?.vognnummer || "").trim().toLowerCase();
+  return !!nr && _levTilgVognNumre.has(nr);
+}
+
+// Linje til popup, saa aarsagen er synlig
+function _levUadHTML(status) {
+  if (!status) return "";
+  const u = status.uad || {};
+  let naar = "";
+  if (u.type === "tidsrum" && u.til) {
+    try {
+      naar = " til " + new Date(u.til).toLocaleString("da-DK",
+        { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    } catch (e) {}
+  }
+  return `<div class="lev-popup-uad">🔴 <b>${_esc(status.tekst)} er UAD</b>${_esc(naar)}`
+    + (u.aarsag ? `<br><span class="lev-popup-uad-aarsag">${_esc(u.aarsag)}</span>` : "")
+    + `</div>`;
+}
+
 function _erUAD(e) {
   if (!e?.uad) return false;
   if (e.uad.type === "manuel") return true;
@@ -2612,6 +2698,85 @@ async function _enhedUADDialog(enhedId) {
     } catch(err) { alert("Fejl: " + err.message); }
   });
 }
+
+/***************************************************
+ * Genbrugelig UAD-dialog
+ *
+ * Returnerer et Promise: UAD-objektet, null hvis der saettes i drift,
+ * eller undefined hvis der annulleres. Den gemmer ikke selv - kalderen
+ * bestemmer hvor vaerdien skal hen, saa den kan bruges paa baade
+ * leverandoerer, depoter og vogne.
+ ***************************************************/
+function _uadVaelg(titel, nuvaerende) {
+  return new Promise(resolve => {
+    const nu = new Date();
+    const p2 = n => String(n).padStart(2, "0");
+    const dato = `${nu.getFullYear()}-${p2(nu.getMonth()+1)}-${p2(nu.getDate())}`;
+    const tid  = `${p2(nu.getHours())}:${p2(nu.getMinutes())}`;
+    const erUad = !!nuvaerende;
+
+    const o = document.createElement("div");
+    o.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100001;"
+      + "display:flex;align-items:center;justify-content:center";
+    o.innerHTML = `
+      <div style="background:#fff;border-radius:10px;padding:20px;width:340px;
+                  max-width:calc(100vw - 32px);font-family:Arial,sans-serif">
+        <div style="font-weight:700;font-size:15px;margin-bottom:12px">🔴 ${_esc(titel)}</div>
+        ${erUad ? `<button id="uv-drift" style="width:100%;padding:10px;margin-bottom:12px;
+          background:#27ae60;color:#fff;border:none;border-radius:8px;font-weight:700;
+          cursor:pointer">✅ Sæt i drift igen</button>` : ""}
+        <label class="lev-kat-check-label" style="font-size:13px">
+          <input type="radio" name="uv-type" value="manuel" checked> Manuel — indtil du sætter klar
+        </label>
+        <label class="lev-kat-check-label" style="font-size:13px;margin-top:4px">
+          <input type="radio" name="uv-type" value="tidsrum"> Tidsrum
+        </label>
+        <div id="uv-felter" style="display:none;gap:6px;margin-top:8px">
+          <input type="datetime-local" id="uv-fra" value="${dato}T${tid}"
+            style="flex:1;padding:7px;border:1px solid #cdd5df;border-radius:6px;font-size:12px">
+          <input type="datetime-local" id="uv-til" value="${dato}T23:59"
+            style="flex:1;padding:7px;border:1px solid #cdd5df;border-radius:6px;font-size:12px">
+        </div>
+        <input type="text" id="uv-aarsag" placeholder="Årsag (valgfri)"
+          value="${_esc(nuvaerende && nuvaerende.aarsag || "")}"
+          style="width:100%;padding:8px;margin-top:10px;border:1px solid #cdd5df;
+                 border-radius:6px;font-size:13px">
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button id="uv-gem" style="flex:1;padding:10px;background:#e74c3c;color:#fff;
+            border:none;border-radius:8px;font-weight:700;cursor:pointer">Sæt UAD</button>
+          <button id="uv-annuller" style="flex:1;padding:10px;background:#f5f7fa;
+            border:1px solid #cdd5df;border-radius:8px;cursor:pointer">Annuller</button>
+        </div>
+      </div>`;
+    document.body.appendChild(o);
+
+    let svaret = false;
+    const luk = v => { if (svaret) return; svaret = true; o.remove(); resolve(v); };
+
+    o.querySelectorAll("input[name='uv-type']").forEach(r =>
+      r.addEventListener("change", () => {
+        const vis = o.querySelector("input[name='uv-type']:checked").value === "tidsrum";
+        o.querySelector("#uv-felter").style.display = vis ? "flex" : "none";
+      }));
+
+    const drift = o.querySelector("#uv-drift");
+    if (drift) drift.addEventListener("click", () => luk(null));
+    o.querySelector("#uv-annuller").addEventListener("click", () => luk(undefined));
+    o.addEventListener("click", e => { if (e.target === o) luk(undefined); });
+
+    o.querySelector("#uv-gem").addEventListener("click", () => {
+      const type   = o.querySelector("input[name='uv-type']:checked").value;
+      const aarsag = o.querySelector("#uv-aarsag").value.trim() || undefined;
+      if (type === "manuel") { luk({ type: "manuel", aarsag }); return; }
+      const fra = o.querySelector("#uv-fra").value;
+      const til = o.querySelector("#uv-til").value;
+      if (!fra || !til) { alert("Udfyld både fra og til."); return; }
+      if (new Date(til) <= new Date(fra)) { alert("Til skal være efter fra."); return; }
+      luk({ type: "tidsrum", fra, til, aarsag });
+    });
+  });
+}
+
 
 // ── HJÆLPEFUNKTION: Individuel enhed-markør (uden station) ───────
 function _renderEnhedMarker(enhed, kat, maaFlytte) {
