@@ -363,7 +363,7 @@ async function geocodeORSForSearch(query) {
     const data = await resp.json();
     if (!data.features || data.features.length === 0) return [];
 
-    const resultater = data.features
+    return data.features
       .filter(feat => {
         const p = feat.properties || {};
         const country = (p.country || p.country_a || "").toString().toLowerCase();
@@ -380,25 +380,9 @@ async function geocodeORSForSearch(query) {
           label,
           lat,
           lon,
-          postnr: p.postalcode || "",
           feature: feat
         };
       });
-
-    // Indeholder søgningen et femcifret tal, behandles det som postnummer:
-    // træf med samme postnummer lægges øverst. ORS/Pelias filtrerer IKKE på
-    // postnummer — den rangerer frit på tekstlighed — så uden dette kan den
-    // rigtige adresse ligge langt nede blandt enslydende vejnavne i andre byer.
-    // De øvrige fjernes ikke, da postnummeret kan være tastet forkert.
-    // Danske postnumre er firecifrede og udløser derfor ikke sorteringen.
-    const postnrIQuery = (String(query).match(/(?<!\d)\d{5}(?!\d)/) || [])[0];
-    if (postnrIQuery) {
-      // Array.prototype.sort er stabil, så indbyrdes rækkefølge bevares
-      resultater.sort((a, b) =>
-        (a.postnr === postnrIQuery ? 0 : 1) - (b.postnr === postnrIQuery ? 0 : 1));
-    }
-
-    return resultater;
   } catch (err) {
     console.error("Fejl i geocodeORSForSearch:", err);
     return [];
@@ -447,43 +431,6 @@ async function reverseGeocodeORS(lat, lon) {
 function isInDenmark(lat, lon) {
   return lat >= 54.3 && lat <= 58.0 && lon >= 7.5 && lon <= 15.5;
 }
-/***************************************************
- * Danske farvande — Danmark inkl. havområder og broer
- *
- * Kommunegrænser slutter i vandkanten jf. Lov om Afgrænsning af
- * Søterritoriet. Derfor falder fx Storebæltsbroen uden for
- * kommunepolygonerne, selvom den er dansk. Denne polygon er
- * DAWA's postnumre smeltet sammen UDEN parameteren landpostnumre,
- * som netop medtager havområderne, og den er korrekt afgrænset
- * mod Tyskland og Sverige.
- ***************************************************/
-var farvandGeoJSON = null;
-
-fetch("danske-farvande.geojson")
-  .then(function(r) {
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    return r.json();
-  })
-  .then(function(g) {
-    farvandGeoJSON = g;
-    console.log("Danske farvande indlæst");
-  })
-  .catch(function(err) {
-    console.warn("Kunne ikke indlæse danske farvande:", err.message);
-  });
-
-function _erIDanskeFarvande(point) {
-  if (!farvandGeoJSON || !farvandGeoJSON.features) return false;
-  try {
-    for (var i = 0; i < farvandGeoJSON.features.length; i++) {
-      if (turf.booleanPointInPolygon(point, farvandGeoJSON.features[i])) return true;
-    }
-  } catch (e) {
-    console.warn("Fejl i farvandstjek:", e);
-  }
-  return false;
-}
-
 function isInDenmarkByPolygon(lat, lon) {
   if (!kommuneGeoJSON || !kommuneGeoJSON.features) {
     // Fallback til simpel bounding box, hvis kommunedata ikke er klar endnu
@@ -497,8 +444,7 @@ function isInDenmarkByPolygon(lat, lon) {
         return true;
       }
     }
-    // Ikke i nogen kommune: kan stadig være dansk farvand eller en bro
-    return _erIDanskeFarvande(point);
+    return false;
   } catch (e) {
     console.error("Fejl i isInDenmarkByPolygon:", e);
     return isInDenmark(lat, lon);
@@ -989,11 +935,7 @@ var osmLayer = L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
     maxZoom: 19,
-    // Kildeangivelser for tjenester der leverer DATA, ikke fliser.
-    // Fliselag har hver sin egen attribution, som Leaflet viser når laget
-    // er tændt. ORS, OpenChargeMap og DMI har ingen sådan mekanisme og
-    // skal derfor stå fast her.
-    attribution: '© <a href="https://bykabel.dk" target="_blank">ByKabel</a> | © OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur, © CVR API, © <a href="https://openrouteservice.org/" target="_blank">openrouteservice</a>, © <a href="https://openchargemap.org/" target="_blank">OpenChargeMap</a>, © DMI'
+    attribution: '© <a href="https://bykabel.dk" target="_blank">ByKabel</a> | © OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur, © CVR API | Google Analytics'
   }
 ).addTo(map);
 
@@ -1078,7 +1020,7 @@ var weatherRainLayer = null;
 if (OWM_API_KEY && OWM_API_KEY.trim() !== "") {
   weatherTempLayer = L.tileLayer(
     `https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`,
-    { opacity: 0.5 }   // OWM-laget er ikke i brug — ingen kildeangivelse nødvendig
+    { opacity: 0.5, attribution: "Temperatur © OpenWeatherMap" }
   );
 }
 
@@ -1223,27 +1165,16 @@ async function loadVdAdvarsler() {
 }
 
 // Start lag-indlæsning ved overlayadd
-// Indikatoren vises KUN ved manuel aktivering — ikke ved de
-// automatiske genindlæsninger hvert 5.-10. minut, som ellers ville
-// give en toast på skærmen flere gange i timen uden anledning.
-function _medIndikator(navn, indlaes) {
-  _dispToast("Henter " + navn + " …");
-  return Promise.resolve()
-    .then(indlaes)
-    .catch(err => console.warn("Indlæsning af " + navn + " fejlede:", err))
-    .finally(() => _dispToastSkjul());
-}
-
 function _startDmiInterval() {
-  _medIndikator("Temperatur (DMI)", loadDmiTemperatur);
+  loadDmiTemperatur();
   if (!dmiTempInterval) dmiTempInterval = setInterval(loadDmiTemperatur, 10 * 60 * 1000);
 }
 function _startVdInterval() {
-  _medIndikator("Vejarbejder (VD)", loadVdTrafik);
+  loadVdTrafik();
   if (!vdTrafikInterval) vdTrafikInterval = setInterval(loadVdTrafik, 5 * 60 * 1000);
 }
 function _startVdAdvarselInterval() {
-  _medIndikator("Advarsler (VD)", loadVdAdvarsler);
+  loadVdAdvarsler();
   if (!vdAdvarselInterval) vdAdvarselInterval = setInterval(loadVdAdvarsler, 5 * 60 * 1000);
 }
 
@@ -1491,41 +1422,6 @@ function _dispByg() {
     });
 }
 
-/***************************************************
- * Indlæsningsindikator for lag i hovedlagkontrollen
- *
- * WMS- og fliselag (CVF, strandposter, km-markeringer, rastepladser
- * m.fl.) kan tage flere sekunder om at tegne. Uden en indikator ser
- * det ud som om intet sker, og man slår laget til og fra igen.
- *
- * Leaflet fyrer "load" på et fliselag når alle synlige fliser er
- * hentet — det er den vi lytter på. Genbruger toasten fra
- * disponeringsområderne, så der kun er ét sted at vedligeholde.
- ***************************************************/
-map.on("overlayadd", function(e) {
-  const lag = e.layer;
-  if (!lag || !(lag instanceof L.TileLayer)) return;
-
-  const navn = (e.name || "laget").replace(/^[^\p{L}\d]+/u, "").trim() || "laget";
-  _dispToast("Henter " + navn + " …");
-
-  let faerdig = false;
-  const slut = function() {
-    if (faerdig) return;
-    faerdig = true;
-    lag.off("load", slut);
-    _dispToastSkjul();
-  };
-  lag.on("load", slut);
-
-  // Sikkerhedsnet: hvis serveren aldrig svarer, må toasten ikke blive hængende
-  setTimeout(slut, 20000);
-});
-
-map.on("overlayremove", function(e) {
-  if (e.layer instanceof L.TileLayer) _dispToastSkjul();
-});
-
 // Egne handlere – rører ikke de eksisterende overlayadd/overlayremove-kæder
 map.on("overlayadd", function(e) {
   if (e.layer === dispOmrLayer) _dispByg();
@@ -1645,51 +1541,6 @@ const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'toprig
 
 // ── Km-markerings forklaring ──────────────────────────────────────
 // Vises kun når "Km-markeringer (VD)"-laget er aktivt
-/***************************************************
- * Forklaringsboks til lag med symboler
- * Bygges ud fra lagets egen fil-liste, så boksen ikke kan
- * komme ud af trit med de farver og ikoner der faktisk tegnes.
- ***************************************************/
-function _byggForklaring(titel, kantfarve, poster) {
-  const ctrl = L.control({ position: "bottomleft" });
-  ctrl.onAdd = function() {
-    const div = L.DomUtil.create("div", "");
-    div.style.cssText = [
-      "background:rgba(255,255,255,0.93)",
-      "border:1px solid " + kantfarve,
-      "border-radius:6px",
-      "padding:8px 11px",
-      "font-size:12px",
-      "line-height:1.6",
-      "max-width:230px",
-      "box-shadow:0 2px 6px rgba(0,0,0,0.18)"
-    ].join(";");
-
-    // Samme etiket kan optræde flere gange (linje og område) — vis den én gang
-    const set = [];
-    poster.forEach(function(p) {
-      if (!set.some(x => x.label === p.label)) set.push(p);
-    });
-
-    div.innerHTML =
-      "<strong style='color:" + kantfarve + "'>" + titel + "</strong>" +
-      "<hr style='margin:4px 0;border-color:#eee'>" +
-      "<table style='font-size:11px;border-collapse:collapse'>" +
-      set.map(function(p) {
-        return "<tr><td style='padding-right:6px'>" + p.ikon + "</td>" +
-               "<td><span style='display:inline-block;width:16px;height:3px;" +
-               "background:" + p.color + ";vertical-align:middle;margin-right:6px'></span>" +
-               p.label + "</td></tr>";
-      }).join("") +
-      "</table>";
-    return div;
-  };
-  return ctrl;
-}
-
-const vdTrafikForklaringCtrl   = _byggForklaring("🚧 Vejarbejder (VD)", "#e67e22", VD_VEJARBEJDE_FILER);
-const vdAdvarselForklaringCtrl = _byggForklaring("⚠️ Advarsler (VD)",   "#e74c3c", VD_ADVARSEL_FILER);
-
 const kmForklaringCtrl = L.control({ position: "bottomleft" });
 kmForklaringCtrl.onAdd = function() {
   const div = L.DomUtil.create("div", "");
@@ -1717,22 +1568,16 @@ kmForklaringCtrl.onAdd = function() {
   return div;
 };
 
-function _visForklaring(ctrl) {
-  ctrl.addTo(map);
-  // Flyt boksen op så den ikke dækker kommunekode-baren i bunden
-  const el = ctrl.getContainer();
-  if (el) el.style.marginBottom = "28px";
-}
-
 map.on("overlayadd", function(e) {
-  if      (e.layer === kmMaerkerLayer)  _visForklaring(kmForklaringCtrl);
-  else if (e.layer === vdTrafikLayer)   _visForklaring(vdTrafikForklaringCtrl);
-  else if (e.layer === vdAdvarselLayer) _visForklaring(vdAdvarselForklaringCtrl);
+  if (e.layer === kmMaerkerLayer) {
+    kmForklaringCtrl.addTo(map);
+    // Flyt boksen op så den ikke dækker kommunekode-baren i bunden
+    const el = kmForklaringCtrl.getContainer();
+    if (el) el.style.marginBottom = "28px";
+  }
 });
 map.on("overlayremove", function(e) {
-  if      (e.layer === kmMaerkerLayer)  kmForklaringCtrl.remove();
-  else if (e.layer === vdTrafikLayer)   vdTrafikForklaringCtrl.remove();
-  else if (e.layer === vdAdvarselLayer) vdAdvarselForklaringCtrl.remove();
+  if (e.layer === kmMaerkerLayer) kmForklaringCtrl.remove();
 });
 layerControl.getContainer().classList.add("main-ar-ctrl");
 
@@ -1858,8 +1703,6 @@ map.on('overlayadd', function(e) {
     const lat = center.lat, lon = center.lng;
     const distKm = selectedRadius / 1000;
 
-    _dispToast("Henter Ladestandere …");
-
     fetch(
       'https://api.openchargemap.io/v3/poi/?output=json' +
       '&countrycode=DK' +
@@ -1924,8 +1767,7 @@ map.on('overlayadd', function(e) {
         }
       });
     })
-    .catch(err => console.error('Fejl ved hentning af ladestandere:', err))
-    .finally(() => _dispToastSkjul());
+    .catch(err => console.error('Fejl ved hentning af ladestandere:', err));
   } else if (e.layer === keepMarkersLayer) {
     // Når "Behold markører" slås til, går vi i multi-markør-tilstand
     keepMarkersEnabled = true;
@@ -2070,9 +1912,9 @@ async function visMatrikel(lat, lon) {
       fillColor: "#e67e22", fillOpacity: 0.15
     };
 
-    function popupHtml(matrikelnr, ejerlav, kommune, areal, ejdNr, adresseStr) {
-      const bfeHtml = ejdNr
-        ? `<hr style="margin:4px 0"><span style="color:#888;font-size:11px">Ejendomsnr: ${ejdNr}</span>` : "";
+    function popupHtml(matrikelnr, ejerlav, kommune, areal, bfe, adresseStr) {
+      const bfeHtml = bfe
+        ? `<hr style="margin:4px 0"><span style="color:#888;font-size:11px">BFE: ${bfe}</span>` : "";
       return `<strong>📐 Matrikel</strong><br>` +
         `Matrikelnr: <strong>${matrikelnr}</strong><br>` +
         `Ejerlav: ${ejerlav}<br>` +
@@ -2082,27 +1924,18 @@ async function visMatrikel(lat, lon) {
         bfeHtml;
     }
 
-    // Trin 2: Hent alle jordstykker på ejendommen
-    //
-    // Vi slår op på sfeejendomsnr (samlet fast ejendom), IKKE bfenummer.
-    // bfenummer er tomt på udstykkede jordstykker: fx matr. 1æ i
-    // Oksenbjerge har moderjordstykke 1h, samme sfeejendomsnr 4355348,
-    // men bfenummer = null. Med det gamle BFE-opslag blev den halvdel
-    // af ejendommen lydløst udeladt fra kortet.
-    const sfe = String(p.sfeejendomsnr || "").trim();
+    // Trin 2: Har vi et BFE-nummer? → hent alle jordstykker på ejendommen
     const bfe = p.bfenummer || "";
-    const ejdNr = sfe || String(bfe || "");
     const matrikelNr = p.matrikelnr || "?";
     const ejerlav    = p.ejerlavnavn || "?";
     const kommune    = p.kommunenavn || "";
     const areal      = p.registreretareal
       ? `${Math.round(p.registreretareal).toLocaleString("da-DK")} m²` : "";
 
-    if (ejdNr) {
-      // sfeejendomsnr foretrækkes; bfenummer bruges kun hvis det første mangler
-      const param = sfe ? "sfeejendomsnr" : "bfenummer";
+    if (bfe) {
+      // Hent alle jordstykker med samme BFE (hele ejendommen)
       const alleResp = await fetch(
-        `https://api.dataforsyningen.dk/jordstykker?${param}=${encodeURIComponent(ejdNr)}&format=geojson`
+        `https://api.dataforsyningen.dk/jordstykker?bfenummer=${bfe}&format=geojson`
       );
       const alleData = await alleResp.json();
 
@@ -2116,7 +1949,7 @@ async function visMatrikel(lat, lon) {
         features = alleData.features;
       }
 
-      console.log(`Matrikel ${sfe ? "SFE" : "BFE"}-svar: features = ${features.length}`);
+      console.log("Matrikel BFE-svar: features =", features.length);
 
       if (features.length > 0) {
         // Tegn alle jordstykker
@@ -2129,7 +1962,7 @@ async function visMatrikel(lat, lon) {
             ? `${Math.round(fp.registreretareal).toLocaleString("da-DK")} m²` : "";
 
           L.geoJSON(feat, { style: matrikelStyle })
-            .bindPopup(popupHtml(mnr, ejl, kom, ar, ejdNr, ""))
+            .bindPopup(popupHtml(mnr, ejl, kom, ar, bfe, ""))
             .addTo(matrikelLayer);
         });
 
@@ -2148,7 +1981,7 @@ async function visMatrikel(lat, lon) {
               const layers = matrikelLayer.getLayers();
               if (layers.length > 0) {
                 layers[0].setPopupContent(
-                  popupHtml(matrikelNr, ejerlav, kommune, areal, ejdNr, adresseStr)
+                  popupHtml(matrikelNr, ejerlav, kommune, areal, bfe, adresseStr)
                 );
               }
             }
@@ -2160,9 +1993,9 @@ async function visMatrikel(lat, lon) {
       }
     }
 
-    // Fallback: intet ejendomsnummer eller ingen resultater — tegn kun det ene
+    // Fallback: ingen BFE eller ingen resultater — tegn kun det ene jordstykke
     L.geoJSON(f, { style: matrikelStyle })
-      .bindPopup(popupHtml(matrikelNr, ejerlav, kommune, areal, ejdNr, ""))
+      .bindPopup(popupHtml(matrikelNr, ejerlav, kommune, areal, bfe, ""))
       .addTo(matrikelLayer);
 
   } catch(e) {
@@ -2195,66 +2028,9 @@ function fetchAllStrandposter() {
 // Strandposter-logik håndteres i overlayadd-handleren ovenfor
 
 /***************************************************
- * Klik uden for Danmark uden at Udland er slået til
- *
- * Viser koordinater i stedet for adresse, så der ikke bruges
- * ORS-geokodningskald af kvoten uden at nogen har bedt om det.
- *
- * Sikkert nu, fordi danske-farvande.geojson fanger broer og indre
- * farvande. Tidligere ville en afspærring her også have ramt fx
- * Storebæltsbroen, da kommunegrænser slutter i vandkanten.
- ***************************************************/
-function _visUdlandSlaaetFra(lat, lon) {
-  try {
-    const addressEl      = document.getElementById("address");
-    const extraInfoEl    = document.getElementById("extra-info");
-    const streetviewLink = document.getElementById("streetviewLink");
-    const skraafotoLink  = document.getElementById("skraafotoLink");
-    const overlay        = document.getElementById("kommuneOverlay");
-    const infoBox        = document.getElementById("infoBox");
-
-    if (addressEl)   addressEl.textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-    if (extraInfoEl) {
-      extraInfoEl.innerHTML =
-        '<span style="font-size:13px;color:#8a6d3b;">Uden for Danmark — sæt flueben ved ' +
-        '<strong>Udland</strong> i søgefeltet for at slå adressen op</span>';
-    }
-    if (streetviewLink) {
-      streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
-    }
-    if (skraafotoLink) skraafotoLink.style.display = "none";
-    if (overlay)       overlay.style.display = "none";
-    if (infoBox)       infoBox.style.display = "block";
-  } catch (e) {
-    console.warn("_visUdlandSlaaetFra:", e);
-  }
-}
-
-/***************************************************
  * Klik på kort => reverse geocoding
  ***************************************************/
-// Naar maalevaerktoejet er aktivt, skal klik paa kortet saette maalepunkter
-// i stedet for markoerer. Modulet slaar flaget til og fra.
-var _maalPauserKortKlik = false;
-window.__maalPauseKortKlik = function(paa) {
-  _maalPauserKortKlik = !!paa;
-  // Matrikelpolygonerne ligger oven paa kortet og opfanger klik. Under
-  // maaling slaas de fra, saa man kan saette punkter inde i en matrikel.
-  try {
-    matrikelLayer.eachLayer(function(lag) {
-      if (lag.eachLayer) {
-        lag.eachLayer(function(sub) {
-          if (sub._path) sub._path.style.pointerEvents = paa ? "none" : "";
-        });
-      } else if (lag._path) {
-        lag._path.style.pointerEvents = paa ? "none" : "";
-      }
-    });
-  } catch (e) { /* matrikellaget er maaske ikke aktivt */ }
-};
-
 map.on('click', function(e) {
-  if (_maalPauserKortKlik) return; // Maalevaerktoej aktivt
   if (_cpPickMode) return; // Koordinat-valg aktiv
   let lat = e.latlng.lat;
   let lon = e.latlng.lng;
@@ -2279,14 +2055,8 @@ map.on('click', function(e) {
         fillRouteFieldsFromClick(data, lat, lon);
       })
       .catch(err => console.error("Reverse geocoding fejl:", err));
-  } else if (foreignSearchToggle && !foreignSearchToggle.checked) {
-    // Uden for Danmark og Udland er slået fra: ingen adresseopslag,
-    // så ORS-kvoten ikke bruges uden at nogen har bedt om det.
-    // Danske broer og farvande rammes ikke — de fanges af
-    // isInDenmarkByPolygon via danske-farvande.geojson.
-    _visUdlandSlaaetFra(lat, lon);
   } else {
-    // Udland med flueben sat: ORS reverse geocoding
+    // Udland ELLER vand/bro: ORS reverse geocoding
     reverseGeocodeORS(lat, lon)
       .then(feature => {
         if (!feature) return;
@@ -3555,7 +3325,10 @@ function doSearch(query, listElement) {
         labelSpan.innerHTML = `⭐ ${obj.navn}${extra}`;
       } else if (obj.type === "statsvej") {
         let subtitle = "";
-        if (obj.adresse) subtitle += obj.adresse;
+        if (obj.data && obj.data.vejkategori) {
+          subtitle += `<span style="color:#2980b9;font-weight:600;">Vejkat. ${obj.data.vejkategori}</span>`;
+        }
+        if (obj.adresse) subtitle += (subtitle ? " · " : "") + obj.adresse;
         if (obj.data && obj.data["bemærkninger"]) {
           subtitle += (subtitle ? " · " : "") + `<span style="color:#e67e22;font-weight:600;">${obj.data["bemærkninger"]}</span>`;
         }
@@ -3797,42 +3570,13 @@ function visStatsvejBox(statsvejData, lat, lon) {
 
     if (hasStatsvej) {
       document.getElementById("statsvejInfoBox").style.display = "block";
-
-      // Pladsholder mens km hentes. Opslaget kan tage op til 8 sekunder
-      // hvis VD ikke svarer, og uden dette ser boksen faerdig ud imens.
-      // Unik id pr. opslag: klikker man et nyt sted undervejs, skriver
-      // det gamle svar ikke i den nye boks.
-      const kmId = "kmFelt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
-      statsvejInfoEl.innerHTML +=
-        '<br><span id="' + kmId + '"><strong>Km:</strong> '
-        + '<span style="color:#8a97a5">henter' + "\u2026" + '</span></span>';
-
-      const saetKm = (html) => {
-        const el = document.getElementById(kmId);
-        if (!el) return;   // boksen er lukket eller erstattet imens
-        if (html === null) { el.remove(); return; }
-        el.innerHTML = html;
-      };
-
       getKmAtPoint(lat, lon, statsvejData).then(kmText => {
         if (kmText === "__VD_NEDE__") {
-          saetKm('<span style="color:#e67e22;font-size:11px">'
-            + "\u26a0\ufe0f Km-p\u00e6le utilg\u00e6ngelige \u2014 VD's API er midlertidigt nede<br>"
-            + 'Brug kortlaget \ud83d\udccd <em>Km-markeringer (VD)</em> som alternativ</span>');
+          statsvejInfoEl.innerHTML += `<br><span style="color:#e67e22;font-size:11px">⚠️ Km-pæle utilgængelige — VD's API er midlertidigt nede<br>Brug kortlaget 📍 <em>Km-markeringer (VD)</em> som alternativ</span>`;
         } else if (kmText) {
-          // Stjerne = beregnet lokalt fordi VD's referencetjeneste ikke
-          // svarede. Vaerdien er interpoleret og kan afvige fra paelen.
-          const beregnet = kmText.endsWith(" *");
-          const vis = beregnet ? kmText.slice(0, -2) : kmText;
-          let kmHtml = "<strong>Km:</strong> " + vis;
-          if (beregnet) {
-            kmHtml += ' <span style="color:#b7950b;font-size:11px" title="Referencetjenesten hos VD svarede ikke. Km er beregnet ud fra vejens geometri og kan afvige nogle meter.">≈ beregnet</span>';
-          }
-          saetKm(kmHtml);
-        } else {
-          saetKm(null);   // ingen km for dette punkt — fjern pladsholderen
+          statsvejInfoEl.innerHTML += `<br><strong>Km:</strong> ${kmText}`;
         }
-      }).catch(() => saetKm(null));
+      });
     }
   } else {
     statsvejInfoEl.innerHTML = "";
@@ -3928,10 +3672,6 @@ async function checkForStatsvej(lat, lon) {
       const props = jsonData.features[0].properties || {};
       const result = {
         ...props,
-        // Geometrien gemmes til lokal km-beregning, hvis VD's
-        // referencetjeneste er nede. Underscore markerer at feltet er
-        // internt og ikke kommer fra CVF.
-        _GEOMETRI: jsonData.features[0].geometry || null,
         ADM_NR:       props.ADM_NR       ?? props.adm_nr       ?? null,
         FORGRENING:   props.FORGRENING   ?? props.forgrening   ?? null,
         BETEGNELSE:   props.BETEGNELSE   ?? props.betegnelse   ?? null,
@@ -4029,98 +3769,9 @@ async function _fetchMedTimeout(url, opts, ms, etiket) {
  * getKmAtPoint – henter km via Cloudflare-worker
  * Genbruger allerede hentede statsvej-data, hvis de er sendt med
  ***************************************************/
-/***************************************************
- * Km-beregning uden VD's referencetjeneste
- *
- * CVF's WMS-svar indeholder baade vejens geometri og FRAKMT/TILKMT.
- * Punktet projiceres ned paa linjen, afstanden langs linjen maales,
- * og der interpoleres mellem fra- og til-km.
- *
- * Kontrolmaaling paa vej 13 (Hilleroedmotorvejen): geometriens laengde
- * var 5011,2 m mod TILKMT-FRAKMT paa 5011 m — 20 cm fra hinanden.
- * LANGDE-feltet var 19 m ved siden af og bruges derfor IKKE.
- *
- * Forbehold: metoden antager jaevn kilometrering. Hvor paelene ikke er
- * jaevnt fordelt (fx efter vejomlaegning) vil resultatet afvige. Derfor
- * kun fallback — referencetjenesten er stadig primaer.
- ***************************************************/
-function _kmtTilMeter(kmt) {
-  const m = String(kmt || "").match(/^(\d+)\s*\/\s*(\d+)$/);
-  return m ? parseInt(m[1], 10) * 1000 + parseInt(m[2], 10) : null;
-}
-
-function _meterTilKmt(meter) {
-  const samlet = Math.max(0, Math.round(meter));
-  const km = Math.floor(samlet / 1000);
-  return km + "/" + String(samlet % 1000).padStart(4, "0");
-}
-
-// Naermeste punkt paa linjestykket AB. Returnerer [afstand, andel 0-1].
-function _punktPaaSegment(px, py, ax, ay, bx, by) {
-  const dx = bx - ax, dy = by - ay;
-  const laengde2 = dx * dx + dy * dy;
-  if (laengde2 === 0) return [Math.hypot(px - ax, py - ay), 0];
-  let t = ((px - ax) * dx + (py - ay) * dy) / laengde2;
-  t = Math.max(0, Math.min(1, t));
-  return [Math.hypot(px - (ax + t * dx), py - (ay + t * dy)), t];
-}
-
-function beregnKmLokalt(x, y, stats) {
-  try {
-    const geo = stats?._GEOMETRI;
-    if (!geo) return null;
-
-    // Baade LineString og MultiLineString kan forekomme
-    const linjer = geo.type === "LineString" ? [geo.coordinates]
-      : (geo.type === "MultiLineString" ? geo.coordinates : null);
-    if (!linjer || !linjer.length) return null;
-
-    const fra = _kmtTilMeter(stats.FRAKMT ?? stats.frakmt);
-    const til = _kmtTilMeter(stats.TILKMT ?? stats.tilkmt);
-    if (fra == null || til == null) return null;
-
-    // Find naermeste punkt paa tvaers af alle linjer, og afstanden
-    // dertil maalt langs linjen
-    let bedstAfstand = Infinity, bedstLangs = 0, samletLaengde = 0;
-    linjer.forEach(coords => {
-      let langs = 0;
-      for (let i = 0; i < coords.length - 1; i++) {
-        const ax = coords[i][0],     ay = coords[i][1];
-        const bx = coords[i + 1][0], by = coords[i + 1][1];
-        const stykke = Math.hypot(bx - ax, by - ay);
-        const res = _punktPaaSegment(x, y, ax, ay, bx, by);
-        if (res[0] < bedstAfstand) {
-          bedstAfstand = res[0];
-          bedstLangs   = samletLaengde + langs + res[1] * stykke;
-        }
-        langs += stykke;
-      }
-      samletLaengde += langs;
-    });
-    if (!samletLaengde || !isFinite(bedstAfstand)) return null;
-
-    // Ligger punktet langt fra straekningen, er det formentlig en anden
-    // vej — saa hellere intet svar end et forkert
-    if (bedstAfstand > 150) return null;
-
-    // Kilometreringen kan loebe modsat koordinatlistens retning
-    const andel = bedstLangs / samletLaengde;
-    const meter = (til >= fra)
-      ? fra + andel * (til - fra)
-      : fra - andel * (fra - til);
-
-    return _meterTilKmt(meter);
-  } catch (e) {
-    console.warn("beregnKmLokalt:", e);
-    return null;
-  }
-}
-
 async function getKmAtPoint(lat, lon, statsvejData = null) {
-  // Hoistet, saa catch-blokken kan bruge den ved timeout
-  let stats = statsvejData;
   try {
-    stats = statsvejData || await checkForStatsvej(lat, lon);
+    const stats = statsvejData || await checkForStatsvej(lat, lon);
     if (!stats) return "";
 
     const roadNumber = stats?.ADM_NR   ?? stats?.adm_nr   ?? null;
@@ -4137,10 +3788,7 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
 
     const resp = await _fetchMedTimeout(url, { cache: "no-store" },
       VD_TIMEOUT_MS, "vd-proxy/reference");
-    if (!resp.ok) {
-      const lokal = beregnKmLokalt(x, y, stats);
-      return lokal ? lokal + " *" : "__VD_NEDE__";
-    }
+    if (!resp.ok) return "__VD_NEDE__";
 
     const data = await resp.json();
 
@@ -4158,22 +3806,12 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
     if (from?.km != null && from?.m != null) {
       return `${from.km}/${String(from.m).padStart(4, "0")}`;
     }
-    // Svar uden km — proev den lokale beregning
-    const lokalt = beregnKmLokalt(x, y, stats);
-    return lokalt ? lokalt + " *" : "";
+    return "";
   } catch (e) {
     // Timeout behandles som "VD nede", saa disponenten faar besked
     // i stedet for en tom infoboks
     if (e && e.erTimeout) {
-      console.warn("getKmAtPoint: timeout mod VD-proxy efter", VD_TIMEOUT_MS,
-        "ms — falder tilbage til lokal beregning");
-      try {
-        if (stats) {
-          const [lx, ly] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
-          const lokal = beregnKmLokalt(lx, ly, stats);
-          if (lokal) return lokal + " *";
-        }
-      } catch (e2) { /* falder igennem til __VD_NEDE__ */ }
+      console.warn("getKmAtPoint: timeout mod VD-proxy efter", VD_TIMEOUT_MS, "ms");
       return "__VD_NEDE__";
     }
     console.error("getKmAtPoint fejl:", e);
@@ -4417,7 +4055,4 @@ document.addEventListener("DOMContentLoaded", function() {
   } else {
     console.error("initLeverandoerModul ikke fundet — tjek at leverandoer-modul.js er indlæst");
   }
-
-  // Maalevaerktoej
-  if (typeof initMaalModul === "function") initMaalModul();
 });
