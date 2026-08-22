@@ -1893,6 +1893,57 @@ function createSelectionMarker(lat, lon) {
  * Bruges fra både map.on('click') og overlayadd
  * Kæde: koordinat → jordstykke → BFE → alle jordstykker på ejendommen
  ***************************************************/
+// Ejerforholdskoder fra BBR (kodeliste 102 Ejerforhold), samlet i tre grupper.
+// 10 privatperson, 20 alment boligselskab, 30 selskab, 40 forening/selvejende
+// institution (bl.a. kirker), 50/60 kommune, 70 region, 80 staten, 90 andet.
+// Ukendt kode giver tom streng — så vises linjen slet ikke frem for at gaette.
+const EJERFORHOLD_TEKST = {
+  "10": "Privat",       "20": "Privat",      "30": "Privat",
+  "40": "Privat",       "90": "Privat",
+  "50": "Kommunal",     "60": "Kommunal",
+  "70": "Region/stat",  "80": "Region/stat"
+};
+
+// Slår ejerforhold op via bbr-proxy. Legitimationsoplysningerne til
+// Datafordeleren ligger som secrets i Workeren og forlader den aldrig.
+async function hentEjerforhold(bfeNummer) {
+  if (!bfeNummer) return "";
+  try {
+    const r = await fetch(
+      "https://bbr-proxy.danmarkskortet.workers.dev/ejendomsrelation"
+      + `?format=JSON&BFENummer=${encodeURIComponent(bfeNummer)}`
+    );
+    if (!r.ok) return "";
+    const liste = await r.json();
+    const kode = (Array.isArray(liste) && liste.length)
+      ? String(liste[0].ejendommensEjerforholdskode || "").trim() : "";
+    return EJERFORHOLD_TEKST[kode] || "";
+  } catch (e) {
+    console.warn("Ejerforhold-opslag fejl:", e);
+    return "";
+  }
+}
+
+// Adresser der ligger PÅ jordstykket (ikke nærmeste adresse til et punkt).
+async function hentMatrikelAdresser(ejerlavkode, matrikelnr) {
+  if (!ejerlavkode || !matrikelnr) return "";
+  try {
+    const r = await fetch(
+      `https://api.dataforsyningen.dk/adgangsadresser?ejerlavkode=${encodeURIComponent(ejerlavkode)}`
+      + `&matrikelnr=${encodeURIComponent(matrikelnr)}&struktur=mini`
+    );
+    const liste = await r.json();
+    if (!Array.isArray(liste) || !liste.length) return "";
+    return liste
+      .map(a => a.betegnelse
+        || `${a.vejnavn} ${a.husnr || ""}, ${a.postnr} ${a.postnrnavn}`)
+      .join("<br>📬 ");
+  } catch (e) {
+    console.warn("Matrikel adresse-opslag fejl:", e);
+    return "";
+  }
+}
+
 async function visMatrikel(lat, lon) {
   matrikelLayer.clearLayers();
 
@@ -1912,7 +1963,7 @@ async function visMatrikel(lat, lon) {
       fillColor: "#e67e22", fillOpacity: 0.15
     };
 
-    function popupHtml(matrikelnr, ejerlav, kommune, areal, bfe, adresseStr) {
+    function popupHtml(matrikelnr, ejerlav, kommune, areal, bfe, adresseStr, ejerforhold) {
       const bfeHtml = bfe
         ? `<hr style="margin:4px 0"><span style="color:#888;font-size:11px">Ejendomsnr: ${bfe}</span>` : "";
       return `<strong>📐 Matrikel</strong><br>` +
@@ -1921,6 +1972,7 @@ async function visMatrikel(lat, lon) {
         (kommune ? `Kommune: ${kommune}<br>` : "") +
         (areal   ? `Areal: ${areal}<br>`    : "") +
         (adresseStr ? `📬 ${adresseStr}<br>` : "") +
+        (ejerforhold ? `Ejerforhold: <strong>${ejerforhold}</strong><br>` : "") +
         bfeHtml;
     }
 
@@ -1980,39 +2032,31 @@ async function visMatrikel(lat, lon) {
           }
         });
 
-        // Hent de adresser der faktisk ligger PÅ det klikkede jordstykke.
+        // Hent adresser og ejerforhold parallelt og opdater popup én gang.
         //
-        // Tidligere brugte vi /adgangsadresser/reverse på jordstykkets visuelle
-        // center. Det endpoint returnerer den NÆRMESTE adresse til et punkt —
-        // uanset matrikelgrænser. På matr. 9b i Skævinge gav det "Dyrelunden 18",
-        // som ligger på nabomatriklen; jordstykket har rettelig "Ny Harløsevej 26B".
-        // Opslag på ejerlavkode + matrikelnr giver kun adresser hvis adgangspunkt
-        // ligger inden for jordstykkets geometri.
-        const ejlKode = p.ejerlavkode || "";
-        const mNr     = p.matrikelnr || "";
-        if (ejlKode && mNr) {
-          try {
-            const adrResp = await fetch(
-              `https://api.dataforsyningen.dk/adgangsadresser?ejerlavkode=${encodeURIComponent(ejlKode)}`
-              + `&matrikelnr=${encodeURIComponent(mNr)}&struktur=mini`
+        // Adresser: opslag på ejerlavkode + matrikelnr giver kun adresser hvis
+        // adgangspunkt ligger inden for jordstykkets geometri. Tidligere brugte vi
+        // /adgangsadresser/reverse på jordstykkets visuelle center, som returnerer
+        // den NÆRMESTE adresse uanset matrikelgrænser — på matr. 9b i Skævinge gav
+        // det naboens "Dyrelunden 18" i stedet for "Ny Harløsevej 26B".
+        //
+        // Ejerforhold: slås op på ejendommens BFE-nummer, ikke på jordstykket,
+        // fordi ejerforhold registreres på ejendomsniveau.
+        //
+        // Begge funktioner får fejl internt og returnerer tom streng, så et
+        // mislykket opslag aldrig forhindrer matriklen i at blive tegnet.
+        const [adresseStr, ejerforhold] = await Promise.all([
+          hentMatrikelAdresser(p.ejerlavkode || "", p.matrikelnr || ""),
+          hentEjerforhold(ejdNr)
+        ]);
+
+        if (adresseStr || ejerforhold) {
+          // Popup sættes på det klikkede jordstykke, ikke blot det første tegnede
+          const maalLayer = klikketLayer || matrikelLayer.getLayers()[0];
+          if (maalLayer) {
+            maalLayer.setPopupContent(
+              popupHtml(matrikelNr, ejerlav, kommune, areal, ejdNr, adresseStr, ejerforhold)
             );
-            const adrListe = await adrResp.json();
-            if (Array.isArray(adrListe) && adrListe.length > 0) {
-              // Flere adresser på samme jordstykke vises alle
-              const adresseStr = adrListe
-                .map(a => a.betegnelse
-                  || `${a.vejnavn} ${a.husnr || ""}, ${a.postnr} ${a.postnrnavn}`)
-                .join("<br>📬 ");
-              // Popup sættes på det klikkede jordstykke, ikke blot det første tegnede
-              const maalLayer = klikketLayer || matrikelLayer.getLayers()[0];
-              if (maalLayer) {
-                maalLayer.setPopupContent(
-                  popupHtml(matrikelNr, ejerlav, kommune, areal, ejdNr, adresseStr)
-                );
-              }
-            }
-          } catch(e) {
-            console.warn("Matrikel adresse-opslag fejl:", e);
           }
         }
         return;
