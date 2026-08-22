@@ -1961,7 +1961,8 @@ async function visMatrikel(lat, lon) {
       console.log(`Matrikel ${sfe ? "SFE" : "BFE"}-svar: features = ${features.length}`);
 
       if (features.length > 0) {
-        // Tegn alle jordstykker
+        // Tegn alle jordstykker – husk hvilket lag der hører til det klikkede
+        let klikketLayer = null;
         features.forEach(feat => {
           const fp = feat.properties || {};
           const mnr   = fp.matrikelnr || "?";
@@ -1970,26 +1971,42 @@ async function visMatrikel(lat, lon) {
           const ar    = fp.registreretareal
             ? `${Math.round(fp.registreretareal).toLocaleString("da-DK")} m²` : "";
 
-          L.geoJSON(feat, { style: matrikelStyle })
+          const lag = L.geoJSON(feat, { style: matrikelStyle })
             .bindPopup(popupHtml(mnr, ejl, kom, ar, ejdNr, ""))
             .addTo(matrikelLayer);
+
+          if (String(fp.featureid || "") === String(p.featureid || "")) {
+            klikketLayer = lag;
+          }
         });
 
-        // Hent adresse til popup på det jordstykke der blev klikket på
-        const cx = p.visueltcenter_x || "";
-        const cy = p.visueltcenter_y || "";
-        if (cx && cy) {
+        // Hent de adresser der faktisk ligger PÅ det klikkede jordstykke.
+        //
+        // Tidligere brugte vi /adgangsadresser/reverse på jordstykkets visuelle
+        // center. Det endpoint returnerer den NÆRMESTE adresse til et punkt —
+        // uanset matrikelgrænser. På matr. 9b i Skævinge gav det "Dyrelunden 18",
+        // som ligger på nabomatriklen; jordstykket har rettelig "Ny Harløsevej 26B".
+        // Opslag på ejerlavkode + matrikelnr giver kun adresser hvis adgangspunkt
+        // ligger inden for jordstykkets geometri.
+        const ejlKode = p.ejerlavkode || "";
+        const mNr     = p.matrikelnr || "";
+        if (ejlKode && mNr) {
           try {
             const adrResp = await fetch(
-              `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${cx}&y=${cy}&struktur=mini`
+              `https://api.dataforsyningen.dk/adgangsadresser?ejerlavkode=${encodeURIComponent(ejlKode)}`
+              + `&matrikelnr=${encodeURIComponent(mNr)}&struktur=mini`
             );
-            const adr = await adrResp.json();
-            if (adr?.vejnavn) {
-              const adresseStr = `${adr.vejnavn} ${adr.husnr || ""}, ${adr.postnr} ${adr.postnrnavn}`;
-              // Opdater popup på det første jordstykke med adresse
-              const layers = matrikelLayer.getLayers();
-              if (layers.length > 0) {
-                layers[0].setPopupContent(
+            const adrListe = await adrResp.json();
+            if (Array.isArray(adrListe) && adrListe.length > 0) {
+              // Flere adresser på samme jordstykke vises alle
+              const adresseStr = adrListe
+                .map(a => a.betegnelse
+                  || `${a.vejnavn} ${a.husnr || ""}, ${a.postnr} ${a.postnrnavn}`)
+                .join("<br>📬 ");
+              // Popup sættes på det klikkede jordstykke, ikke blot det første tegnede
+              const maalLayer = klikketLayer || matrikelLayer.getLayers()[0];
+              if (maalLayer) {
+                maalLayer.setPopupContent(
                   popupHtml(matrikelNr, ejerlav, kommune, areal, ejdNr, adresseStr)
                 );
               }
