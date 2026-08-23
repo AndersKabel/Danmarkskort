@@ -1904,6 +1904,13 @@ const EJERFORHOLD_TEKST = {
   "70": "Region/stat",  "80": "Region/stat"
 };
 
+// Et vejlitra er et udskilt offentligt vejareal — ikke en matrikel.
+// Formatet er tallet 7000 efterfulgt af 1-3 bogstaver og er entydigt,
+// så det kan afgøres lokalt uden API-kald.
+function erVejlitra(matrikelnr) {
+  return /^7000[a-zæøå]{1,3}$/i.test(String(matrikelnr || "").trim());
+}
+
 // Slår ejerforhold op via bbr-proxy. Legitimationsoplysningerne til
 // Datafordeleren ligger som secrets i Workeren og forlader den aldrig.
 async function hentEjerforhold(bfeNummer) {
@@ -2045,10 +2052,18 @@ async function visMatrikel(lat, lon) {
         //
         // Begge funktioner får fejl internt og returnerer tom streng, så et
         // mislykket opslag aldrig forhindrer matriklen i at blive tegnet.
-        const [adresseStr, ejerforhold] = await Promise.all([
-          hentMatrikelAdresser(p.ejerlavkode || "", p.matrikelnr || ""),
-          hentEjerforhold(ejdNr)
-        ]);
+        // Vejarealer slås ikke op. To grunde:
+        //  1) BBR har ingen brugbar ejerforholdskode (Vejlevej gav kode 99),
+        //     fordi et vejareal ikke er en samlet fast ejendom med en ejer.
+        //  2) Adresseopslaget returnerer naboadresser hvis deres adgangspunkt
+        //     falder inden for vejarealet — fx "Oksenbjergevej 2" på litra 7000g.
+        //     Adressen hører til ejendommen, ikke til vejen.
+        const [adresseStr, ejerforhold] = erVejlitra(p.matrikelnr)
+          ? ["", "Offentlig vej"]
+          : await Promise.all([
+              hentMatrikelAdresser(p.ejerlavkode || "", p.matrikelnr || ""),
+              hentEjerforhold(ejdNr)
+            ]);
 
         if (adresseStr || ejerforhold) {
           // Popup sættes på det klikkede jordstykke, ikke blot det første tegnede
