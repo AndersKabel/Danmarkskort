@@ -3728,8 +3728,18 @@ async function checkForStatsvej(lat, lon) {
         `BBOX=${bbox}&X=50&Y=50`;
     };
 
+    // Bufferen bestemmer både udsnittets størrelse og pixelopløsningen, og dermed
+    // hvor langt fra klikpunktet CVF accepterer et match. Ved buf=120 svarer én
+    // pixel til ~2,4 m, hvilket giver en reel tolerance på under 15 m.
+    //
+    // CVF's linje følger ikke midten mellem to kørebaner. På Vestmotorvejen ved
+    // Halsskov ligger den langs den nordlige bane, så et klik på den sydlige
+    // ligger ~26 m fra geometrien og faldt helt igennem. Fjerde trin dækker det.
+    //
+    // Trinnene prøves i stigende orden og stopper ved første træf, så den
+    // nærmeste vej vinder — den store buffer bruges kun når de små er tomme.
     let textData = '';
-    for (const buf of [20, 60, 120]) {
+    for (const buf of [20, 60, 120, 250]) {
       if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
       const response = await fetch(cvfUrl(buf), { signal });
       textData = await response.text();
