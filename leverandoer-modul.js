@@ -2200,6 +2200,14 @@ function _bemaerkHTML(v) {
   return t ? `<div class="lev-popup-row">💬 <em>${_esc(t)}</em></div>` : "";
 }
 
+// Adresse i enhedspopup. Stationspopups skriver selv deres adresse ud — den
+// her bruges for enheder der står på egen adresse (eksterne modtagere,
+// reddere hjemmefra), hvor adressen ellers slet ikke blev vist.
+function _adresseHTML(v) {
+  const t = String(v || "").trim();
+  return t ? `<div class="lev-popup-row">📍 ${_esc(t)}</div>` : "";
+}
+
 // Link til vejledning e.l. — vises kun når der faktisk er et link.
 // Kun http/https accepteres, så javascript:-URL'er ikke kan smugles ind via
 // SharePoint-feltet. target=_blank + rel=noopener, ellers erstattes kortet.
@@ -3001,6 +3009,7 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
     </div>
     ${naermest && !uad ? `<div class="lev-popup-row" style="color:#b7950b;font-weight:700">⭐ Nærmeste ${_esc(kat.navn)}</div>` : ""}
     ${afstandTekst}
+    ${_adresseHTML(enhed.adresse)}
     ${enhed.vognnummer ? `<div class="lev-popup-row">🚗 ${_esc(enhed.vognnummer)}</div>` : ""}
     ${_kontaktHTML("📞", "Bil", enhed.kontakt)}
     ${_kontaktHTML("📟", "Vagt/Tilkald", enhed.kontaktTilkald)}
@@ -3269,6 +3278,7 @@ function _enhedRenderLag() {
           <b>${_esc(e.navn)}</b>${_uadBadge(e)}
           <span class="lev-popup-sub">${ikon} ${foersteKat?.navn || ""}</span>
         </div>
+        ${_adresseHTML(e.adresse)}
         ${e.vognnummer ? `<div class="lev-popup-row">🚗 ${_esc(e.vognnummer)}</div>` : ""}
         ${_kontaktHTML("📞", "Bil", e.kontakt)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", e.kontaktTilkald)}
