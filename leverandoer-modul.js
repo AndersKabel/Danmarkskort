@@ -2208,6 +2208,15 @@ function _adresseHTML(v) {
   return t ? `<div class="lev-popup-row">📍 ${_esc(t)}</div>` : "";
 }
 
+// Bemærkning der hører til stationen, men kun gælder én kategori — fx hvem
+// der ringes til for morsvognen. Den ligger på stationen og følger derfor
+// ikke med, når en vogn flyttes til en anden station.
+function _katBemaerkHTML(st, katId) {
+  if (!st || !katId) return "";
+  const t = String(st.katBemærkning?.[katId] || "").trim();
+  return t ? `<div class="lev-popup-row">💬 <em>${_esc(t)}</em></div>` : "";
+}
+
 // Link til vejledning e.l. — vises kun når der faktisk er et link.
 // Kun http/https accepteres, så javascript:-URL'er ikke kan smugles ind via
 // SharePoint-feltet. target=_blank + rel=noopener, ellers erstattes kortet.
@@ -2385,11 +2394,12 @@ function _fotoKnapHTML(url) {
 }
 
 // Stationens egne oplysninger — altid tydeligt adskilt fra enhedens
-function _stationBlokHTML(st) {
+function _stationBlokHTML(st, katId) {
   if (!st) return "";
   const rk = _kontaktHTML("📞", "Omstilling", st.kontakt)
            + _kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)
            + _bemaerkHTML(st.bemærkning)
+           + _katBemaerkHTML(st, katId)
            + _linksHTML(st)
            + _dyrMaerkatHTML(st);
   return `<hr class="lev-hr">
@@ -3017,7 +3027,7 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
     ${_linksHTML(enhed)}
     ${_dyrFuldHTML(enhed)}
     ${_fotoHTML(enhed.billede)}
-    ${_stationBlokHTML(stEnhed)}
+    ${_stationBlokHTML(stEnhed, kat.id)}
     ${_prioKnapHTML(enhed)}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${_spxKnapHTML(enhed)}${flytBtn}${uadBtn}</div>
   </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
@@ -3086,6 +3096,7 @@ function _enhedRenderLag() {
         if (!enheder.length) return "";
         return `<div style="margin-top:6px">
           <div style="font-size:11px;font-weight:700;color:#5a6a7a">${kat.ikon} ${kat.navn}</div>
+          ${_katBemaerkHTML(st, kat.id)}
           ${enheder.map(x => _enhedRaekkeHTML(
             x,
             _erUAD(x) ? "" : `<span style="color:#27ae60;font-size:11px">✓ Klar</span>`
@@ -3146,6 +3157,7 @@ function _enhedRenderLag() {
         </div>
         ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
         ${_dyrFuldHTML(st)}
+        ${_katBemaerkHTML(st, DOEDE_DYR_KAT)}
         ${_linksHTML(st)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_prioKnapHTML(st)}
@@ -3236,6 +3248,7 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📞", "Omstilling", st.kontakt)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
+        ${_katBemaerkHTML(st, kat.id)}
         ${_linksHTML(st)}
         ${_dyrMaerkatHTML(st)}
         ${_prioKnapHTML(st)}
@@ -3286,7 +3299,7 @@ function _enhedRenderLag() {
         ${_linksHTML(e)}
         ${_spxKnapHTML(e) ? `<div style="margin-top:6px">${_spxKnapHTML(e)}</div>` : ""}
         ${_fotoHTML(e.billede)}
-        ${_stationBlokHTML(stEnhedUad)}
+        ${_stationBlokHTML(stEnhedUad, foersteKat?.id)}
         <div style="margin-top:6px">${uadBtn}</div>
       </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
 
@@ -3667,6 +3680,22 @@ function _enhedShowStationForm(station) {
         </label>
       </fieldset>
       <fieldset class="lev-fs">
+        <legend>💬 Bemærkning pr. kategori</legend>
+        <label>Kategori
+          <select id="kbf-kat" style="padding:8px;border:1px solid #cdd5df;border-radius:6px;font-size:13px;width:100%;margin-top:4px"></select>
+        </label>
+        <div style="font-size:11px;color:#8a97a5;margin-top:6px;line-height:1.5">
+          Teksten hører til stationen og vises kun i det valgte kategorilag.
+          Den følger <b>ikke</b> med, hvis en vogn flyttes til en anden station —
+          brug bemærkningen på vognen til det der hører til vognen selv.
+        </div>
+        <label style="margin-top:6px">Tekst
+          <textarea id="kbf-tekst" class="lev-textarea" rows="3"
+            placeholder="fx hvem der ringes til ved tilkald, og hvad backup er"></textarea>
+        </label>
+        <div id="kbf-info" style="font-size:11px;color:#8a97a5;min-height:14px;margin-top:4px"></div>
+      </fieldset>
+      <fieldset class="lev-fs">
         <legend>🔗 Link</legend>
         <div id="sf-links"></div>
         <button type="button" id="sf-link-add" class="lev-btn-add">+ Tilføj link</button>
@@ -3757,6 +3786,7 @@ function _enhedShowStationForm(station) {
   });
   _linkBindRows("sf", station);
   _prioFormBind(station);
+  _katBemFormBind(station);
 
   document.getElementById("efTilbage").addEventListener("click", _enhedShowListe);
   document.getElementById("sf-gem").addEventListener("click", () => _enhedGemStation(station?.id || null));
@@ -3862,6 +3892,72 @@ function _prioFormGem() {
   });
 }
 
+// ── BEMÆRKNING PR. KATEGORI (stationsformular) ────────────────
+// Samme betjening som prioritetsområderne: én vælger og ét felt, hvor den
+// viste kategori skrives tilbage i _katBemFormData inden vi skifter væk.
+// Alle kategorier kan vælges — også dem der ikke kører fra en station,
+// så døde dyr og drift fra hjem også kan få en tekst.
+let _katBemFormData = {};
+let _katBemFormKat  = null;
+
+function _katBemFormBind(station) {
+  const vaelger = document.getElementById("kbf-kat");
+  const felt    = document.getElementById("kbf-tekst");
+  if (!vaelger || !felt) return;
+
+  // Kopi, så en afbrudt redigering ikke ændrer det indlæste data
+  _katBemFormData = {};
+  const kilde = station?.katBemærkning || {};
+  Object.keys(kilde).forEach(k => {
+    const t = String(kilde[k] || "").trim();
+    if (t) _katBemFormData[k] = t;
+  });
+  _katBemFormKat = null;
+
+  function optioner() {
+    return EGNE_KATEGORIER.map(k =>
+      `<option value="${_esc(k.id)}">${k.ikon} ${_esc(k.navn)}`
+      + `${_katBemFormData[k.id] ? " ✓" : ""}</option>`
+    ).join("");
+  }
+
+  function visKat(katId) {
+    _katBemFormKat = katId;
+    felt.value = _katBemFormData[katId] || "";
+    const info = document.getElementById("kbf-info");
+    const kat  = EGNE_KATEGORIER.find(k => k.id === katId);
+    if (info) info.textContent = kat ? "Vises i laget " + kat.navn + "." : "";
+  }
+
+  vaelger.addEventListener("change", () => {
+    _katBemFormGem();                 // gem den kategori vi forlader
+    const ny = vaelger.value;
+    vaelger.innerHTML = optioner();   // opdater fluebenene
+    vaelger.value = ny;
+    visKat(ny);
+  });
+
+  if (!EGNE_KATEGORIER.length) {
+    vaelger.innerHTML = `<option value="">Ingen kategorier</option>`;
+    felt.disabled = true;
+    return;
+  }
+  felt.disabled = false;
+  vaelger.innerHTML = optioner();
+  vaelger.value = EGNE_KATEGORIER[0].id;
+  visKat(EGNE_KATEGORIER[0].id);
+}
+
+// Skriver tekstfeltet tilbage i _katBemFormData for den viste kategori
+function _katBemFormGem() {
+  if (!_katBemFormKat) return;
+  const felt = document.getElementById("kbf-tekst");
+  if (!felt) return;
+  const t = felt.value.trim();
+  if (t) _katBemFormData[_katBemFormKat] = t;
+  else   delete _katBemFormData[_katBemFormKat];
+}
+
 // ── Gem station ───────────────────────────────────────────────────────────────
 async function _enhedGemStation(existingId) {
   const navn    = document.getElementById("sf-navn").value.trim();
@@ -3879,6 +3975,8 @@ async function _enhedGemStation(existingId) {
   const status  = document.getElementById("sf-status");
   _prioFormGem();  // få den viste kategori med inden vi sender
   const prioPnr = _prioFormData || undefined;
+  _katBemFormGem();
+  const katBemærkning = _katBemFormData || {};
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Stationsnavn er påkrævet."; return; }
   const gemBtn = document.getElementById("sf-gem");
   gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
@@ -3888,6 +3986,7 @@ async function _enhedGemStation(existingId) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse,
         kontakt, kontaktTilkald: tilkald, bemærkning: bemærk, links, prioPnr,
+        katBemærkning,
         dyrFryser, dyrKadaver, dyrEkstern, dyrTekst })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
