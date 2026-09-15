@@ -20,20 +20,25 @@ const LEV_KATEGORIER = [
 // Kategorier loades dynamisk fra SharePoint ved login
 // Fallback: hardkodede kategorier bruges indtil SharePoint svarer
 let EGNE_KATEGORIER = [
-  { id: "tma_vogn",    navn: "TMA vogn",      ikon: "🚧", kraeverStation: true,  sortering: 1 },
+  { id: "tma_vogn",    navn: "TMA",            ikon: "🚧", kraeverStation: true,  sortering: 1 },
+  { id: "dyr_ko",      navn: "Ko",             ikon: "🐄", kraeverStation: false, sortering: 1,  foralderId: "dyr" },
   { id: "tavletrailer",navn: "Tavletrailer",   ikon: "🪧", kraeverStation: true,  sortering: 2 },
+  { id: "dyr_hest",    navn: "Hest",           ikon: "🐴", kraeverStation: false, sortering: 2,  foralderId: "dyr" },
   { id: "dyr",         navn: "Dyreredning",    ikon: "🐾", kraeverStation: false, sortering: 3 },
-  { id: "dyr_ko",      navn: "Ko",             ikon: "🐄", kraeverStation: false, sortering: 1, foralderId: "dyr" },
-  { id: "dyr_hest",    navn: "Hest",           ikon: "🐴", kraeverStation: false, sortering: 2, foralderId: "dyr" },
-  { id: "dyr_smaadyr", navn: "Smådyr",         ikon: "🐾", kraeverStation: false, sortering: 3, foralderId: "dyr" },
-  { id: "dyr_riffel",  navn: "Riffelskytte",   ikon: "🦌", kraeverStation: false, sortering: 4, foralderId: "dyr" },
+  { id: "dyr_smaadyr", navn: "Smådyr",         ikon: "🐾", kraeverStation: false, sortering: 3,  foralderId: "dyr" },
   { id: "drift_hjem",  navn: "Drift fra hjem", ikon: "🏠", kraeverStation: false, sortering: 4 },
   { id: "mors",        navn: "Mors biler",     ikon: "🚌", kraeverStation: true,  sortering: 5 },
   { id: "liggende",    navn: "Liggende",       ikon: "🛏️", kraeverStation: true,  sortering: 6 },
   { id: "forflytning", navn: "Forflytning",    ikon: "🚑", kraeverStation: true,  sortering: 7 },
   { id: "vejrenser",   navn: "Vejrenser",      ikon: "🧹", kraeverStation: true,  sortering: 8 },
   { id: "skytter",     navn: "Skytter",        ikon: "🎯", kraeverStation: false, sortering: 9 },
+  { id: "dyr_riffel",  navn: "Riffelskytter",  ikon: "🦌", kraeverStation: false, sortering: 10 },
+  { id: "doede_dyr",   navn: "Døde dyr",       ikon: "☠️", kraeverStation: false, sortering: 99 },
 ];
+
+// Sandt naar EGNE_KATEGORIER er hentet fra SharePoint. Er den falsk, koerer
+// vi stadig paa fallback-listen i toppen af filen.
+let _katFraSP = false;
 
 // Load kategorier fra SharePoint og opdater lag
 // stille = hent uden at bede om login hvis der ikke er en session.
@@ -41,13 +46,17 @@ let EGNE_KATEGORIER = [
 // selv trykker Disp — ikke bare fordi kortet åbnes.
 async function _katLoad(stille) {
   try {
+    // Det stille kald er tidsbegrænset som /auth/me. Uden det ville et kald
+    // der ikke svarer blive stående for evigt og blokere den der venter på det.
     const r = stille
-      ? await fetch(LEV_SP_WORKER + "/kategorier", { credentials: "include" })
+      ? await _levFetchMedTimeout(LEV_SP_WORKER + "/kategorier",
+          { credentials: "include" }, LEV_TIMEOUT_MS, "danmarkskort-sp/kategorier")
       : await _levSpFetch("/kategorier");
     if (!r.ok) return;
     const data = await r.json();
     if (!data.ok || !Array.isArray(data.kategorier) || !data.kategorier.length) return;
     EGNE_KATEGORIER = data.kategorier;
+    _katFraSP = true;
     // Opret Leaflet-lag for nye kategorier der ikke allerede har et lag
     EGNE_KATEGORIER.forEach(k => {
       if (!_enhedKatLag[k.id]) _enhedKatLag[k.id] = L.layerGroup();
@@ -55,6 +64,18 @@ async function _katLoad(stille) {
   } catch(e) {
     console.warn("Kategorier: load fejlede, bruger fallback", e);
   }
+}
+
+// Kategorierne hentes ved opstart, men kræver en session. Har brugeren ikke
+// været logget ind, giver kaldet 401, og lagvælgeren bygges fra fallback-
+// listen — derfor manglede fx Døde dyr indtil siden blev genindlæst. Her
+// henter vi dem så snart der ER en session, og kun én gang.
+// _levBuildEnhedRows læser selv hvilke lag der ligger på kortet, så en
+// genbygning ændrer ikke hvad brugeren har tændt.
+async function _katSikrHentet() {
+  if (_katFraSP) return;
+  await _katLoad(true);
+  if (_katFraSP) _levBuildEnhedRows();
 }
 
 // ── LEAFLET LAG ──────────────────────────────────────────────────
@@ -412,10 +433,14 @@ function _levBuildControl() {
         const meData = await me.json().catch(() => ({}));
         _levAktivRolle = meData.role || _levAktivRolle;
         _levVisAdminKnapper(_levAktivRolle);
+        await _katSikrHentet();
         panel.classList.add('lev-disp-panel-aaben');
       } else {
         const ok = await _levEnsureDisponering();
-        if (ok) panel.classList.add('lev-disp-panel-aaben');
+        if (ok) {
+          await _katSikrHentet();
+          panel.classList.add('lev-disp-panel-aaben');
+        }
       }
     } catch (err) {
       console.warn('Disp session-tjek fejlede:', err);
