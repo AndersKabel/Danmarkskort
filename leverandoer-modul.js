@@ -3216,6 +3216,20 @@ function _enhedRenderLag() {
       stationGrupper.get(e.stationId).push(e);
     });
 
+    // Stationer der selv er markeret med kategorien — materiel eller kompetencer
+    // der står på stationen uden folk koblet på. Har stationen både eget
+    // materiel og enheder, er den allerede i kortet ovenfor og får ikke en ekstra.
+    alleEnheder.forEach(st => {
+      if (st.type !== "station") return;
+      const stKats = st.kategorier?.length ? st.kategorier : (st.kategori ? [st.kategori] : []);
+      if (!stKats.includes(kat.id)) return;
+      // Døde dyr-blokken ovenfor tegner allerede stationer med fryser,
+      // kadaverboks eller ekstern modtager. Uden dette ville de få to
+      // markører oven i hinanden i samme lag.
+      if (kat.id === DOEDE_DYR_KAT && (st.dyrFryser || st.dyrKadaver || st.dyrEkstern)) return;
+      if (!stationGrupper.has(st.id)) stationGrupper.set(st.id, []);
+    });
+
     // Én markør per station
     stationGrupper.forEach((enheder, stId) => {
       const st = alleEnheder.find(s => s.id === stId);
@@ -3224,15 +3238,24 @@ function _enhedRenderLag() {
         return;
       }
 
+      // Stationens eget materiel i denne kategori, uafhængigt af enhederne
+      const stKats = st.kategorier?.length ? st.kategorier : (st.kategori ? [st.kategori] : []);
+      const stEgetMateriel = stKats.includes(kat.id);
+      const kunMateriel    = !enheder.length;
+
       const harUAD  = enheder.some(e => _erUAD(e));
-      const alleUAD = enheder.every(e => _erUAD(e));
+      // Bemærk length-tjekket: every() på en tom liste er sand, og uden det
+      // ville en station med materiel og ingen enheder blive tegnet som UAD.
+      const alleUAD = enheder.length > 0 && enheder.every(e => _erUAD(e));
       const blandtUAD = harUAD && !alleUAD; // Nogle UAD, nogle i drift
-      const bgFarve = alleUAD ? "#e74c3c" : harUAD ? "#e67e22" : "#2471a3"; // Bruges i popup border
+      // Grå når der kun er materiel, så den ikke forveksles med en køreklar enhed
+      const bgFarve = kunMateriel ? "#7f8c8d"
+        : alleUAD ? "#e74c3c" : harUAD ? "#e67e22" : "#2471a3"; // Bruges i popup border
 
       // Baggrund: halvt blå halvt rød hvis blandet, ellers enkelt farve
       const bgStyle = blandtUAD
         ? "background:linear-gradient(135deg, #2471a3 50%, #e74c3c 50%)"
-        : `background:${alleUAD ? "#e74c3c" : "#2471a3"}`;
+        : `background:${kunMateriel ? "#7f8c8d" : alleUAD ? "#e74c3c" : "#2471a3"}`;
 
       const afstand = markerPos ? map.distance(markerPos, L.latLng(st.lat, st.lon)) / 1000 : null;
       const afstandTekst = afstand != null
@@ -3277,7 +3300,12 @@ function _enhedRenderLag() {
         ${_linksHTML(st)}
         ${_dyrMaerkatHTML(st)}
         ${_prioKnapHTML(st)}
-        <hr class="lev-hr">${enhedRaekker}
+        ${stEgetMateriel
+          ? `<div class="lev-popup-row" style="color:#5a6a7a">🧰 Materiel/kompetence på stationen</div>`
+          : ""}
+        ${kunMateriel
+          ? `<hr class="lev-hr"><div class="lev-popup-row" style="font-size:12px;color:#8a97a5">Ingen enheder tilknyttet i denne kategori</div>`
+          : `<hr class="lev-hr">${enhedRaekker}`}
       </div>`, { maxWidth: 340, className: "lev-leaflet-popup" });
 
       marker.on("popupopen", function() {
@@ -3582,10 +3610,13 @@ function _enhedShowListe() {
           ${filtStationer.length
             ? filtStationer.map(st => {
                 const antalEnheder = alleEnheder.filter(e => e.stationId === st.id).length;
-                const katIds = [...new Set(alleEnheder
-                  .filter(e => e.stationId === st.id)
-                  .flatMap(e => e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []))
-                )];
+                const stEgne = st.kategorier?.length ? st.kategorier : (st.kategori ? [st.kategori] : []);
+                const katIds = [...new Set([
+                  ...alleEnheder
+                    .filter(e => e.stationId === st.id)
+                    .flatMap(e => e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : [])),
+                  ...stEgne
+                ])];
                 const katIkoner = katIds.map(id => EGNE_KATEGORIER.find(k => k.id === id)?.ikon || "").filter(Boolean).join(" ");
                 return `
                   <div class="lev-list-row" style="padding-left:12px">
@@ -3668,6 +3699,18 @@ function _enhedShowListe() {
 function _enhedShowStationForm(station) {
   document.getElementById("levPanelTitle").textContent = station ? "✏️ Rediger station" : "➕ Ny station";
   const body = document.getElementById("levPanelBody");
+  // Stationens egne kategorier: materiel og kompetencer der står på stationen,
+  // uden at der er en vogn eller en redder koblet på. De gør stationen synlig
+  // i kategorilaget på linje med stationer der har enheder.
+  const stValgteKat = station?.kategorier?.length ? station.kategorier
+    : (station?.kategori ? [station.kategori] : []);
+  const stKatCheckboxes = EGNE_KATEGORIER.map(k =>
+    `<label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin-top:4px">
+      <input type="checkbox" name="sf-kat" value="${k.id}" ${stValgteKat.includes(k.id) ? "checked" : ""}
+        style="width:15px;height:15px;flex-shrink:0;margin:0">
+      ${k.ikon} ${k.navn}
+    </label>`
+  ).join("");
   body.innerHTML = `
     <div class="lev-form">
       <button class="lev-tilbage-btn" id="efTilbage" style="margin-bottom:12px">← Tilbage til liste</button>
@@ -3677,6 +3720,14 @@ function _enhedShowStationForm(station) {
           <input id="sf-navn" type="text" value="${_esc(station?.navn || "")}"
             placeholder="fx 102 Falck Næstved">
         </label>
+      </fieldset>
+      <fieldset class="lev-fs">
+        <legend>🧰 Materiel / kompetencer på stationen</legend>
+        <div style="font-size:11px;color:#8a97a5;margin-bottom:4px;line-height:1.5">
+          Sæt flueben i de kategorier stationen kan noget i, selv om der ikke er
+          en vogn eller redder koblet på. Stationen bliver så synlig i de lag.
+        </div>
+        <div class="lev-kat-checkboxes">${stKatCheckboxes}</div>
       </fieldset>
       <fieldset class="lev-fs">
         <legend>📍 Adresse</legend>
@@ -4002,6 +4053,8 @@ async function _enhedGemStation(existingId) {
   const prioPnr = _prioFormData || undefined;
   _katBemFormGem();
   const katBemærkning = _katBemFormData || {};
+  const kategorier = Array.from(document.querySelectorAll('input[name="sf-kat"]:checked'))
+    .map(el => el.value);
   if (!navn) { status.style.color = "#c0392b"; status.textContent = "Stationsnavn er påkrævet."; return; }
   const gemBtn = document.getElementById("sf-gem");
   gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer...";
@@ -4009,7 +4062,7 @@ async function _enhedGemStation(existingId) {
     const resp = await _levSpFetch("/enheder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse,
+      body: JSON.stringify({ id: existingId, type: "station", navn, lat, lon, adresse, kategorier,
         kontakt, kontaktTilkald: tilkald, bemærkning: bemærk, links, prioPnr,
         katBemærkning,
         dyrFryser, dyrKadaver, dyrEkstern, dyrTekst })
