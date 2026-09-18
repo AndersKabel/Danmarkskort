@@ -3198,11 +3198,11 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📞", "Omstilling", st.kontakt)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
-        ${_linksHTML(st)}
         ${_dyrMaerkatHTML(st)}
         ${_prioKnapHTML(st)}
         ${_materielHTML(st)}
         ${katGrupper ? `<hr class="lev-hr"><div class="lev-popup-section-hdr">Tilknyttede enheder</div>${katGrupper}` : ""}
+        ${_linksHTML(st)}
       </div>`, { maxWidth: 320, className: "lev-leaflet-popup" });
       marker.on("popupopen", function() {
         _bindEnhedPopup(this.getPopup().getElement());
@@ -3237,9 +3237,9 @@ function _enhedRenderLag() {
         ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
         ${_dyrFuldHTML(st)}
         ${_katBemaerkHTML(st, DOEDE_DYR_KAT)}
-        ${_linksHTML(st)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_prioKnapHTML(st)}
+        ${_linksHTML(st)}
       </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
 
       marker.on("popupopen", function() {
@@ -3356,11 +3356,11 @@ function _enhedRenderLag() {
         ${_kontaktHTML("📞", "Omstilling", st.kontakt)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
-        ${_linksHTML(st)}
         ${_dyrMaerkatHTML(st)}
         ${_prioKnapHTML(st)}
         ${_materielHTML(st)}
         <hr class="lev-hr">${grupper}
+        ${_linksHTML(st)}
       </div>`, { maxWidth: 340, className: "lev-leaflet-popup" });
 
       marker.on("popupopen", function() {
