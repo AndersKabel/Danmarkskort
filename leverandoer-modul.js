@@ -3264,8 +3264,13 @@ function _enhedRenderLag() {
       return kats.includes(kat.id);
     });
 
-    const medStation  = enhederIKat.filter(e => e.stationId);
-    const udenStation = enhederIKat.filter(e => !e.stationId);
+    // En enhed med egne koordinater tegnes der hvor den faktisk står, også når
+    // den hører til en station. Feltet hedder "Adresse (hvis afviger fra
+    // station)", men indtil nu blev enheden alligevel samlet på stationens
+    // punkt. Stationen står fortsat i enhedens popup.
+    const egenPlacering = e => e.lat != null && e.lon != null;
+    const medStation  = enhederIKat.filter(e => e.stationId && !egenPlacering(e));
+    const udenStation = enhederIKat.filter(e => !e.stationId || egenPlacering(e));
 
     // Grupper på stationId
     const stationGrupper = new Map();
