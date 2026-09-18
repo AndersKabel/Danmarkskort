@@ -366,6 +366,15 @@ async function initLeverandoerModul() {
     if (erKatLag) _enhedRenderDebounced(150);
   });
 
+  // Slukkes et kategorilag, skal stationspopup'erne bygges om — de viser
+  // enhederne i alle tændte lag, og gruppen for det slukkede lag skal ud.
+  // Som ovenfor er e.layer selve laggruppen, ikke de enkelte markører
+  // clearLayers() fjerner, så der er ingen løkke.
+  map.on("layerremove", function(e) {
+    const erKatLag = EGNE_KATEGORIER.some(k => _enhedKatLag[k.id] === e.layer);
+    if (erKatLag) _enhedRenderDebounced(150);
+  });
+
   map.on("layeradd", function(e) {
     if (!_prioAktivKat) return;
     const ny = EGNE_KATEGORIER.find(k =>
@@ -2433,8 +2442,15 @@ function _stationBlokHTML(st, katId) {
 }
 
 // Én enhedsrække i en stationspopup — navn/knapper øverst, detaljer under
-function _enhedRaekkeHTML(e, hoejre) {
+// visKatIkoner viser enhedens kategorier som små ikoner efter navnet. Bruges
+// i stationspopups hvor flere kategorier står under hinanden, så man kan se
+// at fx den samme redder både kører ko og hest.
+function _enhedRaekkeHTML(e, hoejre, visKatIkoner) {
   const uad = _erUAD(e);
+  const eKats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+  const katIkoner = visKatIkoner
+    ? eKats.map(id => EGNE_KATEGORIER.find(k => k.id === id)?.ikon || "").filter(Boolean).join("")
+    : "";
   const detaljer = _kontaktHTML("📞", "Bil", e.kontakt)
                  + _kontaktHTML("📟", "Vagt/Tilkald", e.kontaktTilkald)
                  + _bemaerkHTML(e.bemærkning)
@@ -2443,6 +2459,7 @@ function _enhedRaekkeHTML(e, hoejre) {
     <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
       <span style="font-size:12px;color:${uad ? "#e74c3c" : "inherit"}">
         ${_esc(e.navn)}${e.vognnummer ? ` <span style="color:#888">(${_esc(e.vognnummer)})</span>` : ""}
+        ${katIkoner ? ` <span style="font-size:11px" title="Kategorier">${katIkoner}</span>` : ""}
         ${uad ? _uadBadge(e) : ""}
       </span>
       <div style="display:flex;gap:4px;align-items:center">${_spxKnapHTML(e)}${_fotoKnapHTML(e.billede)}${hoejre || ""}</div>
@@ -3064,6 +3081,41 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
   if (_enhedKatLag[kat.id]) _enhedKatLag[kat.id].addLayer(marker);
 }
 
+// Materiel på stationen: de kategorier stationen selv er markeret i, uanset
+// hvilke lag der er tændt. Kategoribemærkningen står her frem for nede i
+// kategorigruppen, fordi den beskriver grejet og ikke en vagt.
+function _materielHTML(st) {
+  const stKats = st?.kategorier?.length ? st.kategorier : (st?.kategori ? [st.kategori] : []);
+  const kats = EGNE_KATEGORIER.filter(k => stKats.includes(k.id));
+  if (!kats.length) return "";
+  return `<div class="lev-popup-row" style="color:#5a6a7a">🧰 Materiel på stationen</div>`
+    + kats.map(k => {
+        const bem = String(st.katBemærkning?.[k.id] || "").trim();
+        return `<div style="font-size:12px;padding:1px 6px 1px 20px">${k.ikon} ${_esc(k.navn)}`
+          + `${bem ? ` — <em>${_esc(bem)}</em>` : ""}</div>`;
+      }).join("");
+}
+
+// Flyt- og UAD-knapper til en enhedsrække i en stationspopup.
+function _enhedPopupKnapper(e, maaFlytte) {
+  if (!maaFlytte) return "";
+  const uad = _erUAD(e);
+  const eKats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+  const eKanFlyttes = eKats.some(k => EGNE_KATEGORIER.find(kat => kat.id === k)?.kraeverStation === true);
+  const flytBtn = eKanFlyttes
+    ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(e.id)}"
+         style="font-size:11px;padding:2px 6px;background:#e8f4fd;border:1px solid #2980b9;
+                border-radius:4px;cursor:pointer;color:#2980b9">🔄 Flyt</button>` : "";
+  const uadBtn = `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}"
+         style="font-size:11px;padding:2px 6px;
+                background:${uad?"#27ae60":"#f5f5f5"};
+                color:${uad?"#fff":"#333"};
+                border:1px solid ${uad?"#27ae60":"#ccc"};
+                border-radius:4px;cursor:pointer;font-weight:600">
+         ${uad?"✅ Sæt i drift":"🔴 Sæt UAD"}</button>`;
+  return flytBtn + uadBtn;
+}
+
 // ── HOVED RENDER-FUNKTION ────────────────────────────────────────
 // Nærmeste redder pr. kategori, markeret gult når en adresse er valgt.
 // Kun kategorier uden station (skytter, dyreredning, drift fra hjem) —
@@ -3112,6 +3164,7 @@ function _enhedRenderLag() {
         ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${afstand.toFixed(1)} km fra søgt adresse</div>` : "";
 
       // Tilknyttede enheder pr kategori
+      const stEgneKats = st.kategorier?.length ? st.kategorier : (st.kategori ? [st.kategori] : []);
       const katGrupper = EGNE_KATEGORIER.map(kat => {
         const enheder = alleEnheder.filter(e => {
           if (e.type === "station" || e.stationId !== st.id) return false;
@@ -3121,7 +3174,7 @@ function _enhedRenderLag() {
         if (!enheder.length) return "";
         return `<div style="margin-top:6px">
           <div style="font-size:11px;font-weight:700;color:#5a6a7a">${kat.ikon} ${kat.navn}</div>
-          ${_katBemaerkHTML(st, kat.id)}
+          ${stEgneKats.includes(kat.id) ? "" : _katBemaerkHTML(st, kat.id)}
           ${enheder.map(x => _enhedRaekkeHTML(
             x,
             _erUAD(x) ? "" : `<span style="color:#27ae60;font-size:11px">✓ Klar</span>`
@@ -3148,6 +3201,7 @@ function _enhedRenderLag() {
         ${_linksHTML(st)}
         ${_dyrMaerkatHTML(st)}
         ${_prioKnapHTML(st)}
+        ${_materielHTML(st)}
         ${katGrupper ? `<hr class="lev-hr"><div class="lev-popup-section-hdr">Tilknyttede enheder</div>${katGrupper}` : ""}
       </div>`, { maxWidth: 320, className: "lev-leaflet-popup" });
       marker.on("popupopen", function() {
@@ -3240,8 +3294,7 @@ function _enhedRenderLag() {
 
       // Stationens eget materiel i denne kategori, uafhængigt af enhederne
       const stKats = st.kategorier?.length ? st.kategorier : (st.kategori ? [st.kategori] : []);
-      const stEgetMateriel = stKats.includes(kat.id);
-      const kunMateriel    = !enheder.length;
+      const kunMateriel = !enheder.length;
 
       const harUAD  = enheder.some(e => _erUAD(e));
       // Bemærk length-tjekket: every() på en tom liste er sand, og uden det
@@ -3267,45 +3320,47 @@ function _enhedRenderLag() {
         iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
       });
 
-      const enhedRaekker = enheder.map(e => {
-        const uad = _erUAD(e);
-        const eKats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
-        const eKanFlyttes = eKats.some(k => EGNE_KATEGORIER.find(kat => kat.id === k)?.kraeverStation === true);
-        const flytBtn = maaFlytte && eKanFlyttes
-          ? `<button class="lev-enhed-flyt-btn" data-enhedid="${_esc(e.id)}"
-               style="font-size:11px;padding:2px 6px;background:#e8f4fd;border:1px solid #2980b9;
-                      border-radius:4px;cursor:pointer;color:#2980b9">🔄 Flyt</button>` : "";
-        const uadBtn = maaFlytte
-          ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}"
-               style="font-size:11px;padding:2px 6px;
-                      background:${uad?"#27ae60":"#f5f5f5"};
-                      color:${uad?"#fff":"#333"};
-                      border:1px solid ${uad?"#27ae60":"#ccc"};
-                      border-radius:4px;cursor:pointer;font-weight:600">
-               ${uad?"✅ Sæt i drift":"🔴 Sæt UAD"}</button>` : "";
-        return _enhedRaekkeHTML(e, flytBtn + uadBtn);
+      // Stationen står som markør i hvert tændt kategorilag, og markørerne
+      // ligger oven på hinanden. Derfor viser popup'en enhederne i ALLE
+      // tændte lag grupperet pr. kategori, så det er ligegyldigt hvilken af
+      // dem man rammer. Markørens egen kategori er altid med, også hvis
+      // laget netop er blevet slukket.
+      const visKats = EGNE_KATEGORIER.filter(k =>
+        k.id === kat.id || (_enhedKatLag[k.id] && map.hasLayer(_enhedKatLag[k.id])));
+
+      const grupper = visKats.map(k => {
+        const kEnheder = alleEnheder.filter(e => {
+          if (e.type === "station" || e.stationId !== st.id) return false;
+          const eKats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+          return eKats.includes(k.id);
+        });
+        // Bemærkningen står allerede i materiel-blokken for de kategorier
+        // stationen selv er markeret i — vis den ikke to gange.
+        const bem = stKats.includes(k.id) ? "" : _katBemaerkHTML(st, k.id);
+        if (!kEnheder.length && !bem && k.id !== kat.id) return "";
+        return `<div style="margin-top:6px">
+          <div class="lev-popup-section-hdr">${k.ikon} ${_esc(k.navn)}</div>
+          ${bem}
+          ${kEnheder.length
+            ? kEnheder.map(e => _enhedRaekkeHTML(e, _enhedPopupKnapper(e, maaFlytte), true)).join("")
+            : `<div style="font-size:12px;color:#8a97a5;padding:2px 6px">Ingen enheder tilknyttet</div>`}
+        </div>`;
       }).join("");
 
       const marker = L.marker([st.lat, st.lon], { icon });
       marker.bindPopup(`<div class="lev-popup">
         <div class="lev-popup-top" style="border-left:4px solid ${bgFarve}">
-          <b>${_esc(st.navn)}</b><span class="lev-popup-sub">${kat.ikon} ${kat.navn}</span>
+          <b>${_esc(st.navn)}</b>${st.adresse ? `<span class="lev-popup-sub">📍 ${_esc(st.adresse)}</span>` : ""}
         </div>
         ${afstandTekst}
-        ${st.adresse ? `<div class="lev-popup-row">📍 ${_esc(st.adresse)}</div>` : ""}
         ${_kontaktHTML("📞", "Omstilling", st.kontakt)}
         ${_kontaktHTML("📟", "Vagt/Tilkald", st.kontaktTilkald)}
         ${_bemaerkHTML(st.bemærkning)}
-        ${_katBemaerkHTML(st, kat.id)}
         ${_linksHTML(st)}
         ${_dyrMaerkatHTML(st)}
         ${_prioKnapHTML(st)}
-        ${stEgetMateriel
-          ? `<div class="lev-popup-row" style="color:#5a6a7a">🧰 Materiel/kompetence på stationen</div>`
-          : ""}
-        ${kunMateriel
-          ? `<hr class="lev-hr"><div class="lev-popup-row" style="font-size:12px;color:#8a97a5">Ingen enheder tilknyttet i denne kategori</div>`
-          : `<hr class="lev-hr">${enhedRaekker}`}
+        ${_materielHTML(st)}
+        <hr class="lev-hr">${grupper}
       </div>`, { maxWidth: 340, className: "lev-leaflet-popup" });
 
       marker.on("popupopen", function() {
