@@ -3081,12 +3081,16 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
   if (_enhedKatLag[kat.id]) _enhedKatLag[kat.id].addLayer(marker);
 }
 
-// Materiel på stationen: de kategorier stationen selv er markeret i, uanset
-// hvilke lag der er tændt. Kategoribemærkningen står her frem for nede i
-// kategorigruppen, fordi den beskriver grejet og ikke en vagt.
-function _materielHTML(st) {
+// Materiel på stationen: de kategorier stationen selv er markeret i.
+// kunKats begrænser listen til bestemte kategori-id'er — kategorilagenes
+// popups sender de tændte lag, så man ikke får ko-grejet at se i mors-laget.
+// Udelades den, vises alle stationens kategorier.
+// Kategoribemærkningen står her frem for nede i kategorigruppen, fordi den
+// beskriver grejet og ikke en vagt.
+function _materielHTML(st, kunKats) {
   const stKats = st?.kategorier?.length ? st.kategorier : (st?.kategori ? [st.kategori] : []);
-  const kats = EGNE_KATEGORIER.filter(k => stKats.includes(k.id));
+  const kats = EGNE_KATEGORIER.filter(k => stKats.includes(k.id)
+    && (!Array.isArray(kunKats) || kunKats.includes(k.id)));
   if (!kats.length) return "";
   return `<div class="lev-popup-row" style="color:#5a6a7a">🧰 Materiel på stationen</div>`
     + kats.map(k => {
@@ -3358,7 +3362,7 @@ function _enhedRenderLag() {
         ${_bemaerkHTML(st.bemærkning)}
         ${_dyrMaerkatHTML(st)}
         ${_prioKnapHTML(st)}
-        ${_materielHTML(st)}
+        ${_materielHTML(st, visKats.map(k => k.id))}
         <hr class="lev-hr">${grupper}
         ${_linksHTML(st)}
       </div>`, { maxWidth: 340, className: "lev-leaflet-popup" });
