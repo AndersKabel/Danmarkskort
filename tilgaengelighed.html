@@ -483,9 +483,11 @@
         Vagter der går over midnat skrives som de er — fx 15:00 til 03:00.
       </div>
 
-      <button class="btn btn-blue" id="btn-rytme-gem" style="margin-top:12px">💾 Gem rytme</button>
-      <div id="rytme-bekraeftet" style="font-size:12px;color:#6b7280;margin-top:7px"></div>
     </div>
+
+    <button class="btn btn-blue" id="btn-rytme-gem" style="margin-top:12px">💾 Gem rytme</button>
+    <button class="btn btn-gray hidden" id="btn-rytme-slet">🗑️ Slet rytme helt</button>
+    <div id="rytme-bekraeftet" style="font-size:12px;color:#6b7280;margin-top:7px"></div>
     <div id="rytme-feedback" class="feedback"></div>
   </div>
 
@@ -592,7 +594,43 @@
     buildAdrGrid();
     _setDT("frav-fra", defaultFra());
     _setDT("frav-til", new Date(Date.now() + 86400_000));
+    // Adresserne skal hentes her og ikke kun ved login. Ellers er de væk
+    // efter en genindlæsning, hvor sessionStorage springer login over.
+    if (!(await hentVognData())) return;
     await Promise.all([refreshStatus(), hentRytme(), hentFravaer()]);
+  }
+
+  // Henter vognens depotadresser og bekræfter samtidig at koden stadig
+  // gælder. testOnly gør at der ikke gemmes noget i SharePoint.
+  async function hentVognData() {
+    try {
+      const now = new Date();
+      const r = await fetch(`${WORKER}/tilgaengelig`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vognNr: _vognNr, code: _code,
+          fra: now.toISOString(),
+          til:  new Date(now.getTime() + 3600_000).toISOString(),
+          testOnly: true
+        })
+      });
+      if (r.status === 401 || r.status === 404) {
+        // Koden er ændret eller vognen slettet — tilbage til login
+        doLogout();
+        showFb(document.getElementById("login-feedback"), "err",
+          "Log ind igen – adgangskoden er ændret.");
+        return false;
+      }
+      const data = await r.json();
+      _adresser = data.record?.alleAdresser || [];
+      buildAdrGrid();
+      return true;
+    } catch (e) {
+      // Offline: kør videre med det vi har, frem for at spærre appen
+      console.warn("Kunne ikke hente vogndata", e);
+      return true;
+    }
   }
 
   // ══ FAST RYTME ═══════════════════════════════════════════════
@@ -613,6 +651,7 @@
       b.textContent = _rytme?.bekraeftet
         ? "Sidst bekræftet " + new Date(_rytme.bekraeftet).toLocaleDateString("da-DK")
         : "";
+      document.getElementById("btn-rytme-slet").classList.toggle("hidden", !_rytme);
     } catch (e) {
       console.warn("Kunne ikke hente rytme", e);
     }
@@ -736,6 +775,36 @@
       showFb(fb, "err", `Kunne ikke gemme: ${e.message}`);
     } finally {
       btn.innerHTML = "💾 Gem rytme";
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("btn-rytme-slet").addEventListener("click", async () => {
+    if (!confirm("Slet rytmen helt? Vognen bliver kun tilgængelig, "
+      + "når den melder sig manuelt.")) return;
+    const fb  = document.getElementById("rytme-feedback");
+    const btn = document.getElementById("btn-rytme-slet");
+    btn.innerHTML = `<span class="spinner"></span>Sletter...`;
+    btn.disabled = true;
+    fb.className = "feedback";
+    try {
+      const r = await fetch(`${WORKER}/rytme`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vognNr: _vognNr, code: _code })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || r.status);
+      _skema = {};
+      document.getElementById("rytme-aktiv").checked = false;
+      toggleRytmeIndhold();
+      showFb(fb, "ok", "✅ Rytmen er slettet.");
+      await hentRytme();
+      await refreshStatus();
+    } catch (e) {
+      showFb(fb, "err", `Kunne ikke slette: ${e.message}`);
+    } finally {
+      btn.innerHTML = "🗑️ Slet rytme helt";
       btn.disabled = false;
     }
   });
@@ -1197,7 +1266,9 @@
   });
 
   // ── LOGOUT ────────────────────────────────────────────────────
-  document.getElementById("btn-logout").addEventListener("click", () => {
+  document.getElementById("btn-logout").addEventListener("click", doLogout);
+
+  function doLogout() {
     sessionStorage.removeItem("lev_vognNr");
     sessionStorage.removeItem("lev_code");
     _vognNr = ""; _code = ""; _aktivRec = null; _adresser = []; _valgtAdresse = null;
@@ -1212,7 +1283,7 @@
     document.getElementById("main-feedback").className = "feedback";
     document.getElementById("screen-main").classList.add("hidden");
     document.getElementById("screen-login").classList.remove("hidden");
-  });
+  }
 
   // ── HJÆLPERE ──────────────────────────────────────────────────
   function showFb(el, type, msg) {
