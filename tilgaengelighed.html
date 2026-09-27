@@ -380,36 +380,6 @@
     <div style="font-size:12px;color:#aaa;margin-top:6px">Vises i popup på kortet</div>
   </div>
 
-  <!-- Fast rytme -->
-  <div class="card">
-    <h2>Fast rytme <span style="font-weight:400;color:#9ca3af;font-size:13px">(valgfri)</span></h2>
-    <div style="font-size:12px;color:#9ca3af;margin-bottom:10px;line-height:1.5">
-      Har I faste vagter, kan I taste dem én gang her. Så er vognen automatisk
-      tilgængelig i de tidsrum, og I melder kun fra, når I er optaget.
-      Lad den være slået fra, hvis I hellere vil melde til hver gang.
-    </div>
-
-    <label class="rytme-til">
-      <input type="checkbox" id="rytme-aktiv">
-      <span>Brug fast rytme</span>
-    </label>
-
-    <div id="rytme-indhold" class="hidden">
-      <label>Fast startposition</label>
-      <select id="rytme-adr"></select>
-
-      <div style="margin-top:12px" id="rytme-dage"></div>
-
-      <div style="font-size:12px;color:#6b7280;margin-top:8px;line-height:1.5">
-        Vagter der går over midnat skrives som de er — fx 15:00 til 03:00.
-      </div>
-
-      <button class="btn btn-blue" id="btn-rytme-gem" style="margin-top:12px">💾 Gem rytme</button>
-      <div id="rytme-bekraeftet" style="font-size:12px;color:#6b7280;margin-top:7px"></div>
-    </div>
-    <div id="rytme-feedback" class="feedback"></div>
-  </div>
-
   <!-- Fravær -->
   <div class="card hidden" id="card-fravaer">
     <h2>Meld fravær</h2>
@@ -487,6 +457,36 @@
     <button class="btn btn-red hidden" id="btn-fravær">🔴 Meld fraværende</button>
     <button class="btn btn-gray" id="btn-logout">← Skift vogn</button>
     <div id="main-feedback" class="feedback"></div>
+  </div>
+
+  <!-- Fast rytme -->
+  <div class="card">
+    <h2>Fast rytme <span style="font-weight:400;color:#9ca3af;font-size:13px">(valgfri)</span></h2>
+    <div style="font-size:12px;color:#9ca3af;margin-bottom:10px;line-height:1.5">
+      Har I faste vagter, kan I taste dem én gang her. Så er vognen automatisk
+      tilgængelig i de tidsrum, og I melder kun fra, når I er optaget.
+      Lad den være slået fra, hvis I hellere vil melde til hver gang.
+    </div>
+
+    <label class="rytme-til">
+      <input type="checkbox" id="rytme-aktiv">
+      <span>Brug fast rytme</span>
+    </label>
+
+    <div id="rytme-indhold" class="hidden">
+      <label>Fast startposition</label>
+      <select id="rytme-adr"></select>
+
+      <div style="margin-top:12px" id="rytme-dage"></div>
+
+      <div style="font-size:12px;color:#6b7280;margin-top:8px;line-height:1.5">
+        Vagter der går over midnat skrives som de er — fx 15:00 til 03:00.
+      </div>
+
+      <button class="btn btn-blue" id="btn-rytme-gem" style="margin-top:12px">💾 Gem rytme</button>
+      <div id="rytme-bekraeftet" style="font-size:12px;color:#6b7280;margin-top:7px"></div>
+    </div>
+    <div id="rytme-feedback" class="feedback"></div>
   </div>
 
 </div>
