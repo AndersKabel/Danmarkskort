@@ -1264,15 +1264,25 @@ function _levTilgBuildMarkers(aktive) {
     const kat   = LEV_KATEGORIER.find(k => k.id === records[0].levKategori);
     const antal = records.length;
 
-    // Byg én popup-række per tilgængelig vogn
+    // Byg én popup-række per tilgængelig vogn.
+    // kilde skelner mellem en aktiv melding fra vognmanden og en vogn der
+    // er tilgængelig efter sin faste rytme. Forskellen skal være synlig:
+    // en melding er nogen der aktivt har sagt god for det lige nu, mens
+    // rytmen er et skema — og skemaet kan være glemt at melde fra på.
     const vognRækker = records.map(rec => {
-      const fraStr = rec.fra ? new Date(rec.fra).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
-      const tilStr = rec.til ? new Date(rec.til).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
+      const efterPlan = rec.kilde === "plan";
+      const tid = efterPlan
+        ? `🔁 <b>Fast rytme</b>${rec.planTil ? " · på vagt til <b>" + _esc(rec.planTil) + "</b>" : ""}`
+        : `⏰ <b>${rec.fra ? new Date(rec.fra).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?"}`
+          + ` → ${rec.til ? new Date(rec.til).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?"}</b>`;
       return `
         <div class="lev-popup-row">
           🚗 <b>Vogn ${_esc(rec.vognNr)}</b>${rec.vognReg ? " · " + _esc(rec.vognReg) : ""}
           ${rec.vognBesk ? "<br><small>" + _esc(rec.vognBesk) + "</small>" : ""}
-          <br>⏰ <b>${fraStr} → ${tilStr}</b>
+          <br>${tid}
+          ${efterPlan
+            ? `<br><small style="color:#7f8c8d">Efter fast plan – ikke bekræftet af vognmanden i dag</small>`
+            : ""}
           ${rec.bemærkning ? "<br>💬 <i>" + _esc(rec.bemærkning) + "</i>" : ""}
         </div>`;
     }).join('<hr class="lev-hr">');
