@@ -1013,6 +1013,15 @@
         btn.disabled = false;
       },
       err => {
+        // Uden den her besked ved man ikke om det er browseren der siger
+        // nej, eller telefonen der ikke kan finde positionen.
+        const forklaring = {
+          1: "Du har ikke givet adgang til din placering. Tryk på ikonet i "
+             + "adresselinjen, tillad placering, og prøv igen.",
+          2: "Positionen kunne ikke findes. Tjek at GPS er slået til på enheden.",
+          3: "Det tog for lang tid at finde positionen. Prøv igen, gerne udendørs."
+        }[err.code] || "Kunne ikke hente position.";
+        showFb(document.getElementById("main-feedback"), "err", forklaring);
         btn.textContent = "❌ Kunne ikke hente position";
         btn.disabled = false;
         setTimeout(() => { btn.textContent = "📱 Brug min GPS-position"; }, 3000);
