@@ -296,6 +296,43 @@
     }
     .manual-adr-item:last-child { border-bottom: none; }
     .manual-adr-item:hover, .manual-adr-item.highlighted { background: #f0f9ff; }
+    /* ── Fast rytme og fravær ─────────────────────────────── */
+    .dag-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 0; border-bottom: 1px solid #2a2f3a;
+    }
+    .dag-row:last-child { border-bottom: none; }
+    .dag-navn {
+      width: 38px; flex-shrink: 0;
+      font-size: 13px; font-weight: 600; color: #cbd5e1;
+    }
+    .dag-tider { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .tid-par { display: flex; align-items: center; gap: 4px; }
+    .tid-par input[type="time"] { flex: 1; min-width: 0; }
+    .tid-fjern {
+      background: none; border: none; color: #ef4444;
+      font-size: 17px; cursor: pointer; padding: 0 4px; line-height: 1;
+    }
+    .tid-tilfoej {
+      background: none; border: 1px dashed #3f4654; color: #94a3b8;
+      border-radius: 6px; font-size: 12px; padding: 3px 8px;
+      cursor: pointer; align-self: flex-start;
+    }
+    .dag-tom { font-size: 12px; color: #6b7280; font-style: italic; }
+    .rytme-til { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+    .rytme-til input[type="checkbox"] { width: 19px; height: 19px; flex-shrink: 0; }
+    .frav-liste { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .frav-item {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; background: #1b2029; border: 1px solid #2a2f3a;
+      border-radius: 7px; padding: 7px 10px; font-size: 13px;
+    }
+    .frav-slet {
+      background: none; border: none; color: #ef4444;
+      font-size: 16px; cursor: pointer; padding: 0 4px; flex-shrink: 0;
+    }
+    .min-row { display: flex; gap: 6px; align-items: center; margin-top: 7px; }
+    .min-row input { flex: 1; }
   </style>
 </head>
 <body>
@@ -341,6 +378,80 @@
     <h2>Bemærkning <span style="font-weight:400;color:#9ca3af;font-size:13px">(valgfri)</span></h2>
     <input type="text" id="inp-bemærkning" placeholder="fx. Fra Aalborg mod Sjælland" maxlength="200" autocomplete="off">
     <div style="font-size:12px;color:#aaa;margin-top:6px">Vises i popup på kortet</div>
+  </div>
+
+  <!-- Fast rytme -->
+  <div class="card">
+    <h2>Fast rytme <span style="font-weight:400;color:#9ca3af;font-size:13px">(valgfri)</span></h2>
+    <div style="font-size:12px;color:#9ca3af;margin-bottom:10px;line-height:1.5">
+      Har I faste vagter, kan I taste dem én gang her. Så er vognen automatisk
+      tilgængelig i de tidsrum, og I melder kun fra, når I er optaget.
+      Lad den være slået fra, hvis I hellere vil melde til hver gang.
+    </div>
+
+    <label class="rytme-til">
+      <input type="checkbox" id="rytme-aktiv">
+      <span>Brug fast rytme</span>
+    </label>
+
+    <div id="rytme-indhold" class="hidden">
+      <label>Fast startposition</label>
+      <select id="rytme-adr"></select>
+
+      <div style="margin-top:12px" id="rytme-dage"></div>
+
+      <div style="font-size:12px;color:#6b7280;margin-top:8px;line-height:1.5">
+        Vagter der går over midnat skrives som de er — fx 15:00 til 03:00.
+      </div>
+
+      <button class="btn btn-blue" id="btn-rytme-gem" style="margin-top:12px">💾 Gem rytme</button>
+      <div id="rytme-bekraeftet" style="font-size:12px;color:#6b7280;margin-top:7px"></div>
+    </div>
+    <div id="rytme-feedback" class="feedback"></div>
+  </div>
+
+  <!-- Fravær -->
+  <div class="card hidden" id="card-fravaer">
+    <h2>Meld fravær</h2>
+    <div style="font-size:12px;color:#9ca3af;margin-bottom:10px;line-height:1.5">
+      Kører I en tur eller er I optaget, så meld fra her. Vognen forsvinder fra
+      kortet og kommer igen af sig selv, når tiden er gået.
+    </div>
+
+    <div class="time-grid" id="frav-grid">
+      <button class="time-btn" data-min="60">1t</button>
+      <button class="time-btn" data-min="120">2t</button>
+      <button class="time-btn" data-min="180">3t</button>
+      <button class="time-btn" data-min="240">4t</button>
+    </div>
+
+    <div class="min-row">
+      <input type="number" id="inp-frav-min" placeholder="fx 90" min="5" max="1440" inputmode="numeric">
+      <button class="btn btn-red" id="btn-frav-min" style="margin:0;width:auto;padding:10px 16px">Minutter</button>
+    </div>
+
+    <div class="divider">eller et længere fravær</div>
+    <div class="manual-row">
+      <div>
+        <label>Fra</label>
+        <div class="dt-row">
+          <input type="date" id="inp-frav-fra-dato">
+          <input type="time" id="inp-frav-fra-tid" step="300">
+        </div>
+      </div>
+      <div>
+        <label>Til</label>
+        <div class="dt-row">
+          <input type="date" id="inp-frav-til-dato">
+          <input type="time" id="inp-frav-til-tid" step="300">
+        </div>
+      </div>
+    </div>
+    <input type="text" id="inp-frav-aarsag" placeholder="Årsag (valgfri) – fx sygdom" maxlength="200" autocomplete="off">
+    <button class="btn btn-red" id="btn-frav-periode">🔴 Meld fravær i perioden</button>
+
+    <div id="frav-liste" class="frav-liste"></div>
+    <div id="frav-feedback" class="feedback"></div>
   </div>
 
   <!-- Tid -->
@@ -390,6 +501,9 @@
   let _valgtAdresse  = null;        // { lat, lon, label }
   let _aktivRec      = null;
   let _valgtTimer    = null;
+  let _rytme         = null;        // vognens gemte rytme
+  let _skema         = {};          // { "1": [["08:00","20:00"]], ... } 1 = mandag
+  let _fravaer       = [];          // aktive og kommende fravær
 
   // ── Init ───────────────────────────────────────────────────────
   if (_vognNr && _code) showMain();
@@ -476,8 +590,265 @@
     updateTilFromFra(4);
     setActiveTimeBtn(4);
     buildAdrGrid();
-    await refreshStatus();
+    _setDT("frav-fra", defaultFra());
+    _setDT("frav-til", new Date(Date.now() + 86400_000));
+    await Promise.all([refreshStatus(), hentRytme(), hentFravaer()]);
   }
+
+  // ══ FAST RYTME ═══════════════════════════════════════════════
+  const DAGNAVNE = { 1:"Man", 2:"Tir", 3:"Ons", 4:"Tor", 5:"Fre", 6:"Lør", 7:"Søn" };
+
+  async function hentRytme() {
+    try {
+      const r = await fetch(`${WORKER}/rytme?vognNr=${encodeURIComponent(_vognNr)}`
+        + `&code=${encodeURIComponent(_code)}`);
+      const data = await r.json();
+      _rytme = data.rytme || null;
+      _skema = _rytme?.skema ? JSON.parse(JSON.stringify(_rytme.skema)) : {};
+      document.getElementById("rytme-aktiv").checked = !!_rytme?.aktiv;
+      toggleRytmeIndhold();
+      buildRytmeAdr();
+      buildRytmeDage();
+      const b = document.getElementById("rytme-bekraeftet");
+      b.textContent = _rytme?.bekraeftet
+        ? "Sidst bekræftet " + new Date(_rytme.bekraeftet).toLocaleDateString("da-DK")
+        : "";
+    } catch (e) {
+      console.warn("Kunne ikke hente rytme", e);
+    }
+  }
+
+  function toggleRytmeIndhold() {
+    const til = document.getElementById("rytme-aktiv").checked;
+    document.getElementById("rytme-indhold").classList.toggle("hidden", !til);
+  }
+  document.getElementById("rytme-aktiv").addEventListener("change", toggleRytmeIndhold);
+
+  function buildRytmeAdr() {
+    const sel = document.getElementById("rytme-adr");
+    const valgt = _rytme?.adresse;
+    if (!_adresser.length) {
+      sel.innerHTML = valgt
+        ? `<option value="gemt">📍 ${esc(valgt.label || "Gemt position")}</option>`
+        : `<option value="">Ingen gemte adresser – vælg en startposition ovenfor</option>`;
+      return;
+    }
+    sel.innerHTML = _adresser.map((a, i) =>
+      `<option value="${i}">📍 ${esc(a.label || a.id)}</option>`).join("");
+    // Forvælg den adresse rytmen allerede bruger
+    if (valgt) {
+      const i = _adresser.findIndex(a =>
+        Math.abs(a.lat - valgt.lat) < 0.0001 && Math.abs(a.lon - valgt.lon) < 0.0001);
+      if (i >= 0) sel.value = String(i);
+    }
+  }
+
+  function rytmeValgtAdresse() {
+    const sel = document.getElementById("rytme-adr");
+    if (sel.value === "gemt") return _rytme?.adresse || null;
+    const a = _adresser[parseInt(sel.value, 10)];
+    if (a) return { label: a.label || a.id, lat: a.lat, lon: a.lon };
+    // Ingen gemte adresser: brug den startposition der er valgt ovenfor
+    return _valgtAdresse ? { ..._valgtAdresse } : null;
+  }
+
+  function buildRytmeDage() {
+    const box = document.getElementById("rytme-dage");
+    box.innerHTML = "";
+    for (let dag = 1; dag <= 7; dag++) {
+      const perioder = _skema[String(dag)] || [];
+      const row = document.createElement("div");
+      row.className = "dag-row";
+      row.innerHTML = `<div class="dag-navn">${DAGNAVNE[dag]}</div>
+        <div class="dag-tider">
+          ${perioder.length ? perioder.map((p, i) => `
+            <div class="tid-par">
+              <input type="time" step="300" value="${esc(p[0])}" data-dag="${dag}" data-i="${i}" data-felt="0">
+              <span style="color:#6b7280">–</span>
+              <input type="time" step="300" value="${esc(p[1])}" data-dag="${dag}" data-i="${i}" data-felt="1">
+              <button class="tid-fjern" data-fjern="${dag}" data-i="${i}" title="Fjern">×</button>
+            </div>`).join("")
+            : `<div class="dag-tom">Ingen vagt</div>`}
+          <button class="tid-tilfoej" data-tilfoej="${dag}">+ tidsrum</button>
+        </div>`;
+      box.appendChild(row);
+    }
+  }
+
+  document.getElementById("rytme-dage").addEventListener("click", e => {
+    const tilfoej = e.target.closest("[data-tilfoej]");
+    if (tilfoej) {
+      const dag = tilfoej.dataset.tilfoej;
+      if (!_skema[dag]) _skema[dag] = [];
+      _skema[dag].push(["08:00", "16:00"]);
+      buildRytmeDage();
+      return;
+    }
+    const fjern = e.target.closest("[data-fjern]");
+    if (fjern) {
+      const dag = fjern.dataset.fjern, i = parseInt(fjern.dataset.i, 10);
+      _skema[dag]?.splice(i, 1);
+      if (!_skema[dag]?.length) delete _skema[dag];
+      buildRytmeDage();
+    }
+  });
+
+  document.getElementById("rytme-dage").addEventListener("change", e => {
+    const inp = e.target.closest("input[type='time']");
+    if (!inp) return;
+    const dag = inp.dataset.dag, i = parseInt(inp.dataset.i, 10);
+    const felt = parseInt(inp.dataset.felt, 10);
+    if (_skema[dag]?.[i]) _skema[dag][i][felt] = inp.value;
+  });
+
+  document.getElementById("btn-rytme-gem").addEventListener("click", async () => {
+    const fb  = document.getElementById("rytme-feedback");
+    const btn = document.getElementById("btn-rytme-gem");
+    const aktiv = document.getElementById("rytme-aktiv").checked;
+    const adresse = rytmeValgtAdresse();
+
+    // Samme tjek som worker'en laver, så fejlen fanges før turen over nettet
+    const udfyldt = Object.values(_skema).some(p => p.length);
+    if (aktiv && !udfyldt) { showFb(fb, "err", "Udfyld mindst ét tidsrum."); return; }
+    if (aktiv && !adresse) { showFb(fb, "err", "Vælg en fast startposition."); return; }
+    for (const [dag, perioder] of Object.entries(_skema)) {
+      for (const p of perioder) {
+        if (!p[0] || !p[1]) { showFb(fb, "err", `${DAGNAVNE[dag]}: udfyld både fra og til.`); return; }
+        if (p[0] === p[1])  { showFb(fb, "err", `${DAGNAVNE[dag]}: fra og til må ikke være ens.`); return; }
+      }
+    }
+
+    btn.innerHTML = `<span class="spinner"></span>Gemmer...`;
+    btn.disabled = true;
+    fb.className = "feedback";
+    try {
+      const r = await fetch(`${WORKER}/rytme`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vognNr: _vognNr, code: _code, aktiv, skema: _skema, adresse })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || r.status);
+      showFb(fb, "ok", aktiv ? "✅ Rytmen er gemt og aktiv." : "✅ Rytmen er gemt og slået fra.");
+      await hentRytme();
+      await refreshStatus();
+    } catch (e) {
+      showFb(fb, "err", `Kunne ikke gemme: ${e.message}`);
+    } finally {
+      btn.innerHTML = "💾 Gem rytme";
+      btn.disabled = false;
+    }
+  });
+
+  // ══ FRAVÆR ═══════════════════════════════════════════════════
+  async function hentFravaer() {
+    try {
+      const r = await fetch(`${WORKER}/fravaer?vognNr=${encodeURIComponent(_vognNr)}`
+        + `&code=${encodeURIComponent(_code)}`);
+      const data = await r.json();
+      _fravaer = data.fravaer || [];
+      renderFravListe();
+    } catch (e) {
+      console.warn("Kunne ikke hente fravær", e);
+    }
+  }
+
+  function renderFravListe() {
+    const box = document.getElementById("frav-liste");
+    if (!_fravaer.length) { box.innerHTML = ""; return; }
+    const nu = Date.now();
+    box.innerHTML = _fravaer.map(f => {
+      const igang = new Date(f.fra).getTime() <= nu;
+      return `<div class="frav-item">
+        <span>${igang ? "🔴 Nu" : "🕒"} ${esc(fmtDT(f.fra))} → ${esc(fmtDT(f.til))}
+          ${f.aarsag ? `<span style="color:#9ca3af">· ${esc(f.aarsag)}</span>` : ""}</span>
+        <button class="frav-slet" data-id="${esc(f.id)}" title="Fortryd">×</button>
+      </div>`;
+    }).join("");
+  }
+
+  function fmtDT(iso) {
+    if (!iso) return "?";
+    const d = new Date(iso);
+    return d.toLocaleString("da-DK",
+      { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+
+  async function meldFravaer(payload, btn, label) {
+    const fb = document.getElementById("frav-feedback");
+    if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>Sender...`; }
+    fb.className = "feedback";
+    try {
+      const r = await fetch(`${WORKER}/fravaer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vognNr: _vognNr, code: _code, ...payload })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || r.status);
+      showFb(fb, "ok", "✅ Fraværet er registreret.");
+      await hentFravaer();
+      await refreshStatus();
+    } catch (e) {
+      showFb(fb, "err", `Kunne ikke melde fravær: ${e.message}`);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = label; }
+    }
+  }
+
+  document.getElementById("frav-grid").addEventListener("click", e => {
+    const btn = e.target.closest("[data-min]");
+    if (!btn) return;
+    const label = btn.innerHTML;
+    meldFravaer({ minutter: parseInt(btn.dataset.min, 10) }, btn, label);
+  });
+
+  document.getElementById("btn-frav-min").addEventListener("click", () => {
+    const inp = document.getElementById("inp-frav-min");
+    const min = parseInt(inp.value, 10);
+    const fb  = document.getElementById("frav-feedback");
+    if (!Number.isFinite(min) || min < 5) {
+      showFb(fb, "err", "Skriv mindst 5 minutter.");
+      return;
+    }
+    meldFravaer({ minutter: min }, document.getElementById("btn-frav-min"), "Minutter")
+      .then(() => { inp.value = ""; });
+  });
+
+  document.getElementById("btn-frav-periode").addEventListener("click", () => {
+    const fb  = document.getElementById("frav-feedback");
+    const fra = _getDT("frav-fra"), til = _getDT("frav-til");
+    if (!fra || !til)        { showFb(fb, "err", "Udfyld både fra og til."); return; }
+    if (til <= fra)          { showFb(fb, "err", "Til skal være efter fra."); return; }
+    if (til <= new Date())   { showFb(fb, "err", "Tidspunktet er passeret."); return; }
+    const btn = document.getElementById("btn-frav-periode");
+    meldFravaer({
+      fra: fra.toISOString(), til: til.toISOString(),
+      aarsag: document.getElementById("inp-frav-aarsag").value.trim()
+    }, btn, "🔴 Meld fravær i perioden")
+      .then(() => { document.getElementById("inp-frav-aarsag").value = ""; });
+  });
+
+  document.getElementById("frav-liste").addEventListener("click", async e => {
+    const btn = e.target.closest("[data-id]");
+    if (!btn) return;
+    const fb = document.getElementById("frav-feedback");
+    btn.disabled = true;
+    try {
+      const r = await fetch(`${WORKER}/fravaer`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vognNr: _vognNr, code: _code, id: btn.dataset.id })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || r.status);
+      await hentFravaer();
+      await refreshStatus();
+    } catch (e2) {
+      showFb(fb, "err", `Kunne ikke fortryde: ${e2.message}`);
+      btn.disabled = false;
+    }
+  });
 
   // ── ADRESSE-GRID ───────────────────────────────────────────────
   function buildAdrGrid() {
@@ -679,21 +1050,34 @@
     const vInfo = document.getElementById("vogn-info");
     const btnFr = document.getElementById("btn-fravær");
 
+    const efterPlan = _aktivRec?.kilde === "plan";
+
     if (_aktivRec) {
       badge.className = "status-badge status-active";
       dot.className   = "status-dot green";
       const adrLabel = _aktivRec.adresser?.[0]?.label || "";
-      txt.textContent = `Tilgængelig ${fmt(_aktivRec.fra)} → ${fmt(_aktivRec.til)}${adrLabel ? " · " + adrLabel : ""}`;
+      txt.textContent = efterPlan
+        ? `Tilgængelig efter fast rytme${_aktivRec.planTil ? " til " + _aktivRec.planTil : ""}`
+          + `${adrLabel ? " · " + adrLabel : ""}`
+        : `Tilgængelig ${fmt(_aktivRec.fra)} → ${fmt(_aktivRec.til)}${adrLabel ? " · " + adrLabel : ""}`;
       vInfo.innerHTML = `<strong>${esc(_aktivRec.levNavn)}</strong> · Vogn ${esc(_aktivRec.vognNr)}`;
       vInfo.classList.remove("hidden");
-      btnFr.classList.remove("hidden");
     } else {
       badge.className = "status-badge status-inactive";
       dot.className   = "status-dot gray";
-      txt.textContent = "Ikke tilgængelig";
+      txt.textContent = _rytme?.aktiv
+        ? "Ikke tilgængelig lige nu – rytmen dækker ikke dette tidspunkt"
+        : "Ikke tilgængelig";
       vInfo.classList.add("hidden");
-      btnFr.classList.add("hidden");
     }
+
+    // Den gamle knap annullerer en manuel melding og kan ikke bruges mod
+    // rytmen — der skal man melde fravær i stedet.
+    btnFr.classList.toggle("hidden", !_aktivRec || efterPlan);
+
+    // Fraværskortet giver kun mening når der er noget at melde fra på
+    document.getElementById("card-fravaer")
+      .classList.toggle("hidden", !_rytme?.aktiv && !_aktivRec);
   }
 
   function fmt(iso) {
@@ -808,6 +1192,11 @@
     sessionStorage.removeItem("lev_vognNr");
     sessionStorage.removeItem("lev_code");
     _vognNr = ""; _code = ""; _aktivRec = null; _adresser = []; _valgtAdresse = null;
+    _rytme = null; _skema = {}; _fravaer = [];
+    document.getElementById("rytme-aktiv").checked = false;
+    toggleRytmeIndhold();
+    document.getElementById("rytme-feedback").className = "feedback";
+    document.getElementById("frav-feedback").className  = "feedback";
     document.getElementById("inp-vognNr").value = "";
     document.getElementById("inp-code").value = "";
     document.getElementById("login-feedback").className = "feedback";
