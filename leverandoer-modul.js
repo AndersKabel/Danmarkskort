@@ -412,6 +412,11 @@ function _levBuildControl() {
       </div>
       <div class="lev-disp-divider" id="levStatDivider" style="display:none"></div>
       <div class="lev-disp-section" id="levStatBoks" style="display:none"></div>
+      <div class="lev-disp-divider"></div>
+      <div class="lev-disp-section" style="text-align:right">
+        <button id="levLogUd" style="background:none;border:none;color:#8a97a5;
+          font-size:11.5px;cursor:pointer;padding:2px 4px">🚪 Log ud</button>
+      </div>
     </div>
   `;
   map.getContainer().appendChild(wrap);
@@ -519,6 +524,47 @@ function _levBuildControl() {
         }
       }
     });
+  });
+
+  // Log ud. Sessionscookien er httpOnly, saa den kan kun ryddes af
+  // workeren. Bagefter nulstilles de data der kraevede login, og lagene
+  // slukkes — ellers ville man kunne blive siddende med enheder paa
+  // skaermen efter at have logget ud.
+  document.getElementById('levLogUd').addEventListener('click', async function (e) {
+    e.stopPropagation();
+    try {
+      await fetch(`${LEV_SP_WORKER}/auth/logout`, {
+        method: 'POST', credentials: 'include'
+      });
+    } catch (err) {
+      console.warn('Logout:', err);
+    }
+
+    _levAktivRolle = null;
+    _levVisAdminKnapper(null);
+    _levLoaded    = false;
+    _enhedLoaded  = false;
+    _levStatHentet = false;
+    _levData   = null;
+    _enhedData = null;
+
+    // Sluk alle lag der kraever login, og ryd fluebenene
+    panel.querySelectorAll('input[type="checkbox"][data-lag]').forEach(cb => {
+      if (!cb.checked) return;
+      const lag = cb.dataset.lag;
+      let layer = null;
+      if      (lag === 'tilgaengelig')   layer = levTilgaengeligLayer;
+      else if (lag.startsWith('lev-'))   layer = _levKatLag[lag.slice(4)];
+      else if (lag.startsWith('enhed-')) layer = _enhedKatLag[lag.slice(6)];
+      if (layer && map.hasLayer(layer)) map.removeLayer(layer);
+      if (layer) layer.clearLayers();
+      cb.checked = false;
+    });
+    clearInterval(_levTilgInterval);
+    _levTilgInterval = null;
+
+    panel.classList.remove('lev-disp-panel-aaben');
+    _levDispBesked('👋 Du er logget ud');
   });
 
   // Rediger-knapper
