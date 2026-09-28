@@ -1112,17 +1112,11 @@ async function _levFlytVognDialog(levId, vognId, fraAdrId) {
 
   const tilAdr = destinationer[idx];
 
-  // Opdater vognens adresseIds til kun at pege på det nye depot
-  const opdateretVogne = (lev.vogne || []).map(v =>
-    v.id === vognId ? { ...v, adresseIds: [tilAdr.id] } : v
-  );
-  const opdateretLev = { ...lev, vogne: opdateretVogne };
-
   try {
-    const r = await _levSpFetch("/leverandoerer", {
+    const r = await _levSpFetch("/leverandoerer/flytvogn", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(opdateretLev)
+      body: JSON.stringify({ levId: lev.id, vognId, tilAdrId: tilAdr.id })
     });
     if (!r.ok) throw new Error("Gem fejlede");
     await _levLoad();
@@ -1380,7 +1374,10 @@ function _levFullPopupHTML(lev, adr) {
     !v.adresseIds?.length || v.adresseIds.includes(adr.id)
   );
   const erTmaLev = (lev.kategorier || []).includes("tma_vogn");
-  const maaFlytLev = _levAktivRolle === "admin" || _levAktivRolle === "drift";
+  // Alle roller maa flytte en TMA-vogn mellem leverandoerens depoter.
+  // Kaldet gaar til /leverandoerer/flytvogn, som kun kan skrive
+  // depottilknytningen — ikke resten af leverandoeren.
+  const maaFlytLev = !!_levAktivRolle;
   if (vogne.length) {
     h += `<hr class="lev-hr"><div class="lev-popup-section-hdr">🚗 Vogne (${vogne.length})</div>`;
     vogne.forEach(v => {
