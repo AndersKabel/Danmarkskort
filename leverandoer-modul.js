@@ -1264,25 +1264,15 @@ function _levTilgBuildMarkers(aktive) {
     const kat   = LEV_KATEGORIER.find(k => k.id === records[0].levKategori);
     const antal = records.length;
 
-    // Byg én popup-række per tilgængelig vogn.
-    // kilde skelner mellem en aktiv melding fra vognmanden og en vogn der
-    // er tilgængelig efter sin faste rytme. Forskellen skal være synlig:
-    // en melding er nogen der aktivt har sagt god for det lige nu, mens
-    // rytmen er et skema — og skemaet kan være glemt at melde fra på.
+    // Byg én popup-række per tilgængelig vogn
     const vognRækker = records.map(rec => {
-      const efterPlan = rec.kilde === "plan";
-      const tid = efterPlan
-        ? `🔁 <b>Fast rytme</b>${rec.planTil ? " · på vagt til <b>" + _esc(rec.planTil) + "</b>" : ""}`
-        : `⏰ <b>${rec.fra ? new Date(rec.fra).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?"}`
-          + ` → ${rec.til ? new Date(rec.til).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?"}</b>`;
+      const fraStr = rec.fra ? new Date(rec.fra).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
+      const tilStr = rec.til ? new Date(rec.til).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
       return `
         <div class="lev-popup-row">
           🚗 <b>Vogn ${_esc(rec.vognNr)}</b>${rec.vognReg ? " · " + _esc(rec.vognReg) : ""}
           ${rec.vognBesk ? "<br><small>" + _esc(rec.vognBesk) + "</small>" : ""}
-          <br>${tid}
-          ${efterPlan
-            ? `<br><small style="color:#7f8c8d">Efter fast plan – ikke bekræftet af vognmanden i dag</small>`
-            : ""}
+          <br>⏰ <b>${fraStr} → ${tilStr}</b>
           ${rec.bemærkning ? "<br>💬 <i>" + _esc(rec.bemærkning) + "</i>" : ""}
         </div>`;
     }).join('<hr class="lev-hr">');
@@ -3166,7 +3156,21 @@ function _enhedRenderLag() {
   const alleEnheder = _enhedData || [];
   const markerPos = (typeof currentMarker !== "undefined" && currentMarker?.getLatLng)
     ? currentMarker.getLatLng() : null;
-  const maaFlytte = _levAktivRolle === "admin" || _levAktivRolle === "drift";
+  // Admin og drift maa alt. Disponenter (rolle "read") maa flytte og
+  // UAD-saette de vogne der hoerer til en station — TMA, tavletrailere,
+  // morsvogne og saa videre. Reglen haenger paa kategoriens kraeverStation
+  // og ikke paa en liste af navne, saa en ny kategori som fx organbiler
+  // kommer med af sig selv, naar flaget saettes i SharePoint.
+  const erDrift = _levAktivRolle === "admin" || _levAktivRolle === "drift";
+  const erDisp  = _levAktivRolle === "read";
+  const maaDisponereKat = kat => erDrift || (erDisp && kat?.kraeverStation === true);
+  // Enheder kan ligge i flere kategorier: én stationsbunden er nok
+  const maaDisponereEnhed = e => {
+    if (erDrift) return true;
+    if (!erDisp) return false;
+    const kats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+    return kats.some(id => EGNE_KATEGORIER.find(k => k.id === id)?.kraeverStation === true);
+  };
   _naermesteIds = _beregnNaermeste(alleEnheder, markerPos);
 
   // ── STATIONER LAG ─────────────────────────────────────────────
@@ -3267,6 +3271,8 @@ function _enhedRenderLag() {
   // ── ENHEDER — grupperet per station per kategori-lag ──────────
   EGNE_KATEGORIER.forEach(kat => {
     if (!_enhedKatLag[kat.id]) return;
+
+    const maaFlytte = maaDisponereKat(kat);
 
     const enhederIKat = alleEnheder.filter(e => {
       if (e.type === "station") return false;
@@ -3407,7 +3413,7 @@ function _enhedRenderLag() {
       });
 
       const stEnhedUad = e.stationId ? alleEnheder.find(s => s.id === e.stationId) : null;
-      const uadBtn = maaFlytte
+      const uadBtn = maaDisponereEnhed(e)
         ? `<button class="lev-enhed-uad-btn" data-enhedid="${_esc(e.id)}"
              style="font-size:11px;padding:3px 8px;background:#27ae60;color:#fff;
                     border:none;border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">✅ Sæt i drift</button>` : "";
