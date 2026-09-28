@@ -416,6 +416,11 @@ function _levBuildControl() {
       </div>
       <div class="lev-disp-divider" id="levStatDivider" style="display:none"></div>
       <div class="lev-disp-section" id="levStatBoks" style="display:none"></div>
+      <div class="lev-disp-divider"></div>
+      <div class="lev-disp-section" style="text-align:right">
+        <button id="levLogUd" style="background:none;border:none;color:#8a97a5;
+          font-size:11.5px;cursor:pointer;padding:2px 4px">🚪 Log ud</button>
+      </div>
     </div>
   `;
   map.getContainer().appendChild(wrap);
@@ -523,6 +528,47 @@ function _levBuildControl() {
         }
       }
     });
+  });
+
+  // Log ud. Sessionscookien er httpOnly, saa den kan kun ryddes af
+  // workeren. Bagefter nulstilles de data der kraevede login, og lagene
+  // slukkes — ellers ville man kunne blive siddende med enheder paa
+  // skaermen efter at have logget ud.
+  document.getElementById('levLogUd').addEventListener('click', async function (e) {
+    e.stopPropagation();
+    try {
+      await fetch(`${LEV_SP_WORKER}/auth/logout`, {
+        method: 'POST', credentials: 'include'
+      });
+    } catch (err) {
+      console.warn('Logout:', err);
+    }
+
+    _levAktivRolle = null;
+    _levVisAdminKnapper(null);
+    _levLoaded     = false;
+    _enhedLoaded   = false;
+    _levStatHentet = false;
+    _levData   = null;
+    _enhedData = null;
+
+    // Sluk alle lag der kraever login, og ryd fluebenene
+    panel.querySelectorAll('input[type="checkbox"][data-lag]').forEach(cb => {
+      if (!cb.checked) return;
+      const lag = cb.dataset.lag;
+      let layer = null;
+      if      (lag === 'tilgaengelig')   layer = levTilgaengeligLayer;
+      else if (lag.startsWith('lev-'))   layer = _levKatLag[lag.slice(4)];
+      else if (lag.startsWith('enhed-')) layer = _enhedKatLag[lag.slice(6)];
+      if (layer && map.hasLayer(layer)) map.removeLayer(layer);
+      if (layer) layer.clearLayers();
+      cb.checked = false;
+    });
+    clearInterval(_levTilgInterval);
+    _levTilgInterval = null;
+
+    panel.classList.remove('lev-disp-panel-aaben');
+    _levDispBesked('👋 Du er logget ud');
   });
 
   document.getElementById('levTilgLogBtn').addEventListener('click', async function (e) {
@@ -1276,14 +1322,28 @@ function _levTilgBuildMarkers(aktive) {
     const antal = records.length;
 
     // Byg én popup-række per tilgængelig vogn
+    // kilde skelner mellem en aktiv melding fra vognmanden og en vogn der
+    // er tilgaengelig efter sin faste rytme. Forskellen skal vaere synlig:
+    // en melding er nogen der aktivt har sagt god for det lige nu, mens
+    // rytmen er et skema — og skemaet kan vaere glemt at melde fra paa.
+    // En plan-record har ingen fra/til, kun planTil, saa uden det her
+    // ville der staa "? → ?".
     const vognRækker = records.map(rec => {
-      const fraStr = rec.fra ? new Date(rec.fra).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
-      const tilStr = rec.til ? new Date(rec.til).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) : "?";
+      const efterPlan = rec.kilde === "plan";
+      const klok = iso => iso
+        ? new Date(iso).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })
+        : "?";
+      const tid = efterPlan
+        ? `🔁 <b>Fast rytme</b>${rec.planTil ? " · på vagt til <b>" + _esc(rec.planTil) + "</b>" : ""}`
+        : `⏰ <b>${klok(rec.fra)} → ${klok(rec.til)}</b>`;
       return `
         <div class="lev-popup-row">
           🚗 <b>Vogn ${_esc(rec.vognNr)}</b>${rec.vognReg ? " · " + _esc(rec.vognReg) : ""}
           ${rec.vognBesk ? "<br><small>" + _esc(rec.vognBesk) + "</small>" : ""}
-          <br>⏰ <b>${fraStr} → ${tilStr}</b>
+          <br>${tid}
+          ${efterPlan
+            ? `<br><small style="color:#7f8c8d">Efter fast plan – ikke bekræftet af vognmanden i dag</small>`
+            : ""}
           ${rec.bemærkning ? "<br>💬 <i>" + _esc(rec.bemærkning) + "</i>" : ""}
         </div>`;
     }).join('<hr class="lev-hr">');
