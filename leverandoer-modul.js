@@ -410,13 +410,12 @@ function _levBuildControl() {
         <button class="lev-disp-rediger-btn" id="levRedigerLev">✏️ Rediger leverandører</button>
         <button class="lev-disp-rediger-btn" id="levRedigerEnheder">✏️ Rediger egne enheder</button>
       </div>
+      <div class="lev-disp-divider" id="levLogDivider" style="display:none"></div>
+      <div class="lev-disp-section" id="levLogSektion" style="display:none">
+        <button class="lev-disp-rediger-btn" id="levTilgLogBtn">📋 Tilgængelighedslog</button>
+      </div>
       <div class="lev-disp-divider" id="levStatDivider" style="display:none"></div>
       <div class="lev-disp-section" id="levStatBoks" style="display:none"></div>
-      <div class="lev-disp-divider"></div>
-      <div class="lev-disp-section" style="text-align:right">
-        <button id="levLogUd" style="background:none;border:none;color:#8a97a5;
-          font-size:11.5px;cursor:pointer;padding:2px 4px">🚪 Log ud</button>
-      </div>
     </div>
   `;
   map.getContainer().appendChild(wrap);
@@ -526,45 +525,10 @@ function _levBuildControl() {
     });
   });
 
-  // Log ud. Sessionscookien er httpOnly, saa den kan kun ryddes af
-  // workeren. Bagefter nulstilles de data der kraevede login, og lagene
-  // slukkes — ellers ville man kunne blive siddende med enheder paa
-  // skaermen efter at have logget ud.
-  document.getElementById('levLogUd').addEventListener('click', async function (e) {
+  document.getElementById('levTilgLogBtn').addEventListener('click', async function (e) {
     e.stopPropagation();
-    try {
-      await fetch(`${LEV_SP_WORKER}/auth/logout`, {
-        method: 'POST', credentials: 'include'
-      });
-    } catch (err) {
-      console.warn('Logout:', err);
-    }
-
-    _levAktivRolle = null;
-    _levVisAdminKnapper(null);
-    _levLoaded    = false;
-    _enhedLoaded  = false;
-    _levStatHentet = false;
-    _levData   = null;
-    _enhedData = null;
-
-    // Sluk alle lag der kraever login, og ryd fluebenene
-    panel.querySelectorAll('input[type="checkbox"][data-lag]').forEach(cb => {
-      if (!cb.checked) return;
-      const lag = cb.dataset.lag;
-      let layer = null;
-      if      (lag === 'tilgaengelig')   layer = levTilgaengeligLayer;
-      else if (lag.startsWith('lev-'))   layer = _levKatLag[lag.slice(4)];
-      else if (lag.startsWith('enhed-')) layer = _enhedKatLag[lag.slice(6)];
-      if (layer && map.hasLayer(layer)) map.removeLayer(layer);
-      if (layer) layer.clearLayers();
-      cb.checked = false;
-    });
-    clearInterval(_levTilgInterval);
-    _levTilgInterval = null;
-
     panel.classList.remove('lev-disp-panel-aaben');
-    _levDispBesked('👋 Du er logget ud');
+    await _tilgLogAaben();
   });
 
   // Rediger-knapper
@@ -1032,6 +996,13 @@ function _levVisAdminKnapper(role) {
       if (boks) boks.style.display = "none";
       if (del)  del.style.display  = "none";
     }
+
+    // Loggen indeholder historik og positioner og er derfor admin-only
+    const logSek = document.getElementById("levLogSektion");
+    const logDel = document.getElementById("levLogDivider");
+    const visLog = (role === "admin") ? "" : "none";
+    if (logSek) logSek.style.display = visLog;
+    if (logDel) logDel.style.display = visLog;
   } catch (e) {
     console.warn("_levVisAdminKnapper:", e);
   }
@@ -3619,6 +3590,84 @@ async function _enhedOpenAdmin() {
       if (_origClose) _origClose.apply(this, arguments);
     };
   }
+}
+
+// ══ TILGÆNGELIGHEDSLOG (admin) ═══════════════════════════════════
+// Viser hvad der ligger i DK_Tilgaengelig, inklusive de udløbne. Vær
+// opmærksom på at det er ÉN række pr. vogn: melder en vogn sig igen,
+// overskrives den forrige. Det er altså seneste melding pr. vogn og
+// ikke en fuld historik.
+let _tilgLogData = [];
+
+async function _tilgLogAaben() {
+  const ok = await _levEnsureLogin();
+  if (!ok) return;
+  document.getElementById("levAdminPanel").classList.add("lev-panel-open");
+  document.getElementById("levPanelTitle").textContent = "📋 Tilgængelighedslog";
+  const body = document.getElementById("levPanelBody");
+  body.innerHTML = `<div style="padding:16px;color:#8a97a5">Henter…</div>`;
+  try {
+    const r = await _levSpFetch("/tilgaengelig/log");
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || r.status);
+    _tilgLogData = data.log || [];
+    _tilgLogRender("");
+  } catch (e) {
+    body.innerHTML = `<div style="padding:16px;color:#c0392b">`
+      + `Kunne ikke hente loggen: ${_esc(String(e.message))}</div>`;
+  }
+}
+
+function _tilgLogRender(filter) {
+  const body = document.getElementById("levPanelBody");
+  const f = String(filter || "").trim().toLowerCase();
+  const raekker = _tilgLogData.filter(r => !f
+    || String(r.vognNr).toLowerCase().includes(f)
+    || String(r.vognReg).toLowerCase().includes(f)
+    || String(r.levNavn).toLowerCase().includes(f));
+
+  const nu = Date.now();
+  const fmt = iso => iso
+    ? new Date(iso).toLocaleString("da-DK",
+        { day: "2-digit", month: "2-digit", year: "numeric",
+          hour: "2-digit", minute: "2-digit" })
+    : "?";
+
+  body.innerHTML = `
+    <div style="padding:10px 12px;border-bottom:1px solid #e3e8ee">
+      <input id="tilgLogSoeg" type="text" placeholder="Søg vognnummer, reg.nr. eller leverandør"
+        value="${_esc(filter || "")}"
+        style="width:100%;padding:8px;border:1px solid #cdd5df;border-radius:6px;font-size:13px">
+      <div style="font-size:11px;color:#8a97a5;margin-top:6px;line-height:1.5">
+        ${raekker.length} af ${_tilgLogData.length} rækker. Én række pr. vogn —
+        en ny melding overskriver den forrige.
+      </div>
+    </div>
+    ${raekker.length ? raekker.map(r => {
+      const aktiv = r.til && new Date(r.til).getTime() > nu;
+      return `<div style="padding:9px 12px;border-bottom:1px solid #eef2f6;font-size:13px">
+        <div style="display:flex;justify-content:space-between;gap:8px">
+          <b>${_esc(r.vognNr)}</b>
+          <span style="font-size:11px;color:${aktiv ? "#27ae60" : "#8a97a5"}">
+            ${aktiv ? "● Aktiv nu" : "udløbet"}</span>
+        </div>
+        <div style="color:#5a6a7a">${_esc(r.levNavn)}${r.vognReg ? " · " + _esc(r.vognReg) : ""}</div>
+        <div style="font-size:12px;margin-top:2px">⏰ ${_esc(fmt(r.fra))} → ${_esc(fmt(r.til))}</div>
+        ${r.position ? `<div style="font-size:12px">📍 ${_esc(r.position)}</div>` : ""}
+        ${r.bemærkning ? `<div style="font-size:12px;color:#5a6a7a">💬 <i>${_esc(r.bemærkning)}</i></div>` : ""}
+        <div style="font-size:11px;color:#8a97a5;margin-top:2px">Ændret ${_esc(fmt(r.opdateret))}</div>
+      </div>`;
+    }).join("") : `<div style="padding:16px;color:#8a97a5">Ingen rækker matcher.</div>`}
+  `;
+
+  const soeg = document.getElementById("tilgLogSoeg");
+  soeg.addEventListener("input", () => {
+    const v = soeg.value;
+    _tilgLogRender(v);
+    const nyt = document.getElementById("tilgLogSoeg");
+    nyt.focus();
+    nyt.setSelectionRange(v.length, v.length);
+  });
 }
 
 function _enhedShowListe() {
