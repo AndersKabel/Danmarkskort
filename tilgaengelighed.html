@@ -380,6 +380,41 @@
     <div style="font-size:12px;color:#aaa;margin-top:6px">Vises i popup på kortet</div>
   </div>
 
+  <!-- Tid -->
+  <div class="card">
+    <h2>Tilgængelig i</h2>
+    <div class="time-grid" id="time-grid">
+      <button class="time-btn" data-hours="4">4t</button>
+      <button class="time-btn" data-hours="6">6t</button>
+      <button class="time-btn" data-hours="8">8t</button>
+      <button class="time-btn" data-hours="10">10t</button>
+      <button class="time-btn" data-hours="12">12t</button>
+    </div>
+
+    <div class="divider">eller vælg tidsrum</div>
+    <div class="manual-row">
+      <div>
+        <label>Fra</label>
+        <div class="dt-row">
+          <input type="date" id="inp-fra-dato">
+          <input type="time" id="inp-fra-tid" step="300">
+        </div>
+      </div>
+      <div>
+        <label>Til</label>
+        <div class="dt-row">
+          <input type="date" id="inp-til-dato">
+          <input type="time" id="inp-til-tid" step="300">
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-green" id="btn-meld">🟢 Meld tilgængelig</button>
+    <button class="btn btn-red hidden" id="btn-fravær">🔴 Meld fraværende</button>
+    <button class="btn btn-gray" id="btn-logout">← Skift vogn</button>
+    <div id="main-feedback" class="feedback"></div>
+  </div>
+
   <!-- Fravær -->
   <div class="card hidden" id="card-fravaer">
     <h2>Meld fravær</h2>
@@ -422,41 +457,6 @@
 
     <div id="frav-liste" class="frav-liste"></div>
     <div id="frav-feedback" class="feedback"></div>
-  </div>
-
-  <!-- Tid -->
-  <div class="card">
-    <h2>Tilgængelig i</h2>
-    <div class="time-grid" id="time-grid">
-      <button class="time-btn" data-hours="4">4t</button>
-      <button class="time-btn" data-hours="6">6t</button>
-      <button class="time-btn" data-hours="8">8t</button>
-      <button class="time-btn" data-hours="10">10t</button>
-      <button class="time-btn" data-hours="12">12t</button>
-    </div>
-
-    <div class="divider">eller vælg tidsrum</div>
-    <div class="manual-row">
-      <div>
-        <label>Fra</label>
-        <div class="dt-row">
-          <input type="date" id="inp-fra-dato">
-          <input type="time" id="inp-fra-tid" step="300">
-        </div>
-      </div>
-      <div>
-        <label>Til</label>
-        <div class="dt-row">
-          <input type="date" id="inp-til-dato">
-          <input type="time" id="inp-til-tid" step="300">
-        </div>
-      </div>
-    </div>
-
-    <button class="btn btn-green" id="btn-meld">🟢 Meld tilgængelig</button>
-    <button class="btn btn-red hidden" id="btn-fravær">🔴 Meld fraværende</button>
-    <button class="btn btn-gray" id="btn-logout">← Skift vogn</button>
-    <div id="main-feedback" class="feedback"></div>
   </div>
 
   <!-- Fast rytme -->
