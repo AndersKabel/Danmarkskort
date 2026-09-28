@@ -479,6 +479,9 @@ function _levBuildControl() {
 
   // Stop klik inde i panelet fra at boble op til kortet
   L.DomEvent.disableClickPropagation(panel);
+  // Panelet kan scrolle naar det er hoejere end skaermen. Uden det her
+  // ville musehjulet zoome kortet i stedet for at rulle i listen.
+  L.DomEvent.disableScrollPropagation(panel);
 
   // Checkbox-handlers
   wrap.querySelectorAll('input[type=checkbox]').forEach(function (cb) {
