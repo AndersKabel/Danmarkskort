@@ -411,3 +411,9 @@ function initMaalModul() {
   var afslut = document.getElementById("maalAfslutBtn");
   if (afslut) afslut.addEventListener("click", maalStop);
 }
+
+// Uden det her kald bliver knapperne aldrig koblet op, og maaleknappen
+// ligger doed uden at der kommer en fejl i konsollen. Filen indlaeses
+// sidst i index.html, efter Leaflet og script.js, saa baade kortet og
+// knapperne findes allerede paa dette tidspunkt.
+initMaalModul();
