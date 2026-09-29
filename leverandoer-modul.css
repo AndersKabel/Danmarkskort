@@ -511,3 +511,82 @@
 }
 .lev-vogn-toggle-btn:hover { text-decoration: underline; }
 .lev-vogn-specs-wrap { margin-top: 4px; }
+
+/* ── Kodedialog ───────────────────────────────────────────────────
+   Bruges af _levSpoergKode til baade disponent- og driftkode.
+   Uden position og z-index her bliver boksen indsat nederst i body,
+   under kortet, og login gaar i staa uden at nogen kan se hvorfor. */
+.lev-kode-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.45);
+  padding: 16px;
+}
+.lev-kode-boks {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+  padding: 18px 20px;
+  width: 100%;
+  max-width: 340px;
+  font-family: inherit;
+}
+.lev-kode-hdr {
+  font-size: 15px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 12px;
+}
+.lev-kode-felt {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.lev-kode-felt input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #cdd5df;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.lev-kode-felt input:focus {
+  outline: none;
+  border-color: #2980b9;
+}
+.lev-kode-felt button {
+  background: #f5f7fa;
+  border: 1px solid #cdd5df;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.lev-kode-knapper {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+.lev-kode-knapper button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #cdd5df;
+  background: #f5f7fa;
+  color: #2c3e50;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.lev-kode-knapper button:hover { background: #e9eef4; }
+.lev-kode-knapper .lev-kode-ok {
+  background: #2980b9;
+  border-color: #2980b9;
+  color: #fff;
+}
+.lev-kode-knapper .lev-kode-ok:hover { background: #2471a3; }
