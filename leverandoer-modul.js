@@ -1320,7 +1320,11 @@ function _levTilgBuildMarkers(aktive) {
 
   // Én markør per unik position
   byPos.forEach(({ lat, lon, label, records }) => {
-    const farve = records[0].levFarve || "#27ae60";
+    // En vogn vises allerede et halvt minut foer vagtstart, saa disponenten
+    // kan vaelge at vente paa en naer ressource. Prikken er graa saa laenge
+    // ALLE paa stedet er paa vej — er bare én klar, er den groen.
+    const kunKommende = records.every(r => r.status === "kommende");
+    const farve = kunKommende ? "#95a5a6" : (records[0].levFarve || "#27ae60");
     const kat   = LEV_KATEGORIER.find(k => k.id === records[0].levKategori);
     const antal = records.length;
 
@@ -1336,7 +1340,10 @@ function _levTilgBuildMarkers(aktive) {
       const klok = iso => iso
         ? new Date(iso).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })
         : "?";
-      const tid = efterPlan
+      const tid = rec.status === "kommende"
+        ? `🕐 <b>Møder om ${rec.starterOm} min</b>`
+          + `${rec.starterKl ? " · kl. " + _esc(rec.starterKl) : ""}`
+        : efterPlan
         ? `🔁 <b>Fast rytme</b>${rec.planTil ? " · på vagt til <b>" + _esc(rec.planTil) + "</b>" : ""}`
         : `⏰ <b>${klok(rec.fra)} → ${klok(rec.til)}</b>`;
       return `
@@ -1354,7 +1361,7 @@ function _levTilgBuildMarkers(aktive) {
     const popupHTML = `
       <div class="lev-popup">
         <div class="lev-popup-top" style="border-left:4px solid ${_esc(farve)}">
-          <b>🟢 ${_esc(records[0].levNavn)}</b>
+          <b>${kunKommende ? "⚪" : "🟢"} ${_esc(records[0].levNavn)}</b>
           <span class="lev-popup-sub">${kat ? kat.ikon + " " + kat.navn : ""}${label ? " · " + _esc(label) : ""}</span>
         </div>
         ${vognRækker}
@@ -1362,7 +1369,8 @@ function _levTilgBuildMarkers(aktive) {
 
     const icon = L.divIcon({
       className: "",
-      html: `<div class="lev-marker-icon" style="background:${_esc(farve)};box-shadow:0 0 0 3px #fff,0 0 0 5px ${_esc(farve)}">${antal > 1 ? antal + "🟢" : "🟢"}</div>`,
+      html: `<div class="lev-marker-icon" style="background:${_esc(farve)};box-shadow:0 0 0 3px #fff,0 0 0 5px ${_esc(farve)}">`
+        + `${antal > 1 ? antal : ""}${kunKommende ? "⚪" : "🟢"}</div>`,
       iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -14]
     });
 
