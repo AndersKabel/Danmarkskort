@@ -307,6 +307,9 @@ async function initLeverandoerModul() {
   _levLoadPostnrMap();
   _levBuildControl();
   _levBuildUI();
+  // Vaerkstedslaget lægges i den almindelige lagvælger, ikke i Disp-panelet.
+  // layerControl er defineret i script.js, som indlaeses foer denne fil.
+  _vaerkInit();
 
   // Hent kategorier fra SharePoint ved opstart. Uden dette bygges
   // lagvælgeren fra den hårdkodede fallback-liste, og kategorier oprettet
@@ -409,6 +412,7 @@ function _levBuildControl() {
       <div class="lev-disp-section lev-disp-rediger">
         <button class="lev-disp-rediger-btn" id="levRedigerLev">✏️ Rediger leverandører</button>
         <button class="lev-disp-rediger-btn" id="levRedigerEnheder">✏️ Rediger egne enheder</button>
+        <button class="lev-disp-rediger-btn" id="levRedigerVaerk">🔧 Rediger værksteder</button>
       </div>
       <div class="lev-disp-divider" id="levLogDivider" style="display:none"></div>
       <div class="lev-disp-section" id="levLogSektion" style="display:none">
@@ -572,6 +576,12 @@ function _levBuildControl() {
 
     panel.classList.remove('lev-disp-panel-aaben');
     _levDispBesked('👋 Du er logget ud');
+  });
+
+  document.getElementById('levRedigerVaerk').addEventListener('click', async function (e) {
+    e.stopPropagation();
+    panel.classList.remove('lev-disp-panel-aaben');
+    await _vaerkOpenAdmin();
   });
 
   document.getElementById('levTilgLogBtn').addEventListener('click', async function (e) {
@@ -3738,6 +3748,290 @@ function _tilgLogRender(filter) {
     const nyt = document.getElementById("tilgLogSoeg");
     nyt.focus();
     nyt.setSelectionRange(v.length, v.length);
+  });
+}
+
+
+// ══ VÆRKSTEDER UDEN FOR ÅBNINGSTID ═══════════════════════════════
+// Laget ligger i den almindelige lagvælger, ikke under Disp, så AR kan
+// bruge det uden login. GET er derfor ubeskyttet — men redigering
+// kræver drift eller admin og foregår inde i Disp-panelet.
+let _vaerkData  = [];
+let _vaerkLayer = null;
+
+function _vaerkInit() {
+  if (_vaerkLayer) return;
+  _vaerkLayer = L.layerGroup();
+  if (typeof layerControl !== "undefined" && layerControl?.addOverlay) {
+    layerControl.addOverlay(_vaerkLayer, "🔧 Værksteder uden for åbningstid");
+  }
+  // Hentes først når laget tændes, så AR ikke betaler for et lag de ikke bruger
+  map.on("overlayadd", e => {
+    if (e.layer === _vaerkLayer && !_vaerkData.length) _vaerkHent();
+  });
+}
+
+async function _vaerkHent(stille) {
+  try {
+    const r = await _levFetchMedTimeout(`${LEV_SP_WORKER}/vaerksteder`,
+      {}, LEV_TIMEOUT_MS, "danmarkskort-sp/vaerksteder");
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || r.status);
+    _vaerkData = data.vaerksteder || [];
+    _vaerkRender();
+    return true;
+  } catch (e) {
+    console.warn("Værksteder:", e);
+    if (!stille) _levDispBesked("⚠️ Kunne ikke hente værksteder");
+    return false;
+  }
+}
+
+function _vaerkRender() {
+  if (!_vaerkLayer) return;
+  _vaerkLayer.clearLayers();
+  _vaerkData.forEach(v => {
+    if (!v.lat || !v.lon) return;
+    const uad   = _erUAD(v);
+    // Petrol er valgt fordi den ikke bruges andre steder: groen er
+    // tilgaengelig, blaa er stationer, orange er blandet UAD og Falck Ass,
+    // lilla og graa er ogsaa taget. Roed ved UAD som alle andre lag.
+    const farve = uad ? "#e74c3c" : "#00838f";
+    const icon  = L.divIcon({
+      className: "",
+      html: `<div class="lev-marker-icon" style="background:${farve};`
+          + `box-shadow:0 0 0 3px #fff,0 0 0 5px ${farve}">🔧</div>`,
+      iconSize: [30, 30], iconAnchor: [15, 15]
+    });
+    const adr = [v.vej, [v.postnr, v.by].filter(Boolean).join(" ")]
+      .filter(Boolean).join(", ");
+    L.marker([v.lat, v.lon], { icon })
+      .bindPopup(`<div class="lev-popup">
+        <div class="lev-popup-top" style="border-left:4px solid ${farve}">
+          <b>${_esc(v.navn)}</b>
+          ${adr ? `<span class="lev-popup-sub">📍 ${_esc(adr)}</span>` : ""}
+        </div>
+        ${uad ? _uadBadge(v) : ""}
+        ${_kontaktHTML("📞", "Telefon", v.telefon1)}
+        ${_kontaktHTML("📞", "Telefon 2", v.telefon2)}
+        ${v.aabningstider
+          ? `<div class="lev-popup-row">🕐 ${_esc(v.aabningstider).replace(/\n/g, "<br>")}</div>` : ""}
+        ${v.beskrivelse
+          ? `<div class="lev-popup-row" style="color:#5a6a7a">${_esc(v.beskrivelse).replace(/\n/g, "<br>")}</div>` : ""}
+      </div>`, { maxWidth: 320, className: "lev-leaflet-popup" })
+      .addTo(_vaerkLayer);
+  });
+}
+
+// ── Redigering (drift og admin) ──────────────────────────────────
+async function _vaerkOpenAdmin() {
+  const ok = await _levEnsureLogin();
+  if (!ok) return;
+  if (!_vaerkData.length) await _vaerkHent(true);
+  _vaerkShowListe();
+}
+
+function _vaerkShowListe() {
+  document.getElementById("levAdminPanel").classList.add("lev-panel-open");
+  document.getElementById("levPanelTitle").textContent = "🔧 Værksteder";
+  const body = document.getElementById("levPanelBody");
+  body.innerHTML = `
+    <div style="padding:10px 12px;border-bottom:1px solid #e3e8ee">
+      <button id="vkNy" class="lev-btn-primary" style="width:100%">➕ Nyt værksted</button>
+    </div>
+    ${_vaerkData.length ? _vaerkData.map(v => {
+      const uad = _erUAD(v);
+      return `<div style="padding:9px 12px;border-bottom:1px solid #eef2f6;
+                display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0">
+          <b>${_esc(v.navn)}</b>${uad ? ` <span style="color:#e74c3c;font-size:11px">UAD</span>` : ""}
+          <div style="font-size:12px;color:#5a6a7a">
+            ${_esc([v.vej, v.postnr, v.by].filter(Boolean).join(", "))}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button class="vk-uad" data-id="${_esc(v.id)}"
+            style="font-size:11px;padding:3px 7px;border-radius:4px;cursor:pointer;
+                   background:${uad ? "#27ae60" : "#f5f5f5"};color:${uad ? "#fff" : "#333"};
+                   border:1px solid ${uad ? "#27ae60" : "#ccc"}">
+            ${uad ? "✅ I drift" : "🔴 UAD"}</button>
+          <button class="vk-ret" data-id="${_esc(v.id)}"
+            style="font-size:11px;padding:3px 7px;border:1px solid #2980b9;border-radius:4px;
+                   background:#e8f4fd;color:#2980b9;cursor:pointer">✏️</button>
+        </div>
+      </div>`;
+    }).join("") : `<div style="padding:16px;color:#8a97a5">Ingen værksteder endnu.</div>`}
+  `;
+
+  document.getElementById("vkNy").addEventListener("click", () => _vaerkShowForm(null));
+  body.querySelectorAll(".vk-ret").forEach(b => b.addEventListener("click", () =>
+    _vaerkShowForm(_vaerkData.find(v => v.id === b.dataset.id) || null)));
+  body.querySelectorAll(".vk-uad").forEach(b => b.addEventListener("click", async () => {
+    const v = _vaerkData.find(x => x.id === b.dataset.id);
+    if (!v) return;
+    b.disabled = true;
+    try {
+      const r = await _levSpFetch("/vaerksteder/uad", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: v.id, uad: _erUAD(v) ? null : { type: "manuel" } })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || r.status);
+      await _vaerkHent(true);
+      _vaerkShowListe();
+    } catch (e) {
+      alert("Kunne ikke ændre: " + e.message);
+      b.disabled = false;
+    }
+  }));
+}
+
+function _vaerkShowForm(v) {
+  document.getElementById("levPanelTitle").textContent =
+    v ? "✏️ Rediger værksted" : "➕ Nyt værksted";
+  const body = document.getElementById("levPanelBody");
+  body.innerHTML = `
+    <div class="lev-form">
+      <button id="vkTilbage" class="lev-tilbage">← Tilbage til liste</button>
+      <fieldset class="lev-fs">
+        <legend>🔧 Værksted</legend>
+        <label>Navn
+          <input id="vk-navn" type="text" value="${_esc(v?.navn || "")}" placeholder="fx Autoværkstedet ApS">
+        </label>
+      </fieldset>
+      <fieldset class="lev-fs">
+        <legend>📍 Adresse</legend>
+        <label>Søg adresse
+          <input id="vk-adr-sok" type="text" autocomplete="off"
+            value="${_esc([v?.vej, v?.postnr, v?.by].filter(Boolean).join(", "))}"
+            placeholder="Skriv adresse og vælg fra listen...">
+        </label>
+        <div id="vk-adr-liste" style="display:none;background:#fff;border:1px solid #ccc;
+          border-radius:6px;max-height:180px;overflow-y:auto;margin-top:2px"></div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <label style="flex:1">Lat.
+            <input id="vk-lat" type="text" value="${v?.lat ?? ""}" placeholder="55.xxxx">
+          </label>
+          <label style="flex:1">Lon.
+            <input id="vk-lon" type="text" value="${v?.lon ?? ""}" placeholder="10.xxxx">
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="lev-fs">
+        <legend>📞 Kontakt</legend>
+        <label>Telefon 1
+          <input id="vk-tlf1" type="text" value="${_esc(v?.telefon1 || "")}">
+        </label>
+        <label>Telefon 2
+          <input id="vk-tlf2" type="text" value="${_esc(v?.telefon2 || "")}" placeholder="valgfri">
+        </label>
+      </fieldset>
+      <fieldset class="lev-fs">
+        <legend>🕐 Åbningstider</legend>
+        <textarea id="vk-aabning" class="lev-textarea" rows="3"
+          placeholder="fx hverdage 07-16, weekend efter aftale">${_esc(v?.aabningstider || "")}</textarea>
+      </fieldset>
+      <fieldset class="lev-fs">
+        <legend>💬 Beskrivelse</legend>
+        <textarea id="vk-besk" class="lev-textarea" rows="3"
+          placeholder="fx hvad de kan tage ind, og hvad der er aftalt">${_esc(v?.beskrivelse || "")}</textarea>
+      </fieldset>
+      <div class="lev-form-footer">
+        <button id="vk-gem" class="lev-btn-primary">💾 Gem værksted</button>
+        ${v ? `<button id="vk-slet" class="lev-btn-danger">🗑️ Slet</button>` : ""}
+      </div>
+      <div id="vk-status" style="font-size:12px;color:#27ae60;min-height:18px;padding:4px 0"></div>
+    </div>`;
+
+  // Adressesøgning — samme opsætning som stationsformularen
+  const adrInput = document.getElementById("vk-adr-sok");
+  const adrListe = document.getElementById("vk-adr-liste");
+  let adrTimer;
+  adrInput.addEventListener("input", () => {
+    clearTimeout(adrTimer);
+    const q = adrInput.value.trim();
+    if (q.length < 3) { adrListe.style.display = "none"; return; }
+    adrTimer = setTimeout(async () => {
+      try {
+        const r = await fetch(`https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(q)}&per_side=6&struktur=mini`);
+        const items = await r.json();
+        if (!items.length) { adrListe.style.display = "none"; return; }
+        adrListe.innerHTML = items.map(it =>
+          `<div class="vk-adr-item" data-tekst="${_esc(it.tekst)}"
+            data-vej="${_esc(it.vejnavn || "")}" data-husnr="${_esc(it.husnr || "")}"
+            data-postnr="${_esc(it.postnr || "")}" data-by="${_esc(it.postnrnavn || "")}"
+            data-lat="${it.adresse?.y ?? ""}" data-lon="${it.adresse?.x ?? ""}"
+            style="padding:6px 8px;cursor:pointer;border-bottom:1px solid #eee">${_esc(it.tekst)}</div>`
+        ).join("");
+        adrListe.style.display = "block";
+        adrListe.querySelectorAll(".vk-adr-item").forEach(div => {
+          div.addEventListener("mouseenter", () => div.style.background = "#f0f0f0");
+          div.addEventListener("mouseleave", () => div.style.background = "");
+          div.addEventListener("click", () => {
+            adrInput.value = div.dataset.tekst;
+            adrInput.dataset.vej    = [div.dataset.vej, div.dataset.husnr].filter(Boolean).join(" ");
+            adrInput.dataset.postnr = div.dataset.postnr;
+            adrInput.dataset.by     = div.dataset.by;
+            document.getElementById("vk-lat").value = parseFloat(div.dataset.lat).toFixed(6);
+            document.getElementById("vk-lon").value = parseFloat(div.dataset.lon).toFixed(6);
+            adrListe.style.display = "none";
+          });
+        });
+      } catch (e) { adrListe.style.display = "none"; }
+    }, 300);
+  });
+
+  document.getElementById("vkTilbage").addEventListener("click", _vaerkShowListe);
+
+  document.getElementById("vk-gem").addEventListener("click", async () => {
+    const st   = document.getElementById("vk-status");
+    const navn = document.getElementById("vk-navn").value.trim();
+    const lat  = parseFloat(document.getElementById("vk-lat").value);
+    const lon  = parseFloat(document.getElementById("vk-lon").value);
+    if (!navn) { st.style.color = "#c0392b"; st.textContent = "Udfyld navn."; return; }
+    if (!lat || !lon) {
+      st.style.color = "#c0392b";
+      st.textContent = "Vælg en adresse fra listen — uden koordinater kan værkstedet ikke vises.";
+      return;
+    }
+    // Er adressen ikke valgt om, bevares de gemte dele
+    const vej    = adrInput.dataset.vej    ?? v?.vej    ?? "";
+    const postnr = adrInput.dataset.postnr ?? v?.postnr ?? "";
+    const by     = adrInput.dataset.by     ?? v?.by     ?? "";
+    st.style.color = "#27ae60";
+    st.textContent = "Gemmer...";
+    try {
+      const r = await _levSpFetch("/vaerksteder", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: v?.id, navn, vej, postnr, by, lat, lon,
+          telefon1:      document.getElementById("vk-tlf1").value.trim(),
+          telefon2:      document.getElementById("vk-tlf2").value.trim(),
+          aabningstider: document.getElementById("vk-aabning").value.trim(),
+          beskrivelse:   document.getElementById("vk-besk").value.trim()
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || r.status);
+      await _vaerkHent(true);
+      _vaerkShowListe();
+    } catch (e) {
+      st.style.color = "#c0392b";
+      st.textContent = "Kunne ikke gemme: " + e.message;
+    }
+  });
+
+  const sletBtn = document.getElementById("vk-slet");
+  if (sletBtn) sletBtn.addEventListener("click", async () => {
+    if (!confirm(`Slet ${v.navn}?`)) return;
+    try {
+      const r = await _levSpFetch(`/vaerksteder/${encodeURIComponent(v.id)}`, { method: "DELETE" });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || r.status);
+      await _vaerkHent(true);
+      _vaerkShowListe();
+    } catch (e) {
+      alert("Kunne ikke slette: " + e.message);
+    }
   });
 }
 
