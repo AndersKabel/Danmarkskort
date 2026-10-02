@@ -2187,8 +2187,84 @@ map.on('click', function(e) {
  * Gå altid gennem _adrFelter(), så nye datastrukturer kun skal
  * håndteres ét sted.
  ***************************************************/
+/***************************************************
+ * ADRESSEVÆLGEREN
+ *
+ * DAWA lukkede 1. oktober 2026. Klimadatastyrelsens Adressevælger
+ * erstatter adressesøgningen, men er ikke en 1:1-erstatning:
+ *   - Søgesvaret indeholder IKKE koordinater. De skal hentes med et
+ *     ekstra opslag på det valgte resultat.
+ *   - Koordinaterne er i EPSG:25832 (UTM32), ikke WGS84.
+ *   - Husnumre og adresser ligger på hver sit endpoint.
+ * Funktionerne her oversætter til det format resten af koden bruger.
+ *
+ * Token: Adressevælgeren har endnu ingen brugerstyring, så alle sender
+ * den fælles token. Når brugerstyring kommer (ventet omkring årsskiftet
+ * 2026/27), skal den skiftes ud med vores egen.
+ ***************************************************/
+const AV_BASE  = "https://adressevaelger.dk";
+const AV_TOKEN = "adressevaelger123";
+
+function _avSti(type) {
+  if (type === "husnummer")               return "husnumre";
+  if (type === "navngivenvejpostnummer")  return "navngivenvejpostnumre";
+  return "adresser";
+}
+
+// Søgning. Returnerer [{tekst, id, type}] — uden koordinater.
+async function avSoeg(query, maksimum) {
+  const q = String(query || "").trim();
+  // Adressevælgeren afviser søgninger over 73 tegn
+  if (!q || q.length > 73) return [];
+  const url = `${AV_BASE}/adresser/soeg?tekst=${encodeURIComponent(q)}`
+            + `&token=${AV_TOKEN}&maksimum=${maksimum || 20}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("Adressevælger: " + r.status);
+  const data = await r.json();
+  if (data.status === "fejl") throw new Error(data.beskrivelse || "ukendt fejl");
+  return (data.fund || []).map(f => ({
+    tekst: f.titel, id: f.id, type: f.type
+  }));
+}
+
+// Detaljer på ét resultat. Returnerer det rå svar — _adrFelter og
+// _avKoordinater forstår begge indpakninger.
+async function avDetaljer(id, type) {
+  const r = await fetch(`${AV_BASE}/${_avSti(type)}/${encodeURIComponent(id)}?token=${AV_TOKEN}`);
+  if (!r.ok) throw new Error("Adressevælger: " + r.status);
+  const data = await r.json();
+  if (data.status === "fejl") throw new Error(data.beskrivelse || "ukendt fejl");
+  return data;
+}
+
+// Trækker lat/lon ud af et Adressevælger-svar og omregner fra UTM32.
+function _avKoordinater(data) {
+  const h = data?.husnummer || data?.adresse?.husnummer;
+  const k = h?.adgangspunkt?.koordinater;
+  if (!k || k.x == null || k.y == null) return null;
+  const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [Number(k.x), Number(k.y)]);
+  return { lat, lon };
+}
+
 function _adrFelter(data) {
   const d = data || {};
+
+  // Adressevælger-format: felterne ligger under husnummer, enten direkte
+  // eller inde i en adresse. De to svar har samme indre struktur.
+  const h = d.husnummer || d.adresse?.husnummer;
+  if (h) {
+    return {
+      vejnavn:     h.vejnavn                        || "",
+      husnr:       h.husnummertekst                 || "",
+      postnr:      h.postnummer?.postnr             || "",
+      postnrnavn:  h.postnummer?.navn               || "",
+      vejkode:     h.navngivenvejkommunedel?.vejkode || "",
+      kommunekode: h.navngivenvejkommunedel?.kommune || "",
+      betegnelse:  d.adresse?.adressebetegnelse
+                   || h.adgangsadressebetegnelse     || ""
+    };
+  }
+
   const a = d.adgangsadresse || d;
   return {
     vejnavn:     a.vejnavn     || a.vejstykke?.navn  || "",
@@ -3171,7 +3247,6 @@ function quickStrandSearch(query) {
  ***************************************************/
 function doSearch(query, listElement) {
   console.log("doSearch:", JSON.stringify(query), "| customPlaces:", customPlaces.length, customPlaces.map(p=>p.navn));
-  let addrUrl = `https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(query)}&per_side=50`;
   let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=50&token=a63a88838c24fc85d47f32cde0ec0144`;
   const queryWithWildcard = query.trim().split(/\s+/).map(w => w + "*").join(" ");
   let roadUrl = `https://api.dataforsyningen.dk/navngivneveje?q=${encodeURIComponent(queryWithWildcard)}&per_side=20`;
@@ -3272,8 +3347,7 @@ function doSearch(query, listElement) {
     orsPromise    = geocodeORSForSearch(query);
   } else {
     // Normal tilstand: kun danske kilder, ingen ORS
-    addrPromise = fetch(addrUrl)
-      .then(r => r.json())
+    addrPromise = avSoeg(query, 50)
       .catch(err => { console.error("Adresser fejl:", err); return []; });
 
     stedPromise = fetch(stedUrl)
@@ -3302,12 +3376,14 @@ function doSearch(query, listElement) {
     searchItems = [];
     searchCurrentIndex = -1;
 
-    // Adresser (Dataforsyningen — /adresser/autocomplete)
-    // Svaret har strukturen: { tekst, adresse: { id, ... } }
+    // Adresser (Adressevælgeren). avSoeg har allerede oversat til
+    // {tekst, id, type}. avType gemmes, fordi husnumre og adresser skal
+    // hentes fra hvert sit endpoint når brugeren vælger.
     let addrResults = (addrData || []).map(item => ({
       type: "adresse",
       tekst: item.tekst,
-      adresseId: item.adresse?.id || null
+      adresseId: item.id || null,
+      avType: item.type || "adresse"
     }));
 
     // Stednavne — efterfiltrer: behold kun hvis søgeord faktisk er substring af navnet
@@ -3426,19 +3502,17 @@ function doSearch(query, listElement) {
 
       labelSpan.addEventListener("click", function() {
                 if (obj.type === "adresse" && obj.adresseId) {
-          // Ét kald til /adresser/{id} giver koordinater + adressedata i ét svar.
-          // Markøren sættes straks når svaret kommer — ingen ekstra reverse geocoding.
-          fetch(`https://api.dataforsyningen.dk/adresser/${obj.adresseId}`)
-            .then(r => r.json())
+          // Adressevælgeren leverer ikke koordinater i søgesvaret, så de
+          // hentes her på det valgte resultat og omregnes fra UTM32.
+          avDetaljer(obj.adresseId, obj.avType)
             .then(addressData => {
-              // Koordinater sidder på adgangsadresse.adgangspunkt.koordinater
-              const coords = addressData.adgangsadresse?.adgangspunkt?.koordinater;
-              if (!coords || coords.length < 2) {
-                console.error("Ingen koordinater i /adresser/{id}-svar:", addressData);
+              const k = _avKoordinater(addressData);
+              if (!k) {
+                console.error("Ingen koordinater i Adressevælger-svar:", addressData);
                 return;
               }
-              const lon = coords[0];
-              const lat = coords[1];
+              const lon = k.lon;
+              const lat = k.lat;
 
               // Markør og zoom sættes STRAKS
               setCoordinateBox(lat, lon);
