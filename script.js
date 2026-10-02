@@ -3379,7 +3379,7 @@ function doSearch(query, listElement) {
     // Adresser (Adressevælgeren). avSoeg har allerede oversat til
     // {tekst, id, type}. avType gemmes, fordi husnumre og adresser skal
     // hentes fra hvert sit endpoint når brugeren vælger.
-    let addrResults = (addrData || []).map(item => ({
+    let addrResults = (Array.isArray(addrData) ? addrData : []).map(item => ({
       type: "adresse",
       tekst: item.tekst,
       adresseId: item.id || null,
@@ -3411,7 +3411,7 @@ function doSearch(query, listElement) {
     }
 
     // Navngivne veje — efterfiltrer på samme måde
-    let roadResults = (roadData || [])
+    let roadResults = (Array.isArray(roadData) ? roadData : [])
       .map(item => ({
         type: "navngivenvej",
         navn: item.navn || item.adresseringsnavn || "",
@@ -3423,7 +3423,7 @@ function doSearch(query, listElement) {
       .filter(r => r.navn && r.navn.toLowerCase().includes(query.toLowerCase()));
 
     // Udenlandske adresser fra ORS
-    let orsResults = (orsData || []).map(o => o);
+    let orsResults = (Array.isArray(orsData) ? orsData : []).map(o => o);
 
     // Samlet liste
     let combined;
