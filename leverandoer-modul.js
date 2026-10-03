@@ -2254,17 +2254,94 @@ async function _levSlet(id) {
   }
 }
 
-// ── GEOCODING ────────────────────────────────────────────────────
+// ── GEOCODING / ADRESSESØGNING ───────────────────────────────────
+// DAWA lukkede 1. oktober 2026. Adressesøgningen bruger nu Klimadatastyrelsens
+// Adressevælger via hjælpefunktionerne i script.js (avSoeg, avDetaljer,
+// _avKoordinater, _adrFelter), som indlæses før dette modul.
+// Adressevælgerens søgesvar har ingen koordinater — de hentes først, når
+// brugeren vælger et resultat (ét ekstra opslag).
+
 async function _levGeocode(query) {
   try {
-    const url  = `https://api.dataforsyningen.dk/adresser?q=${encodeURIComponent(query)}&per_side=1&format=json`;
-    const data = await (await fetch(url)).json();
-    if (data.length) {
-      const c = data[0].adgangsadresse?.adgangspunkt?.koordinater;
-      if (c) return { lon: c[0], lat: c[1] };
+    const fund = (await avSoeg(query, 5)).filter(f => f.type !== "navngivenvejpostnummer");
+    if (fund.length) {
+      const k = _avKoordinater(await avDetaljer(fund[0].id, fund[0].type));
+      if (k) return { lon: k.lon, lat: k.lat };
     }
-  } catch {}
+  } catch (e) {
+    console.error("Geocoding fejlede:", e);
+  }
   return null;
+}
+
+// Detaljer på et valgt søgeresultat: koordinater + adressens dele.
+// Returnerer null, hvis resultatet ikke har koordinater.
+async function _levAdrValgt(id, type) {
+  const data = await avDetaljer(id, type);
+  const k = _avKoordinater(data);
+  if (!k) return null;
+  const f = _adrFelter(data);
+  return { lat: k.lat, lon: k.lon, vejnavn: f.vejnavn, husnr: f.husnr,
+           postnr: f.postnr, by: f.postnrnavn };
+}
+
+// Autocomplete på et adressefelt. Fælles for alle formularer i modulet.
+//   input, liste : inputfeltet og <div>-listen under det
+//   maks         : antal forslag
+//   klasse       : CSS-klasse på listens elementer
+//   onValgt(res) : kaldes med {tekst, lat, lon, vejnavn, husnr, postnr, by}
+// Vælges en vej uden husnummer, sættes vejnavnet i feltet, så brugeren kan
+// skrive husnummeret videre.
+function _levBindAdrSoeg(input, liste, maks, klasse, onValgt) {
+  let timer, seq = 0;
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 3) { liste.style.display = "none"; return; }
+    timer = setTimeout(async () => {
+      const mit = ++seq;
+      try {
+        const items = await avSoeg(q, maks);
+        if (mit !== seq) return;            // et nyere tastetryk har overhalet os
+        if (!items.length) { liste.style.display = "none"; return; }
+        liste.innerHTML = items.map((it, i) => {
+          const erVej = it.type === "navngivenvejpostnummer";
+          return `<div class="${klasse}" data-i="${i}"
+            style="padding:6px 8px;cursor:pointer;border-bottom:1px solid #eee">${_esc(it.tekst)}${
+              erVej ? ' <span style="color:#888;font-size:11px">— vej, skriv husnr.</span>' : ""}</div>`;
+        }).join("");
+        liste.style.display = "block";
+        liste.querySelectorAll("." + klasse).forEach(div => {
+          const it = items[Number(div.dataset.i)];
+          div.addEventListener("mouseenter", () => div.style.background = "#f0f0f0");
+          div.addEventListener("mouseleave", () => div.style.background = "");
+          div.addEventListener("click", async () => {
+            if (it.type === "navngivenvejpostnummer") {
+              input.value = String(it.tekst).split(",")[0].trim() + " ";
+              liste.style.display = "none";
+              input.focus();
+              input.dispatchEvent(new Event("input"));
+              return;
+            }
+            div.textContent = "⏳ " + it.tekst;
+            try {
+              const res = await _levAdrValgt(it.id, it.type);
+              if (!res) { div.textContent = "Ingen koordinater for denne adresse"; return; }
+              input.value = it.tekst;
+              liste.style.display = "none";
+              onValgt({ tekst: it.tekst, ...res });
+            } catch (e) {
+              console.error("Adresseopslag fejlede:", e);
+              div.textContent = "Kunne ikke hente adressen – prøv igen";
+            }
+          });
+        });
+      } catch (e) {
+        console.error("Adressesøgning fejlede:", e);
+        liste.style.display = "none";
+      }
+    }, 300);
+  });
 }
 
 // ── BILLEDE RESIZE ───────────────────────────────────────────────
@@ -3945,39 +4022,12 @@ function _vaerkShowForm(v) {
   // Adressesøgning — samme opsætning som stationsformularen
   const adrInput = document.getElementById("vk-adr-sok");
   const adrListe = document.getElementById("vk-adr-liste");
-  let adrTimer;
-  adrInput.addEventListener("input", () => {
-    clearTimeout(adrTimer);
-    const q = adrInput.value.trim();
-    if (q.length < 3) { adrListe.style.display = "none"; return; }
-    adrTimer = setTimeout(async () => {
-      try {
-        const r = await fetch(`https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(q)}&per_side=6&struktur=mini`);
-        const items = await r.json();
-        if (!items.length) { adrListe.style.display = "none"; return; }
-        adrListe.innerHTML = items.map(it =>
-          `<div class="vk-adr-item" data-tekst="${_esc(it.tekst)}"
-            data-vej="${_esc(it.vejnavn || "")}" data-husnr="${_esc(it.husnr || "")}"
-            data-postnr="${_esc(it.postnr || "")}" data-by="${_esc(it.postnrnavn || "")}"
-            data-lat="${it.adresse?.y ?? ""}" data-lon="${it.adresse?.x ?? ""}"
-            style="padding:6px 8px;cursor:pointer;border-bottom:1px solid #eee">${_esc(it.tekst)}</div>`
-        ).join("");
-        adrListe.style.display = "block";
-        adrListe.querySelectorAll(".vk-adr-item").forEach(div => {
-          div.addEventListener("mouseenter", () => div.style.background = "#f0f0f0");
-          div.addEventListener("mouseleave", () => div.style.background = "");
-          div.addEventListener("click", () => {
-            adrInput.value = div.dataset.tekst;
-            adrInput.dataset.vej    = [div.dataset.vej, div.dataset.husnr].filter(Boolean).join(" ");
-            adrInput.dataset.postnr = div.dataset.postnr;
-            adrInput.dataset.by     = div.dataset.by;
-            document.getElementById("vk-lat").value = parseFloat(div.dataset.lat).toFixed(6);
-            document.getElementById("vk-lon").value = parseFloat(div.dataset.lon).toFixed(6);
-            adrListe.style.display = "none";
-          });
-        });
-      } catch (e) { adrListe.style.display = "none"; }
-    }, 300);
+  _levBindAdrSoeg(adrInput, adrListe, 6, "vk-adr-item", res => {
+    adrInput.dataset.vej    = [res.vejnavn, res.husnr].filter(Boolean).join(" ");
+    adrInput.dataset.postnr = res.postnr;
+    adrInput.dataset.by     = res.by;
+    document.getElementById("vk-lat").value = res.lat.toFixed(6);
+    document.getElementById("vk-lon").value = res.lon.toFixed(6);
   });
 
   document.getElementById("vkTilbage").addEventListener("click", _vaerkShowListe);
@@ -4367,35 +4417,10 @@ function _enhedShowStationForm(station) {
   const lonHid   = document.getElementById("sf-lon");
   latVis.addEventListener("input", () => latHid.value = latVis.value);
   lonVis.addEventListener("input", () => lonHid.value = lonVis.value);
-  let adrTimer;
-  adrInput.addEventListener("input", () => {
-    clearTimeout(adrTimer);
-    const q = adrInput.value.trim();
-    if (q.length < 3) { adrListe.style.display = "none"; return; }
-    adrTimer = setTimeout(async () => {
-      try {
-        const r = await fetch(`https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(q)}&per_side=6&struktur=mini`);
-        const items = await r.json();
-        if (!items.length) { adrListe.style.display = "none"; return; }
-        adrListe.innerHTML = items.map(it =>
-          `<div class="ef-adr-item" data-tekst="${_esc(it.tekst)}"
-            data-lat="${it.adresse?.y ?? ""}" data-lon="${it.adresse?.x ?? ""}"
-            style="padding:6px 8px;cursor:pointer;border-bottom:1px solid #eee">${_esc(it.tekst)}</div>`
-        ).join("");
-        adrListe.style.display = "block";
-        adrListe.querySelectorAll(".ef-adr-item").forEach(div => {
-          div.addEventListener("mouseenter", () => div.style.background = "#f0f0f0");
-          div.addEventListener("mouseleave", () => div.style.background = "");
-          div.addEventListener("click", () => {
-            adrInput.value = div.dataset.tekst;
-            latHid.value   = div.dataset.lat; lonHid.value = div.dataset.lon;
-            latVis.value   = parseFloat(div.dataset.lat).toFixed(6);
-            lonVis.value   = parseFloat(div.dataset.lon).toFixed(6);
-            adrListe.style.display = "none";
-          });
-        });
-      } catch(e) { adrListe.style.display = "none"; }
-    }, 300);
+  _levBindAdrSoeg(adrInput, adrListe, 6, "ef-adr-item", res => {
+    latHid.value = res.lat; lonHid.value = res.lon;
+    latVis.value = res.lat.toFixed(6);
+    lonVis.value = res.lon.toFixed(6);
   });
   _linkBindRows("sf", station);
   _prioFormBind(station);
@@ -4780,35 +4805,10 @@ function _enhedShowForm(enhed) {
   const lonHid   = document.getElementById("ef-lon");
   latVis.addEventListener("input", () => latHid.value = latVis.value);
   lonVis.addEventListener("input", () => lonHid.value = lonVis.value);
-  let adrTimer;
-  adrInput.addEventListener("input", () => {
-    clearTimeout(adrTimer);
-    const q = adrInput.value.trim();
-    if (q.length < 3) { adrListe.style.display = "none"; return; }
-    adrTimer = setTimeout(async () => {
-      try {
-        const r = await fetch(`https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(q)}&per_side=6&struktur=mini`);
-        const items = await r.json();
-        if (!items.length) { adrListe.style.display = "none"; return; }
-        adrListe.innerHTML = items.map(it =>
-          `<div class="ef-adr-item" data-tekst="${_esc(it.tekst)}"
-            data-lat="${it.adresse?.y ?? ""}" data-lon="${it.adresse?.x ?? ""}"
-            style="padding:6px 8px;cursor:pointer;border-bottom:1px solid #eee">${_esc(it.tekst)}</div>`
-        ).join("");
-        adrListe.style.display = "block";
-        adrListe.querySelectorAll(".ef-adr-item").forEach(div => {
-          div.addEventListener("mouseenter", () => div.style.background = "#f0f0f0");
-          div.addEventListener("mouseleave", () => div.style.background = "");
-          div.addEventListener("click", () => {
-            adrInput.value = div.dataset.tekst;
-            latHid.value = div.dataset.lat; lonHid.value = div.dataset.lon;
-            latVis.value = parseFloat(div.dataset.lat).toFixed(6);
-            lonVis.value = parseFloat(div.dataset.lon).toFixed(6);
-            adrListe.style.display = "none";
-          });
-        });
-      } catch(e) { adrListe.style.display = "none"; }
-    }, 300);
+  _levBindAdrSoeg(adrInput, adrListe, 6, "ef-adr-item", res => {
+    latHid.value = res.lat; lonHid.value = res.lon;
+    latVis.value = res.lat.toFixed(6);
+    lonVis.value = res.lon.toFixed(6);
   });
 
   const nyStationBtn      = document.getElementById("ef-ny-station-btn");
@@ -4839,34 +4839,10 @@ function _enhedShowForm(enhed) {
   const nyStationLatHid    = document.getElementById("ef-ny-station-lat");
   const nyStationLonHid    = document.getElementById("ef-ny-station-lon");
   const nyStationAdrValgt  = document.getElementById("ef-ny-station-adr-valgt");
-  let nyStationAdrTimer;
-  nyStationAdrInput.addEventListener("input", () => {
-    clearTimeout(nyStationAdrTimer);
-    const q = nyStationAdrInput.value.trim();
-    if (q.length < 3) { nyStationAdrListe.style.display = "none"; return; }
-    nyStationAdrTimer = setTimeout(async () => {
-      try {
-        const r = await fetch(`https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(q)}&per_side=5&struktur=mini`);
-        const items = await r.json();
-        if (!items.length) { nyStationAdrListe.style.display = "none"; return; }
-        nyStationAdrListe.innerHTML = items.map(it =>
-          `<div class="ef-adr-item" data-tekst="${_esc(it.tekst)}" data-lat="${it.adresse?.y ?? ""}" data-lon="${it.adresse?.x ?? ""}"
-            style="padding:6px 8px;cursor:pointer;border-bottom:1px solid #eee">${_esc(it.tekst)}</div>`
-        ).join("");
-        nyStationAdrListe.style.display = "block";
-        nyStationAdrListe.querySelectorAll(".ef-adr-item").forEach(div => {
-          div.addEventListener("mouseenter", () => div.style.background = "#f0f0f0");
-          div.addEventListener("mouseleave", () => div.style.background = "");
-          div.addEventListener("click", () => {
-            nyStationAdrInput.value = div.dataset.tekst;
-            nyStationLatHid.value   = div.dataset.lat;
-            nyStationLonHid.value   = div.dataset.lon;
-            nyStationAdrValgt.textContent = "✅ " + div.dataset.tekst;
-            nyStationAdrListe.style.display = "none";
-          });
-        });
-      } catch(e) { nyStationAdrListe.style.display = "none"; }
-    }, 300);
+  _levBindAdrSoeg(nyStationAdrInput, nyStationAdrListe, 5, "ef-adr-item", res => {
+    nyStationLatHid.value = res.lat;
+    nyStationLonHid.value = res.lon;
+    nyStationAdrValgt.textContent = "✅ " + res.tekst;
   });
 
   nyStationBtn.addEventListener("click", () => {
