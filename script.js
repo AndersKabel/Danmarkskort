@@ -2132,7 +2132,7 @@ map.on('click', function(e) {
 
   if (isInDenmarkByPolygon(lat, lon)) {
     // DK: Dataforsyningen
-    let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+    let revUrl = `${VD_PROXY}/daf/reverse?x=${lon}&y=${lat}`;
     fetch(revUrl)
       .then(r => r.json())
       .then(data => {
@@ -2302,6 +2302,16 @@ async function updateInfoBox(data, lat, lon) {
   kommunekode = f.kommunekode || "?";
   adresseStr  = f.betegnelse ||
     `${f.vejnavn || "?"} ${f.husnr}, ${f.postnr || "?"} ${f.postnrnavn}`.replace(/\s+/g, " ").trim();
+
+  // /daf/reverse fandt ingen adresse inden for 300 m: vis vej/kommune
+  // frem for "Vejnavn , ?" eller "? , ?"
+  if (data && data.kilde === "vej" && f.vejnavn) {
+    adresseStr = data.kommunenavn ? `${f.vejnavn}, ${data.kommunenavn} Kommune` : f.vejnavn;
+  } else if (data && data.kilde === "ingen") {
+    adresseStr = data.kommunenavn
+      ? `Ingen adresse i nærheden (${data.kommunenavn} Kommune)`
+      : "Ingen adresse i nærheden";
+  }
   
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
   addressEl.textContent = adresseStr;
@@ -2345,10 +2355,16 @@ async function updateInfoBox(data, lat, lon) {
   if (vej1List)    vej1List.innerHTML    = "";
   if (vej2List)    vej2List.innerHTML    = "";
 
-  // Start kommuneinfo-fetch parallelt (kommunekode kendes allerede)
-  const komFetchPromise = kommunekode !== "?"
-    ? fetch(`https://api.dataforsyningen.dk/kommuner/${kommunekode}`).catch(() => null)
-    : Promise.resolve(null);
+  // Kommunenavn og politikreds. Svar fra /daf/reverse (har feltet "kilde")
+  // indeholder dem allerede. Data fra Adressevælgeren (valgt søgeresultat)
+  // har dem ikke — så hentes de fra /daf/reverse paa punktet, parallelt med
+  // statsvej-kaldet, som det gamle DAWA /kommuner-kald gjorde.
+  const fraDafReverse = !!(data && typeof data.kilde === "string");
+  const dafSupplPromise = (fraDafReverse || lat == null || lon == null)
+    ? Promise.resolve(fraDafReverse ? data : null)
+    : fetch(`${VD_PROXY}/daf/reverse?x=${lon}&y=${lat}`)
+        .then(r => (r.ok ? r.json() : null))
+        .catch(() => null);
 
   // Statsvej-data hentes og vises via fælles funktion
   // (visStatsvejBox kaldes også fra click-handler for broer/vand uden dansk adresse)
@@ -2356,35 +2372,32 @@ async function updateInfoBox(data, lat, lon) {
   visStatsvejBox(statsvejData, lat, lon);
   document.getElementById("infoBox").style.display = "block";
   
-  // Kommuneinfo – bruger komFetchPromise som allerede er startet parallelt med statsvej-kaldet
-  if (kommunekode !== "?") {
-    try {
-      let komResp = await komFetchPromise;
-      if (komResp && komResp.ok) {
-        let komData = await komResp.json();
-        let kommunenavn = komData.navn || "";
-        if (kommunenavn && kommuneInfo[kommunenavn]) {
-          let info      = kommuneInfo[kommunenavn];
-          let doedeDyr  = info["Døde dyr"];
-          let gaderVeje = info["Gader og veje"];
-          let link      = info.gemLink;
-          if (link) {
-            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Kommune: <a href="${link}" target="_blank">${kommunenavn}</a> | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}</span>`;
-          } else {
-            extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}</span>`;
-          }
-        }
+  // Kommuneinfo – bruger dafSupplPromise som allerede er startet parallelt med statsvej-kaldet
+  const dafSuppl = await dafSupplPromise;
+  try {
+    const kommunenavn = (dafSuppl && dafSuppl.kommunenavn) || "";
+    if (kommunenavn && kommuneInfo[kommunenavn]) {
+      let info      = kommuneInfo[kommunenavn];
+      let doedeDyr  = info["Døde dyr"];
+      let gaderVeje = info["Gader og veje"];
+      let link      = info.gemLink;
+      if (link) {
+        extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Kommune: <a href="${link}" target="_blank">${kommunenavn}</a> | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}</span>`;
+      } else {
+        extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Kommune: ${kommunenavn} | Døde dyr: ${doedeDyr} | Gader og veje: ${gaderVeje}</span>`;
       }
-    } catch (e) {
-      console.error("Kunne ikke hente kommuneinfo:", e);
     }
+  } catch (e) {
+    console.error("Kunne ikke vise kommuneinfo:", e);
   }
   
   const politikredsNavn = data.politikredsnavn
     ?? data.adgangsadresse?.politikredsnavn
+    ?? dafSuppl?.politikredsnavn
     ?? null;
   const politikredsKode = data.politikredskode
     ?? data.adgangsadresse?.politikredskode
+    ?? dafSuppl?.politikredskode
     ?? null;
   if (politikredsNavn || politikredsKode) {
     const polititekst = politikredsKode ? `${politikredsNavn || ""} (${politikredsKode})` : `${politikredsNavn}`;
@@ -2644,7 +2657,7 @@ searchInput.addEventListener("input", function() {
     const match = txt.match(coordRegex);
     const latNum = parseFloat(match[1]);
     const lonNum = parseFloat(match[2]);
-    let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lonNum}&y=${latNum}&struktur=flad`;
+    let revUrl = `${VD_PROXY}/daf/reverse?x=${lonNum}&y=${latNum}`;
     fetch(revUrl)
       .then(r => r.json())
       .then(data => {
@@ -3172,7 +3185,7 @@ function handleStrandpostClick(obj, listElement) {
   listElement.style.display = "none";
 
   let marker = currentMarker;
-  let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${obj.lon}&y=${obj.lat}&struktur=flad`;
+  let revUrl = `${VD_PROXY}/daf/reverse?x=${obj.lon}&y=${obj.lat}`;
 
   fetch(revUrl)
     .then(r => r.json())
@@ -3545,7 +3558,7 @@ function doSearch(query, listElement) {
           let [lat, lon] = obj.coords;
           setCoordinateBox(lat, lon);
           placeMarkerAndZoom([lat, lon], obj.navn);
-          let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+          let revUrl = `${VD_PROXY}/daf/reverse?x=${lon}&y=${lat}`;
           fetch(revUrl)
             .then(r => r.json())
             .then(revData => {
@@ -3584,7 +3597,7 @@ function doSearch(query, listElement) {
             placeMarkerAndZoom([lat, lon], obj.navn);
           }
 
-          let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+          let revUrl = `${VD_PROXY}/daf/reverse?x=${lon}&y=${lat}`;
           fetch(revUrl)
             .then(r => r.json())
             .then(revData => {
@@ -3609,7 +3622,7 @@ function doSearch(query, listElement) {
           }
           setCoordinateBox(lat, lon);
           placeMarkerAndZoom([lat, lon], obj.navn);
-          let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${lon}&y=${lat}&struktur=flad`;
+          let revUrl = `${VD_PROXY}/daf/reverse?x=${lon}&y=${lat}`;
           fetch(revUrl)
             .then(r => r.json())
             .then(revData => {
@@ -4040,7 +4053,7 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
       let coords = feat.geometry.coordinates;
       let [wgsLon, wgsLat] = proj4("EPSG:25832", "EPSG:4326", [coords[0], coords[1]]);
       latLngs.push([wgsLat, wgsLon]);
-      let revUrl = `https://api.dataforsyningen.dk/adgangsadresser/reverse?x=${wgsLon}&y=${wgsLat}&struktur=flad`;
+      let revUrl = `${VD_PROXY}/daf/reverse?x=${wgsLon}&y=${wgsLat}`;
       let marker = L.marker([wgsLat, wgsLon]).addTo(map);
       try {
         let resp = await fetch(revUrl);
