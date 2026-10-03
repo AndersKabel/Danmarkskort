@@ -3864,6 +3864,105 @@ async function _vaerkHent(stille) {
   }
 }
 
+// ── Ugeskema og hjemmeside ───────────────────────────────────────
+// Ugedagene har nøglerne 1=mandag … 7=søndag, ligesom i workeren.
+const VK_DAGE = [["1", "Man"], ["2", "Tir"], ["3", "Ons"], ["4", "Tor"],
+                 ["5", "Fre"], ["6", "Lør"], ["7", "Søn"]];
+
+// "www.x.dk" -> "https://www.x.dk/". Tom streng er tilladt (intet link),
+// null betyder ugyldig (fx javascript: eller et ord uden domæne).
+function _vkNormUrl(raa) {
+  let s = String(raa || "").trim();
+  if (!s) return "";
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(s)) s = "https://" + s;
+  try {
+    const u = new URL(s);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    if (!u.hostname.includes(".")) return null;
+    return u.href.slice(0, 500);
+  } catch (e) { return null; }
+}
+
+function _vkDagTekst(d) {
+  if (!d) return "";
+  if (d.status === "lukket") return "Lukket";
+  if (d.status === "doegn")  return "Døgnåben";
+  if (d.status === "aaben" && d.fra && d.til) return `${d.fra}–${d.til}`;
+  return "";
+}
+
+function _vkHarUge(v) {
+  return !!(v?.aabningUge && Object.keys(v.aabningUge).length);
+}
+
+// Ugeskemaet som lille tabel. Dagens linje er fremhævet.
+function _vkUgeHTML(v) {
+  if (!_vkHarUge(v)) return "";
+  const iDag = String(((new Date().getDay() + 6) % 7) + 1);
+  const raekker = VK_DAGE.filter(([k]) => v.aabningUge[k]).map(([k, navn]) => {
+    const d = v.aabningUge[k];
+    const fed = k === iDag ? "font-weight:700;background:#e6f4f5" : "";
+    return `<tr style="${fed}">
+      <td style="padding:1px 8px 1px 3px">${navn}</td>
+      <td style="padding:1px 8px 1px 0;white-space:nowrap">${_esc(_vkDagTekst(d))}</td>
+      <td style="padding:1px 3px 1px 0;color:#5a6a7a">${_esc(d.note || "")}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="lev-popup-row">🕐 <b style="font-size:12px">Åbningstider</b>
+    <table style="border-collapse:collapse;margin:3px 0 0 18px;font-size:12px">${raekker}</table>
+  </div>`;
+}
+
+function _vkHjemmesideHTML(v) {
+  const url = v?.hjemmeside;
+  if (!url) return "";
+  let vis = url;
+  try { vis = new URL(url).hostname.replace(/^www\./, ""); } catch (e) { /* vis hele */ }
+  return `<div class="lev-popup-row">🌐 <a href="${_esc(url)}" target="_blank" rel="noopener noreferrer">${_esc(vis)}</a></div>`;
+}
+
+function _vkTopHTML(v, farve) {
+  const adr = [v.vej, [v.postnr, v.by].filter(Boolean).join(" ")]
+    .filter(Boolean).join(", ");
+  return `<div class="lev-popup-top" style="border-left:4px solid ${farve}">
+      <b>${_esc(v.navn)}</b>
+      ${adr ? `<span class="lev-popup-sub">📍 ${_esc(adr)}</span>` : ""}
+    </div>`;
+}
+
+function _vkBemaerkHTML(v, ikon) {
+  return v.aabningstider
+    ? `<div class="lev-popup-row">${ikon || "🕐"} ${_esc(v.aabningstider).replace(/\n/g, "<br>")}</div>` : "";
+}
+
+// Hover: navn, adresse, telefon og bemærkning
+function _vkMiniHTML(v, farve) {
+  const mere = _vkHarUge(v) || v.hjemmeside || v.beskrivelse;
+  return `<div class="lev-popup lev-popup-mini">
+    ${_vkTopHTML(v, farve)}
+    ${_erUAD(v) ? _uadBadge(v) : ""}
+    ${_kontaktHTML("📞", "Telefon", v.telefon1)}
+    ${_kontaktHTML("📞", "Telefon 2", v.telefon2)}
+    ${_vkBemaerkHTML(v)}
+    ${mere ? `<div class="lev-popup-klik-hint">Klik for åbningstider og hjemmeside →</div>` : ""}
+  </div>`;
+}
+
+// Klik: alt
+function _vkFuldHTML(v, farve) {
+  return `<div class="lev-popup">
+    ${_vkTopHTML(v, farve)}
+    ${_erUAD(v) ? _uadBadge(v) : ""}
+    ${_kontaktHTML("📞", "Telefon", v.telefon1)}
+    ${_kontaktHTML("📞", "Telefon 2", v.telefon2)}
+    ${_vkUgeHTML(v)}
+    ${_vkBemaerkHTML(v, _vkHarUge(v) ? "ℹ️" : "🕐")}
+    ${_vkHjemmesideHTML(v)}
+    ${v.beskrivelse
+      ? `<div class="lev-popup-row" style="color:#5a6a7a">${_esc(v.beskrivelse).replace(/\n/g, "<br>")}</div>` : ""}
+  </div>`;
+}
+
 function _vaerkRender() {
   if (!_vaerkLayer) return;
   _vaerkLayer.clearLayers();
@@ -3880,23 +3979,44 @@ function _vaerkRender() {
           + `box-shadow:0 0 0 3px #fff,0 0 0 5px ${farve}">🔧</div>`,
       iconSize: [30, 30], iconAnchor: [15, 15]
     });
-    const adr = [v.vej, [v.postnr, v.by].filter(Boolean).join(" ")]
-      .filter(Boolean).join(", ");
-    L.marker([v.lat, v.lon], { icon })
-      .bindPopup(`<div class="lev-popup">
-        <div class="lev-popup-top" style="border-left:4px solid ${farve}">
-          <b>${_esc(v.navn)}</b>
-          ${adr ? `<span class="lev-popup-sub">📍 ${_esc(adr)}</span>` : ""}
-        </div>
-        ${uad ? _uadBadge(v) : ""}
-        ${_kontaktHTML("📞", "Telefon", v.telefon1)}
-        ${_kontaktHTML("📞", "Telefon 2", v.telefon2)}
-        ${v.aabningstider
-          ? `<div class="lev-popup-row">🕐 ${_esc(v.aabningstider).replace(/\n/g, "<br>")}</div>` : ""}
-        ${v.beskrivelse
-          ? `<div class="lev-popup-row" style="color:#5a6a7a">${_esc(v.beskrivelse).replace(/\n/g, "<br>")}</div>` : ""}
-      </div>`, { maxWidth: 320, className: "lev-leaflet-popup" })
-      .addTo(_vaerkLayer);
+    // Hover viser den korte boks, klik den fulde. Samme mønster som
+    // leverandørmarkørerne: man kan føre musen ind i hover-boksen og
+    // klikke på telefonnummeret, uden at den lukker.
+    let closeTimer = null;
+    let fuldAaben  = false;
+    const marker = L.marker([v.lat, v.lon], { icon })
+      .bindPopup(_vkMiniHTML(v, farve), { maxWidth: 340, className: "lev-leaflet-popup" })
+      .on("mouseover", function () {
+        if (fuldAaben) return;
+        clearTimeout(closeTimer);
+        this.setPopupContent(_vkMiniHTML(v, farve));
+        this.openPopup();
+      })
+      .on("mouseout", function () {
+        if (fuldAaben) return;
+        const self = this;
+        closeTimer = setTimeout(() => self.closePopup(), 250);
+      })
+      .on("click", function () {
+        clearTimeout(closeTimer);
+        fuldAaben = true;
+        this.setPopupContent(_vkFuldHTML(v, farve));
+        this.openPopup();
+      })
+      .on("popupclose", function () {
+        fuldAaben = false;
+      })
+      .on("popupopen", function () {
+        const el = this.getPopup().getElement();
+        if (!el || el._vkBundet) return;
+        el._vkBundet = true;   // popup-elementet genbruges; bind kun én gang
+        el.addEventListener("mouseenter", () => clearTimeout(closeTimer));
+        el.addEventListener("mouseleave", () => {
+          if (fuldAaben) return;
+          closeTimer = setTimeout(() => marker.closePopup(), 250);
+        });
+      });
+    marker.addTo(_vaerkLayer);
   });
 }
 
@@ -4001,11 +4121,42 @@ function _vaerkShowForm(v) {
         <label>Telefon 2
           <input id="vk-tlf2" type="text" value="${_esc(v?.telefon2 || "")}" placeholder="valgfri">
         </label>
+        <label>Hjemmeside
+          <input id="vk-hjemmeside" type="text" value="${_esc(v?.hjemmeside || "")}" placeholder="fx www.værksted.dk">
+        </label>
       </fieldset>
       <fieldset class="lev-fs">
         <legend>🕐 Åbningstider</legend>
-        <textarea id="vk-aabning" class="lev-textarea" rows="3"
-          placeholder="fx hverdage 07-16, weekend efter aftale">${_esc(v?.aabningstider || "")}</textarea>
+        <div id="vk-uge">
+          ${VK_DAGE.map(([k, navn]) => {
+            const d  = v?.aabningUge?.[k] || {};
+            const st = d.status || "";
+            const aab = st === "aaben";
+            return `<div class="vk-dag" data-dag="${k}"
+                style="display:flex;gap:4px;align-items:center;margin:4px 0">
+              <span style="width:28px;font-size:12px;font-weight:600;color:#1a2a3a">${navn}</span>
+              <select class="vk-status" style="width:88px;font-size:12px;padding:4px 2px;border:1px solid #cdd5df;border-radius:6px">
+                <option value=""${st === "" ? " selected" : ""}>—</option>
+                <option value="aaben"${st === "aaben" ? " selected" : ""}>Åben</option>
+                <option value="doegn"${st === "doegn" ? " selected" : ""}>Døgnåben</option>
+                <option value="lukket"${st === "lukket" ? " selected" : ""}>Lukket</option>
+              </select>
+              <input type="time" class="vk-fra" value="${_esc(d.fra || "")}" ${aab ? "" : "disabled"}
+                style="width:82px;font-size:12px;padding:3px;border:1px solid #cdd5df;border-radius:6px">
+              <input type="time" class="vk-til" value="${_esc(d.til || "")}" ${aab ? "" : "disabled"}
+                style="width:82px;font-size:12px;padding:3px;border:1px solid #cdd5df;border-radius:6px">
+              <input type="text" class="vk-note" value="${_esc(d.note || "")}" maxlength="100"
+                placeholder="fx frokost 12–13" style="flex:1;min-width:0;font-size:12px;padding:4px 6px">
+            </div>`;
+          }).join("")}
+        </div>
+        <button id="vk-kopier" type="button"
+          style="margin-top:4px;font-size:11px;padding:3px 8px;border:1px solid #2980b9;border-radius:4px;
+                 background:#e8f4fd;color:#2980b9;cursor:pointer">Kopiér mandag til tir–fre</button>
+        <label>Bemærkning
+          <textarea id="vk-aabning" class="lev-textarea" rows="2"
+            placeholder="fx døgnåbent i weekenden, ring først">${_esc(v?.aabningstider || "")}</textarea>
+        </label>
       </fieldset>
       <fieldset class="lev-fs">
         <legend>💬 Beskrivelse</legend>
@@ -4030,6 +4181,49 @@ function _vaerkShowForm(v) {
     document.getElementById("vk-lon").value = res.lon.toFixed(6);
   });
 
+  // Fra/til er kun aktive når dagen står til "Åben". Skriver man et
+  // klokkeslæt på en dag uden status, sættes den selv til "Åben".
+  const ugeEl = document.getElementById("vk-uge");
+  const opdaterDag = (raekke) => {
+    const aab = raekke.querySelector(".vk-status").value === "aaben";
+    raekke.querySelector(".vk-fra").disabled = !aab;
+    raekke.querySelector(".vk-til").disabled = !aab;
+  };
+  ugeEl.querySelectorAll(".vk-dag").forEach(raekke => {
+    raekke.querySelector(".vk-status").addEventListener("change", () => opdaterDag(raekke));
+  });
+  document.getElementById("vk-kopier").addEventListener("click", () => {
+    const man = ugeEl.querySelector('.vk-dag[data-dag="1"]');
+    ["2", "3", "4", "5"].forEach(k => {
+      const r = ugeEl.querySelector(`.vk-dag[data-dag="${k}"]`);
+      ["vk-status", "vk-fra", "vk-til", "vk-note"].forEach(c =>
+        r.querySelector("." + c).value = man.querySelector("." + c).value);
+      opdaterDag(r);
+    });
+  });
+
+  // Læs ugeskemaet. Returnerer {uge} eller {fejl}.
+  const laesUge = () => {
+    const uge = {};
+    for (const [k, navn] of VK_DAGE) {
+      const r    = ugeEl.querySelector(`.vk-dag[data-dag="${k}"]`);
+      const st   = r.querySelector(".vk-status").value;
+      const fra  = r.querySelector(".vk-fra").value;
+      const til  = r.querySelector(".vk-til").value;
+      const note = r.querySelector(".vk-note").value.trim();
+      const d = {};
+      if (st === "aaben") {
+        if (!fra || !til) return { fejl: `Udfyld fra og til for ${navn} — eller vælg Døgnåben/Lukket.` };
+        d.status = "aaben"; d.fra = fra; d.til = til;
+      } else if (st) {
+        d.status = st;
+      }
+      if (note) d.note = note;
+      if (Object.keys(d).length) uge[k] = d;
+    }
+    return { uge };
+  };
+
   document.getElementById("vkTilbage").addEventListener("click", _vaerkShowListe);
 
   document.getElementById("vk-gem").addEventListener("click", async () => {
@@ -4041,6 +4235,14 @@ function _vaerkShowForm(v) {
     if (!lat || !lon) {
       st.style.color = "#c0392b";
       st.textContent = "Vælg en adresse fra listen — uden koordinater kan værkstedet ikke vises.";
+      return;
+    }
+    const ugeRes = laesUge();
+    if (ugeRes.fejl) { st.style.color = "#c0392b"; st.textContent = ugeRes.fejl; return; }
+    const hjemmeside = _vkNormUrl(document.getElementById("vk-hjemmeside").value);
+    if (hjemmeside === null) {
+      st.style.color = "#c0392b";
+      st.textContent = "Hjemmesiden ser ikke ud som en webadresse (fx www.værksted.dk).";
       return;
     }
     // Er adressen ikke valgt om, bevares de gemte dele
@@ -4057,6 +4259,8 @@ function _vaerkShowForm(v) {
           telefon1:      document.getElementById("vk-tlf1").value.trim(),
           telefon2:      document.getElementById("vk-tlf2").value.trim(),
           aabningstider: document.getElementById("vk-aabning").value.trim(),
+          aabningUge:    ugeRes.uge,
+          hjemmeside,
           beskrivelse:   document.getElementById("vk-besk").value.trim()
         })
       });
