@@ -1710,6 +1710,13 @@ function _levShowForm(id) {
             <button type="button" id="levGenKode" class="lev-btn-secondary" style="white-space:nowrap">🎲 Generer</button>
           </div>
         </label>
+        <label>👑 Ejerkode <span style="font-weight:400;color:#aaa;font-size:11px">(valgfri — vognmandens oversigt over alle vogne)</span>
+          <div class="lev-row" style="gap:8px;margin-top:4px">
+            <input type="text" id="lf-ejerkode" value="${_esc(lev.ejerKode || '')}" placeholder="tom = den fælles kode giver oversigten" style="flex:1"
+              data-har-ejerkode="${lev.ejerKode !== undefined ? '1' : ''}">
+            <button type="button" id="levGenEjerKode" class="lev-btn-secondary" style="white-space:nowrap">🎲 Generer</button>
+          </div>
+        </label>
         <div style="margin-top:10px">
           <div class="lev-form-label">🔴 Ude af drift</div>
           <div id="lf-uad-status" class="lev-uad-status"></div>
@@ -1910,10 +1917,12 @@ function _levShowForm(id) {
   window.__lfHentUad = () => _lfUad;
 
   document.getElementById("levGenKode").addEventListener("click", () => {
-    const tegn = "abcdefghjkmnpqrstuvwxyz23456789";
-    let kode = "";
-    for (let i = 0; i < 8; i++) kode += tegn[Math.floor(Math.random() * tegn.length)];
-    document.getElementById("lf-kode").value = kode;
+    document.getElementById("lf-kode").value = _levNyKode();
+  });
+  document.getElementById("levGenEjerKode").addEventListener("click", () => {
+    const el = document.getElementById("lf-ejerkode");
+    el.value = _levNyKode();
+    el.dataset.harEjerkode = "1";
   });
 }
 
@@ -1992,12 +2001,23 @@ function _levAppendAdrRow(container, a = {}) {
   });
 }
 
+// Tilfældig kode uden tegn der kan forveksles (0/O, 1/l/i)
+function _levNyKode() {
+  const tegn = "abcdefghjkmnpqrstuvwxyz23456789";
+  let kode = "";
+  for (let i = 0; i < 8; i++) kode += tegn[Math.floor(Math.random() * tegn.length)];
+  return kode;
+}
+
 // ── VOGN-RÆKKER ──────────────────────────────────────────────────
 function _levAppendVognRow(container, v = {}, adresser = []) {
   const div = document.createElement("div");
   div.className = "lev-vogn-row";
   div.dataset.id        = v.id      || "vogn-" + Date.now();
   div.dataset.billedUrl = v.billede || "";
+  // Vognkoden sendes kun med ved gem, hvis den blev læst fra serveren
+  // (eller er tastet nu) — så en ældre/afskåret visning ikke rydder den
+  div.dataset.harVognKode = (v.vognKode !== undefined) ? "1" : "";
   const harFoto     = !!v.billede;
   const harDetaljer = !!(v.reg || v.ladhøjde || v.totalLast || v.lastGrill || v.infoTekst || v.billede);
   const depotChecks = adresser.length ? `
@@ -2027,6 +2047,12 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
     </label>
     <label>📞 Telefon (vognens eget nummer)
       <input type="text" class="v-telefon" value="${_esc(v.telefon)}" placeholder="fx 20 12 34 56">
+    </label>
+    <label>🔑 Vognkode <span style="font-weight:400;color:#aaa;font-size:11px">(valgfri — så kan chaufføren kun se denne vogn)</span>
+      <div class="lev-row" style="gap:8px;margin-top:4px">
+        <input type="text" class="v-vognkode" value="${_esc(v.vognKode || "")}" placeholder="tom = leverandørens fælles kode" style="flex:1">
+        <button type="button" class="lev-btn-secondary v-genkode" style="white-space:nowrap">🎲</button>
+      </div>
     </label>
     ${depotChecks}
     <button type="button" class="lev-vogn-toggle-btn">${harDetaljer ? "▾" : "▸"} Reg.nr. &amp; specifikationer</button>
@@ -2071,6 +2097,10 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
   });
 
   div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
+  div.querySelector(".v-genkode")?.addEventListener("click", () => {
+    div.querySelector(".v-vognkode").value = _levNyKode();
+    div.dataset.harVognKode = "1";
+  });
 
   div.querySelector(".v-foto").addEventListener("change", async (e) => {
     const file = e.target.files[0];
@@ -2133,6 +2163,23 @@ async function _levGem(template) {
   const navn = document.getElementById("lf-navn").value.trim();
   if (!navn) { alert("Firmanavn er påkrævet"); return; }
 
+  // Koderne skal være forskellige. Er en vognkode = ejerkoden, ville
+  // chaufføren få vognmandens adgang; er ejerkoden = den fælles kode,
+  // ville alle med den fælles kode få oversigten.
+  const _kFaelles = document.getElementById("lf-kode").value.trim();
+  const _kEjer    = document.getElementById("lf-ejerkode")?.value.trim() || "";
+  if (_kEjer && _kEjer === _kFaelles) {
+    alert("Ejerkoden skal være forskellig fra den fælles kode."); return;
+  }
+  const _vognKoder = Array.from(document.querySelectorAll("#lf-vogne .v-vognkode"))
+    .map(el => el.value.trim()).filter(Boolean);
+  if (_vognKoder.some(k => k === _kEjer || k === _kFaelles)) {
+    alert("En vognkode må ikke være den samme som ejerkoden eller den fælles kode."); return;
+  }
+  if (new Set(_vognKoder).size !== _vognKoder.length) {
+    alert("To vogne har samme vognkode. Giv hver vogn sin egen kode."); return;
+  }
+
   const btn = document.getElementById("levGemBtn");
   btn.textContent = "⏳ Gemmer..."; btn.disabled = true;
 
@@ -2144,6 +2191,12 @@ async function _levGem(template) {
       kategorier: Array.from(document.querySelectorAll('#lf-kategorier input[name="lf-kat"]:checked')).map(el => el.value),
       aktiv:    document.getElementById("lf-aktiv").checked,
       kode:     document.getElementById("lf-kode").value.trim(),
+      // Kun med, hvis den blev læst fra serveren eller er tastet nu
+      ejerKode: (() => {
+        const el = document.getElementById("lf-ejerkode");
+        if (!el) return undefined;
+        return (el.dataset.harEjerkode === "1" || el.value.trim()) ? el.value.trim() : undefined;
+      })(),
       info:     document.getElementById("lf-info")?.value.trim() || "",
       uad:      (typeof window.__lfHentUad === "function") ? window.__lfHentUad() : (lev.uad || null),
       kontakt: {
@@ -2200,6 +2253,11 @@ async function _levGem(template) {
         totalLast:   row.querySelector(".v-totalLast")?.value.trim() || "",
         lastGrill:   row.querySelector(".v-lastGrill")?.value.trim() || "",
         infoTekst:   row.querySelector(".v-infoTekst")?.value.trim() || "",
+        vognKode:    (() => {
+          const el = row.querySelector(".v-vognkode");
+          if (!el) return undefined;
+          return (row.dataset.harVognKode === "1" || el.value.trim()) ? el.value.trim() : undefined;
+        })(),
         billede:     row.dataset.billedUrl || (thumb?.src?.startsWith("http") ? thumb.src : null),
         adresseIds:  Array.from(row.querySelectorAll(".v-depot-check:checked")).map(el => el.value)
       });
