@@ -1418,7 +1418,13 @@
     switch (s.kode) {
       case "meldt":    return `<span style="color:#15803d">🟢 Tilgængelig til ${esc(ovKlok(s.til))}</span>`;
       case "plan":     return `<span style="color:#15803d">🟢 Fast rytme til ${esc(s.tilKlok || "")}</span>`;
-      case "kommende": return `<span style="color:#b45309">⏳ Starter ${esc(s.fra ? ovKlok(s.fra) : (s.fraKlok || ""))}</span>`;
+      case "kommende": {
+        const kl   = t => String(t || "").replace(":", ".");
+        const fra  = s.fra ? ovKlok(s.fra) : kl(s.fraKlok);
+        const til  = s.til ? new Date(s.til).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })
+                           : kl(s.tilKlok);
+        return `<span style="color:#b45309">⏳ Starter ${esc(fra)}${til ? "–" + esc(til) : ""}</span>`;
+      }
       case "fravaer":  return `<span style="color:#dc2626">🔴 Fravær til ${esc(ovKlok(s.til))}</span>`;
       default:         return `<span style="color:#6b7280">— Ikke tilmeldt</span>`;
     }
