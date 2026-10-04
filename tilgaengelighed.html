@@ -333,6 +333,36 @@
     }
     .min-row { display: flex; gap: 6px; align-items: center; margin-top: 7px; }
     .min-row input { flex: 1; }
+
+    /* ── Vognmandens oversigt ─────────────────────────────── */
+    #screen-oversigt { width: 100%; max-width: 760px; padding: 0 16px; }
+    #screen-oversigt .card { max-width: none; margin: 0 0 20px; }
+    .ov-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .ov-top h2 { margin: 0; flex: 1; }
+    .ov-mini { font-size: 12px; padding: 6px 10px; width: auto; margin: 0; }
+    .ov-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: #555; margin-bottom: 10px; }
+    .ov-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .ov-sw { width: 16px; height: 10px; border-radius: 2px; display: inline-block; }
+    .ov-scroll { overflow-x: auto; }
+    .ov-tabel { min-width: 560px; }
+    .ov-hoved, .ov-raekke { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; }
+    .ov-hoved { font-size: 11px; color: #6b7280; padding-bottom: 4px; border-bottom: 1px solid #e5e7eb; }
+    .ov-dage { display: grid; grid-template-columns: repeat(7, 1fr); }
+    .ov-dage div { text-align: center; border-left: 1px solid #e5e7eb; }
+    .ov-dage div.idag { font-weight: 700; color: #1d4ed8; }
+    .ov-raekke { padding: 8px 0; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+    .ov-raekke:hover { background: #f8fafc; }
+    .ov-vogn b { font-size: 14px; color: #111827; }
+    .ov-vogn small { display: block; color: #6b7280; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ov-status { font-size: 12px; margin-top: 2px; }
+    .ov-linje { position: relative; height: 22px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+    .ov-linje .ov-dagstreg { position: absolute; top: 0; bottom: 0; width: 1px; background: #e5e7eb; }
+    .ov-linje .ov-nu { position: absolute; top: 0; bottom: 0; width: 2px; background: #1d4ed8; z-index: 4; }
+    .ov-blok { position: absolute; top: 3px; bottom: 3px; border-radius: 3px; }
+    .ov-blok.meldt { background: #16a34a; z-index: 2; }
+    .ov-blok.plan  { background: repeating-linear-gradient(45deg, #86efac, #86efac 4px, #bbf7d0 4px, #bbf7d0 8px); z-index: 1; }
+    .ov-blok.frav  { background: #ef4444; z-index: 3; }
+    .ov-tom { color: #6b7280; font-size: 13px; padding: 12px 0; }
   </style>
 </head>
 <body>
@@ -352,8 +382,36 @@
   </div>
 </div>
 
+<!-- VOGNMANDENS OVERSIGT (kun med ejerkode) -->
+<div id="screen-oversigt" class="hidden">
+  <div class="card">
+    <div class="ov-top">
+      <h2 id="ov-titel">Alle vogne</h2>
+      <button class="btn btn-gray ov-mini" id="btn-ov-opdater">↻ Opdater</button>
+      <button class="btn btn-gray ov-mini" id="btn-ov-logout">Log ud</button>
+    </div>
+    <div class="ov-legend">
+      <span><i class="ov-sw" style="background:#16a34a"></i>Meldt tilgængelig</span>
+      <span><i class="ov-sw" style="background:repeating-linear-gradient(45deg,#86efac,#86efac 4px,#bbf7d0 4px,#bbf7d0 8px)"></i>Fast rytme</span>
+      <span><i class="ov-sw" style="background:#ef4444"></i>Fravær</span>
+      <span><i class="ov-sw" style="background:#1d4ed8;width:3px"></i>Nu</span>
+    </div>
+    <div class="ov-scroll"><div class="ov-tabel" id="ov-tabel">
+      <div class="ov-tom">Henter vogne…</div>
+    </div></div>
+    <div style="font-size:12px;color:#6b7280;margin-top:10px">
+      Klik på en vogn for at melde, rette rytme eller melde fravær. Hold musen over en blok for tiderne.
+      <span id="ov-opdateret"></span>
+    </div>
+    <div id="ov-feedback" class="feedback"></div>
+  </div>
+</div>
+
 <!-- MAIN SCREEN -->
 <div id="screen-main" class="hidden">
+
+  <!-- Kun for vognmanden: tilbage til oversigten -->
+  <button class="btn btn-gray hidden" id="btn-til-oversigt" style="margin:0 0 16px">👑 Alle vogne</button>
 
   <!-- Status -->
   <div class="card">
@@ -506,9 +564,14 @@
   let _rytme         = null;        // vognens gemte rytme
   let _skema         = {};          // { "1": [["08:00","20:00"]], ... } 1 = mandag
   let _fravaer       = [];          // aktive og kommende fravær
+  // "ejer" (vognmanden, ejerkode) eller "vogn" (kun denne vogn). Sættes af
+  // serveren ved login; gemmes kun som visningshint — serveren tjekker
+  // selv koden på hvert kald, så en ændret værdi her giver ingen adgang.
+  let _rolle         = sessionStorage.getItem("lev_rolle") || "";
 
   // ── Init ───────────────────────────────────────────────────────
-  if (_vognNr && _code) showMain();
+  if (_vognNr && _code && _rolle === "ejer" && sessionStorage.getItem("lev_visning") === "oversigt") showOversigt();
+  else if (_vognNr && _code) showMain();
   else document.getElementById("screen-login").classList.remove("hidden");
 
   function defaultFra() {
@@ -572,9 +635,12 @@
       _adresser = data.record?.alleAdresser || [];
       _vognNr = vognNr;
       _code   = code;
+      _rolle  = data.rolle || "vogn";
       sessionStorage.setItem("lev_vognNr", vognNr);
       sessionStorage.setItem("lev_code",   code);
-      showMain();
+      sessionStorage.setItem("lev_rolle",  _rolle);
+      if (_rolle === "ejer") showOversigt();
+      else showMain();
 
     } catch (e) {
       showFb(fb, "err", "Netværksfejl – er du online?");
@@ -587,7 +653,10 @@
   // ── MAIN SCREEN ────────────────────────────────────────────────
   async function showMain() {
     document.getElementById("screen-login").classList.add("hidden");
+    document.getElementById("screen-oversigt").classList.add("hidden");
     document.getElementById("screen-main").classList.remove("hidden");
+    document.getElementById("btn-til-oversigt").classList.toggle("hidden", _rolle !== "ejer");
+    sessionStorage.setItem("lev_visning", "vogn");
     _setDT("fra", defaultFra());
     updateTilFromFra(4);
     setActiveTimeBtn(4);
@@ -624,6 +693,11 @@
       }
       const data = await r.json();
       _adresser = data.record?.alleAdresser || [];
+      if (data.rolle) {
+        _rolle = data.rolle;
+        sessionStorage.setItem("lev_rolle", _rolle);
+        document.getElementById("btn-til-oversigt").classList.toggle("hidden", _rolle !== "ejer");
+      }
       buildAdrGrid();
       return true;
     } catch (e) {
@@ -1271,6 +1345,10 @@
   function doLogout() {
     sessionStorage.removeItem("lev_vognNr");
     sessionStorage.removeItem("lev_code");
+    sessionStorage.removeItem("lev_rolle");
+    sessionStorage.removeItem("lev_visning");
+    _rolle = "";
+    document.getElementById("screen-oversigt").classList.add("hidden");
     _vognNr = ""; _code = ""; _aktivRec = null; _adresser = []; _valgtAdresse = null;
     _rytme = null; _skema = {}; _fravaer = [];
     document.getElementById("rytme-aktiv").checked = false;
@@ -1283,6 +1361,156 @@
     document.getElementById("main-feedback").className = "feedback";
     document.getElementById("screen-main").classList.add("hidden");
     document.getElementById("screen-login").classList.remove("hidden");
+  }
+
+  // ══ VOGNMANDENS OVERSIGT ═════════════════════════════════════
+  // Alle leverandørens vogne: status nu + de næste 7 dage. Kræver
+  // ejerkoden; serveren afviser vognkoder med 403.
+  const OV_DAGE = 7;
+  let _ovData = null;
+
+  document.getElementById("btn-til-oversigt").addEventListener("click", showOversigt);
+  document.getElementById("btn-ov-opdater").addEventListener("click", hentOversigt);
+  document.getElementById("btn-ov-logout").addEventListener("click", doLogout);
+
+  function showOversigt() {
+    document.getElementById("screen-login").classList.add("hidden");
+    document.getElementById("screen-main").classList.add("hidden");
+    document.getElementById("screen-oversigt").classList.remove("hidden");
+    sessionStorage.setItem("lev_visning", "oversigt");
+    hentOversigt();
+  }
+
+  async function hentOversigt() {
+    const fb = document.getElementById("ov-feedback");
+    fb.className = "feedback";
+    try {
+      const r = await fetch(`${WORKER}/tilgaengelig/oversigt?vognNr=${encodeURIComponent(_vognNr)}&code=${encodeURIComponent(_code)}`);
+      if (r.status === 401) { doLogout(); showFb(document.getElementById("login-feedback"), "err", "Log ind igen – adgangskoden er ændret."); return; }
+      if (r.status === 403) { _rolle = "vogn"; sessionStorage.setItem("lev_rolle", "vogn"); showMain(); return; }
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      _ovData = await r.json();
+      renderOversigt();
+      document.getElementById("ov-opdateret").textContent =
+        " Opdateret " + new Date().toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) + ".";
+    } catch (e) {
+      console.warn("Oversigt fejlede", e);
+      showFb(fb, "err", "Kunne ikke hente oversigten – prøv igen.");
+    }
+  }
+
+  // Midnat i dag (lokal tid) — tidslinjen starter her
+  function ovStart() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+
+  function ovKlok(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    const kl = d.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+    const idag = new Date(); idag.setHours(0, 0, 0, 0);
+    const dagForskel = Math.floor((d.getTime() - idag.getTime()) / 86400000);
+    if (dagForskel === 0) return kl;
+    if (dagForskel === 1) return "i morgen " + kl;
+    return d.toLocaleDateString("da-DK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + kl;
+  }
+
+  function ovStatusTekst(s) {
+    if (!s) return "";
+    switch (s.kode) {
+      case "meldt":    return `<span style="color:#15803d">🟢 Tilgængelig til ${esc(ovKlok(s.til))}</span>`;
+      case "plan":     return `<span style="color:#15803d">🟢 Fast rytme til ${esc(s.tilKlok || "")}</span>`;
+      case "kommende": return `<span style="color:#b45309">⏳ Starter ${esc(s.fra ? ovKlok(s.fra) : (s.fraKlok || ""))}</span>`;
+      case "fravaer":  return `<span style="color:#dc2626">🔴 Fravær til ${esc(ovKlok(s.til))}</span>`;
+      default:         return `<span style="color:#6b7280">— Ikke tilmeldt</span>`;
+    }
+  }
+
+  // Den faste rytme som tidsrum [fra, til] i ms inden for vinduet.
+  // Starter en dag før vinduet, så en vagt der krydser midnat kommer med.
+  function ovRytmeBlokke(rytme, start, slut) {
+    if (!rytme || !rytme.aktiv || !rytme.skema) return [];
+    const ud = [];
+    const tilMin = t => { const m = String(t || "").match(/^(\d{1,2}):(\d{2})$/); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+    const datoStr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    for (let i = -1; i < OV_DAGE; i++) {
+      const dag = new Date(start); dag.setDate(dag.getDate() + i);
+      const ds = datoStr(dag);
+      if (rytme.gyldigFra && ds < String(rytme.gyldigFra).slice(0, 10)) continue;
+      if (rytme.gyldigTil && ds > String(rytme.gyldigTil).slice(0, 10)) continue;
+      const ugedag = ((dag.getDay() + 6) % 7) + 1;   // 1 = mandag
+      (rytme.skema[String(ugedag)] || []).forEach(p => {
+        const fra = tilMin(p[0]), til = tilMin(p[1]);
+        if (fra == null || til == null) return;
+        const a = dag.getTime() + fra * 60000;
+        const b = dag.getTime() + (til > fra ? til : til + 1440) * 60000;
+        if (b > start && a < slut) ud.push({ fra: a, til: b, tekst: `Fast rytme ${p[0]}–${p[1]}` });
+      });
+    }
+    return ud;
+  }
+
+  function renderOversigt() {
+    const data = _ovData || {};
+    document.getElementById("ov-titel").textContent =
+      (data.leverandoer?.navn ? data.leverandoer.navn + " – " : "") + "alle vogne";
+    const start = ovStart(), slut = start + OV_DAGE * 86400000, laengde = slut - start;
+    const pct = t => ((Math.min(Math.max(t, start), slut) - start) / laengde * 100).toFixed(3);
+
+    const dageHtml = Array.from({ length: OV_DAGE }, (_, i) => {
+      const d = new Date(start); d.setDate(d.getDate() + i);
+      const navn = d.toLocaleDateString("da-DK", { weekday: "short" }).replace(".", "");
+      return `<div class="${i === 0 ? "idag" : ""}">${esc(navn)} ${d.getDate()}/${d.getMonth() + 1}</div>`;
+    }).join("");
+    const streger = Array.from({ length: OV_DAGE - 1 }, (_, i) =>
+      `<div class="ov-dagstreg" style="left:${((i + 1) / OV_DAGE * 100).toFixed(3)}%"></div>`).join("");
+    const nuPct = pct(Date.now());
+
+    const blok = (klasse, a, b, tekst) => {
+      if (b <= start || a >= slut) return "";
+      const venstre = pct(a), bredde = Math.max(pct(b) - venstre, 0.4);
+      return `<div class="ov-blok ${klasse}" style="left:${venstre}%;width:${bredde}%" title="${esc(tekst)}"></div>`;
+    };
+
+    const vogne = data.vogne || [];
+    const raekker = vogne.map(v => {
+      const blokke = [
+        ...ovRytmeBlokke(v.rytme, start, slut).map(r => blok("plan", r.fra, r.til, r.tekst)),
+        ...(v.meldinger || []).map(m => blok("meldt", new Date(m.fra).getTime(), new Date(m.til).getTime(),
+            `Meldt ${ovKlok(m.fra)} – ${ovKlok(m.til)}${m.position ? " · " + m.position : ""}${m.bemaerkning ? " · " + m.bemaerkning : ""}`)),
+        ...(v.fravaer || []).map(f => blok("frav", new Date(f.fra).getTime(), new Date(f.til).getTime(),
+            `Fravær ${ovKlok(f.fra)} – ${ovKlok(f.til)}${f.aarsag ? " · " + f.aarsag : ""}`))
+      ].join("");
+      return `<div class="ov-raekke" data-vognnr="${esc(v.vognNr)}">
+        <div class="ov-vogn">
+          <b>${esc(v.vognNr)}</b>
+          <small>${esc(v.beskrivelse || v.reg || "")}</small>
+          <div class="ov-status">${ovStatusTekst(v.status)}</div>
+        </div>
+        <div class="ov-linje">${streger}${blokke}<div class="ov-nu" style="left:${nuPct}%"></div></div>
+      </div>`;
+    }).join("");
+
+    document.getElementById("ov-tabel").innerHTML = vogne.length
+      ? `<div class="ov-hoved"><div>Vogn · nu</div><div class="ov-dage">${dageHtml}</div></div>${raekker}`
+      : `<div class="ov-tom">Ingen vogne fundet.</div>`;
+
+    document.querySelectorAll("#ov-tabel .ov-raekke").forEach(el => {
+      el.addEventListener("click", () => aabnVogn(el.dataset.vognnr));
+    });
+  }
+
+  // Skift til en vogns egen side med samme (ejer)kode
+  function aabnVogn(vognNr) {
+    if (!vognNr) return;
+    _vognNr = vognNr;
+    sessionStorage.setItem("lev_vognNr", vognNr);
+    // Nulstil det, der hører til den forrige vogn
+    _aktivRec = null; _adresser = []; _valgtAdresse = null;
+    _rytme = null; _skema = {}; _fravaer = [];
+    document.getElementById("rytme-feedback").className = "feedback";
+    document.getElementById("frav-feedback").className  = "feedback";
+    document.getElementById("main-feedback").className  = "feedback";
+    window.scrollTo(0, 0);
+    showMain();
   }
 
   // ── HJÆLPERE ──────────────────────────────────────────────────
