@@ -2120,10 +2120,108 @@ function fetchAllStrandposter() {
 // Strandposter-logik håndteres i overlayadd-handleren ovenfor
 
 /***************************************************
+ * Strandposter på kortet: hover og klik
+ *
+ * Laget "Strandposter" er et WMS-billede, så kortet ved ikke selv hvor
+ * posterne er. Vi bruger i stedet filen med alle poster (allStrandposter),
+ * som hentes når laget tændes, og finder den nærmeste post inden for få
+ * pixels af musen. Kun aktivt når laget er tændt og der er zoomet ind.
+ ***************************************************/
+var STRANDPOST_HIT_PX   = 12;   // hvor tæt musen skal være på posten
+var STRANDPOST_MIN_ZOOM = 12;   // længere ude er posterne for tætte
+var _strandpostTip    = null;
+var _strandpostCursor = false;
+var _strandpostRaf    = null;
+
+// Postens position i WGS84 [lat, lon] — beregnes én gang pr. post.
+// proj4 direkte frem for convertToWGS84, som logger hvert kald.
+function _strandpostLL(f) {
+  if (!f._ll) {
+    const c = f && f.geometry && f.geometry.coordinates;
+    if (!c) return null;
+    if (c[0] > 90 || c[1] > 90) {
+      const r = proj4("EPSG:25832", "EPSG:4326", [c[0], c[1]]);
+      f._ll = [r[1], r[0]];
+    } else {
+      f._ll = [c[1], c[0]];
+    }
+  }
+  return f._ll;
+}
+
+// Den nærmeste post ved et punkt, i samme form som søgeresultaterne
+// (så handleStrandpostClick kan bruges uændret) — ellers null.
+function _strandpostVed(latlng) {
+  if (!map.hasLayer(redningsnrLayer) || !strandposterReady) return null;
+  if (map.getZoom() < STRANDPOST_MIN_ZOOM) return null;
+  if (_cpPickMode || window._maalAktiv) return null;   // andre værktøjer bruger klikket
+  const p0 = map.latLngToContainerPoint(latlng);
+  const udsnit = map.getBounds().pad(0.05);
+  let bedst = null, bedstAfst = STRANDPOST_HIT_PX;
+  for (let i = 0; i < allStrandposter.length; i++) {
+    const f  = allStrandposter[i];
+    const ll = _strandpostLL(f);
+    if (!ll || !udsnit.contains(ll)) continue;
+    const afst = p0.distanceTo(map.latLngToContainerPoint(ll));
+    if (afst <= bedstAfst) { bedstAfst = afst; bedst = { f, ll }; }
+  }
+  if (!bedst) return null;
+  const rednr = (bedst.f.properties && bedst.f.properties.StrandNr) || "";
+  return {
+    type: "strandpost",
+    tekst: `Redningsnummer: ${rednr}`,
+    rednr: rednr,
+    lat: bedst.ll[0],
+    lon: bedst.ll[1],
+    feature: bedst.f
+  };
+}
+
+function _strandpostSkjulHover() {
+  if (_strandpostTip && map.hasLayer(_strandpostTip)) map.removeLayer(_strandpostTip);
+  // Nulstil kun markøren hvis det er os der har sat den
+  if (_strandpostCursor) {
+    if (map.getContainer().style.cursor === "pointer") map.getContainer().style.cursor = "";
+    _strandpostCursor = false;
+  }
+}
+
+map.on("mousemove", function(e) {
+  if (_strandpostRaf) return;          // højst én test pr. skærmopdatering
+  const latlng = e.latlng;
+  _strandpostRaf = requestAnimationFrame(function() {
+    _strandpostRaf = null;
+    const post = _strandpostVed(latlng);
+    if (!post) { _strandpostSkjulHover(); return; }
+    if (!_strandpostTip) {
+      _strandpostTip = L.tooltip({ direction: "top", offset: [0, -8], opacity: 0.95 });
+    }
+    _strandpostTip.setLatLng([post.lat, post.lon]).setContent(post.rednr);
+    if (!map.hasLayer(_strandpostTip)) _strandpostTip.addTo(map);
+    map.getContainer().style.cursor = "pointer";
+    _strandpostCursor = true;
+  });
+});
+map.on("mouseout", _strandpostSkjulHover);
+map.on("overlayremove", function(e) {
+  if (e.layer === redningsnrLayer) _strandpostSkjulHover();
+});
+
+/***************************************************
  * Klik på kort => reverse geocoding
  ***************************************************/
 map.on('click', function(e) {
   if (_cpPickMode) return; // Koordinat-valg aktiv
+
+  // Klik på en strandpost (kun når laget er tændt): vis postens popup med
+  // nærmeste adresse i stedet for det almindelige adresseopslag
+  const post = _strandpostVed(e.latlng);
+  if (post) {
+    _strandpostSkjulHover();
+    handleStrandpostClick(post, resultsList, { udenZoom: true });
+    return;
+  }
+
   let lat = e.latlng.lat;
   let lon = e.latlng.lng;
 
@@ -3293,9 +3391,9 @@ function doSearchStrandposter(query) {
  * Hurtig søgning kun i strandposter (uden debounce)
  * Bruges når "Strandposter"-laget er tændt
  ***************************************************/
-function handleStrandpostClick(obj, listElement) {
+function handleStrandpostClick(obj, listElement, opts) {
   setCoordinateBox(obj.lat, obj.lon);
-  placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst);
+  placeMarkerAndZoom([obj.lat, obj.lon], obj.tekst, !!(opts && opts.udenZoom));
 
   listElement.innerHTML = "";
   listElement.style.display = "none";
@@ -3797,7 +3895,7 @@ function doSearch(query, listElement) {
 /***************************************************
  * placeMarkerAndZoom – bruger createSelectionMarker
  ***************************************************/
-function placeMarkerAndZoom(coords, displayText) {
+function placeMarkerAndZoom(coords, displayText, udenZoom) {
   if (coords[0] > 90 || coords[1] > 90) {
     let converted = convertToWGS84(coords[0], coords[1]);
     coords = converted;
@@ -3807,7 +3905,9 @@ function placeMarkerAndZoom(coords, displayText) {
   // Brug fælles helper, så den respekterer "Behold markører"
   createSelectionMarker(lat, lon);
 
-  map.setView([lat, lon], 16);
+  // udenZoom: klik direkte på kortet (fx på en strandpost) — brugeren har
+  // selv valgt udsnittet, så det skal ikke flyttes
+  if (!udenZoom) map.setView([lat, lon], 16);
   document.getElementById("address").textContent = displayText;
   const streetviewLink = document.getElementById("streetviewLink");
   streetviewLink.href = `https://www.google.com/maps?q=&layer=c&cbll=${lat},${lon}`;
