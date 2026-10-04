@@ -468,7 +468,7 @@
     </div>
 
     <button class="btn btn-green" id="btn-meld">🟢 Meld tilgængelig</button>
-    <button class="btn btn-red hidden" id="btn-fravær">🔴 Meld fraværende</button>
+    <button class="btn btn-gray hidden" id="btn-fravær" style="color:#dc2626">🗑️ Fjern tilmelding</button>
     <button class="btn btn-gray" id="btn-logout">← Skift vogn</button>
     <div id="main-feedback" class="feedback"></div>
   </div>
@@ -1314,7 +1314,10 @@
     }
   });
 
-  // ── MELD FRAVÆRENDE ───────────────────────────────────────────
+  // ── FJERN TILMELDING ──────────────────────────────────────────
+  // Afslutter den nuværende tilmelding med det samme (Til = nu).
+  // Ikke det samme som fravær, der skjuler vognen i en periode —
+  // også fra den faste rytme. Derfor hedder knappen noget andet.
   document.getElementById("btn-fravær").addEventListener("click", async () => {
     const fb  = document.getElementById("main-feedback");
     const btn = document.getElementById("btn-fravær");
@@ -1328,13 +1331,13 @@
         body: JSON.stringify({ vognNr: _vognNr, code: _code })
       });
       if (!r.ok) throw new Error(r.status);
-      showFb(fb, "ok", "✅ Du er meldt fraværende.");
+      showFb(fb, "ok", "✅ Tilmeldingen er fjernet.");
       _aktivRec = null;
       renderStatus();
     } catch (e) {
       showFb(fb, "err", `Fejl: ${e.message}`);
     } finally {
-      btn.innerHTML = "🔴 Meld fraværende";
+      btn.innerHTML = "🗑️ Fjern tilmelding";
       btn.disabled = false;
     }
   });
