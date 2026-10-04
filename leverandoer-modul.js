@@ -4,7 +4,7 @@
    Gemmer/henter data i SharePoint via Cloudflare Worker.
    Afhænger af globale variabler fra script.js:
      • map            (Leaflet map-instans)
-     • kommuneGeoJSON (hentet fra Dataforsyningen)
+     • kommuneGeoJSON (kommuner.geojson, indlæst af script.js)
    ================================================================ */
 
 // ── KONFIGURATION ────────────────────────────────────────────────
@@ -271,7 +271,7 @@ async function _prioToggle(stationId, btn) {
       alert("Kunne ikke hente postnummer-geometri: " + e.message);
       _prioRyd(); return;
     } finally {
-      // _dispHentGeometri viser sin egen toast uden selv at skjule den
+      // Skjul en evt. toast fra disponeringsområderne
       if (typeof _dispToastSkjul === "function") _dispToastSkjul();
       if (btn) {
         btn.disabled = false;
@@ -298,13 +298,15 @@ async function _prioToggle(stationId, btn) {
 
   _prioLegendVis(st, kat, niveauer);
   if (manglendeGeo) {
-    _dispToast(manglendeGeo + " postnumre kunne ikke hentes fra DAWA", 4000);
+    _dispToast(manglendeGeo + " postnumre mangler i postnumre.geojson", 4000);
   }
 }
 
 // ── BOOT ─────────────────────────────────────────────────────────
 async function initLeverandoerModul() {
-  _levLoadPostnrMap();
+  // Postnummerfilen er ca. 1 MB komprimeret — hent den lidt efter, så
+  // kortet og de andre lag kommer først. Den bruges først ved hover.
+  setTimeout(_levLoadPostnrMap, 2000);
   _levBuildControl();
   _levBuildUI();
   // Vaerkstedslaget lægges i den almindelige lagvælger, ikke i Disp-panelet.
@@ -1106,35 +1108,20 @@ async function _levLoad() {
   }
 }
 
+// Postnummer → kommunekode, til at farve prioritetsområder.
+// Kommer fra postnumre.geojson (fast fil, dannet fra DAGI), hvor hvert
+// postnummer har "kommune" = den kommune der dækker mest af det.
+// DAWA's /postnumre lukkede 1/10-2026.
 async function _levLoadPostnrMap() {
   try {
-    const r    = await fetch("https://api.dataforsyningen.dk/postnumre?format=json");
-    const data = await r.json();
-
-    // Vent på at kommuneGeoJSON er klar (loadet af script.js) – maks 8 sek
-    let tries = 0;
-    while (!kommuneGeoJSON?.features?.length && tries++ < 80) {
-      await new Promise(res => setTimeout(res, 100));
-    }
-
-    // Byg navn→kode opslag fra kommuneGeoJSON: "Ringsted" → "0329"
-    const navnTilKode = {};
-    (kommuneGeoJSON?.features || []).forEach(f => {
-      const navn = f.properties?.navn;
-      const kode = f.properties?.kode;
-      if (navn && kode) navnTilKode[navn.toLowerCase()] = kode;
-    });
-
+    const g = (typeof hentPostnumreGeo === "function")
+      ? await hentPostnumreGeo()
+      : await (await fetch("postnumre.geojson")).json();
     _levPostnrMap = {};
-    data.forEach(p => {
-      // Primær strategi: match postnummerets bynavn mod kommunenavn ("4100 Ringsted" → Ringsted Kommune)
-      const kodeByNavn = navnTilKode[p.navn?.toLowerCase()];
-      if (kodeByNavn) {
-        _levPostnrMap[p.nr] = [kodeByNavn];
-      } else {
-        // Fallback: første kommune i API-arrayet (størst geometrisk overlap)
-        _levPostnrMap[p.nr] = (p.kommuner || []).slice(0, 1).map(k => k.kode);
-      }
+    (g?.features || []).forEach(f => {
+      const nr  = f.properties?.nr;
+      const kom = f.properties?.kommune;
+      if (nr && kom) _levPostnrMap[nr] = [kom];
     });
   } catch (e) { console.warn("Leverandørmodul: postnr-kort fejlede", e); }
 }
