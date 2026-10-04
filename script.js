@@ -1260,14 +1260,37 @@ var kommunegrænserLayer = L.geoJSON(null, {
 });
 var kommuneGeoJSON = null;
 
-fetch("https://api.dataforsyningen.dk/kommuner?format=geojson&token=a63a88838c24fc85d47f32cde0ec0144")
-  .then(response => response.json())
+// Kommune- og postnummergrænser ligger som faste filer i repo'et.
+// DAWA lukkede 1/10-2026, og Datafordelerens grænser er 34 MB / 21 MB i
+// fuld opløsning (de forenklede udgaver er tomme). Filerne er dannet fra
+// DAGI, forenklet til ca. 25 m og har DAWA's feltnavne (kode/navn, nr/navn).
+// Postnumrene har desuden "kommune" = den kommune der dækker mest af dem.
+fetch("kommuner.geojson")
+  .then(response => {
+    if (!response.ok) throw new Error("kommuner.geojson HTTP " + response.status);
+    return response.json();
+  })
   .then(data => {
     kommunegrænserLayer.addData(data);
     kommuneGeoJSON = data;
-    console.log("Kommunegrænser hentet:", data);
+    console.log("Kommunegrænser indlæst:", (data.features || []).length, "kommuner");
   })
   .catch(err => console.error("Fejl ved hentning af kommunegrænser:", err));
+
+// Postnummergrænser — hentes første gang nogen beder om dem og deles
+// derefter (disponeringsområder og leverandørmodulet).
+var _postnumreGeoP = null;
+function hentPostnumreGeo() {
+  if (!_postnumreGeoP) {
+    _postnumreGeoP = fetch("postnumre.geojson")
+      .then(r => {
+        if (!r.ok) throw new Error("postnumre.geojson HTTP " + r.status);
+        return r.json();
+      })
+      .catch(err => { _postnumreGeoP = null; throw err; });
+  }
+  return _postnumreGeoP;
+}
 
 
 /***************************************************
@@ -1308,34 +1331,18 @@ function _dispToastSkjul() {
 }
 
 /**
- * Henter postnummer-geometri fra DAWA i klumper à 150.
- * landpostnumre = geometri afgrænset af kysten (ellers følger de havområderne).
+ * Henter postnummer-geometri fra den faste fil postnumre.geojson
+ * (klippet til land, ligesom DAWA's landpostnumre var).
+ * Returnerer { nr: feature } for de ønskede numre.
  */
 function _dispHentGeometri(nrListe) {
-  var chunks = [];
-  for (var i = 0; i < nrListe.length; i += 150) chunks.push(nrListe.slice(i, i + 150));
-  var faerdige = 0;
-
-  return Promise.all(chunks.map(function(c) {
-    var url = "https://api.dataforsyningen.dk/postnumre" +
-              "?format=geojson&landpostnumre&noformat&nr=" + c.join("|");
-    return fetch(url)
-      .then(function(r) {
-        if (!r.ok) throw new Error("DAWA HTTP " + r.status);
-        return r.json();
-      })
-      .then(function(g) {
-        faerdige++;
-        _dispToast("Henter disponeringsområder … " + faerdige + "/" + chunks.length);
-        return (g && g.features) ? g.features : [];
-      });
-  })).then(function(lister) {
+  var oenskes = {};
+  nrListe.forEach(function(nr) { oenskes[nr] = true; });
+  return hentPostnumreGeo().then(function(g) {
     var samlet = {};
-    lister.forEach(function(fs) {
-      fs.forEach(function(f) {
-        var nr = parseInt(f.properties && f.properties.nr, 10);
-        if (!isNaN(nr)) samlet[nr] = f;
-      });
+    ((g && g.features) || []).forEach(function(f) {
+      var nr = parseInt(f.properties && f.properties.nr, 10);
+      if (!isNaN(nr) && oenskes[nr]) samlet[nr] = f;
     });
     return samlet;
   });
@@ -1356,7 +1363,7 @@ function _dispByg() {
       var alle = [];
       omr.forEach(function(o) {
         (o.postnumre || []).forEach(function(p) {
-          // Tyske postnumre (24937/24983) findes ikke i DAWA – springes over
+          // Tyske postnumre (24937/24983) findes ikke i de danske data – springes over
           if (p >= 1000 && p <= 9999 && alle.indexOf(p) === -1) alle.push(p);
         });
       });
