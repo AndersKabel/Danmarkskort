@@ -1938,39 +1938,76 @@ async function hentEjerforhold(bfeNummer) {
   }
 }
 
-// Adresser der ligger PÅ jordstykket (ikke nærmeste adresse til et punkt).
-async function hentMatrikelAdresser(ejerlavkode, matrikelnr) {
-  if (!ejerlavkode || !matrikelnr) return "";
-  try {
-    const r = await fetch(
-      `https://api.dataforsyningen.dk/adgangsadresser?ejerlavkode=${encodeURIComponent(ejerlavkode)}`
-      + `&matrikelnr=${encodeURIComponent(matrikelnr)}&struktur=mini`
-    );
-    const liste = await r.json();
-    if (!Array.isArray(liste) || !liste.length) return "";
-    return liste
-      .map(a => a.betegnelse
-        || `${a.vejnavn} ${a.husnr || ""}, ${a.postnr} ${a.postnrnavn}`)
-      .join("<br>📬 ");
-  } catch (e) {
-    console.warn("Matrikel adresse-opslag fejl:", e);
-    return "";
-  }
+// ── Matrikel fra Matriklen (MAT) via Datafordeleren ──────────────
+// DAWA's /jordstykker og /adgangsadresser lukkede 1/10-2026. Nu:
+//   1) MAT_Lodflade under klikket -> jordstykket med matrikelnr, areal,
+//      ejerlav, kommune, ejendom (BFE) og adresserne PÅ jordstykket
+//      (DAR_Husnummer.jordstykke — ikke nærmeste adresse til et punkt)
+//   2) Alle jordstykker på samme samlede faste ejendom, med flader
+// Geometrien kommer i UTM32 og omregnes til kortets koordinater.
+const MAT_JS_FELTER = `
+  id_lokalId matrikelnummer registreretAreal samletFastEjendomLokalId
+  jordstykkeLiggerIEjerlav { ejerlavsnavn ejerlavskode }
+  jordstykkeLiggerIMatrikelKommune { kommunenavn }
+  jordstykkeSamlesISamletFastEjendom { nodes { BFEnummer } }
+  lodfladeRepraesentationJordstykke { nodes { geometri { wkt } } }`;
+
+// GeoJSON-geometri i UTM32 -> WGS84 [lon, lat]
+function _utmGeoTilWgs(geo) {
+  const om = c => (typeof c[0] === "number")
+    ? (r => [r[0], r[1]])(proj4("EPSG:25832", "EPSG:4326", [c[0], c[1]]))
+    : c.map(om);
+  return { type: geo.type, coordinates: om(geo.coordinates) };
+}
+
+// Jordstykkets flade(r) som én GeoJSON-feature
+function _matFeature(js) {
+  const geos = ((js.lodfladeRepraesentationJordstykke || {}).nodes || [])
+    .map(n => n && n.geometri && n.geometri.wkt ? wellknown.parse(n.geometri.wkt) : null)
+    .filter(Boolean)
+    .map(_utmGeoTilWgs);
+  if (!geos.length) return null;
+  const polys = [];
+  geos.forEach(g => {
+    if (g.type === "Polygon") polys.push(g.coordinates);
+    else if (g.type === "MultiPolygon") g.coordinates.forEach(p => polys.push(p));
+  });
+  return { type: "Feature", properties: {},
+           geometry: polys.length === 1 ? { type: "Polygon", coordinates: polys[0] }
+                                        : { type: "MultiPolygon", coordinates: polys } };
+}
+
+function _matTekster(js) {
+  return {
+    matrikelnr: js.matrikelnummer || "?",
+    ejerlav:    (js.jordstykkeLiggerIEjerlav && js.jordstykkeLiggerIEjerlav.ejerlavsnavn) || "?",
+    // MAT skriver "Vejle Kommune"; popuppen har selv "Kommune:" foran
+    kommune:    ((js.jordstykkeLiggerIMatrikelKommune && js.jordstykkeLiggerIMatrikelKommune.kommunenavn) || "")
+                  .replace(/\s+Kommune$/i, ""),
+    areal:      js.registreretAreal
+                  ? `${Math.round(js.registreretAreal).toLocaleString("da-DK")} m²` : ""
+  };
 }
 
 async function visMatrikel(lat, lon) {
   matrikelLayer.clearLayers();
 
   try {
-    // Trin 1: Find jordstykket under koordinatet
-    const resp = await fetch(
-      `https://api.dataforsyningen.dk/jordstykker?x=${lon}&y=${lat}&srid=4326&format=geojson`
-    );
-    const data = await resp.json();
-    if (!data?.features?.length) return;
+    const nu = new Date().toISOString();
+    const [x, y] = proj4("EPSG:4326", "EPSG:25832", [lon, lat]);
 
-    const f = data.features[0];
-    const p = f.properties || {};
+    // Trin 1: jordstykket under koordinatet, med adresserne på det
+    const d1 = await _dafQuery("flexibleCurrent", `query($t: DafDateTime!, $p: String!) {
+      MAT_Lodflade(first: 1, virkningstid: $t,
+        where: { geometri: { contains: { wkt: $p, crs: 25832 } } }) {
+        nodes { lodfladeRepraesentationJordstykke { nodes {
+          ${MAT_JS_FELTER}
+          id_lokalId_22_Husnummer_jordstykke_ref { nodes { adgangsadressebetegnelse status } }
+        } } }
+      }
+    }`, { t: nu, p: `POINT(${x} ${y})` });
+    const js = d1?.MAT_Lodflade?.nodes?.[0]?.lodfladeRepraesentationJordstykke?.nodes?.[0];
+    if (!js) return;
 
     const matrikelStyle = {
       color: "#e67e22", weight: 2.5,
@@ -1990,111 +2027,62 @@ async function visMatrikel(lat, lon) {
         bfeHtml;
     }
 
-    // Trin 2: Hent alle jordstykker på ejendommen
-    //
-    // Vi slår op på sfeejendomsnr (samlet fast ejendom), IKKE bfenummer.
-    // bfenummer er tomt på udstykkede jordstykker: fx matr. 1æ i
-    // Oksenbjerge har moderjordstykke 1h, samme sfeejendomsnr 4355348,
-    // men bfenummer = null. Med det gamle BFE-opslag blev den halvdel
-    // af ejendommen lydløst udeladt fra kortet.
-    const sfe = String(p.sfeejendomsnr || "").trim();
-    const bfe = p.bfenummer || "";
-    const ejdNr = sfe || String(bfe || "");
-    const matrikelNr = p.matrikelnr || "?";
-    const ejerlav    = p.ejerlavnavn || "?";
-    const kommune    = p.kommunenavn || "";
-    const areal      = p.registreretareal
-      ? `${Math.round(p.registreretareal).toLocaleString("da-DK")} m²` : "";
+    const t   = _matTekster(js);
+    const bfe = String(js.jordstykkeSamlesISamletFastEjendom?.nodes?.[0]?.BFEnummer
+                       || js.samletFastEjendomLokalId || "");
+    // Adresser hvis adgangspunkt ligger på jordstykket. Kun gældende/foreløbige.
+    const adresseStr = (js.id_lokalId_22_Husnummer_jordstykke_ref?.nodes || [])
+      .filter(h => h && (h.status === "2" || h.status === "3") && h.adgangsadressebetegnelse)
+      .map(h => h.adgangsadressebetegnelse)
+      .join("<br>📬 ");
 
-    if (ejdNr) {
-      // sfeejendomsnr foretrækkes; bfenummer bruges kun hvis det første mangler
-      const param = sfe ? "sfeejendomsnr" : "bfenummer";
-      const alleResp = await fetch(
-        `https://api.dataforsyningen.dk/jordstykker?${param}=${encodeURIComponent(ejdNr)}&format=geojson`
-      );
-      const alleData = await alleResp.json();
-
-      // API kan returnere FeatureCollection ELLER plain array af features
-      let features = [];
-      if (Array.isArray(alleData)) {
-        features = alleData;
-      } else if (alleData?.type === "FeatureCollection") {
-        features = alleData.features || [];
-      } else if (alleData?.features) {
-        features = alleData.features;
-      }
-
-      console.log(`Matrikel ${sfe ? "SFE" : "BFE"}-svar: features = ${features.length}`);
-
-      if (features.length > 0) {
-        // Tegn alle jordstykker – husk hvilket lag der hører til det klikkede
-        let klikketLayer = null;
-        features.forEach(feat => {
-          const fp = feat.properties || {};
-          const mnr   = fp.matrikelnr || "?";
-          const ejl   = fp.ejerlavnavn || "?";
-          const kom   = fp.kommunenavn || "";
-          const ar    = fp.registreretareal
-            ? `${Math.round(fp.registreretareal).toLocaleString("da-DK")} m²` : "";
-
-          const lag = L.geoJSON(feat, { style: matrikelStyle })
-            .bindPopup(popupHtml(mnr, ejl, kom, ar, ejdNr, ""))
-            .addTo(matrikelLayer);
-
-          if (String(fp.featureid || "") === String(p.featureid || "")) {
-            klikketLayer = lag;
+    // Trin 2: alle jordstykker på samme ejendom
+    let alle = [];
+    if (js.samletFastEjendomLokalId) {
+      try {
+        const d2 = await _dafQuery("flexibleCurrent", `query($t: DafDateTime!, $s: String!) {
+          MAT_Jordstykke(first: 200, virkningstid: $t,
+            where: { samletFastEjendomLokalId: { eq: $s } }) {
+            nodes { ${MAT_JS_FELTER} }
           }
-        });
-
-        // Hent adresser og ejerforhold parallelt og opdater popup én gang.
-        //
-        // Adresser: opslag på ejerlavkode + matrikelnr giver kun adresser hvis
-        // adgangspunkt ligger inden for jordstykkets geometri. Tidligere brugte vi
-        // /adgangsadresser/reverse på jordstykkets visuelle center, som returnerer
-        // den NÆRMESTE adresse uanset matrikelgrænser — på matr. 9b i Skævinge gav
-        // det naboens "Dyrelunden 18" i stedet for "Ny Harløsevej 26B".
-        //
-        // Ejerforhold: slås op på ejendommens BFE-nummer, ikke på jordstykket,
-        // fordi ejerforhold registreres på ejendomsniveau.
-        //
-        // Begge funktioner får fejl internt og returnerer tom streng, så et
-        // mislykket opslag aldrig forhindrer matriklen i at blive tegnet.
-        // Vejarealer slås ikke op. To grunde:
-        //  1) BBR har ingen brugbar ejerforholdskode (Vejlevej gav kode 99),
-        //     fordi et vejareal ikke er en samlet fast ejendom med en ejer.
-        //  2) Adresseopslaget returnerer naboadresser hvis deres adgangspunkt
-        //     falder inden for vejarealet — fx "Oksenbjergevej 2" på litra 7000g.
-        //     Adressen hører til ejendommen, ikke til vejen.
-        const [adresseStr, ejerforhold] = erVejlitra(p.matrikelnr)
-          ? ["", "Offentlig vej"]
-          : await Promise.all([
-              hentMatrikelAdresser(p.ejerlavkode || "", p.matrikelnr || ""),
-              hentEjerforhold(ejdNr)
-            ]);
-
-        if (adresseStr || ejerforhold) {
-          // Popup sættes på det klikkede jordstykke, ikke blot det første tegnede
-          const maalLayer = klikketLayer || matrikelLayer.getLayers()[0];
-          if (maalLayer) {
-            maalLayer.setPopupContent(
-              popupHtml(matrikelNr, ejerlav, kommune, areal, ejdNr, adresseStr, ejerforhold)
-            );
-          }
-        }
-        return;
+        }`, { t: nu, s: String(js.samletFastEjendomLokalId) });
+        alle = d2?.MAT_Jordstykke?.nodes || [];
+      } catch (e) {
+        console.warn("Matrikel: ejendommens øvrige jordstykker kunne ikke hentes:", e);
       }
     }
+    if (!alle.some(a => a.id_lokalId === js.id_lokalId)) alle.push(js);
+    console.log(`Matrikel BFE ${bfe}: ${alle.length} jordstykke(r)`);
 
-    // Fallback: intet ejendomsnummer eller ingen resultater — tegn kun det ene
-    L.geoJSON(f, { style: matrikelStyle })
-      .bindPopup(popupHtml(matrikelNr, ejerlav, kommune, areal, ejdNr, ""))
-      .addTo(matrikelLayer);
+    // Tegn alle jordstykker – husk hvilket lag der hører til det klikkede
+    let klikketLayer = null;
+    alle.forEach(a => {
+      const f = _matFeature(a);
+      if (!f) return;
+      const ta = _matTekster(a);
+      const lag = L.geoJSON(f, { style: matrikelStyle })
+        .bindPopup(popupHtml(ta.matrikelnr, ta.ejerlav, ta.kommune, ta.areal, bfe, ""))
+        .addTo(matrikelLayer);
+      if (a.id_lokalId === js.id_lokalId) klikketLayer = lag;
+    });
 
+    // Det klikkede jordstykke får adresser og ejerforhold i popuppen.
+    // Vejarealer (litra 7000x) har hverken brugbar ejer eller egne adresser:
+    // adgangspunkter fra naboejendomme kan ligge på vejarealet.
+    const ejerforhold = erVejlitra(js.matrikelnummer)
+      ? "Offentlig vej"
+      : await hentEjerforhold(bfe);
+    const adresser = erVejlitra(js.matrikelnummer) ? "" : adresseStr;
+    const maalLayer = klikketLayer || matrikelLayer.getLayers()[0];
+    if (maalLayer) {
+      maalLayer.setPopupContent(
+        popupHtml(t.matrikelnr, t.ejerlav, t.kommune, t.areal, bfe, adresser, ejerforhold)
+      );
+    }
   } catch(e) {
     console.warn("Matrikel lookup fejl:", e);
   }
 }
-
 
 var allStrandposter = [];
 var strandposterReady = false;
