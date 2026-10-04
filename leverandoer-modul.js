@@ -1337,9 +1337,13 @@ function _levTilgBuildMarkers(aktive) {
       const klok = iso => iso
         ? new Date(iso).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })
         : "?";
+      // Rytmens klokkeslæt er "16:30"; vis dem som resten af popuppen (16.30)
+      const kl = t => String(t || "").replace(":", ".");
+      // Hele vagten: start–slut. Plan har starterTil, en melding har til.
+      const kommendeSlut = efterPlan ? kl(rec.starterTil) : (rec.til ? klok(rec.til) : "");
       const tid = rec.status === "kommende"
         ? `🕐 <b>Møder om ${rec.starterOm} min</b>`
-          + `${rec.starterKl ? " · kl. " + _esc(rec.starterKl) : ""}`
+          + `${rec.starterKl ? " · kl. " + _esc(kl(rec.starterKl)) + (kommendeSlut ? "–" + _esc(kommendeSlut) : "") : ""}`
         : efterPlan
         ? `🔁 <b>Fast rytme</b>${rec.planTil ? " · på vagt til <b>" + _esc(rec.planTil) + "</b>" : ""}`
         : `⏰ <b>${klok(rec.fra)} → ${klok(rec.til)}</b>`;
