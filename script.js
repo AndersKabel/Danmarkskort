@@ -3060,73 +3060,182 @@ var selectedRoad1 = null;
 var selectedRoad2 = null;
 
 /***************************************************
- * doSearchRoad => bruges af vej1/vej2
+ * doSearchRoad => bruges af vej1/vej2 (Find X)
+ *
+ * DAWA lukkede 1/10-2026, og Datafordelerens REST (vejens forløb) 30/6.
+ * Nu:
+ *  - Listen: Adressevælgeren (veje med adresser) som "Vejnavn (postnr by)",
+ *    uanset store/små bogstaver. Et vejnavn er entydigt pr. postnummer.
+ *  - Veje helt uden adresser (fx nye omfartsveje) findes kun i DAR og
+ *    tilføjes listen med "(ingen adresser, kommune)".
+ *  - Vejens forløb hentes ved klik fra DAR for HELE vejen. Adressevælgerens
+ *    egen geometri dækker kun stykket i ét postnummer — en motorvej kendes
+ *    fx kun i de postnumre hvor der ligger adresser langs den.
  ***************************************************/
-function doSearchRoad(query, listElement, inputField, which) {
-  let addrUrl = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`;
-  fetch(addrUrl)
-    .then(response => response.json())
-    .then(data => {
-      listElement.innerHTML = "";
-      if (which === "vej1") {
-        vej1Items = [];
-        vej1CurrentIndex = -1;
-      } else {
-        vej2Items = [];
-        vej2CurrentIndex = -1;
+const _vejSoegSeq = { vej1: 0, vej2: 0 };
+
+// Et GraphQL-kald til Datafordeleren via vd-proxy
+async function _dafQuery(register, query, variables) {
+  const r = await fetch(`${VD_PROXY}/daf/query?register=${register}&version=v3`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables })
+  });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j || (j.errors && j.errors.length)) {
+    throw new Error((j && j.errors && j.errors[0] && j.errors[0].message) || ("HTTP " + r.status));
+  }
+  return j.data;
+}
+
+// DAR's startsWith skelner mellem store og små bogstaver. Vi søger derfor
+// på det skrevne, med stort begyndelsesbogstav og med stort på hvert ord.
+function _vejVarianter(q) {
+  const s = String(q || "").trim().replace(/\s+/g, " ");
+  if (!s) return [];
+  const stort = s.charAt(0).toLocaleUpperCase("da-DK") + s.slice(1);
+  const titel = s.toLocaleLowerCase("da-DK")
+    .replace(/(^|[\s\-.])(\p{L})/gu, (m, a, b) => a + b.toLocaleUpperCase("da-DK"));
+  return [...new Set([s, stort, titel])];
+}
+
+async function _darVejSoeg(q) {
+  const nu = new Date().toISOString();
+  const svar = await Promise.all(_vejVarianter(q).map(s =>
+    _dafQuery("DAR", `query($t: DafDateTime, $s: String!) {
+      DAR_NavngivenVej(first: 15, virkningstid: $t, registreringstid: $t,
+        where: { vejnavn: { startsWith: $s }, status: { in: ["2","3"] } }) {
+        nodes { id_lokalId vejnavn administreresAfKommune }
       }
-      data.sort((a, b) => a.tekst.localeCompare(b.tekst));
-      const unique = new Set();
-      data.forEach(item => {
-        let vejnavn   = item.adgangsadresse?.vejnavn || "Ukendt vej";
-        let kommune   = item.adgangsadresse?.postnrnavn || "Ukendt kommune";
-        let postnr    = item.adgangsadresse?.postnr || "?";
-        let adgangsId = item.adgangsadresse?.id || null;
-        let key = `${vejnavn}-${postnr}`;
-        if (unique.has(key)) return;
-        unique.add(key);
-        let li = document.createElement("li");
-        li.textContent = `${vejnavn}, ${kommune} (${postnr})`;
-        li.addEventListener("click", function() {
-          inputField.value = vejnavn;
-          listElement.innerHTML = "";
-          listElement.style.display = "none";
-          if (!adgangsId) {
-            console.error("Ingen adgangsadresse.id => kan ikke slå vejkode op");
-            return;
-          }
-          let detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${adgangsId}?struktur=mini`;
-          fetch(detailUrl)
-            .then(r => r.json())
-            .then(async detailData => {
-              let roadSelection = {
-                vejnavn: vejnavn,
-                kommunekode: detailData.kommunekode,
-                vejkode: detailData.vejkode,
-                husnummerId: detailData.id
-              };
-              let geometry = await getNavngivenvejKommunedelGeometry(detailData.id);
-              roadSelection.geometry = geometry;
-              if (inputField.id === "vej1") {
-                selectedRoad1 = roadSelection;
-              } else if (inputField.id === "vej2") {
-                selectedRoad2 = roadSelection;
-              }
-            })
-            .catch(err => {
-              console.error("Fejl i fetch /adgangsadresser/{id}:", err);
-            });
-        });
-        listElement.appendChild(li);
-        if (which === "vej1") {
-          vej1Items.push(li);
-        } else {
-          vej2Items.push(li);
+    }`, { t: nu, s }).catch(() => null)));
+  const unikke = new Map();
+  svar.forEach(d => (d?.DAR_NavngivenVej?.nodes || [])
+    .forEach(n => unikke.set(n.id_lokalId, n)));
+  return [...unikke.values()];
+}
+
+// Kommunenavne (kode -> navn) hentes én gang, kun til veje uden adresser
+let _kommuneNavneP = null;
+function _kommuneNavne() {
+  if (!_kommuneNavneP) {
+    _kommuneNavneP = _dafQuery("flexibleCurrent", `query($t: DafDateTime!) {
+        DAGI_Kommuneinddeling(first: 200, virkningstid: $t) { nodes { kommunekode navn } }
+      }`, { t: new Date().toISOString() })
+      .then(d => Object.fromEntries((d?.DAGI_Kommuneinddeling?.nodes || [])
+        .map(k => [k.kommunekode, k.navn])))
+      .catch(() => { _kommuneNavneP = null; return {}; });
+  }
+  return _kommuneNavneP;
+}
+
+// WKT -> {type:"MultiLineString", coordinates} (Find X forventer MultiLineString)
+function _tilMultiLinje(geo) {
+  if (!geo) return null;
+  if (geo.type === "MultiLineString") return { type: "MultiLineString", coordinates: geo.coordinates };
+  if (geo.type === "LineString") return { type: "MultiLineString", coordinates: [geo.coordinates] };
+  return null;
+}
+
+// Hele vejens forløb fra DAR (UTM32, samme som før)
+async function _hentVejGeometri(item) {
+  const nu = new Date().toISOString();
+  const felter = "vejnavn vejnavnebeliggenhed_vejnavnelinje { wkt }";
+
+  if (item.kilde === "dar") {
+    const d = await _dafQuery("DAR", `query($t: DafDateTime, $id: String!) {
+      DAR_NavngivenVej(first: 1, virkningstid: $t, registreringstid: $t,
+        where: { id_lokalId: { eq: $id } }) { nodes { ${felter} } }
+    }`, { t: nu, id: item.id });
+    const wkt = d?.DAR_NavngivenVej?.nodes?.[0]?.vejnavnebeliggenhed_vejnavnelinje?.wkt;
+    return wkt ? _tilMultiLinje(wellknown.parse(wkt)) : null;
+  }
+
+  // Adressevælger: find DAR-vejen med samme navn, der ligger hvor
+  // Adressevælgerens stykke ligger, og brug hele dens forløb
+  const det = await avDetaljer(item.id, item.type);
+  const v = det?.navngivenvejpostnummer || {};
+  const avGeo = _tilMultiLinje(v.geometri);
+  const p = avGeo?.coordinates?.[0]?.[Math.floor((avGeo.coordinates[0].length - 1) / 2)];
+  if (p && v.vejnavn) {
+    const b = 200;
+    const kasse = `POLYGON((${p[0]-b} ${p[1]-b},${p[0]+b} ${p[1]-b},${p[0]+b} ${p[1]+b},${p[0]-b} ${p[1]+b},${p[0]-b} ${p[1]-b}))`;
+    try {
+      const d = await _dafQuery("DAR", `query($t: DafDateTime, $n: String!, $w: String!) {
+        DAR_NavngivenVej(first: 5, virkningstid: $t, registreringstid: $t,
+          where: { vejnavn: { eq: $n }, status: { in: ["2","3"] },
+                   vejnavnebeliggenhed_vejnavnelinje: { intersects: { wkt: $w, crs: 25832 } } }) {
+          nodes { ${felter} }
         }
+      }`, { t: nu, n: v.vejnavn, w: kasse });
+      const wkt = d?.DAR_NavngivenVej?.nodes?.[0]?.vejnavnebeliggenhed_vejnavnelinje?.wkt;
+      const hel = wkt ? _tilMultiLinje(wellknown.parse(wkt)) : null;
+      if (hel) return hel;
+    } catch (e) {
+      console.warn("Hele vejens forløb kunne ikke hentes fra DAR — bruger postnummer-stykket:", e);
+    }
+  }
+  // Reserve: stykket i det valgte postnummer
+  return avGeo;
+}
+
+function doSearchRoad(query, listElement, inputField, which) {
+  const mit = ++_vejSoegSeq[which];
+  Promise.all([
+    avSoeg(query, 20).catch(err => { console.error("Vejsøgning (Adressevælger):", err); return []; }),
+    _darVejSoeg(query).catch(err => { console.error("Vejsøgning (DAR):", err); return []; })
+  ]).then(async ([av, dar]) => {
+    if (mit !== _vejSoegSeq[which]) return;   // et nyere tastetryk har overhalet os
+
+    // Adressevælgerens titel er "Kirkevej 2630 Taastrup"
+    const items = av.filter(f => f.type === "navngivenvejpostnummer").map(f => {
+      const m = String(f.tekst).match(/^(.*?)\s+(\d{4})\s+(.+)$/);
+      return {
+        kilde: "av", id: f.id, type: f.type,
+        vejnavn: m ? m[1] : f.tekst,
+        tekst:   m ? `${m[1]} (${m[2]} ${m[3]})` : f.tekst
+      };
+    });
+
+    // Veje uden adresser: DAR-veje hvis navn ikke er i Adressevælgerens liste
+    const avNavne = new Set(items.map(i => i.vejnavn.toLowerCase()));
+    const kunDar  = dar.filter(n => n.vejnavn && !avNavne.has(n.vejnavn.toLowerCase()));
+    if (kunDar.length) {
+      const kom = await _kommuneNavne();
+      if (mit !== _vejSoegSeq[which]) return;
+      kunDar.forEach(n => {
+        const k = kom[n.administreresAfKommune];
+        items.push({
+          kilde: "dar", id: n.id_lokalId, vejnavn: n.vejnavn,
+          tekst: `${n.vejnavn} (ingen adresser${k ? ", " + k : ""})`
+        });
       });
-      listElement.style.display = data.length > 0 ? "block" : "none";
-    })
-    .catch(err => console.error("Fejl i doSearchRoad:", err));
+    }
+
+    listElement.innerHTML = "";
+    if (which === "vej1") { vej1Items = []; vej1CurrentIndex = -1; }
+    else                  { vej2Items = []; vej2CurrentIndex = -1; }
+
+    items.forEach(item => {
+      const li = document.createElement("li");
+      li.textContent = item.tekst;
+      li.addEventListener("click", function() {
+        inputField.value = item.vejnavn;
+        listElement.innerHTML = "";
+        listElement.style.display = "none";
+        // Forløbet hentes i baggrunden; Find X venter på det
+        const valg = { vejnavn: item.vejnavn, kommunekode: "", vejkode: "", geometry: null };
+        valg.geometryPromise = _hentVejGeometri(item)
+          .then(g => { valg.geometry = g; return g; })
+          .catch(err => { console.error("Vejens forløb kunne ikke hentes:", err); return null; });
+        if (inputField.id === "vej1") selectedRoad1 = valg;
+        else if (inputField.id === "vej2") selectedRoad2 = valg;
+      });
+      listElement.appendChild(li);
+      if (which === "vej1") vej1Items.push(li);
+      else                  vej2Items.push(li);
+    });
+    listElement.style.display = items.length > 0 ? "block" : "none";
+  });
 }
 
 /***************************************************
@@ -3664,28 +3773,6 @@ function doSearch(query, listElement) {
 }
 
 /***************************************************
- * getNavngivenvejKommunedelGeometry
- ***************************************************/
-async function getNavngivenvejKommunedelGeometry(husnummerId) {
-  let url = `https://services.datafordeler.dk/DAR/DAR/3.0.0/rest/navngivenvejkommunedel?husnummer=${husnummerId}&MedDybde=true&format=json`;
-  try {
-    let r = await fetch(url);
-    let data = await r.json();
-    if (Array.isArray(data) && data.length > 0) {
-      let first = data[0];
-      if (first.navngivenVej && first.navngivenVej.vejnavnebeliggenhed_vejnavnelinje) {
-        let wktString = first.navngivenVej.vejnavnebeliggenhed_vejnavnelinje;
-        let geojson = wellknown.parse(wktString);
-        return geojson;
-      }
-    }
-  } catch (err) {
-    console.error("Fejl i getNavngivenvejKommunedelGeometry:", err);
-  }
-  return null;
-}
-
-/***************************************************
  * placeMarkerAndZoom – bruger createSelectionMarker
  ***************************************************/
 function placeMarkerAndZoom(coords, displayText) {
@@ -4037,6 +4124,8 @@ document.getElementById("findKrydsBtn").addEventListener("click", async function
     alert("Vælg venligst to veje først.");
     return;
   }
+  // Vejenes forløb hentes når de vælges — vent hvis det ikke er kommet endnu
+  await Promise.all([selectedRoad1.geometryPromise, selectedRoad2.geometryPromise]);
   if (!selectedRoad1.geometry || !selectedRoad2.geometry) {
     alert("Geometri ikke tilgængelig for en eller begge veje.");
     return;
