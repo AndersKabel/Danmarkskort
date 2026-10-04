@@ -3301,7 +3301,10 @@ function handleStrandpostClick(obj, listElement) {
   listElement.style.display = "none";
 
   let marker = currentMarker;
-  let revUrl = `${VD_PROXY}/daf/reverse?x=${obj.lon}&y=${obj.lat}`;
+  // Redningsnumre står ofte på stranden langt fra huse. DAWA gav altid den
+  // nærmeste adresse; /daf/reverse søger derfor her op til 5 km ud (maks),
+  // og afstanden vises, når adressen ikke ligger lige ved posten.
+  let revUrl = `${VD_PROXY}/daf/reverse?x=${obj.lon}&y=${obj.lat}&maks=5000`;
 
   fetch(revUrl)
     .then(r => r.json())
@@ -3310,7 +3313,19 @@ function handleStrandpostClick(obj, listElement) {
       const husnr       = revData?.adgangsadresse?.husnr       || revData?.husnr   || "";
       const postnr      = revData?.adgangsadresse?.postnr      || revData?.postnr  || "?";
       const postnrnavn  = revData?.adgangsadresse?.postnrnavn  || revData?.postnrnavn || "";
-      const adresseStr  = `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
+      let adresseStr    = `${vejnavn} ${husnr}, ${postnr} ${postnrnavn}`;
+      if (revData?.kilde === "adresse" && revData.afstand_m > 100) {
+        const afst = revData.afstand_m >= 1000
+          ? (revData.afstand_m / 1000).toFixed(1).replace(".", ",") + " km"
+          : revData.afstand_m + " m";
+        adresseStr = `Nærmeste adresse (ca. ${afst}):<br>${adresseStr}`;
+      } else if (revData?.kilde === "vej") {
+        adresseStr = `${vejnavn}${revData.kommunenavn ? ", " + revData.kommunenavn + " Kommune" : ""}<br>(ingen adresse inden for 5 km)`;
+      } else if (revData?.kilde === "ingen") {
+        adresseStr = "Ingen adresse inden for 5 km";
+      } else if (revData?.error) {
+        adresseStr = "Adresseopslag fejlede — prøv igen";
+      }
       const _f          = _adrFelter(revData);
       const evaFormat   = _evaFormat(_f);
       const notesFormat = _notesFormat(_f);
