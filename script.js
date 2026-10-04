@@ -463,25 +463,17 @@ async function resolveRouteCoord(text, cachedCoord) {
   if (!text || text.trim().length === 0) return null;
 
   try {
-    const url = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(text)}&per_side=1`;
-    const resp = await fetch(url);
-    const data = await resp.json();
+    // Adressevælgeren (DAWA lukkede 1/10-2026). Adresser foretrækkes frem
+    // for veje, når der er skrevet noget uden at vælge fra listen.
+    const fund = await avSoeg(text, 5);
+    const valgt = fund.find(f => f.type !== "navngivenvejpostnummer") || fund[0];
+    const coord = valgt ? await _avRuteKoord(valgt) : null;
+    if (coord) return coord;
 
-    if (!Array.isArray(data) || data.length === 0 || !data[0].adgangsadresse?.id) {
-      // Fald tilbage til ORS, hvis DF ikke finder noget
-      const orsCoord = await geocodeORSFirst(text);
-      if (orsCoord) return orsCoord;
-      return null;
-    }
-
-    const id = data[0].adgangsadresse.id;
-    const detailResp = await fetch(`https://api.dataforsyningen.dk/adgangsadresser/${id}`);
-    const detail = await detailResp.json();
-    const coords = detail.adgangspunkt?.koordinater;
-    if (!coords || coords.length < 2) return null;
-    const lon = coords[0];
-    const lat = coords[1];
-    return [lat, lon];
+    // Fald tilbage til ORS, hvis Adressevælgeren ikke finder noget
+    const orsCoord = await geocodeORSFirst(text);
+    if (orsCoord) return orsCoord;
+    return null;
   } catch (err) {
     console.error("Fejl i resolveRouteCoord:", err);
     // Sidste fallback: ORS
@@ -2980,13 +2972,35 @@ vej2Input.parentElement.querySelector(".clear-button").addEventListener("click",
 });
 
 /***************************************************
- * Rute-felter: søgning i Dataforsyningen
+ * Rute-felter: søgning i Adressevælgeren
+ * (DAWA's autocomplete lukkede 1/10-2026)
  ***************************************************/
+
+// Koordinater [lat, lon] for et søgeresultat fra Adressevælgeren.
+// Adresser: adgangspunktet. Veje: et punkt midt på vejens forløb i
+// postnummeret, så man også kan lave en rute til en vej uden husnummer.
+async function _avRuteKoord(f) {
+  const det = await avDetaljer(f.id, f.type);
+  if (f.type === "navngivenvejpostnummer") {
+    const g = det?.navngivenvejpostnummer?.geometri;
+    const linjer = !g ? [] : g.type === "LineString" ? [g.coordinates] : (g.coordinates || []);
+    const linje = linjer.reduce((a, b) => (b.length > a.length ? b : a), []);
+    const p = linje[Math.floor(linje.length / 2)];
+    if (!p) return null;
+    const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [Number(p[0]), Number(p[1])]);
+    return [lat, lon];
+  }
+  const k = _avKoordinater(det);
+  return k ? [k.lat, k.lon] : null;
+}
+
+const _ruteSoegSeq = { from: 0, to: 0, via: 0 };
+
 function doRouteSearch(query, listElement, type) {
-  let url = `https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=${encodeURIComponent(query)}&per_side=10`;
-  fetch(url)
-    .then(response => response.json())
+  const mit = ++_ruteSoegSeq[type];
+  avSoeg(query, 10)
     .then(data => {
+      if (mit !== _ruteSoegSeq[type]) return;   // et nyere tastetryk har overhalet os
       listElement.innerHTML = "";
 
       let itemsArray;
@@ -3006,7 +3020,8 @@ function doRouteSearch(query, listElement, type) {
 
       data.forEach(item => {
         let li = document.createElement("li");
-        li.textContent = item.tekst;
+        li.textContent = item.type === "navngivenvejpostnummer"
+          ? item.tekst + " (vej)" : item.tekst;
         li.addEventListener("click", function() {
           selectRouteSuggestion(item, type, listElement);
         });
@@ -3024,25 +3039,21 @@ function selectRouteSuggestion(item, type, listElement) {
   listElement.innerHTML = "";
   listElement.style.display = "none";
 
-  const adgangsId = item.adgangsadresse && item.adgangsadresse.id;
-  if (!adgangsId) {
-    console.error("Ingen adgangsadresse.id for rute-forslag");
+  if (!item || !item.id) {
+    console.error("Intet id for rute-forslag");
     return;
   }
-  const detailUrl = `https://api.dataforsyningen.dk/adgangsadresser/${adgangsId}`;
-  fetch(detailUrl)
-    .then(r => r.json())
-    .then(addr => {
-      let coords = addr.adgangspunkt?.koordinater;
-      if (!coords || coords.length < 2) return;
-      const lon = coords[0];
-      const lat = coords[1];
+  // Koordinaterne hentes i baggrunden. Trykkes der Start før de er
+  // kommet, slår planRouteORS selv teksten op (resolveRouteCoord).
+  _avRuteKoord(item)
+    .then(coord => {
+      if (!coord) return;
       if (type === "from") {
-        routeFromCoord = [lat, lon];
+        routeFromCoord = coord;
       } else if (type === "to") {
-        routeToCoord = [lat, lon];
+        routeToCoord = coord;
       } else {
-        routeViaCoord = [lat, lon];
+        routeViaCoord = coord;
       }
     })
     .catch(err => console.error("Fejl i selectRouteSuggestion:", err));
@@ -3478,8 +3489,9 @@ function quickStrandSearch(query) {
 function doSearch(query, listElement) {
   console.log("doSearch:", JSON.stringify(query), "| customPlaces:", customPlaces.length, customPlaces.map(p=>p.navn));
   let stedUrl = `https://api.dataforsyningen.dk/rest/gsearch/v2.0/stednavn?q=${encodeURIComponent(query)}&limit=50&token=a63a88838c24fc85d47f32cde0ec0144`;
-  const queryWithWildcard = query.trim().split(/\s+/).map(w => w + "*").join(" ");
-  let roadUrl = `https://api.dataforsyningen.dk/navngivneveje?q=${encodeURIComponent(queryWithWildcard)}&per_side=20`;
+  // DAWA's /navngivneveje lukkede 1/10-2026. Veje kommer nu med i
+  // Adressevælgerens resultater (addrPromise), så der hentes ikke længere
+  // en separat vejliste her.
 
   // Strandposter (kun når laget er tændt og data er klar)
   let strandPromiseBase = (map.hasLayer(redningsnrLayer) && strandposterReady)
@@ -3584,9 +3596,7 @@ function doSearch(query, listElement) {
       .then(r => r.json())
       .catch(err => { console.error("Stednavne fejl:", err); return {}; });
 
-    roadPromise = fetch(roadUrl)
-      .then(r => r.json())
-      .catch(err => { console.error("Navngivne veje fejl:", err); return []; });
+    roadPromise = Promise.resolve([]);
 
     strandPromise = strandPromiseBase;
 
