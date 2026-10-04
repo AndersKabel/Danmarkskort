@@ -1,0 +1,42 @@
+# Opdaterer kommuner.geojson og postnumre.geojson fra DAGI.
+# Kører den 1. i hver måned kl. 04:00 UTC og kan startes manuelt
+# (Actions -> "Opdater kommune- og postnummergrænser" -> Run workflow).
+# Fejler kontrollen i scriptet, ændres intet, og GitHub sender en mail.
+name: Opdater kommune- og postnummergrænser
+
+on:
+  schedule:
+    - cron: "0 4 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  opdater:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Installer biblioteker (kun til denne kørsel)
+        run: npm install --no-save --no-package-lock @turf/turf@7 proj4@2 wellknown@0.5
+
+      - name: Hent og forenkl grænser
+        run: node .github/scripts/opdater-graenser.mjs
+
+      - name: Commit hvis ændret
+        run: |
+          if git diff --quiet -- kommuner.geojson postnumre.geojson; then
+            echo "Ingen ændringer i grænserne."
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add kommuner.geojson postnumre.geojson
+            git commit -m "Opdater kommune- og postnummergrænser fra DAGI"
+            git push
+          fi
