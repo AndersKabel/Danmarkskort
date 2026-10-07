@@ -1131,6 +1131,7 @@ async function _levLoadPostnrMap() {
 function _levBindPopupHandlers(el) {
   if (!el) return;
   _levBindUadKnapper(el);
+  _levBindInfoRediger(el);
   el.querySelectorAll(".lev-popup-vogn-hdr-click").forEach(hdr => {
     if (hdr.dataset.handlerBound) return;
     hdr.dataset.handlerBound = "1";
@@ -1398,10 +1399,91 @@ function _levIcon(lev, katId, adr) {
 
 // Vigtig info om leverandoeren. Vises baade paa hovedadressen og alle
 // depoter, og med gul stribe saa den ikke overses under udkald.
-function _levInfoHTML(lev) {
+function _levInfoHTML(lev, redigerbar) {
   const t = String(lev?.info || "").trim();
-  if (!t) return "";
-  return `<div class="lev-popup-info">\u2139\uFE0F ${_esc(t)}</div>`;
+  if (!redigerbar) {
+    if (!t) return "";
+    return `<div class="lev-popup-info">\u2139\uFE0F ${_esc(t)}</div>`;
+  }
+  // Fuld popup: alle der er logget ind (også disponenter) kan rette infoen.
+  // Workeren skriver kun dette ene felt.
+  let rettet = "";
+  if (t && lev.infoOpdateret) {
+    const d = new Date(lev.infoOpdateret);
+    if (!isNaN(d)) rettet = `<span style="display:block;font-size:10px;color:#8a6d00;margin-top:2px">Rettet ${
+      d.toLocaleDateString("da-DK", { day: "numeric", month: "numeric" })} kl. ${
+      d.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })}</span>`;
+  }
+  return `<div class="lev-info-boks" data-levid="${_esc(lev.id)}">${
+    t
+      ? `<div class="lev-popup-info" style="display:flex;gap:6px;align-items:flex-start">
+           <span style="flex:1">\u2139\uFE0F ${_esc(t).replace(/\n/g, "<br>")}${rettet}</span>
+           <button class="lev-info-rediger" title="Ret info"
+             style="border:none;background:none;cursor:pointer;font-size:13px;padding:0 2px">✏️</button>
+         </div>`
+      : `<button class="lev-info-rediger"
+           style="border:none;background:none;color:#2980b9;cursor:pointer;font-size:12px;padding:4px 8px">＋ Tilføj info</button>`
+  }</div>`;
+}
+
+// Redigering af infoen direkte i popuppen
+function _levBindInfoRediger(el) {
+  el.querySelectorAll(".lev-info-rediger").forEach(btn => {
+    if (btn.dataset.handlerBound) return;
+    btn.dataset.handlerBound = "1";
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      const boks = btn.closest(".lev-info-boks");
+      const lev  = (_levData || []).find(l => l.id === boks?.dataset.levid);
+      if (!boks || !lev) return;
+      boks.innerHTML = `
+        <div class="lev-popup-info" style="display:block">
+          <textarea class="lev-info-tekst" rows="3" maxlength="1000"
+            style="width:100%;box-sizing:border-box;font-size:12px;padding:4px;border:1px solid #d4b106;border-radius:4px;resize:vertical"
+            placeholder="fx midlertidigt vagtnummer eller særlige aftaler">${_esc(lev.info || "")}</textarea>
+          <div style="display:flex;gap:6px;margin-top:4px;align-items:center">
+            <button class="lev-info-gem" style="font-size:12px;padding:3px 10px;cursor:pointer">💾 Gem</button>
+            <button class="lev-info-annuller" style="font-size:12px;padding:3px 10px;cursor:pointer">Annullér</button>
+            <span class="lev-info-status" style="font-size:11px;color:#c0392b"></span>
+          </div>
+          <div style="font-size:10px;color:#8a6d00;margin-top:3px">Vises på alle leverandørens markører. Tom tekst fjerner infoen.</div>
+        </div>`;
+      const ta = boks.querySelector(".lev-info-tekst");
+      // Tastetryk må ikke nå kortet (fx +/- der zoomer)
+      L.DomEvent.on(ta, "keydown keypress keyup mousedown dblclick", L.DomEvent.stopPropagation);
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+
+      const visIgen = () => {
+        boks.outerHTML = _levInfoHTML(lev, true);
+        const ny = document.querySelector(`.leaflet-popup .lev-info-boks[data-levid="${CSS.escape(lev.id)}"]`);
+        if (ny) _levBindInfoRediger(ny.parentElement || ny);
+      };
+      boks.querySelector(".lev-info-annuller").addEventListener("click", ev => { ev.stopPropagation(); visIgen(); });
+      boks.querySelector(".lev-info-gem").addEventListener("click", async ev => {
+        ev.stopPropagation();
+        const gemBtn = boks.querySelector(".lev-info-gem");
+        const status = boks.querySelector(".lev-info-status");
+        gemBtn.disabled = true; gemBtn.textContent = "⏳ Gemmer…"; status.textContent = "";
+        try {
+          const r = await _levSpFetch("/leverandoerer/info", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ levId: lev.id, info: ta.value })
+          });
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok || !data.ok) throw new Error(data.error || "HTTP " + r.status);
+          // Opdater den lokale kopi — alle leverandørens popups bygges ud fra den
+          lev.info = data.info;
+          lev.infoOpdateret = data.infoOpdateret;
+          visIgen();
+        } catch (err) {
+          gemBtn.disabled = false; gemBtn.textContent = "💾 Gem";
+          status.textContent = "Kunne ikke gemme: " + err.message;
+        }
+      });
+    });
+  });
 }
 
 // Mini popup (hover): kun navn, tlf, email
@@ -1438,7 +1520,7 @@ function _levFullPopupHTML(lev, adr) {
       ${adr.label ? `<span class="lev-popup-sub">${_esc(adr.label)}</span>` : ""}
     </div>
     ${_levUadHTML(_levUadStatus(lev, adr, null))}
-    ${_levInfoHTML(lev)}
+    ${_levInfoHTML(lev, true)}
     <div class="lev-popup-row">📍 ${_esc(adr.vej)}, ${_esc(adr.postnr)} ${_esc(adr.by)}</div>
     <div class="lev-uad-knapper">
       <button class="lev-uad-btn" data-uadlev="${_esc(lev.id)}"
