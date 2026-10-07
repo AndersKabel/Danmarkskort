@@ -1809,7 +1809,8 @@ map.on('overlayremove', function(e) {
   }
 });
 
-L.control.zoom({ position: 'bottomright' }).addTo(map);
+// Nederst til venstre sammen med Mål — højre side er optaget af Disp-panelet
+L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
 /***************************************************
  * Kommune­data hentet fra "Kommuner.xlsx"
