@@ -345,9 +345,21 @@
     .ov-sw { width: 16px; height: 10px; border-radius: 2px; display: inline-block; }
     .ov-scroll { overflow-x: auto; }
     .ov-tabel { min-width: 560px; }
+    /* Første kolonne bliver stående, når tidslinjen scrolles sidelæns */
+    .ov-hoved > div:first-child, .ov-vogn {
+      position: sticky; left: 0; z-index: 5; background: #fff;
+      box-shadow: 6px 0 6px -6px rgba(0,0,0,.15);
+    }
+    .ov-raekke:hover .ov-vogn { background: #f8fafc; }
+    .ov-dage div.mandag { border-left: 2px solid #cbd5e1; }
+    .ov-linje .ov-dagstreg.mandag { width: 2px; background: #cbd5e1; }
+    .ov-periode { display: inline-flex; border: 1px solid #d1d5db; border-radius: 8px; overflow: hidden; }
+    .ov-periode button { border: none; background: #fff; padding: 6px 10px; font-size: 12px; cursor: pointer; color: #374151; }
+    .ov-periode button + button { border-left: 1px solid #d1d5db; }
+    .ov-periode button.aktiv { background: #1d4ed8; color: #fff; font-weight: 600; }
     .ov-hoved, .ov-raekke { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; }
     .ov-hoved { font-size: 11px; color: #6b7280; padding-bottom: 4px; border-bottom: 1px solid #e5e7eb; }
-    .ov-dage { display: grid; grid-template-columns: repeat(7, 1fr); }
+    .ov-dage { display: grid; grid-template-columns: repeat(var(--ov-dage, 7), 1fr); }
     .ov-dage div { text-align: center; border-left: 1px solid #e5e7eb; }
     .ov-dage div.idag { font-weight: 700; color: #1d4ed8; }
     .ov-raekke { padding: 8px 0; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
@@ -387,6 +399,11 @@
   <div class="card">
     <div class="ov-top">
       <h2 id="ov-titel">Alle vogne</h2>
+      <div class="ov-periode" id="ov-periode">
+        <button data-dage="7">1 uge</button>
+        <button data-dage="14">2 uger</button>
+        <button data-dage="28">4 uger</button>
+      </div>
       <button class="btn btn-gray ov-mini" id="btn-ov-opdater">↻ Opdater</button>
       <button class="btn btn-gray ov-mini" id="btn-ov-logout">Log ud</button>
     </div>
@@ -1369,8 +1386,25 @@
   // ══ VOGNMANDENS OVERSIGT ═════════════════════════════════════
   // Alle leverandørens vogne: status nu + de næste 7 dage. Kræver
   // ejerkoden; serveren afviser vognkoder med 403.
-  const OV_DAGE = 7;
+  // Perioden vælges med knapperne (1, 2 eller 4 uger) og huskes
+  let OV_DAGE = [7, 14, 28].includes(+localStorage.getItem("lev_ov_dage"))
+    ? +localStorage.getItem("lev_ov_dage") : 7;
+  const OV_DAG_BREDDE = 56;   // px pr. dag ved mere end 1 uge (så der scrolles)
   let _ovData = null;
+
+  function ovMarkerPeriode() {
+    document.querySelectorAll("#ov-periode button").forEach(b =>
+      b.classList.toggle("aktiv", +b.dataset.dage === OV_DAGE));
+  }
+  ovMarkerPeriode();
+  document.querySelectorAll("#ov-periode button").forEach(b => {
+    b.addEventListener("click", () => {
+      OV_DAGE = +b.dataset.dage;
+      try { localStorage.setItem("lev_ov_dage", String(OV_DAGE)); } catch (e) {}
+      ovMarkerPeriode();
+      hentOversigt();
+    });
+  });
 
   document.getElementById("btn-til-oversigt").addEventListener("click", showOversigt);
   document.getElementById("btn-ov-opdater").addEventListener("click", hentOversigt);
@@ -1388,7 +1422,7 @@
     const fb = document.getElementById("ov-feedback");
     fb.className = "feedback";
     try {
-      const r = await fetch(`${WORKER}/tilgaengelig/oversigt?vognNr=${encodeURIComponent(_vognNr)}&code=${encodeURIComponent(_code)}`);
+      const r = await fetch(`${WORKER}/tilgaengelig/oversigt?vognNr=${encodeURIComponent(_vognNr)}&code=${encodeURIComponent(_code)}&dage=${OV_DAGE}`);
       if (r.status === 401) { doLogout(); showFb(document.getElementById("login-feedback"), "err", "Log ind igen – adgangskoden er ændret."); return; }
       if (r.status === 403) { _rolle = "vogn"; sessionStorage.setItem("lev_rolle", "vogn"); showMain(); return; }
       if (!r.ok) throw new Error("HTTP " + r.status);
@@ -1467,10 +1501,13 @@
     const dageHtml = Array.from({ length: OV_DAGE }, (_, i) => {
       const d = new Date(start); d.setDate(d.getDate() + i);
       const navn = d.toLocaleDateString("da-DK", { weekday: "short" }).replace(".", "");
-      return `<div class="${i === 0 ? "idag" : ""}">${esc(navn)} ${d.getDate()}/${d.getMonth() + 1}</div>`;
+      const kl = [i === 0 ? "idag" : "", (i > 0 && d.getDay() === 1) ? "mandag" : ""].join(" ").trim();
+      return `<div class="${kl}">${esc(navn)} ${d.getDate()}/${d.getMonth() + 1}</div>`;
     }).join("");
-    const streger = Array.from({ length: OV_DAGE - 1 }, (_, i) =>
-      `<div class="ov-dagstreg" style="left:${((i + 1) / OV_DAGE * 100).toFixed(3)}%"></div>`).join("");
+    const streger = Array.from({ length: OV_DAGE - 1 }, (_, i) => {
+      const d = new Date(start); d.setDate(d.getDate() + i + 1);
+      return `<div class="ov-dagstreg${d.getDay() === 1 ? " mandag" : ""}" style="left:${((i + 1) / OV_DAGE * 100).toFixed(3)}%"></div>`;
+    }).join("");
     const nuPct = pct(Date.now());
 
     const blok = (klasse, a, b, tekst) => {
@@ -1498,7 +1535,11 @@
       </div>`;
     }).join("");
 
-    document.getElementById("ov-tabel").innerHTML = vogne.length
+    const tabel = document.getElementById("ov-tabel");
+    // 1 uge passer i bredden; længere perioder får fast dagbredde og scroll
+    tabel.style.minWidth = OV_DAGE > 7 ? (160 + OV_DAGE * OV_DAG_BREDDE) + "px" : "";
+    tabel.style.setProperty("--ov-dage", OV_DAGE);
+    tabel.innerHTML = vogne.length
       ? `<div class="ov-hoved"><div>Vogn · nu</div><div class="ov-dage">${dageHtml}</div></div>${raekker}`
       : `<div class="ov-tom">Ingen vogne fundet.</div>`;
 
