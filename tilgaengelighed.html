@@ -344,6 +344,9 @@
     .ov-legend span { display: inline-flex; align-items: center; gap: 5px; }
     .ov-sw { width: 16px; height: 10px; border-radius: 2px; display: inline-block; }
     .ov-scroll { overflow-x: auto; }
+    /* Ekstra scrollbar over tabellen — følger den nederste */
+    .ov-scroll-top { overflow-x: auto; overflow-y: hidden; height: 16px; margin-bottom: 4px; }
+    .ov-scroll-top div { height: 1px; }
     .ov-tabel { min-width: 560px; }
     /* Første kolonne bliver stående, når tidslinjen scrolles sidelæns */
     .ov-hoved > div:first-child, .ov-vogn {
@@ -413,7 +416,8 @@
       <span><i class="ov-sw" style="background:#ef4444"></i>Fravær</span>
       <span><i class="ov-sw" style="background:#1d4ed8;width:3px"></i>Nu</span>
     </div>
-    <div class="ov-scroll"><div class="ov-tabel" id="ov-tabel">
+    <div class="ov-scroll-top hidden" id="ov-scroll-top"><div id="ov-scroll-top-indhold"></div></div>
+    <div class="ov-scroll" id="ov-scroll"><div class="ov-tabel" id="ov-tabel">
       <div class="ov-tom">Henter vogne…</div>
     </div></div>
     <div style="font-size:12px;color:#6b7280;margin-top:10px">
@@ -1546,7 +1550,28 @@
     document.querySelectorAll("#ov-tabel .ov-raekke").forEach(el => {
       el.addEventListener("click", () => aabnVogn(el.dataset.vognnr));
     });
+    ovTilpasTopScroll();
   }
+
+  // Den øverste scrollbar har et tomt indhold med samme bredde som tabellen,
+  // så de to bjælker er lige lange. De holdes i takt i begge retninger.
+  const _ovScroll    = document.getElementById("ov-scroll");
+  const _ovScrollTop = document.getElementById("ov-scroll-top");
+  function ovTilpasTopScroll() {
+    document.getElementById("ov-scroll-top-indhold").style.width = _ovScroll.scrollWidth + "px";
+    _ovScrollTop.classList.toggle("hidden", _ovScroll.scrollWidth <= _ovScroll.clientWidth + 1);
+    _ovScrollTop.scrollLeft = _ovScroll.scrollLeft;
+  }
+  // Kun når positionerne er forskellige — så kan de ikke skubbe til hinanden i ring
+  _ovScroll.addEventListener("scroll", () => {
+    if (_ovScrollTop.scrollLeft !== _ovScroll.scrollLeft) _ovScrollTop.scrollLeft = _ovScroll.scrollLeft;
+  });
+  _ovScrollTop.addEventListener("scroll", () => {
+    if (_ovScroll.scrollLeft !== _ovScrollTop.scrollLeft) _ovScroll.scrollLeft = _ovScrollTop.scrollLeft;
+  });
+  window.addEventListener("resize", () => {
+    if (!document.getElementById("screen-oversigt").classList.contains("hidden")) ovTilpasTopScroll();
+  });
 
   // Skift til en vogns egen side med samme (ejer)kode
   function aabnVogn(vognNr) {
