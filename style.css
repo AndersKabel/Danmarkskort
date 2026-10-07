@@ -616,9 +616,9 @@ input[type="search"]::-webkit-search-decoration { display: none; }
 }
 /* ──────────────────── Måleværktøj ──────────────────── */
 .maal-btn {
-  /* Ligger vandret til venstre for zoomknapperne, på samme linje nederst
-     til højre — så den ikke dækker for panelet i højre side */
-  position: fixed; bottom: 30px; right: 86px; z-index: 1100;
+  /* Ligger vandret til højre for zoomknapperne, nederst i VENSTRE side,
+     så den ikke dækker for Disp-panelet (og Log ud) i højre side */
+  position: fixed; bottom: 50px; left: 82px; z-index: 1100;
   height: 30px; box-sizing: border-box;
   background: #fff; border: 1px solid #cdd5df; border-radius: 6px;
   padding: 0 10px; font-size: 13px; font-weight: 600; cursor: pointer;
@@ -626,24 +626,28 @@ input[type="search"]::-webkit-search-decoration { display: none; }
   line-height: 28px; white-space: nowrap;
 }
 
+/* Nederst til venstre: løft Leaflets kontroller (zoom, km-forklaring) over
+   kommunekode/vejkode-teksten, der ligger helt nede ved kanten */
+.leaflet-bottom.leaflet-left { bottom: 40px; }
+
 /* Zoomknapperne (+/−) side om side i stedet for oven på hinanden */
-.leaflet-bottom.leaflet-right .leaflet-control-zoom {
+.leaflet-bottom.leaflet-left .leaflet-control-zoom {
   display: flex; flex-direction: row;
 }
-.leaflet-bottom.leaflet-right .leaflet-control-zoom a {
+.leaflet-bottom.leaflet-left .leaflet-control-zoom a {
   border-bottom: none;
 }
-.leaflet-bottom.leaflet-right .leaflet-control-zoom a.leaflet-control-zoom-in {
+.leaflet-bottom.leaflet-left .leaflet-control-zoom a.leaflet-control-zoom-in {
   border-radius: 4px 0 0 4px; border-right: 1px solid #ccc;
 }
-.leaflet-bottom.leaflet-right .leaflet-control-zoom a.leaflet-control-zoom-out {
+.leaflet-bottom.leaflet-left .leaflet-control-zoom a.leaflet-control-zoom-out {
   border-radius: 0 4px 4px 0;
 }
 .maal-btn:hover { background: #f0f4f8; }
 .maal-btn-aktiv { background: #e67e22; color: #fff; border-color: #d35400; }
 
 .maal-panel {
-  position: fixed; bottom: 70px; right: 10px; z-index: 1100; width: 250px;
+  position: fixed; bottom: 90px; left: 10px; z-index: 1100; width: 250px;
   background: rgba(255,255,255,0.97); border: 1px solid #cdd5df;
   border-radius: 8px; padding: 10px 12px; font-size: 13px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.2);
@@ -700,6 +704,6 @@ input[type="search"]::-webkit-search-decoration { display: none; }
 }
 
 @media (max-width: 768px) {
-  .maal-btn   { bottom: 30px; right: 84px; padding: 0 8px; font-size: 12px; }
-  .maal-panel { width: auto; left: 8px; right: 8px; bottom: 70px; }
+  .maal-btn   { bottom: 50px; left: 80px; padding: 0 8px; font-size: 12px; }
+  .maal-panel { width: auto; left: 8px; right: 8px; bottom: 90px; }
 }
