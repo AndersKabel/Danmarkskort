@@ -979,6 +979,7 @@ async function _levEnsureDisponering() {
 // — BRUGSSTATISTIK —─────────────────
 // Kun admin. Workeren tæller logins pr. døgn (dansk midnat) i KV.
 let _levStatHentet = false;
+let _levStatData   = null;   // seneste svar fra /stats — bruges af login-loggen
 
 async function _levHentStat() {
   const boks = document.getElementById("levStatBoks");
@@ -995,6 +996,7 @@ async function _levHentStat() {
     if (!r.ok) throw new Error("HTTP " + r.status);
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || "ukendt fejl");
+    _levStatData = data;
     _levStatVis(data);
     _levStatHentet = true;
   } catch (e) {
@@ -1038,7 +1040,97 @@ function _levStatVis(data) {
     + `<div style="font-size:10.5px;color:#8a97a5;margin-top:4px">`
     + `${total} logins over 14 døgn</div>`
     + `<div style="font-size:10px;color:#a8b4c0;margin-top:2px;line-height:1.4">`
-    + `Døgn fra midnat dansk tid. Tæller logins, ikke personer.</div>`;
+    + `Døgn fra midnat dansk tid. Tæller logins, ikke personer.</div>`
+    + `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">`
+    + `<button id="levStatLogBtn" style="font-size:11px;padding:3px 8px;cursor:pointer;border:1px solid #cdd5df;`
+    +   `border-radius:4px;background:#f7f9fb;color:#2c3e50">📋 Vis log</button>`
+    + (idag.fejl ? `<span style="font-size:10.5px;color:#c0392b">❌ ${idag.fejl} fejlede i dag</span>` : "")
+    + `</div>`;
+  document.getElementById("levStatLogBtn")?.addEventListener("click", _levLoginLogVis);
+}
+
+// ── Login-log ────────────────────────────────────────────────────
+// Tidspunkt og rolle for hvert login og hvert fejlet forsøg, de seneste
+// 14 døgn. Kun admin (data kommer fra /stats). Ingen IP-adresser gemmes.
+const _LEV_LOG_ROLLER = {
+  admin:    { tekst: "Admin",             farve: "#8e44ad" },
+  drift:    { tekst: "Driftkoordinator",  farve: "#2980b9" },
+  read:     { tekst: "Disponent",         farve: "#27ae60" },
+  fejl:     { tekst: "❌ Forkert kode",    farve: "#c0392b" },
+  spaerret: { tekst: "⛔ Spærret – for mange forsøg", farve: "#c0392b" }
+};
+
+function _levLoginLogVis() {
+  document.getElementById("levLoginLogOverlay")?.remove();
+  const o = document.createElement("div");
+  o.id = "levLoginLogOverlay";
+  o.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:3000;"
+    + "display:flex;align-items:center;justify-content:center;padding:16px";
+  o.innerHTML = `
+    <div style="background:#fff;border-radius:10px;width:100%;max-width:440px;max-height:80vh;
+                display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,.25)">
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #e6eaee">
+        <b style="flex:1;font-size:14px;color:#2c3e50">📋 Login-log – 14 døgn</b>
+        <label style="font-size:11.5px;color:#5a6a7a;display:flex;gap:4px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="levLogKunFejl"> Kun fejlede</label>
+        <button id="levLogOpdater" title="Opdater" style="border:none;background:none;cursor:pointer;font-size:14px">↻</button>
+        <button id="levLogLuk" title="Luk" style="border:none;background:none;cursor:pointer;font-size:16px">✕</button>
+      </div>
+      <div id="levLogListe" style="overflow-y:auto;padding:6px 14px 12px;font-size:12.5px"></div>
+      <div style="padding:8px 14px;border-top:1px solid #e6eaee;font-size:10.5px;color:#8a97a5;line-height:1.4">
+        Dansk tid. Koderne er fælles pr. rolle, så loggen viser hvornår og hvilken rolle — ikke hvem.
+      </div>
+    </div>`;
+  document.body.appendChild(o);
+
+  const luk = () => o.remove();
+  o.addEventListener("click", e => { if (e.target === o) luk(); });
+  document.getElementById("levLogLuk").addEventListener("click", luk);
+  document.getElementById("levLogKunFejl").addEventListener("change", _levLoginLogTegn);
+  document.getElementById("levLogOpdater").addEventListener("click", async () => {
+    document.getElementById("levLogListe").innerHTML =
+      `<div style="color:#8a97a5;padding:8px 0">⏳ Henter…</div>`;
+    await _levHentStat();
+    _levLoginLogTegn();
+  });
+  _levLoginLogTegn();
+}
+
+function _levLoginLogTegn() {
+  const liste = document.getElementById("levLogListe");
+  if (!liste) return;
+  const kunFejl = document.getElementById("levLogKunFejl")?.checked;
+  const dage = (_levStatData && _levStatData.dage) || [];
+
+  const html = dage.map(dg => {
+    let linjer = (dg.log || []).slice()
+      .sort((a, b) => String(b.t).localeCompare(String(a.t)));   // nyeste øverst
+    if (kunFejl) linjer = linjer.filter(l => l.r === "fejl" || l.r === "spaerret");
+    if (!linjer.length) return "";
+    const datoTekst = new Date(dg.dato + "T12:00:00").toLocaleDateString("da-DK",
+      { weekday: "long", day: "numeric", month: "long" });
+    const raekker = linjer.map(l => {
+      const rolle = _LEV_LOG_ROLLER[l.r] || { tekst: l.r, farve: "#5a6a7a" };
+      const kl = new Date(l.t).toLocaleTimeString("da-DK",
+        { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Europe/Copenhagen" });
+      return `<div style="display:flex;gap:10px;padding:3px 0;border-bottom:1px solid #f3f5f7">
+        <span style="font-variant-numeric:tabular-nums;color:#5a6a7a;min-width:62px">${_esc(kl)}</span>
+        <span style="color:${rolle.farve};font-weight:600">${_esc(rolle.tekst)}</span>
+      </div>`;
+    }).join("");
+    const fuld = dg.logFuld
+      ? `<div style="font-size:10.5px;color:#c0392b;padding:3px 0">Loggen for dagen er fuld (500 linjer) — senere linjer er ikke gemt.</div>` : "";
+    return `<div style="margin-top:8px">
+      <div style="font-weight:700;color:#2c3e50;padding:4px 0;text-transform:capitalize">${_esc(datoTekst)}
+        <span style="font-weight:400;color:#8a97a5;text-transform:none"> · ${dg.logins || 0} logins${
+          dg.fejl ? `, ${dg.fejl} fejlede` : ""}</span></div>
+      ${raekker}${fuld}
+    </div>`;
+  }).join("");
+
+  liste.innerHTML = html || `<div style="color:#8a97a5;padding:10px 0">${
+    kunFejl ? "Ingen fejlede forsøg i perioden." :
+    "Ingen logins registreret endnu. Loggen starter fra nu — ældre dage har kun tallene."}</div>`;
 }
 
 function _levVisAdminKnapper(role) {
