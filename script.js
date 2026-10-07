@@ -3715,7 +3715,9 @@ function doSearch(query, listElement) {
       if (obj.type === "strandpost") {
         labelSpan.innerHTML = `🛟 ${obj.tekst}`;
       } else if (obj.type === "adresse") {
-        labelSpan.innerHTML = `🏠 ${obj.tekst}`;
+        // Adressevælgeren leverer også veje uden husnummer
+        const ikon = obj.avType === "navngivenvejpostnummer" ? "🛤️" : "🏠";
+        labelSpan.innerHTML = `${ikon} ${obj.tekst}`;
       } else if (obj.type === "navngivenvej") {
         const pnrTekst = (obj.postnumre || []).map(p => p.nr + " " + p.navn).join(" · ");
         labelSpan.innerHTML = `🛤️ ${obj.navn}${pnrTekst ? ` <span style="color:#888;font-size:11px">(${pnrTekst})</span>` : ""}`;
@@ -3741,7 +3743,51 @@ function doSearch(query, listElement) {
       li.appendChild(labelSpan);
 
       labelSpan.addEventListener("click", function() {
-                if (obj.type === "adresse" && obj.adresseId) {
+                if (obj.type === "adresse" && obj.adresseId && obj.avType === "navngivenvejpostnummer") {
+          // Vej uden husnummer: Adressevælgeren har ingen adgangspunkt, men
+          // vejens forløb i postnummeret. Markøren sættes midt på vejen, og
+          // kortet zoomer, så hele vejstykket kan ses.
+          avDetaljer(obj.adresseId, obj.avType)
+            .then(det => {
+              const v = det?.navngivenvejpostnummer || {};
+              const g = v.geometri;
+              const linjer = !g ? [] : g.type === "LineString" ? [g.coordinates] : (g.coordinates || []);
+              const tilLatLng = p => {
+                const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [Number(p[0]), Number(p[1])]);
+                return [lat, lon];
+              };
+              const alle = linjer.flat().map(tilLatLng);
+              const laengste = linjer.reduce((a, b) => (b.length > a.length ? b : a), []);
+              const midt = laengste.length ? tilLatLng(laengste[Math.floor(laengste.length / 2)]) : null;
+              if (!midt) {
+                console.error("Intet vejforløb i Adressevælger-svar:", det);
+                return;
+              }
+              const [lat, lon] = midt;
+              setCoordinateBox(lat, lon);
+              placeMarkerAndZoom([lat, lon], obj.tekst, true);
+              if (alle.length > 1) map.fitBounds(L.latLngBounds(alle), { padding: [40, 40], maxZoom: 16 });
+              else map.setView([lat, lon], 16);
+
+              // Infoboksen: vejnavn og postnummer herfra. Kommune og
+              // politikreds henter updateInfoBox selv (/daf/reverse) ud fra
+              // punktet, fordi data ikke har feltet "kilde".
+              updateInfoBox({
+                vejnavn: v.vejnavn || "",
+                husnr: "",
+                postnr: v.postnr || "",
+                postnrnavn: v.postdistrikt || "",
+                adressebetegnelse: [v.vejnavn, [v.postnr, v.postdistrikt].filter(Boolean).join(" ")]
+                  .filter(Boolean).join(", ")
+              }, lat, lon);
+
+              resultsList.innerHTML = "";
+              resultsList.style.display = "none";
+              vej1List.innerHTML = "";
+              vej2List.innerHTML = "";
+            })
+            .catch(err => console.error("Fejl ved opslag af vej:", err));
+        } else if (obj.type === "adresse" && obj.adresseId) {
           // Adressevælgeren leverer ikke koordinater i søgesvaret, så de
           // hentes her på det valgte resultat og omregnes fra UTM32.
           avDetaljer(obj.adresseId, obj.avType)
