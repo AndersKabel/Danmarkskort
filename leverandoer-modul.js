@@ -1028,8 +1028,16 @@ function _levStatVis(data) {
         background:${iDag ? "#27ae60" : "#9fb3c8"}"></div></div>`;
   }).join("");
 
+  // Sammenfoldet som standard: én linje, så admin-panelet ikke bliver
+  // længere end disponenternes. Klik folder ud; valget huskes.
+  const aaben = localStorage.getItem("lev_stat_aaben") === "1";
   boks.innerHTML =
-      `<div style="font-size:11.5px;font-weight:700;color:#5a6a7a;margin-bottom:4px">📊 Brug i dag</div>`
+      `<div id="levStatHoved" style="font-size:11.5px;font-weight:700;color:#5a6a7a;cursor:pointer;`
+    +   `display:flex;align-items:center;gap:6px;user-select:none" title="Fold ud / ind">`
+    +   `<span style="flex:1">📊 Brug i dag · <span style="color:#27ae60">${idag.logins || 0}</span> logins`
+    +   (idag.fejl ? ` <span style="color:#c0392b;font-weight:600">· ❌ ${idag.fejl}</span>` : "")
+    +   `</span><span id="levStatPil" style="font-size:10px">${aaben ? "▾" : "▸"}</span></div>`
+    + `<div id="levStatIndhold" style="display:${aaben ? "block" : "none"};margin-top:4px">`
     + `<div style="display:flex;align-items:baseline;gap:6px">`
     + `<span style="font-size:22px;font-weight:700;color:#27ae60">${idag.logins || 0}</span>`
     + `<span style="font-size:11px;color:#8a97a5">logins</span></div>`
@@ -1045,8 +1053,16 @@ function _levStatVis(data) {
     + `<button id="levStatLogBtn" style="font-size:11px;padding:3px 8px;cursor:pointer;border:1px solid #cdd5df;`
     +   `border-radius:4px;background:#f7f9fb;color:#2c3e50">📋 Vis log</button>`
     + (idag.fejl ? `<span style="font-size:10.5px;color:#c0392b">❌ ${idag.fejl} fejlede i dag</span>` : "")
-    + `</div>`;
+    + `</div>`
+    + `</div>`;   // slut levStatIndhold
   document.getElementById("levStatLogBtn")?.addEventListener("click", _levLoginLogVis);
+  document.getElementById("levStatHoved")?.addEventListener("click", () => {
+    const ind = document.getElementById("levStatIndhold");
+    const vis = ind.style.display === "none";
+    ind.style.display = vis ? "block" : "none";
+    document.getElementById("levStatPil").textContent = vis ? "▾" : "▸";
+    try { localStorage.setItem("lev_stat_aaben", vis ? "1" : "0"); } catch (e) {}
+  });
 }
 
 // ── Login-log ────────────────────────────────────────────────────
