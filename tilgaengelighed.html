@@ -405,6 +405,7 @@
       <div class="ov-periode" id="ov-periode">
         <button data-dage="7">1 uge</button>
         <button data-dage="14">2 uger</button>
+        <button data-dage="21">3 uger</button>
         <button data-dage="28">4 uger</button>
       </div>
       <button class="btn btn-gray ov-mini" id="btn-ov-opdater">↻ Opdater</button>
@@ -1390,8 +1391,8 @@
   // ══ VOGNMANDENS OVERSIGT ═════════════════════════════════════
   // Alle leverandørens vogne: status nu + de næste 7 dage. Kræver
   // ejerkoden; serveren afviser vognkoder med 403.
-  // Perioden vælges med knapperne (1, 2 eller 4 uger) og huskes
-  let OV_DAGE = [7, 14, 28].includes(+localStorage.getItem("lev_ov_dage"))
+  // Perioden vælges med knapperne (1, 2, 3 eller 4 uger) og huskes
+  let OV_DAGE = [7, 14, 21, 28].includes(+localStorage.getItem("lev_ov_dage"))
     ? +localStorage.getItem("lev_ov_dage") : 7;
   const OV_DAG_BREDDE = 56;   // px pr. dag ved mere end 1 uge (så der scrolles)
   let _ovData = null;
