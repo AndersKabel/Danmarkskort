@@ -1211,6 +1211,8 @@ async function _levLoad() {
     _levData   = data.leverandoerer || [];
     _levLoaded = true;
     _levBuildMarkers();
+    // Leverandørvogne med kategori (fx TMA) står også på kategorilagene
+    if (typeof _enhedRenderDebounced === "function") _enhedRenderDebounced(50);
   } catch (e) {
     console.warn("Leverandørmodul: load fejlede", e);
   }
@@ -2195,6 +2197,25 @@ function _levAppendAdrRow(container, a = {}) {
   });
 }
 
+// Kategorier på en leverandørvogn (TMA, Tavletrailer …). Samme liste som
+// egne enheder, så vognen kommer med på kategorilaget. Overkategorier med
+// underkategorier (fx Dyreredning) vælges via underkategorierne.
+function _levVognKatHTML(v) {
+  const valgte = v.kategorier || [];
+  const harBoern = id => EGNE_KATEGORIER.some(k => k.foralderId === id);
+  const kats = EGNE_KATEGORIER.filter(k => !harBoern(k.id));
+  if (!kats.length) return "";
+  return `<div style="margin:6px 0 2px">
+    <div style="font-size:12px;font-weight:600;color:#2c3e50;margin-bottom:3px">🏷️ Vises på kategori
+      <span style="font-weight:400;color:#aaa;font-size:11px">(valgfri — fx TMA)</span></div>
+    <div class="v-kategorier" style="display:flex;flex-wrap:wrap;gap:4px 12px">
+      ${kats.map(k => `<label style="font-size:12px;font-weight:400;display:inline-flex;align-items:center;gap:4px;margin:0">
+        <input type="checkbox" class="v-kat" value="${_esc(k.id)}" ${valgte.includes(k.id) ? "checked" : ""}>
+        ${k.ikon} ${_esc(k.navn)}</label>`).join("")}
+    </div>
+  </div>`;
+}
+
 // Tilfældig kode uden tegn der kan forveksles (0/O, 1/l/i)
 function _levNyKode() {
   const tegn = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -2242,6 +2263,7 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
     <label>📞 Telefon (vognens eget nummer)
       <input type="text" class="v-telefon" value="${_esc(v.telefon)}" placeholder="fx 20 12 34 56">
     </label>
+    ${_levVognKatHTML(v)}
     <label>🔑 Vognkode <span style="font-weight:400;color:#aaa;font-size:11px">(valgfri — så kan chaufføren kun se denne vogn)</span>
       <div class="lev-row" style="gap:8px;margin-top:4px">
         <input type="text" class="v-vognkode" value="${_esc(v.vognKode || "")}" placeholder="tom = leverandørens fælles kode" style="flex:1">
@@ -2447,6 +2469,7 @@ async function _levGem(template) {
         totalLast:   row.querySelector(".v-totalLast")?.value.trim() || "",
         lastGrill:   row.querySelector(".v-lastGrill")?.value.trim() || "",
         infoTekst:   row.querySelector(".v-infoTekst")?.value.trim() || "",
+        kategorier:  Array.from(row.querySelectorAll(".v-kat:checked")).map(el => el.value),
         vognKode:    (() => {
           const el = row.querySelector(".v-vognkode");
           if (!el) return undefined;
@@ -3808,6 +3831,9 @@ function _enhedRenderLag() {
 
     // Individuelle markører (ingen station)
     udenStation.forEach(e => _renderEnhedMarker(e, kat, maaFlytte));
+
+    // Leverandørvogne med denne kategori
+    _levVognKatMarkers(kat, markerPos);
   });
 
   // ── UAD-LAG — alle UAD enheder samlet ────────────────────────
@@ -3854,6 +3880,57 @@ function _enhedRenderLag() {
       uadLayer.addLayer(marker);
     });
   }
+}
+
+// Leverandørvogne på et kategorilag (fx TMA). Én markør pr. depot med de
+// vogne, der har kategorien. Popuppen er leverandørens egen — med UAD,
+// "Meldt tilgængelig", telefon, Flyt vogn og "Vigtig info" — men viser
+// kun vognene i kategorien. Markøren har leverandørens farve som kant,
+// så den kan skelnes fra egne enheder.
+function _levVognKatMarkers(kat, markerPos) {
+  const lag = _enhedKatLag[kat.id];
+  if (!lag || !Array.isArray(_levData)) return;
+
+  _levData.forEach(lev => {
+    if (lev.aktiv === false) return;
+    const vogneIKat = (lev.vogne || []).filter(v => (v.kategorier || []).includes(kat.id));
+    if (!vogneIKat.length) return;
+
+    (lev.arbejdsAdresser || []).forEach(adr => {
+      if (adr.lat == null || adr.lon == null) return;
+      // Samme regel som leverandørens popup: uden depot står vognen ved alle
+      const vogneHer = vogneIKat.filter(v => !v.adresseIds?.length || v.adresseIds.includes(adr.id));
+      if (!vogneHer.length) return;
+
+      const uad      = vogneHer.map(v => !!_levUadStatus(lev, adr, v));
+      const alleUAD  = uad.every(Boolean);
+      const blandet  = !alleUAD && uad.some(Boolean);
+      const bg = blandet ? "background:linear-gradient(135deg, #2471a3 50%, #e74c3c 50%)"
+               : `background:${alleUAD ? "#e74c3c" : "#2471a3"}`;
+      const kant = lev.farve || "#3498db";
+
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="lev-marker-icon" style="${bg};font-size:14px;width:28px;height:28px;line-height:24px;`
+          + `box-sizing:border-box;border:3px solid ${_esc(kant)}" title="${_esc(lev.navn)}">${kat.ikon}</div>`,
+        iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -16]
+      });
+
+      const afstand = markerPos ? map.distance(markerPos, L.latLng(adr.lat, adr.lon)) / 1000 : null;
+      const marker = L.marker([adr.lat, adr.lon], { icon });
+      marker.bindPopup(() => {
+        // Bygges ved åbning, så UAD og info altid er aktuelle
+        const html = _levFullPopupHTML({ ...lev, vogne: vogneHer }, adr);
+        const sub = `<div style="font-size:11px;color:#5a6a7a;margin:2px 0 4px">${kat.ikon} ${_esc(kat.navn)}`
+          + ` · leverandørvogn${afstand != null ? ` · 📍 ${afstand.toFixed(1)} km fra søgt adresse` : ""}</div>`;
+        return html.replace("</div>\n    ", "</div>\n    " + sub);
+      }, { maxWidth: 340, className: "lev-leaflet-popup" });
+      marker.on("popupopen", function() {
+        _levBindPopupHandlers(this.getPopup().getElement());
+      });
+      lag.addLayer(marker);
+    });
+  });
 }
 
 // Flyt vogn (skift station) dialog — overlay med søgefelt
