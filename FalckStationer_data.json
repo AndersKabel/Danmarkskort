@@ -66,7 +66,7 @@
       "properties": {
         "id": "515",
         "name": "Falck Dalum",
-        "address": "Sivlandvænget 2, 5260 Odense s"
+        "address": "Sivlandvænget 2, 5260 Odense S"
       },
       "geometry": {
         "type": "Point",
@@ -114,7 +114,7 @@
       "properties": {
         "id": "105",
         "name": "Falck Tårnby",
-        "address": "LøjteGårdsvej 161, 2770 Kastrup"
+        "address": "Løjtegårdsvej 161, 2770 Kastrup"
       },
       "geometry": {
         "type": "Point",
@@ -137,7 +137,7 @@
       "type": "Feature",
       "properties": {
         "id": "201",
-        "name": "Falck Ålborg",
+        "name": "Falck Aalborg",
         "address": "Håndværkervej 27, 9000 Aalborg"
       },
       "geometry": {
