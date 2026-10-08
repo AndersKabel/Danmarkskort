@@ -4,6 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>Tilgængelighed</title>
+
+  <!-- App-ikon på hjemmeskærmen (PWA uden service worker).
+       Ingen service worker med vilje: den ville cache appen på telefonen,
+       så leverandørerne kunne sidde med en gammel version uden at vide det.
+       Stierne er relative, så filerne virker uændret efter en flytning af
+       sitet — men et ikon, der allerede er lagt på en telefon, er bundet til
+       den adresse, det blev installeret fra, og skal lægges på igen. -->
+  <link rel="manifest" href="tilg-manifest.json">
+  <meta name="theme-color" content="#1a1a2e">
+  <link rel="icon" type="image/png" sizes="192x192" href="tilg-ikon-192.png">
+  <link rel="apple-touch-icon" href="tilg-ikon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Tilgængelig">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
