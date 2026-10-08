@@ -404,10 +404,11 @@
   margin-top: 4px;
   min-width: 220px;
   padding: 6px 0;
-  /* Panelet vokser nedad fra Disp-knappen. Uden en hoejdegraense falder
-     bunden — og dermed Log ud — uden for skaermen paa lave vinduer.
-     130px daekker afstanden ned til knappen plus lidt luft forneden. */
-  max-height: calc(100vh - 130px);
+  /* Panelet vokser nedad fra Disp-knappen og stopper over Mål- og
+     zoomknapperne nederst til højre (de fylder ca. de nederste 60px).
+     190px = afstanden ned til panelets top (ca. 112px) + knapperækken +
+     lidt luft. Er indholdet længere, scroller panelet selv. */
+  max-height: calc(100vh - 190px);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
