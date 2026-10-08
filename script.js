@@ -2370,7 +2370,50 @@ function _notesFormat(f) {
   return `${f.vejnavn} ${f.husnr}, ${f.postnr} ${f.postnrnavn}`.replace(/\s+/g, " ").trim();
 }
 
+// Tæller, så et senere opslag i infoboksen ikke overskrives af et ældre,
+// der svarer sent (bruges kun til at udfylde manglende kommune-/vejkode).
+let _infoBoxSeq = 0;
+
+// Vejkode for en navngiven vej ved et punkt (WGS84). Bruges når data ikke
+// selv har vejkoden — fx vejresultater fra Adressevælgeren, hvis detalje
+// kun har vejnavn, postnr og geometri. Samme to DAR-forespørgsler som
+// Find X (navn + rumligt filter) og vd-proxy (NavngivenVejKommunedel).
+// Returnerer { vejkode, kommunekode } eller null.
+async function _vejkodeVedPunkt(vejnavn, lat, lon, kommunekode) {
+  if (!vejnavn || lat == null || lon == null) return null;
+  const nu = new Date().toISOString();
+  const [x, y] = proj4("EPSG:4326", "EPSG:25832", [Number(lon), Number(lat)]);
+  const b = 50;
+  const kasse = `POLYGON((${x-b} ${y-b},${x+b} ${y-b},${x+b} ${y+b},${x-b} ${y+b},${x-b} ${y-b}))`;
+  const d = await _dafQuery("DAR", `query($t: DafDateTime, $n: String!, $w: String!) {
+    DAR_NavngivenVej(first: 5, virkningstid: $t, registreringstid: $t,
+      where: { vejnavn: { eq: $n }, status: { in: ["2","3"] },
+               vejnavnebeliggenhed_vejnavnelinje: { intersects: { wkt: $w, crs: 25832 } } }) {
+      nodes { id_lokalId administreresAfKommune }
+    }
+  }`, { t: nu, n: vejnavn, w: kasse });
+  const veje = d?.DAR_NavngivenVej?.nodes || [];
+  if (!veje.length) return null;
+  const vej = veje.find(v => kommunekode && v.administreresAfKommune === kommunekode) || veje[0];
+
+  // Kommunedelen findes pr. kommune. Prøv punktets kommune først, ellers
+  // den kommune der administrerer vejen.
+  const kandidater = [...new Set([kommunekode, vej.administreresAfKommune].filter(Boolean))];
+  for (const k of kandidater) {
+    const kd = await _dafQuery("DAR", `query($t: DafDateTime, $v: String!, $k: String!) {
+      DAR_NavngivenVejKommunedel(first: 1, virkningstid: $t, registreringstid: $t,
+        where: { navngivenVej: { eq: $v }, kommune: { eq: $k } }) {
+        nodes { vejkode }
+      }
+    }`, { t: nu, v: vej.id_lokalId, k });
+    const vejkode = kd?.DAR_NavngivenVejKommunedel?.nodes?.[0]?.vejkode;
+    if (vejkode) return { vejkode, kommunekode: k };
+  }
+  return null;
+}
+
 async function updateInfoBox(data, lat, lon) {
+  const mitInfoOpslag = ++_infoBoxSeq;
   const streetviewLink = document.getElementById("streetviewLink");
   const addressEl      = document.getElementById("address");
   const extraInfoEl    = document.getElementById("extra-info");
@@ -2459,6 +2502,34 @@ async function updateInfoBox(data, lat, lon) {
   
   // Kommuneinfo – bruger dafSupplPromise som allerede er startet parallelt med statsvej-kaldet
   const dafSuppl = await dafSupplPromise;
+
+  // Manglende kommune-/vejkode (fx vejresultater uden husnummer): udfyld fra
+  // /daf/reverse og — hvis vejkoden ikke hører til samme vej — fra DAR.
+  // Kører i baggrunden, så kommuneinfo og politikreds ikke venter på den.
+  if (overlay && (kommunekode === "?" || vejkode === "?")) {
+    (async () => {
+      let k2 = kommunekode !== "?" ? kommunekode : (dafSuppl?.kommunekode || "?");
+      let v2 = vejkode;
+      if (v2 === "?" && dafSuppl?.vejkode && dafSuppl.vejnavn && dafSuppl.vejnavn === f.vejnavn) {
+        v2 = dafSuppl.vejkode;
+      }
+      if (v2 === "?" && f.vejnavn) {
+        try {
+          const r = await _vejkodeVedPunkt(f.vejnavn, lat, lon, k2 !== "?" ? k2 : "");
+          if (r) {
+            v2 = r.vejkode;
+            if (k2 === "?") k2 = r.kommunekode;
+          }
+        } catch (e) {
+          console.warn("Vejkode kunne ikke slås op i DAR:", e);
+        }
+      }
+      if (mitInfoOpslag !== _infoBoxSeq) return;   // et nyere opslag har taget over
+      if (k2 !== kommunekode || v2 !== vejkode) {
+        overlay.textContent = `Kommunekode: ${k2} | Vejkode: ${v2}`;
+      }
+    })();
+  }
   try {
     const kommunenavn = (dafSuppl && dafSuppl.kommunenavn) || "";
     if (kommunenavn && kommuneInfo[kommunenavn]) {
