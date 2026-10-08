@@ -4296,7 +4296,19 @@ async function getKmAtPoint(lat, lon, statsvejData = null) {
       VD_TIMEOUT_MS, "vd-proxy/reference");
     if (!resp.ok) return "__VD_NEDE__";
 
-    const data = await resp.json();
+    // VD svarer OK med en tom body for veje uden km-reference (fx
+    // kommuneveje, som CVF:veje også indeholder). Det er ikke en fejl —
+    // der er bare ingen km at vise. Tidligere fejlede resp.json() her og
+    // gav en SyntaxError i konsollen ved hvert klik.
+    const tekst = await resp.text();
+    if (!tekst || !tekst.trim()) return "";
+    let data;
+    try {
+      data = JSON.parse(tekst);
+    } catch (e) {
+      console.warn("getKmAtPoint: svar fra VD er ikke JSON:", tekst.slice(0, 120));
+      return "";
+    }
 
     // kmtText kan ligge på flere steder afhængig af vejtype/forgrening
     const kmtText =
