@@ -573,6 +573,8 @@
 
 </div>
 
+<!-- proj4 bruges til at omregne Adressevælgerens UTM32-koordinater -->
+<script src="lib/proj4.js"></script>
 <script>
   const WORKER = "https://danmarkskort-sp.danmarkskortet.workers.dev";
 
@@ -1065,36 +1067,40 @@
       if (erAaben) setTimeout(() => document.getElementById("manuel-adr-input")?.focus(), 50);
     });
 
-    // DAWA autocomplete
+    // Adresse-autocomplete via Klimadatastyrelsens Adressevælger
+    // (DAWA lukkede 1/10-2026). Søgesvaret har ingen koordinater, så de
+    // hentes først når en adresse vælges — og de kommer i EPSG:25832.
     const manuelInput = manuelWrap.querySelector("#manuel-adr-input");
     const manuelListe = manuelWrap.querySelector("#manuel-adr-liste");
-    let manuelTimer;
+    let manuelTimer, manuelSeq = 0, manuelFund = [];
     manuelInput.addEventListener("input", () => {
       clearTimeout(manuelTimer);
       const q = manuelInput.value.trim();
       if (q.length < 3) { manuelListe.style.display = "none"; return; }
       manuelTimer = setTimeout(async () => {
+        const mit = ++manuelSeq;
         try {
-          const r = await fetch(
-            `https://api.dataforsyningen.dk/adresser/autocomplete?q=${encodeURIComponent(q)}&per_side=6&struktur=mini`
-          );
-          const items = await r.json();
+          const items = await avSoeg(q, 6);
+          if (mit !== manuelSeq) return;   // et nyere tastetryk har overhalet os
+          manuelFund = items;
           if (!items.length) { manuelListe.style.display = "none"; return; }
-          manuelListe.innerHTML = items.map(it =>
-            `<div class="manual-adr-item"
-              data-tekst="${esc(it.tekst)}"
-              data-lat="${it.adresse?.y ?? ""}"
-              data-lon="${it.adresse?.x ?? ""}">${esc(it.tekst)}</div>`
-          ).join("");
+          manuelListe.innerHTML = items.map((it, i) => {
+            const erVej = it.type === "navngivenvejpostnummer";
+            return `<div class="manual-adr-item" data-i="${i}">${esc(it.tekst)}${
+              erVej ? ' <span style="color:#888;font-size:11px">— vej, skriv husnr.</span>' : ""}</div>`;
+          }).join("");
           manuelListe.style.display = "block";
-        } catch { manuelListe.style.display = "none"; }
+        } catch (e) {
+          console.error("Adressesøgning fejlede:", e);
+          manuelListe.style.display = "none";
+        }
       }, 300);
     });
 
     // Vælg adresse ved klik
     manuelListe.addEventListener("click", e => {
       const item = e.target.closest(".manual-adr-item");
-      if (!item || !item.dataset.lat) return;
+      if (!item || item.dataset.i == null) return;
       vælgManuelAdresse(item);
     });
 
@@ -1118,22 +1124,41 @@
       } else if (e.key === "Enter") {
         e.preventDefault();
         const valgt = aktiv || items[0];
-        if (valgt?.dataset.lat) vælgManuelAdresse(valgt);
+        if (valgt && valgt.dataset.i != null) vælgManuelAdresse(valgt);
       } else if (e.key === "Escape") {
         manuelListe.style.display = "none";
       }
     });
 
-    function vælgManuelAdresse(item) {
-      const lat   = parseFloat(item.dataset.lat);
-      const lon   = parseFloat(item.dataset.lon);
-      const label = item.dataset.tekst;
-      _valgtAdresse = { lat, lon, label };
-      document.querySelectorAll(".adr-btn").forEach(b => b.classList.remove("active"));
-      manuelBtn.classList.add("active");
-      manuelBtn.textContent = `📍 ${label}`;
-      manuelWrap.classList.remove("open");
-      manuelListe.style.display = "none";
+    async function vælgManuelAdresse(item) {
+      const it = manuelFund[Number(item.dataset.i)];
+      if (!it) return;
+
+      // En vej uden husnummer: sæt vejnavnet i feltet og søg igen
+      if (it.type === "navngivenvejpostnummer") {
+        manuelInput.value = String(it.tekst).split(",")[0].trim() + " ";
+        manuelListe.style.display = "none";
+        manuelInput.focus();
+        manuelInput.dispatchEvent(new Event("input"));
+        return;
+      }
+
+      item.textContent = "⏳ " + it.tekst;
+      try {
+        const k = _avKoordinater(await avDetaljer(it.id, it.type));
+        if (!k) { item.textContent = "Ingen koordinater for denne adresse"; return; }
+        const label = it.tekst;
+        _valgtAdresse = { lat: k.lat, lon: k.lon, label };
+        document.querySelectorAll(".adr-btn").forEach(b => b.classList.remove("active"));
+        manuelBtn.classList.add("active");
+        manuelBtn.textContent = `📍 ${label}`;
+        manuelInput.value = label;
+        manuelWrap.classList.remove("open");
+        manuelListe.style.display = "none";
+      } catch (e) {
+        console.error("Adresseopslag fejlede:", e);
+        item.textContent = "Kunne ikke hente adressen – prøv igen";
+      }
     }
 
     // Luk liste ved klik udenfor
@@ -1594,6 +1619,51 @@
     el.textContent = msg;
     el.className = "feedback " + type;
   }
+  // ── Adressevælgeren (samme kald som i kortets script.js) ──────
+  // Token: fælles token indtil Adressevælgeren får brugerstyring
+  // (ventet omkring årsskiftet 2026/27).
+  const AV_BASE  = "https://adressevaelger.dk";
+  const AV_TOKEN = "adressevaelger123";
+
+  function _avSti(type) {
+    if (type === "husnummer")              return "husnumre";
+    if (type === "navngivenvejpostnummer") return "navngivenvejpostnumre";
+    return "adresser";
+  }
+
+  // Søgning. Returnerer [{tekst, id, type}] — uden koordinater.
+  async function avSoeg(query, maksimum) {
+    const q = String(query || "").trim();
+    if (!q || q.length > 73) return [];   // Adressevælgeren afviser over 73 tegn
+    const r = await fetch(`${AV_BASE}/adresser/soeg?tekst=${encodeURIComponent(q)}`
+                        + `&token=${AV_TOKEN}&maksimum=${maksimum || 20}`);
+    if (!r.ok) throw new Error("Adressevælger: " + r.status);
+    const data = await r.json();
+    if (data.status === "fejl") throw new Error(data.beskrivelse || "ukendt fejl");
+    return (data.fund || []).map(f => ({ tekst: f.titel, id: f.id, type: f.type }));
+  }
+
+  async function avDetaljer(id, type) {
+    const r = await fetch(`${AV_BASE}/${_avSti(type)}/${encodeURIComponent(id)}?token=${AV_TOKEN}`);
+    if (!r.ok) throw new Error("Adressevælger: " + r.status);
+    const data = await r.json();
+    if (data.status === "fejl") throw new Error(data.beskrivelse || "ukendt fejl");
+    return data;
+  }
+
+  // lat/lon fra et Adressevælger-svar, omregnet fra UTM32 (EPSG:25832)
+  function _avKoordinater(data) {
+    const h = data?.husnummer || data?.adresse?.husnummer;
+    const k = h?.adgangspunkt?.koordinater;
+    if (!k || k.x == null || k.y == null) return null;
+    if (typeof proj4 === "undefined") throw new Error("proj4 er ikke indlæst");
+    if (!proj4.defs("EPSG:25832")) {
+      proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +datum=ETRS89 +units=m +no_defs");
+    }
+    const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [Number(k.x), Number(k.y)]);
+    return { lat, lon };
+  }
+
   function esc(s) {
     return String(s || "")
       .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
