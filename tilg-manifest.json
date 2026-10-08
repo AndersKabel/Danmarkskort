@@ -1,0 +1,33 @@
+{
+  "id": "tilgaengelighed.html",
+  "name": "Tilgængelighed",
+  "short_name": "Tilgængelig",
+  "description": "Meld din vogn tilgængelig og meld fravær",
+  "start_url": "tilgaengelighed.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "lang": "da",
+  "icons": [
+    {
+      "src": "tilg-ikon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "tilg-ikon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "tilg-ikon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
