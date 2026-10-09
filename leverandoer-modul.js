@@ -2207,6 +2207,19 @@ function _levAppendAdrRow(container, a = {}) {
   });
 }
 
+// Kort resumé på den sammenfoldede linje, så man kan se hvad der er sat
+// uden at folde ud: kategori-ikoner, 🔑 hvis vognkode, antal depoter.
+function _levVognOpsaetResume(v, adresser) {
+  const dele = [];
+  const ikoner = (v.kategorier || [])
+    .map(id => EGNE_KATEGORIER.find(k => k.id === id)?.ikon || "").filter(Boolean).join("");
+  if (ikoner) dele.push(ikoner);
+  if (String(v.vognKode || "").trim()) dele.push("🔑");
+  const nDepot = (v.adresseIds || []).filter(id => (adresser || []).some(a => a.id === id)).length;
+  if (nDepot) dele.push(nDepot === 1 ? "1 depot" : nDepot + " depoter");
+  return dele.length ? ` <span style="font-weight:400;color:#8a97a5">· ${_esc(dele.join(" · "))}</span>` : "";
+}
+
 // Kategorier på en leverandørvogn (TMA, Tavletrailer …). Samme liste som
 // egne enheder, så vognen kommer med på kategorilaget. Overkategorier med
 // underkategorier (fx Dyreredning) vælges via underkategorierne.
@@ -2218,8 +2231,8 @@ function _levVognKatHTML(v) {
   return `<div style="margin:6px 0 2px">
     <div style="font-size:12px;font-weight:600;color:#2c3e50;margin-bottom:3px">🏷️ Vises på kategori
       <span style="font-weight:400;color:#aaa;font-size:11px">(valgfri — fx TMA)</span></div>
-    <div class="v-kategorier" style="display:flex;flex-wrap:wrap;gap:4px 12px">
-      ${kats.map(k => `<label style="font-size:12px;font-weight:400;display:inline-flex;align-items:center;gap:4px;margin:0">
+    <div class="v-kategorier" style="display:flex;flex-direction:column;gap:3px">
+      ${kats.map(k => `<label style="font-size:12px;font-weight:400;display:flex;flex-direction:row;align-items:center;gap:6px;margin:0;cursor:pointer">
         <input type="checkbox" class="v-kat" value="${_esc(k.id)}" ${valgte.includes(k.id) ? "checked" : ""}>
         ${k.ikon} ${_esc(k.navn)}</label>`).join("")}
     </div>
@@ -2252,7 +2265,7 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
       </div>
       <div class="lev-vogn-depot-checks" style="display:flex;flex-direction:column;gap:3px">
         ${adresser.map(a => `
-          <label data-depot-navn="${a.label || a.vej || 'Depot'}" style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+          <label data-depot-navn="${a.label || a.vej || 'Depot'}" style="display:flex;flex-direction:row;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-top:0">
             <input type="checkbox" class="v-depot-check" value="${a.id}"
               ${(v.adresseIds||[]).includes(a.id) ? "checked" : ""}>
             ${a.label || a.vej || "Depot"}
@@ -2273,6 +2286,8 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
     <label>📞 Telefon (vognens eget nummer)
       <input type="text" class="v-telefon" value="${_esc(v.telefon)}" placeholder="fx 20 12 34 56">
     </label>
+    <button type="button" class="lev-vogn-toggle-btn lev-vogn-opsaet-btn">▸ Kategori, vognkode &amp; depot${_levVognOpsaetResume(v, adresser)}</button>
+    <div class="lev-vogn-opsaet-wrap" style="display:none">
     ${_levVognKatHTML(v)}
     <label>🔑 Vognkode <span style="font-weight:400;color:#aaa;font-size:11px">(valgfri — så kan chaufføren kun se denne vogn)</span>
       <div class="lev-row" style="gap:8px;margin-top:4px">
@@ -2281,8 +2296,9 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
       </div>
     </label>
     ${depotChecks}
-    <button type="button" class="lev-vogn-toggle-btn">${harDetaljer ? "▾" : "▸"} Reg.nr. &amp; specifikationer</button>
-    <div class="lev-vogn-specs-wrap" style="display:${harDetaljer ? "block" : "none"}">
+    </div>
+    <button type="button" class="lev-vogn-toggle-btn lev-vogn-specs-btn">▸ Reg.nr. &amp; specifikationer${v.reg ? ` <span style="font-weight:400;color:#8a97a5">· ${_esc(v.reg)}</span>` : ""}</button>
+    <div class="lev-vogn-specs-wrap" style="display:none">
       <label>Reg.nr.
         <input type="text" class="v-reg" value="${_esc(v.reg)}" placeholder="AB 12 345">
       </label>
@@ -2314,13 +2330,20 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
     </div>`;
   container.appendChild(div);
 
-  div.querySelector(".lev-vogn-toggle-btn").addEventListener("click", () => {
-    const wrap = div.querySelector(".lev-vogn-specs-wrap");
-    const btn  = div.querySelector(".lev-vogn-toggle-btn");
-    const open = wrap.style.display !== "none";
-    wrap.style.display = open ? "none" : "block";
-    btn.textContent    = (open ? "▸" : "▾") + " Reg.nr. & specifikationer";
-  });
+  // Begge sektioner er foldet ind som standard. Kun pilen skiftes, så
+  // resuméet (fx reg.nr. eller valgte kategorier) bliver stående.
+  const _fold = (knapKlasse, wrapKlasse) => {
+    const btn  = div.querySelector(knapKlasse);
+    const wrap = div.querySelector(wrapKlasse);
+    if (!btn || !wrap) return;
+    btn.addEventListener("click", () => {
+      const open = wrap.style.display !== "none";
+      wrap.style.display = open ? "none" : "block";
+      btn.innerHTML = btn.innerHTML.replace(/^[▸▾]/, open ? "▸" : "▾");
+    });
+  };
+  _fold(".lev-vogn-specs-btn",  ".lev-vogn-specs-wrap");
+  _fold(".lev-vogn-opsaet-btn", ".lev-vogn-opsaet-wrap");
 
   div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
   div.querySelector(".v-genkode")?.addEventListener("click", () => {
