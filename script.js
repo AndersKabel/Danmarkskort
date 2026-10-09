@@ -1587,6 +1587,32 @@ map.on("overlayremove", function(e) {
 });
 layerControl.getContainer().classList.add("main-ar-ctrl");
 
+// ── Lagvælger: åbn/luk ved klik, ligesom Disp ────────────────────
+// Leaflet åbner listen, når musen er over den, og lukker den, når musen
+// forlader den. Det er bøvlet, når der er travlt. Nu: klik på lag-ikonet
+// åbner, klik igen lukker. Klik på kortet lukker også (Leaflets egen
+// opførsel, uændret — samme som Disp-panelet).
+(function () {
+  const ctrl   = layerControl;
+  const boks   = ctrl.getContainer();
+  const ikon   = boks.querySelector(".leaflet-control-layers-toggle");
+  // Fjern Leaflets mus-over/mus-ud (registreret i _initLayout med ctrl som kontekst)
+  L.DomEvent.off(boks, { mouseenter: ctrl._expandSafely, mouseleave: ctrl.collapse }, ctrl);
+  // Fanger klikket på ikonet, før Leaflets egen handler (som kun kan åbne).
+  boks.addEventListener("click", function (e) {
+    if (!ikon || !ikon.contains(e.target)) return;
+    if (boks.classList.contains("leaflet-control-layers-expanded")) {
+      e.preventDefault();
+      e.stopPropagation();
+      ctrl.collapse();
+    } else {
+      // Den åbne liste dækker Disp-panelet — luk det, så de ikke ligger oven i hinanden
+      const disp = document.getElementById("levDispPanel");
+      if (disp) disp.classList.remove("lev-disp-panel-aaben");
+    }
+  }, true);
+})();
+
 // ── Custom Place knap ────────────────────────────────────────────
 document.getElementById("cpOpenBtn").addEventListener("click", _cpOpenModal);
 
