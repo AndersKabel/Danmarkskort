@@ -3928,19 +3928,86 @@ function _levVognKatMarkers(kat, markerPos) {
 
       const afstand = markerPos ? map.distance(markerPos, L.latLng(adr.lat, adr.lon)) / 1000 : null;
       const marker = L.marker([adr.lat, adr.lon], { icon });
-      marker.bindPopup(() => {
-        // Bygges ved åbning, så UAD og info altid er aktuelle
-        const html = _levFullPopupHTML({ ...lev, vogne: vogneHer }, adr);
-        const sub = `<div style="font-size:11px;color:#5a6a7a;margin:2px 0 4px">${kat.ikon} ${_esc(kat.navn)}`
-          + ` · leverandørvogn${afstand != null ? ` · 📍 ${afstand.toFixed(1)} km fra søgt adresse` : ""}</div>`;
-        return html.replace("</div>\n    ", "</div>\n    " + sub);
-      }, { maxWidth: 340, className: "lev-leaflet-popup" });
+      // Bygges ved åbning, så UAD og info altid er aktuelle. Samme opbygning
+      // som egne enheder (vognen øverst); leverandørens egne numre står kun
+      // på leverandørlaget.
+      marker.bindPopup(() => _levVognKatPopupHTML(lev, adr, vogneHer, kat, afstand),
+        { maxWidth: 300, className: "lev-leaflet-popup" });
       marker.on("popupopen", function() {
         _levBindPopupHandlers(this.getPopup().getElement());
       });
       lag.addLayer(marker);
     });
   });
+}
+
+// Popup for leverandørvogne på kategorilagene (TMA m.fl.). Bygget som egne
+// enheders popup: vognnummer + beskrivelse øverst, kategori og leverandør som
+// undertekst, afstand, depotets adresse, bilens nummer og knapperne.
+// Flere vogne i samme kategori på samme depot listes under hinanden, som når
+// en station har flere vogne. Knapperne bruger de eksisterende klasser, så
+// _levBindPopupHandlers binder dem uændret (Ude af drift, Flyt vogn, ret info).
+function _levVognKatPopupHTML(lev, adr, vogne, kat, afstand) {
+  const kant = lev.farve || "#3498db";
+  const vognNavn = v => [v.vognnummer, v.beskrivelse].map(s => String(s || "").trim())
+    .filter(Boolean).join(" ") || "Vogn";
+  const afstandTekst = afstand != null
+    ? `<div style="font-size:11px;color:#888;margin-bottom:4px">📍 ${afstand.toFixed(1)} km fra søgt adresse</div>` : "";
+  const adrLinje = adr.vej
+    ? `<div class="lev-popup-row">📍 ${_esc(adr.vej)}, ${_esc(adr.postnr || "")} ${_esc(adr.by || "")}</div>` : "";
+  // Vigtig info (fx midlertidigt vagtnummer) vises kun når der står noget
+  const info = String(lev.info || "").trim() ? _levInfoHTML(lev, true) : "";
+  const erTmaLev = (lev.kategorier || []).includes("tma_vogn");
+  const maaFlyt  = !!_levAktivRolle && erTmaLev;
+
+  const flytKnap = v => maaFlyt
+    ? `<button class="lev-flyt-lev-vogn-btn" data-levid="${_esc(lev.id)}" data-vognid="${_esc(v.id)}"
+         data-fraadrid="${_esc(adr.id)}"
+         style="font-size:11px;padding:3px 8px;background:#e8f4fd;border:1px solid #2980b9;
+                border-radius:4px;cursor:pointer;color:#2980b9;margin-top:6px">🔄 Flyt vogn</button>` : "";
+  const uadKnap = `<button class="lev-uad-btn" data-uadlev="${_esc(lev.id)}" data-uadadr="${_esc(adr.id || "")}"
+         style="font-size:11px;padding:3px 8px;background:#f5f5f5;color:#333;border:1px solid #ccc;
+                border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">🔴 Ude af drift…</button>`;
+  const vognStatus = v => _levUadHTML(_levUadStatus(lev, adr, v))
+    + (_levHarMeldtLedig(v) ? `<div class="lev-popup-ledig">🟢 Meldt tilgængelig</div>` : "");
+
+  // Én vogn: som en egen enhed
+  if (vogne.length === 1) {
+    const v = vogne[0];
+    return `<div class="lev-popup">
+      <div class="lev-popup-top" style="border-left:4px solid ${_esc(kant)}">
+        <b>${_esc(vognNavn(v))}</b>
+        <span class="lev-popup-sub">${kat.ikon} ${_esc(kat.navn)} · ${_esc(lev.navn || "")}</span>
+      </div>
+      ${afstandTekst}
+      ${vognStatus(v)}
+      ${info}
+      ${adrLinje}
+      ${_kontaktHTML("📞", "Bil", v.telefon)}
+      ${v.infoTekst ? _bemaerkHTML(v.infoTekst) : ""}
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${flytKnap(v)}${uadKnap}</div>
+    </div>`;
+  }
+
+  // Flere vogne på samme depot: leverandør/depot øverst, vognene under hinanden
+  const raekker = vogne.map(v => `<div style="padding:4px 6px;border-bottom:1px solid #f0f0f0">
+      <div style="font-size:12px;font-weight:600">${_esc(vognNavn(v))}</div>
+      ${vognStatus(v)}
+      ${_kontaktHTML("📞", "Bil", v.telefon)}
+      ${v.infoTekst ? _bemaerkHTML(v.infoTekst) : ""}
+      ${flytKnap(v)}
+    </div>`).join("");
+  return `<div class="lev-popup">
+    <div class="lev-popup-top" style="border-left:4px solid ${_esc(kant)}">
+      <b>${_esc(lev.navn || "")}</b>
+      <span class="lev-popup-sub">${kat.ikon} ${_esc(kat.navn)}${adr.label ? ` · ${_esc(adr.label)}` : ""}</span>
+    </div>
+    ${afstandTekst}
+    ${info}
+    ${adrLinje}
+    <hr class="lev-hr">${raekker}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${uadKnap}</div>
+  </div>`;
 }
 
 // Flyt vogn (skift station) dialog — overlay med søgefelt
