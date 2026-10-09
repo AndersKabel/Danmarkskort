@@ -2800,6 +2800,9 @@ function fillRouteFieldsFromClick(data, lat, lon) {
  * Hoved-søg (#search) => doSearch
  ***************************************************/
 const debouncedMainSearch = debounce(function(queryText) {
+  // Feltet kan være tømt eller ændret i de 350 ms (backspace, ×, markér+slet).
+  // Så er søgningen forældet og må ikke åbne listen igen.
+  if (searchInput.value.trim() !== queryText) return;
   doSearch(queryText, resultsList);
 }, 350);
 searchInput.addEventListener("input", function() {
@@ -2857,6 +2860,14 @@ searchInput.addEventListener("input", function() {
   // min. 3 tegn + debounce for de almindelige søgninger
   if (txt.length < 3) {
     clearBtn.style.display = "inline";
+    // Den gamle liste hører til en længere tekst — luk den. Er Strandposter-
+    // laget tændt, har quickStrandSearch ovenfor allerede overtaget listen.
+    if (!map.hasLayer(redningsnrLayer)) {
+      resultsList.innerHTML = "";
+      resultsList.style.display = "none";
+      searchItems = [];
+      searchCurrentIndex = -1;
+    }
     return;
   }
 
@@ -2936,10 +2947,12 @@ clearBtn.addEventListener("click", function() {
  * Vej1 / Vej2
  ***************************************************/
 const debouncedVej1Search = debounce(function(searchText) {
+  if (vej1Input.value.trim() !== searchText) return;   // feltet er ændret/tømt
   doSearchRoad(searchText, vej1List, vej1Input, "vej1");
 }, 350);
 
 const debouncedVej2Search = debounce(function(searchText) {
+  if (vej2Input.value.trim() !== searchText) return;   // feltet er ændret/tømt
   doSearchRoad(searchText, vej2List, vej2Input, "vej2");
 }, 350);
 vej1Input.addEventListener("input", function() {
@@ -3079,6 +3092,8 @@ function doRouteSearch(query, listElement, type) {
   avSoeg(query, 10)
     .then(data => {
       if (mit !== _ruteSoegSeq[type]) return;   // et nyere tastetryk har overhalet os
+      const rInput = type === "from" ? routeFromInput : type === "to" ? routeToInput : routeViaInput;
+      if (rInput && rInput.value.trim() !== query) return;   // feltet er tømt/ændret (fx ×)
       listElement.innerHTML = "";
 
       let itemsArray;
@@ -3160,6 +3175,7 @@ function setupRouteInputHandlers(inputElement, listElement, type) {
   if (!inputElement || !listElement) return;
 
   const debouncedRouteSearch = debounce(function(searchText) {
+    if (inputElement.value.trim() !== searchText) return;   // feltet er ændret/tømt
     doRouteSearch(searchText, listElement, type);
   }, 350);
 
@@ -3367,6 +3383,7 @@ function doSearchRoad(query, listElement, inputField, which) {
     _darVejSoeg(query).catch(err => { console.error("Vejsøgning (DAR):", err); return []; })
   ]).then(async ([av, dar]) => {
     if (mit !== _vejSoegSeq[which]) return;   // et nyere tastetryk har overhalet os
+    if (inputField.value.trim() !== query) return; // feltet er tømt/ændret (fx ×)
 
     // Adressevælgerens titel er "Kirkevej 2630 Taastrup"
     const items = av.filter(f => f.type === "navngivenvejpostnummer").map(f => {
@@ -3383,7 +3400,7 @@ function doSearchRoad(query, listElement, inputField, which) {
     const kunDar  = dar.filter(n => n.vejnavn && !avNavne.has(n.vejnavn.toLowerCase()));
     if (kunDar.length) {
       const kom = await _kommuneNavne();
-      if (mit !== _vejSoegSeq[which]) return;
+      if (mit !== _vejSoegSeq[which] || inputField.value.trim() !== query) return;
       kunDar.forEach(n => {
         const k = kom[n.administreresAfKommune];
         items.push({
@@ -3539,6 +3556,7 @@ function quickStrandSearch(query) {
 
   doSearchStrandposter(query)
     .then(strandResults => {
+      if (searchInput.value.trim() !== query) return;   // feltet er ændret/tømt
       resultsList.innerHTML = "";
       searchItems = [];
       searchCurrentIndex = -1;
@@ -3690,6 +3708,8 @@ function doSearch(query, listElement) {
     orsPromise
   ])
   .then(([addrData, stedData, roadData, strandData, orsData]) => {
+    // Svaret kom efter at feltet blev tømt eller ændret: forældet, vis det ikke
+    if (searchInput.value.trim() !== query) return;
     listElement.innerHTML = "";
     searchItems = [];
     searchCurrentIndex = -1;
