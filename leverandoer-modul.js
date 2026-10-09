@@ -521,7 +521,10 @@ function _levBuildControl() {
           if (erEnhedKat && !_enhedLoaded) {
             const ok = await _levEnsureDisponering();
             if (!ok) { map.removeLayer(layer); cb.checked = false; }
-            else await _enhedLoad();
+            // Leverandørvogne i kategorien kræver også leverandørdata
+            else await Promise.all([_enhedLoad(), _levLoaded ? null : _levLoad()]);
+          } else if (erEnhedKat && !_levLoaded) {
+            _levLoad();
           }
         } finally {
           // finally sikrer at spinneren altid fjernes, også ved fejl
@@ -692,10 +695,17 @@ function _levBuildEnhedRows() {
               aktivCb = genCheckbox;            // flyt indikatoren til det nye element
               _levLagIndikator(aktivCb, true);
             }
-            await _enhedLoad();
+            // Leverandørvogne med samme kategori (fx PF Biler's TMA) står også
+            // på laget. De kræver leverandørdata, som ellers først blev hentet,
+            // når et leverandørlag blev tændt eller Rediger leverandører åbnet.
+            await Promise.all([_enhedLoad(), _levLoaded ? null : _levLoad()]);
           } finally {
             _levLagIndikator(aktivCb, false);
           }
+        } else if (!_levLoaded) {
+          // Egne enheder er allerede hentet (session findes) — hent kun
+          // leverandørerne. _levLoad tegner laget igen, når de er kommet.
+          _levLoad();
         }
       } else {
         map.removeLayer(layer);
