@@ -851,6 +851,16 @@ function showCopyPopup(message) {
 /***************************************************
  * Funktion til beregning af sorteringsprioritet
  ***************************************************/
+// Matcher søgeteksten et Adressevælger-resultat? Hvert ord i søgningen skal
+// være starten af et ord i resultatet ("odderbæk 12" passer på "Odderbækvej 12,
+// 7323 Give"). Store/små bogstaver og tegnsætning ignoreres, og å/aa regnes ens.
+function _avMatcherTekst(query, tekst) {
+  const norm = s => String(s || "").toLocaleLowerCase("da-DK")
+    .replace(/å/g, "aa").replace(/[.,;:()\-\/]/g, " ").split(/\s+/).filter(Boolean);
+  const ord = norm(tekst);
+  return norm(query).every(q => ord.some(o => o.startsWith(q)));
+}
+
 function getSortPriority(item, query) {
   let text = "";
   if (item.type === "adresse") {
@@ -3749,6 +3759,13 @@ function doSearch(query, listElement) {
       adresseId: item.id || null,
       avType: item.type || "adresse"
     }));
+    // Adressevælgeren søger "fuzzy" for at tåle stavefejl, så "odderbækvej"
+    // også giver fx "Årbækvej". Findes der resultater, som faktisk matcher det
+    // skrevne, vises kun dem. Matcher intet (stavefejl), vises alle som før.
+    {
+      const praecise = addrResults.filter(r => _avMatcherTekst(query, r.tekst));
+      if (praecise.length) addrResults = praecise;
+    }
 
     // Stednavne — efterfiltrer: behold kun hvis søgeord faktisk er substring af navnet
     // (DAWA's API laver fuzzy-matching som returnerer irrelevante resultater)
