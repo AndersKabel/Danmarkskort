@@ -608,8 +608,11 @@ input[type="search"]::-webkit-search-decoration { display: none; }
   position: relative !important;
   display: block !important;
 }
+/* Lag-ikonet bliver stående øverst, når listen er åben, så man kan klikke
+   på det igen for at lukke (åbn/luk ved klik i script.js, ligesom Disp). */
 .main-ar-ctrl.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
-  display: none !important;
+  display: block !important;
+  margin: 0 0 6px auto;
 }
 .lev-disp-ctrl.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
   display: none !important;
