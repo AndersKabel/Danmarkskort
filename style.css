@@ -608,11 +608,17 @@ input[type="search"]::-webkit-search-decoration { display: none; }
   position: relative !important;
   display: block !important;
 }
-/* Lag-ikonet bliver stående øverst, når listen er åben, så man kan klikke
-   på det igen for at lukke (åbn/luk ved klik i script.js, ligesom Disp). */
+/* Lag-ikonet bliver stående, når listen er åben, så man kan klikke på det
+   igen for at lukke (åbn/luk ved klik i script.js, ligesom Disp). Det ligger
+   i øverste højre hjørne ved siden af OpenStreetMap/Satellit i stedet for på
+   sin egen linje, så listen ikke får en tom stribe foroven. */
 .main-ar-ctrl.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
   display: block !important;
-  margin: 0 0 6px auto;
+  position: absolute !important;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  margin: 0;
 }
 .lev-disp-ctrl.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
   display: none !important;
