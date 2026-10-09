@@ -4190,17 +4190,24 @@ function _tilgLogRender(filter) {
         value="${_esc(filter || "")}"
         style="width:100%;padding:8px;border:1px solid #cdd5df;border-radius:6px;font-size:13px">
       <div style="font-size:11px;color:#8a97a5;margin-top:6px;line-height:1.5">
-        ${raekker.length} af ${_tilgLogData.length} rækker. Én række pr. vogn —
-        en ny melding overskriver den forrige.
+        ${raekker.length} af ${_tilgLogData.length} rækker. Én række pr. melding —
+        melder en vogn sig igen, mens den er aktiv, rettes den samme række.
       </div>
     </div>
     ${raekker.length ? raekker.map(r => {
       const aktiv = r.til && new Date(r.til).getTime() > nu;
+      // Slet kun for admin, og kun når workeren har sendt rækkens id med
+      const slet = (_levAktivRolle === "admin" && r.id)
+        ? `<button class="tilg-log-slet" data-id="${_esc(r.id)}" data-aktiv="${aktiv ? "1" : ""}"
+             title="Slet rækken fra loggen" aria-label="Slet rækken fra loggen"
+             style="border:none;background:none;cursor:pointer;font-size:14px;padding:0 2px;line-height:1">🗑️</button>`
+        : "";
       return `<div style="padding:9px 12px;border-bottom:1px solid #eef2f6;font-size:13px">
-        <div style="display:flex;justify-content:space-between;gap:8px">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
           <b>${_esc(r.vognNr)}</b>
-          <span style="font-size:11px;color:${aktiv ? "#27ae60" : "#8a97a5"}">
-            ${aktiv ? "● Aktiv nu" : "udløbet"}</span>
+          <span style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:11px;color:${aktiv ? "#27ae60" : "#8a97a5"}">
+              ${aktiv ? "● Aktiv nu" : "udløbet"}</span>${slet}</span>
         </div>
         <div style="color:#5a6a7a">${_esc(r.levNavn)}${r.vognReg ? " · " + _esc(r.vognReg) : ""}</div>
         <div style="font-size:12px;margin-top:2px">⏰ ${_esc(fmt(r.fra))} → ${_esc(fmt(r.til))}</div>
@@ -4211,6 +4218,10 @@ function _tilgLogRender(filter) {
     }).join("") : `<div style="padding:16px;color:#8a97a5">Ingen rækker matcher.</div>`}
   `;
 
+  body.querySelectorAll(".tilg-log-slet").forEach(btn => {
+    btn.addEventListener("click", () => _tilgLogSlet(btn.dataset.id, btn.dataset.aktiv === "1", btn));
+  });
+
   const soeg = document.getElementById("tilgLogSoeg");
   soeg.addEventListener("input", () => {
     const v = soeg.value;
@@ -4219,6 +4230,37 @@ function _tilgLogRender(filter) {
     nyt.focus();
     nyt.setSelectionRange(v.length, v.length);
   });
+}
+
+
+// Slet én række i tilgængelighedsloggen (kun admin — workeren tjekker
+// selv rollen). En aktiv række er også vognens nuværende tilmelding, så
+// den forsvinder fra kortet; derfor en ekstra advarsel.
+async function _tilgLogSlet(id, aktiv, btn) {
+  const r = _tilgLogData.find(x => String(x.id) === String(id));
+  const navn = r ? `${r.vognNr}${r.levNavn ? " (" + r.levNavn + ")" : ""}` : "rækken";
+  const tekst = aktiv
+    ? `⚠️ ${navn} er AKTIV lige nu.\n\nSletter du rækken, forsvinder vognens tilmelding også fra kortet.\n\nSlet alligevel? Det kan ikke fortrydes.`
+    : `Slet ${navn} fra loggen?\n\nDet kan ikke fortrydes.`;
+  if (!confirm(tekst)) return;
+
+  if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+  try {
+    const resp = await _levSpFetch("/tilgaengelig/log/" + encodeURIComponent(id), { method: "DELETE" });
+    const data = await resp.json().catch(() => ({}));
+    if (resp.status === 403) throw new Error("kun administrator kan slette i loggen");
+    if (!resp.ok || !data.ok) throw new Error(data.error || "HTTP " + resp.status);
+
+    _tilgLogData = _tilgLogData.filter(x => String(x.id) !== String(id));
+    _tilgLogRender(document.getElementById("tilgLogSoeg")?.value || "");
+    // Var rækken aktiv, skal laget med tilgængelige leverandører opdateres
+    if (aktiv && typeof _levTilgLoad === "function" && map.hasLayer(levTilgaengeligLayer)) {
+      _levTilgLoad();
+    }
+  } catch (e) {
+    alert("Kunne ikke slette: " + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "🗑️"; }
+  }
 }
 
 
