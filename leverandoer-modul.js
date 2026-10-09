@@ -3795,21 +3795,35 @@ function _enhedRenderLag() {
 
       // Stationens eget materiel i denne kategori, uafhængigt af enhederne
       const stKats = st.kategorier?.length ? st.kategorier : (st.kategori ? [st.kategori] : []);
-      const kunMateriel = !enheder.length;
+      // Farven bygger på ALLE stationens enheder i kategorien — også dem med
+      // egen adresse, som har deres egen markør. Det er de samme enheder, som
+      // stationens popup viser, og stationsmarkøren ligger øverst (zIndexOffset).
+      const tilknyttede = alleEnheder.filter(e => {
+        if (e.type === "station" || e.stationId !== st.id) return false;
+        const eKats = e.kategorier?.length ? e.kategorier : (e.kategori ? [e.kategori] : []);
+        return eKats.includes(kat.id);
+      });
+      const harMateriel = stKats.includes(kat.id);
+      const kunMateriel = !tilknyttede.length;
 
-      const harUAD  = enheder.some(e => _erUAD(e));
+      const harUAD  = tilknyttede.some(e => _erUAD(e));
       // Bemærk length-tjekket: every() på en tom liste er sand, og uden det
       // ville en station med materiel og ingen enheder blive tegnet som UAD.
-      const alleUAD = enheder.length > 0 && enheder.every(e => _erUAD(e));
+      const alleUAD = tilknyttede.length > 0 && tilknyttede.every(e => _erUAD(e));
       const blandtUAD = harUAD && !alleUAD; // Nogle UAD, nogle i drift
       // Grå når der kun er materiel, så den ikke forveksles med en køreklar enhed
       const bgFarve = kunMateriel ? "#7f8c8d"
         : alleUAD ? "#e74c3c" : harUAD ? "#e67e22" : "#2471a3"; // Bruges i popup border
 
-      // Baggrund: halvt blå halvt rød hvis blandet, ellers enkelt farve
-      const bgStyle = blandtUAD
-        ? "background:linear-gradient(135deg, #2471a3 50%, #e74c3c 50%)"
-        : `background:${kunMateriel ? "#7f8c8d" : alleUAD ? "#e74c3c" : "#2471a3"}`;
+      // Baggrund: grå = materiel på stationen, blå = enhed i drift, rød = UAD.
+      // Både materiel og enheder: halvt grå / halvt enhedsfarve (tre felter
+      // hvis enhederne er blandet i drift/UAD).
+      const enhedFarve = alleUAD ? "#e74c3c" : "#2471a3";
+      const bgStyle = kunMateriel ? "background:#7f8c8d"
+        : (harMateriel && blandtUAD) ? "background:linear-gradient(135deg, #7f8c8d 34%, #2471a3 34% 67%, #e74c3c 67%)"
+        : harMateriel ? `background:linear-gradient(135deg, #7f8c8d 50%, ${enhedFarve} 50%)`
+        : blandtUAD   ? "background:linear-gradient(135deg, #2471a3 50%, #e74c3c 50%)"
+        : `background:${enhedFarve}`;
 
       const afstand = markerPos ? map.distance(markerPos, L.latLng(st.lat, st.lon)) / 1000 : null;
       const afstandTekst = afstand != null
