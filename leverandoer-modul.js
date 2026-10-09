@@ -612,6 +612,11 @@ function _levBuildControl() {
 
 }
 
+// Overkategorier (fx Dyreredning) der er foldet ud. Listen genbygges bl.a.
+// første gang et lag tændes (data hentes), og uden denne huskeliste foldede
+// gruppen sig sammen igen. Kun klik på overkategorien ændrer den.
+const _levDispAabneGrupper = new Set();
+
 // Bygger/genbygger enhed-checkboxes i Disp-panelet
 // Kaldes ved init og efter _katLoad() så nye kategorier vises
 function _levBuildEnhedRows() {
@@ -639,11 +644,12 @@ function _levBuildEnhedRows() {
   foraeldre.forEach(k => {
     const under = boern.filter(b => b.foralderId === k.id);
     if (under.length) {
+      const gruppeAaben = _levDispAabneGrupper.has(k.id);
       html += `<div class="lev-disp-gruppe">`;
-      html += `<div class="lev-disp-row lev-disp-foraeld" style="cursor:pointer;user-select:none">
-        ${k.ikon} ${k.navn} <span class="disp-pil">▸</span>
+      html += `<div class="lev-disp-row lev-disp-foraeld" data-gruppe="${k.id}" style="cursor:pointer;user-select:none">
+        ${k.ikon} ${k.navn} <span class="disp-pil">${gruppeAaben ? '▾' : '▸'}</span>
       </div>`;
-      html += `<div class="lev-disp-under" style="padding-left:14px;display:none">`;
+      html += `<div class="lev-disp-under" style="padding-left:14px;display:${gruppeAaben ? 'block' : 'none'}">`;
       under.forEach(b => {
         html += `<label class="lev-disp-row" style="font-size:12px">
           <input type="checkbox" data-lag="enhed-${b.id}" data-foraeld="${k.id}"${aktiveLag.has('enhed-'+b.id) ? ' checked' : ''}> ${b.ikon} ${b.navn}
@@ -665,6 +671,8 @@ function _levBuildEnhedRows() {
       under.style.display = aaben ? 'none' : 'block';
       const pil = div.querySelector('.disp-pil');
       if (pil) pil.textContent = aaben ? '▸' : '▾';
+      if (aaben) _levDispAabneGrupper.delete(div.dataset.gruppe);
+      else       _levDispAabneGrupper.add(div.dataset.gruppe);
     });
   });
 
