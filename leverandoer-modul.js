@@ -3507,8 +3507,7 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
   const icon = L.divIcon({
     className: "",
     html: `<div class="lev-marker-icon" style="background:${bgFarve};font-size:14px;width:28px;height:28px;line-height:28px${naermest && !uad ? ";box-shadow:0 0 0 3px #b7950b, 0 2px 6px rgba(0,0,0,0.4)" : ""}">${kat.ikon}</div>`,
-    iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16],
-    zIndexOffset: naermest ? 1000 : 0
+    iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
   });
 
   const kats = enhed.kategorier?.length ? enhed.kategorier : (enhed.kategori ? [enhed.kategori] : []);
@@ -3528,7 +3527,9 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
 
   const stEnhed = enhed.stationId ? (_enhedData || []).find(s => s.id === enhed.stationId) : null;
 
-  const marker = L.marker([enhed.lat, enhed.lon], { icon });
+  // zIndexOffset hører til markøren, ikke ikonet (stod før på ikonet og
+  // virkede ikke). Nærmeste ligger øverst — også over stationer (500).
+  const marker = L.marker([enhed.lat, enhed.lon], { icon, zIndexOffset: naermest ? 1000 : 0 });
   marker.bindPopup(`<div class="lev-popup">
     <div class="lev-popup-top" style="border-left:4px solid ${bgFarve}">
       <b>${_esc(enhed.navn)}</b>${uad ? _uadBadge(enhed) : ""}
@@ -3847,7 +3848,12 @@ function _enhedRenderLag() {
         </div>`;
       }).join("");
 
-      const marker = L.marker([st.lat, st.lon], { icon });
+      // Stationen lægges over enheder med egen adresse samme sted (fx en
+      // redder der bor ved stationen). Ellers rammer klikket redderens
+      // markør, og stationen + materiel står nederst. Stationens popup
+      // viser alle stationens enheder, også dem med egen adresse.
+      // "Nærmeste" (1000) ligger stadig øverst.
+      const marker = L.marker([st.lat, st.lon], { icon, zIndexOffset: 500 });
       marker.bindPopup(`<div class="lev-popup">
         <div class="lev-popup-top" style="border-left:4px solid ${bgFarve}">
           <b>${_esc(st.navn)}</b>${st.adresse ? `<span class="lev-popup-sub">📍 ${_esc(st.adresse)}</span>` : ""}
