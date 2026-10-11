@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Om Danmarkskort</title>
+<link rel="icon" type="image/svg+xml" href="billeder/bykabel-logo.svg">
+<style>
+  :root {
+    --navy: #1a1a2e;
+    --groen: #22c55e;
+    --tekst: #1f2433;
+    --daempet: #5b6275;
+    --linje: #e3e6ee;
+    --flade: #f5f6f9;
+    --kort: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    color: var(--tekst);
+    background: var(--flade);
+    line-height: 1.55;
+  }
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 28px 16px 30px;
+  }
+  .indhold { max-width: 920px; margin: 0 auto; }
+  .top { display: flex; align-items: center; gap: 18px; }
+  .top img { width: 64px; height: 64px; flex-shrink: 0; border-radius: 14px; box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
+  .top h1 { margin: 0; font-size: 28px; line-height: 1.15; }
+  .top p { margin: 4px 0 0; color: #c9cce0; }
+  .tilbage {
+    display: inline-block; margin-top: 18px; color: #fff; text-decoration: none;
+    background: rgba(255,255,255,.12); padding: 6px 12px; border-radius: 6px; font-size: 14px;
+  }
+  .tilbage:hover { background: rgba(255,255,255,.2); }
+  main { padding: 24px 16px 40px; }
+  nav.indeks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+  nav.indeks a {
+    text-decoration: none; color: var(--navy); background: var(--kort);
+    border: 1px solid var(--linje); border-radius: 999px; padding: 4px 12px; font-size: 14px;
+  }
+  nav.indeks a:hover { border-color: var(--groen); }
+  section {
+    background: var(--kort); border: 1px solid var(--linje); border-radius: 12px;
+    padding: 20px 22px; margin-bottom: 18px;
+  }
+  section h2 {
+    margin: 0 0 12px; font-size: 20px; display: flex; align-items: center; gap: 8px;
+  }
+  section h2::before {
+    content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--groen); flex-shrink: 0;
+  }
+  section h3 { margin: 16px 0 6px; font-size: 16px; }
+  .intro { color: var(--daempet); margin: 0 0 8px; }
+  dl { margin: 0; display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: 8px 18px; }
+  dt { font-weight: 600; }
+  dd { margin: 0; color: #343a4c; }
+  @media (max-width: 620px) {
+    dl { grid-template-columns: 1fr; gap: 2px; }
+    dd { margin-bottom: 10px; }
+    .top h1 { font-size: 23px; }
+  }
+  .grupper { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .gruppe { background: var(--flade); border-radius: 8px; padding: 12px 14px; }
+  .gruppe b { display: block; margin-bottom: 4px; }
+  .gruppe ul { margin: 0; padding-left: 18px; color: #343a4c; font-size: 14.5px; }
+  .note {
+    background: #f0fdf4; border-left: 4px solid var(--groen); padding: 10px 14px; border-radius: 6px;
+    font-size: 14.5px; margin-top: 12px;
+  }
+  .kilder { columns: 2 260px; margin: 0; padding-left: 18px; }
+  .kilder li { break-inside: avoid; margin-bottom: 4px; }
+  footer { text-align: center; color: var(--daempet); font-size: 13px; padding: 0 16px 30px; }
+  footer img { width: 20px; height: 20px; vertical-align: -5px; margin-right: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="indhold">
+    <div class="top">
+      <img src="billeder/bykabel-logo.svg" alt="ByKabel-logo: kortnål med grøn prik">
+      <div>
+        <h1>Om Danmarkskort</h1>
+        <p>Kort og disponeringsværktøj · udviklet af ByKabel</p>
+      </div>
+    </div>
+    <a class="tilbage" href="./">← Til kortet</a>
+  </div>
+</header>
+
+<main class="indhold">
+
+  <nav class="indeks" aria-label="Indhold">
+    <a href="#soeg">Søgning</a>
+    <a href="#info">Infoboksen</a>
+    <a href="#vaerktoej">Værktøjer</a>
+    <a href="#lag">Lag</a>
+    <a href="#disp">Disp</a>
+    <a href="#app">Leverandør-app</a>
+    <a href="#kilder">Datakilder</a>
+  </nav>
+
+  <section id="soeg">
+    <h2>Søgning og opslag</h2>
+    <dl>
+      <dt>Søgefeltet</dt>
+      <dd>Finder adresser, veje, stednavne, strandposter (redningsnumre), statsveje med km og egne gemte steder (⭐). Vælg et resultat for at zoome dertil og få infoboksen.</dd>
+      <dt>Udland</dt>
+      <dd>Sæt flueben ved "Udland" for at søge efter udenlandske adresser.</dd>
+      <dt>Find X</dt>
+      <dd>Skriv to vejnavne og find, hvor vejene krydser hinanden. Kortet viser også hele vejenes forløb.</dd>
+      <dt>Rute</dt>
+      <dd>Planlæg en rute med Fra, Til og eventuelt Via. Viser afstand og køretid.</dd>
+      <dt>Klik på kortet</dt>
+      <dd>Klik et vilkårligt sted for at se nærmeste adresse, koordinater og de samme oplysninger som ved en søgning.</dd>
+    </dl>
+  </section>
+
+  <section id="info">
+    <h2>Infoboksen</h2>
+    <p class="intro">Vises når du har søgt eller klikket på kortet.</p>
+    <dl>
+      <dt>Adresse og koder</dt>
+      <dd>Adresse, kommunekode og vejkode.</dd>
+      <dt>Kommune</dt>
+      <dd>Kommunens navn (med link) og hvem der håndterer døde dyr og gader og veje.</dd>
+      <dt>Politikreds</dt>
+      <dd>Den politikreds stedet hører under.</dd>
+      <dt>Statsvej</dt>
+      <dd>Ligger punktet på en statsvej, vises vejnummer og km-angivelse.</dd>
+      <dt>Street View og skråfoto</dt>
+      <dd>Links der åbner stedet i Google Street View eller skråfoto.</dd>
+    </dl>
+  </section>
+
+  <section id="vaerktoej">
+    <h2>Værktøjer på kortet</h2>
+    <dl>
+      <dt>10 · 25 · 50 · 100 km</dt>
+      <dd>Tegner en cirkel med den valgte afstand omkring det søgte sted.</dd>
+      <dt>📏 Mål</dt>
+      <dd>Mål afstande og arealer direkte på kortet.</dd>
+      <dt>Satellit</dt>
+      <dd>Skift baggrundskortet til luftfoto (Dataforsyningens forårsfoto).</dd>
+      <dt>⭐ Egne steder</dt>
+      <dd>Gem steder, der ikke har en adresse, så de kan findes i søgefeltet.</dd>
+    </dl>
+  </section>
+
+  <section id="lag">
+    <h2>Lag</h2>
+    <p class="intro">Åbnes med lag-ikonet øverst til højre. Lagene er samlet i grupper, som foldes ud og ind ved klik. Tallet ved en gruppe viser, hvor mange lag der er tændt.</p>
+    <div class="grupper">
+      <div class="gruppe"><b>🌦️ Vejr</b>
+        <ul>
+          <li>Nedbørsradar</li>
+          <li>Temperatur fra DMI's stationer</li>
+          <li>Vind: middelvind og vindstød (DMI) og vind ved Vejdirektoratets stationer, bl.a. på broer</li>
+          <li>Lyn: nedslag den seneste time</li>
+          <li>Vejtemperatur og glatførerisiko (vinter)</li>
+        </ul>
+      </div>
+      <div class="gruppe"><b>🚦 Trafik (live)</b>
+        <ul>
+          <li>Advarsler: uheld, spærringer, kraftig vind, glat vej m.m.</li>
+          <li>Vejarbejder, kø og kommende spærringer</li>
+        </ul>
+      </div>
+      <div class="gruppe"><b>🛣️ Veje</b>
+        <ul>
+          <li>Km-markeringer på statsveje</li>
+          <li>Rutenummereret vejnet</li>
+          <li>Vejklassifikation (CVF)</li>
+          <li>Rastepladser for store køretøjer</li>
+          <li>Frakørsler på statsveje</li>
+        </ul>
+      </div>
+      <div class="gruppe"><b>🗺️ Grænser og områder</b>
+        <ul>
+          <li>Kommunegrænser</li>
+          <li>Disponeringsområder</li>
+          <li>25 km grænse</li>
+          <li>Matrikel (klik for at se jordstykket)</li>
+        </ul>
+      </div>
+      <div class="gruppe"><b>📍 Steder</b>
+        <ul>
+          <li>Strandposter</li>
+          <li>Falck Ass-stationer</li>
+          <li>Ladestandere omkring det søgte sted</li>
+        </ul>
+      </div>
+      <div class="gruppe"><b>🔗 Links</b>
+        <ul>
+          <li>Dyrenes Beskyttelse: SMS-kort og journal (åbner deres side)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="note"><b>🔧 Værksteder uden for åbningstid</b> står altid øverst i listen: værksteder med åbningstider pr. ugedag og hjemmeside. Kræver ikke login. <b>Behold markører</b> nederst bevarer tidligere søgninger på kortet.</div>
+  </section>
+
+  <section id="disp">
+    <h2>Disp</h2>
+    <p class="intro">Panelet til disponering åbnes med knappen "Disp" øverst til højre. Det kræver login, og hvad man kan, afhænger af rollen.</p>
+    <dl>
+      <dt>Leverandører</dt>
+      <dd>Autoleverandører under og over 3500 kg vises på kortet med vagter, kontaktnumre og vigtig info. Leverandører, der har meldt sig tilgængelige, har deres eget lag.</dd>
+      <dt>Egne enheder</dt>
+      <dd>Enheder og stationer pr. kategori, fx TMA, tavletrailer, dyreredning (ko, hest, smådyr), skytter og døde dyr. Leverandørvogne med samme kategori vises på samme lag.</dd>
+      <dt>Nærmeste</dt>
+      <dd>Når der er søgt en adresse, markeres den nærmeste enhed i kategorien med gult.</dd>
+      <dt>Ude af drift og Flyt vogn</dt>
+      <dd>Vogne kan sættes ude af drift (UAD) eller flyttes til en anden station direkte fra popup'en. Markørens farve viser status.</dd>
+      <dt>Redigering</dt>
+      <dd>Drift og admin kan rette leverandører, egne enheder og værksteder. Disponenter kan rette "Vigtig info" på en leverandør.</dd>
+      <dt>Tilgængelighedslog</dt>
+      <dd>Historik over leverandørernes tilmeldinger fra leverandør-appen.</dd>
+    </dl>
+  </section>
+
+  <section id="app">
+    <h2>Leverandør-appen</h2>
+    <p class="intro">En separat side, som leverandørerne bruger på telefonen. Den kan lægges på hjemmeskærmen som en app.</p>
+    <dl>
+      <dt>Meld tilgængelig</dt>
+      <dd>Chaufføren melder sin vogn tilgængelig for en periode og et sted — vognen dukker så op på kortet.</dd>
+      <dt>Koder</dt>
+      <dd>Med vognkode ser man kun sin egen vogn. Med ejerkode får vognmanden en oversigt over alle sine vogne.</dd>
+      <dt>Oversigt</dt>
+      <dd>Vognmanden kan se status nu og en tidslinje for de kommende uger.</dd>
+    </dl>
+  </section>
+
+  <section id="kilder">
+    <h2>Datakilder</h2>
+    <p class="intro">Kortet bygger på åbne data og tjenester fra:</p>
+    <ul class="kilder">
+      <li>OpenStreetMap (baggrundskort)</li>
+      <li>Klimadatastyrelsen / Dataforsyningen (luftfoto, Adressevælgeren)</li>
+      <li>Datafordeleren (adresser, veje, matrikler, kommuner, politikredse)</li>
+      <li>Vejdirektoratet (km-pæle, trafikinfo, vejrstationer, vejnet)</li>
+      <li>DMI (temperatur, vind, lyn)</li>
+      <li>RainViewer (nedbørsradar)</li>
+      <li>Trafikverket (via Vejdirektoratet)</li>
+      <li>OpenRouteService (ruter og udenlandske adresser)</li>
+      <li>Open Charge Map (ladestandere)</li>
+      <li>Redningsnummer.dk (strandposter)</li>
+      <li>CVR API</li>
+      <li>Leaflet (kortmotor)</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  <img src="billeder/bykabel-logo.svg" alt="">Danmarkskort · ByKabel
+</footer>
+
+</body>
+</html>
