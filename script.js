@@ -1091,15 +1091,21 @@ const VD_VEJARBEJDE_FILER = [
 var vdAdvarselLayer    = L.layerGroup();
 var vdAdvarselInterval = null;
 
+// Filnavne som Vejdirektoratets eget trafikkort (trafikinfo.dk) henter dem
+// — set i F12 11/10-2026. Tomme filer er normalt: de fyldes kun når der er
+// en aktuel melding af den type.
 const VD_ADVARSEL_FILER = [
-  // Hændelser (uheld, kø, vejforhold) — point-filer i 25832/ undermappe
-  { file: "25832/current-other-traffic-announcements.point.json", ikon: "⚠️", label: "Hændelse",      color: "#e74c3c" },
-  { file: "25832/current-events.point.json",                      ikon: "🔔", label: "Begivenhed",    color: "#e67e22" },
-  { file: "25832/current-blocking-events.point.json",             ikon: "🚫", label: "Blokering",     color: "#c0392b" },
-  { file: "25832/current-slippery-road.point.json",               ikon: "🧊", label: "Glat vej",      color: "#3498db" },
-  { file: "25832/current-ice-snow.point.json",                    ikon: "❄️", label: "Is/sne",        color: "#2980b9" },
+  // Hændelser — point-filer i 25832/ undermappe
+  { file: "25832/current-other-traffic-announcements.point.json",       ikon: "⚠️", label: "Hændelse",     color: "#e74c3c" },
+  { file: "25832/current-events.point.json",                            ikon: "🔔", label: "Begivenhed",   color: "#e67e22" },
+  { file: "25832/current-blocking-events.point.json",                   ikon: "🚫", label: "Blokering",    color: "#c0392b" },
+  { file: "25832/current-roadblocks.point.json",                        ikon: "⛔", label: "Vejspærring",  color: "#922b21" },
+  { file: "25832/current-strong-wind-traffic-announcements.point.json", ikon: "💨", label: "Kraftig vind", color: "#16a085" },
+  { file: "25832/current-slippery-road.point.json",                     ikon: "🧊", label: "Glat vej",     color: "#3498db" },
+  { file: "25832/current-ice-snow.point.json",                          ikon: "❄️", label: "Is/sne",       color: "#2980b9" },
+  { file: "25832/current-winther-road.point.json",                      ikon: "🌨️", label: "Vinterføre",   color: "#5dade2" },
   // DMI advarsler — i /geojson/ rodmappen
-  { file: "dmi-warnings.json",                                    ikon: "🌩", label: "DMI Advarsel",  color: "#8e44ad" },
+  { file: "dmi-warnings.json",                                          ikon: "🌩", label: "DMI Advarsel", color: "#8e44ad" },
 ];
 
 async function _fetchVdFil(file) {
@@ -1108,27 +1114,93 @@ async function _fetchVdFil(file) {
   return resp.json();
 }
 
+function _vdEsc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// VD's beskrivelser er HTML. Før blev alle koder bare fjernet, så linjer
+// løb sammen ("Sønder BorupPersoner på vejen"). Her bliver <br>, </p> og
+// </div> til linjeskift, og &amp; o.l. bliver til tegn igen.
+function _vdTekst(html) {
+  return String(html || "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h\d)>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+const _vdSand = v => v === true || v === "true";
+
+// Popup til VD-meldinger (advarsler og vejarbejder). Viser alle de felter
+// VD sender: tidsrum, retning, status, hvem der har meldt og hvornår den
+// sidst er rettet. Teksten vises i fuld længde (scroll ved lange tekster).
+function _vdPopupHTML(p, ikon, label) {
+  const titel = String(p.title || p.Title || p.name || label);
+  const hoved = String(p.header || "").trim();
+  const vej   = p.road || p.Road || p.vejnavn || "";
+  const fra   = p.beginPeriod || p.startDate || p.StartDate || "";
+  const til   = p.endPeriod   || p.endDate   || p.EndDate   || "";
+  const retning   = String(p.direction || "").trim();
+  const meldtAf   = String(p.kommune || "").trim();
+  const opdateret = p.lastModified || "";
+
+  // Linjer i beskrivelsen, der blot gentager titel/overskrift (eller en del
+  // af overskriften, fx vejstrækningen), springes over
+  const titelLav = titel.trim().toLowerCase(), hovedLav = hoved.toLowerCase();
+  const tekst = _vdTekst(p.description || p.Description || p.text || "")
+    .split("\n").filter(l => {
+      const x = l.trim().toLowerCase();
+      return x && x !== titelLav && !(hovedLav && hovedLav.includes(x));
+    }).join("\n").trim();
+
+  const status = [];
+  if (_vdSand(p.suspended))   status.push("⏸️ Midlertidigt ophævet");
+  if (_vdSand(p.overrunning)) status.push("⌛ Overskrider planlagt sluttid");
+  if (_vdSand(p.future))      status.push("📅 Kommende");
+
+  const r = [];
+  r.push(`<strong>${ikon} ${_vdEsc(titel)}</strong>`);
+  if (hoved && hoved.toLowerCase() !== titel.trim().toLowerCase())
+    r.push(`<div style="margin-top:2px">${_vdEsc(hoved)}</div>`);
+  if (status.length) r.push(`<div style="margin-top:3px;font-weight:600;color:#b9770e">${status.join(" · ")}</div>`);
+  if (vej) r.push(`<div>📍 ${_vdEsc(vej)}</div>`);
+  if (fra || til) r.push(`<div>⏰ ${_vdEsc(fra)}${til ? ` – ${_vdEsc(til)}` : ""}</div>`);
+  if (retning) r.push(`<div>➡️ Retning: ${_vdEsc(retning)}</div>`);
+  if (tekst) r.push(`<div style="margin-top:4px;font-size:12px;white-space:pre-line;max-height:180px;overflow-y:auto">${_vdEsc(tekst)}</div>`);
+  const kilde = [meldtAf ? `Meldt af ${_vdEsc(meldtAf)}` : "", opdateret ? `opdateret ${_vdEsc(opdateret)}` : ""]
+    .filter(Boolean).join(" · ");
+  if (kilde) r.push(`<div style="margin-top:4px;font-size:11px;color:#888">${kilde}</div>`);
+  return `<div style="max-width:300px">${r.join("")}</div>`;
+}
+
+// Rundt ikon med emoji — så typen kan ses på kortet uden at åbne popup'en.
+// Suspenderede meldinger vises halvt gennemsigtige.
+function _vdIkon(ikon, color, svag) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:26px;height:26px;border-radius:50%;background:${color};border:2px solid #fff;`
+      + `box-shadow:0 1px 4px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;`
+      + `font-size:14px;line-height:1;${svag ? "opacity:.5;" : ""}">${ikon}</div>`,
+    iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -14]
+  });
+}
+
 function _buildVdGeoJSON(data, ikon, label, color, targetLayer, needs25832 = false) {
   if (!data?.features?.length) return 0;
   const geoOptions = {
     style: { color, weight: 4, opacity: 0.8 },
-    pointToLayer: (f, latlng) => L.circleMarker(latlng, {
-      radius: 8, color, fillColor: color, fillOpacity: 0.9, weight: 2
+    pointToLayer: (f, latlng) => L.marker(latlng, {
+      icon: _vdIkon(ikon, color, _vdSand(f.properties?.suspended)),
+      title: String(f.properties?.title || label)
     }),
     onEachFeature: (f, lyr) => {
-      const p = f.properties || {};
-      const titel = p.title  || p.Title  || p.name || label;
-      const hoved = p.header || "";
-      const vej   = p.road   || p.Road   || p.vejnavn || "";
-      const fra   = p.startDate || p.StartDate || p.beginPeriod || "";
-      const tekst = (p.description || p.Description || p.text || "").replace(/<[^>]*>/g, "").slice(0, 300);
-      lyr.bindPopup(
-        `<strong>${ikon} ${titel}</strong>` +
-        (hoved && hoved !== titel ? `<br>${hoved.slice(0, 150)}` : "") +
-        (vej  ? `<br>📍 ${vej}` : "") +
-        (fra  ? `<br>⏰ ${fra}` : "") +
-        (tekst? `<br><small>${tekst}</small>` : "")
-      );
+      lyr.bindPopup(_vdPopupHTML(f.properties || {}, ikon, label), { maxWidth: 320 });
     }
   };
   // Filer i /25832/-mappen har koordinater i EPSG:25832 — transformer til WGS84
@@ -1142,28 +1214,288 @@ function _buildVdGeoJSON(data, ikon, label, color, targetLayer, needs25832 = fal
   return data.features.length;
 }
 
-async function loadVdTrafik() {
-  vdTrafikLayer.clearLayers();
+// Filerne hentes samtidig og tegnes først når alle er kommet, så laget ikke
+// står tomt eller blinker under opdateringen. Er laget slået fra imens,
+// tegnes intet.
+async function _vdIndlaesLag(filer, maalLag, navn) {
+  const tmp = L.layerGroup();
+  const svar = await Promise.allSettled(filer.map(x => _fetchVdFil(x.file)));
   let total = 0;
-  for (const { file, ikon, label, color } of VD_VEJARBEJDE_FILER) {
-    try {
-      const data = await _fetchVdFil(file);
-      total += _buildVdGeoJSON(data, ikon, label, color, vdTrafikLayer);
-    } catch(e) { console.warn(`VD Vejarbejde ${file}:`, e.message); }
-  }
-  console.log(`✅ VD Vejarbejder: ${total} elementer`);
+  svar.forEach((s, i) => {
+    const { file, ikon, label, color } = filer[i];
+    if (s.status === "fulfilled") {
+      total += _buildVdGeoJSON(s.value, ikon, label, color, tmp, file.startsWith("25832/"));
+    } else {
+      console.warn(`${navn} ${file}:`, s.reason?.message || s.reason);
+    }
+  });
+  if (!map.hasLayer(maalLag)) return;
+  maalLag.clearLayers();
+  tmp.eachLayer(l => maalLag.addLayer(l));
+  console.log(`✅ ${navn}: ${total} elementer`);
+}
+
+async function loadVdTrafik() {
+  await _vdIndlaesLag(VD_VEJARBEJDE_FILER, vdTrafikLayer, "VD Vejarbejder");
 }
 
 async function loadVdAdvarsler() {
-  vdAdvarselLayer.clearLayers();
-  let total = 0;
-  for (const { file, ikon, label, color } of VD_ADVARSEL_FILER) {
-    try {
-      const data = await _fetchVdFil(file);
-      total += _buildVdGeoJSON(data, ikon, label, color, vdAdvarselLayer, file.startsWith("25832/"));
-    } catch(e) { console.warn(`VD Advarsel ${file}:`, e.message); }
+  await _vdIndlaesLag(VD_ADVARSEL_FILER, vdAdvarselLayer, "VD Advarsler");
+}
+
+// ── Vind (DMI + VD) ──────────────────────────────────────────────
+// DMI: middelvind (10 min) + vindstød + retning fra DMI's målestationer.
+// VD:  vindhastighed + retning fra Vejdirektoratets vejrstationer, bl.a.
+//      ved broer. VD sender ikke vindstød.
+var vindLayer    = L.layerGroup();
+var vindInterval = null;
+let _dmiStationNavne = null;
+
+const _VIND_RETNING = { N:0, NNE:22.5, NE:45, ENE:67.5, E:90, ESE:112.5, SE:135, SSE:157.5,
+  S:180, SSW:202.5, SW:225, WSW:247.5, W:270, WNW:292.5, NW:315, NNW:337.5 };
+const _VIND_DANSK = ["N","NNØ","NØ","ØNØ","Ø","ØSØ","SØ","SSØ","S","SSV","SV","VSV","V","VNV","NV","NNV"];
+
+// Farve efter den kraftigste værdi (stød hvis kendt): kuling 14, hård
+// kuling 17, storm 24,5 m/s
+function _vindFarve(ms) {
+  if (ms == null) return { bg: "#d5d8dc", fg: "#333" };
+  if (ms >= 24.5) return { bg: "#6c3483", fg: "#fff" };
+  if (ms >= 17)   return { bg: "#e74c3c", fg: "#fff" };
+  if (ms >= 14)   return { bg: "#f39c12", fg: "#000" };
+  if (ms >= 8)    return { bg: "#f7dc6f", fg: "#000" };
+  return { bg: "#eaf2f8", fg: "#000" };
+}
+
+function _klokkeslaet(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return d.toLocaleString("da-DK", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+const _TIMER_GAMMEL = 3;   // målinger ældre end 3 timer vises grå
+function _erGammel(iso) {
+  const d = new Date(iso);
+  return isNaN(d) || (Date.now() - d.getTime()) > _TIMER_GAMMEL * 3600 * 1000;
+}
+
+// Pil i vindens retning (fra-retning + 180°)
+function _vindPil(grader) {
+  if (grader == null || isNaN(grader)) return "";
+  return `<span style="display:inline-block;font-size:13px;font-weight:700;transform:rotate(${(Number(grader) + 180) % 360}deg)">↑</span> `;
+}
+
+function _vindMarker(lat, lon, tekst, farve, popup, svag) {
+  return L.marker([lat, lon], {
+    icon: L.divIcon({
+      className: "",
+      html: `<div style="background:${farve.bg};color:${farve.fg};border:1px solid rgba(0,0,0,.35);border-radius:10px;`
+        + `padding:1px 6px;font:600 11px/16px sans-serif;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);`
+        + `${svag ? "opacity:.55;" : ""}">${tekst}</div>`,
+      iconSize: null, iconAnchor: [20, 9]
+    })
+  }).bindPopup(popup);
+}
+
+async function _hentDmiStationNavne() {
+  if (_dmiStationNavne) return _dmiStationNavne;
+  const m = {};
+  try {
+    const nu = new Date().toISOString();
+    const r = await fetch("https://opendataapi.dmi.dk/v2/metObs/collections/station/items"
+      + `?status=Active&datetime=${encodeURIComponent(nu)}&bbox=7,54,16,58&limit=2000`);
+    if (r.ok) {
+      const d = await r.json();
+      (d.features || []).forEach(f => {
+        const p = f.properties || {};
+        if (p.stationId && p.name) m[p.stationId] = p.name;
+      });
+    }
+  } catch (e) { /* navne er nice-to-have — stations-id vises i stedet */ }
+  _dmiStationNavne = m;
+  return m;
+}
+
+// Nyeste måling pr. station for én parameter
+async function _hentDmiSeneste(parameterId) {
+  const r = await fetch("https://opendataapi.dmi.dk/v2/metObs/collections/observation/items"
+    + `?parameterId=${parameterId}&period=latest-hour&bbox=7,54,16,58&limit=5000`);
+  if (!r.ok) throw new Error(`DMI ${parameterId}: HTTP ${r.status}`);
+  const d = await r.json();
+  const ud = {};
+  (d.features || []).forEach(f => {
+    const p = f.properties || {};
+    if (p.value == null || !p.stationId) return;
+    const gl = ud[p.stationId];
+    if (!gl || String(p.observed) > String(gl.observed)) {
+      ud[p.stationId] = { value: p.value, observed: p.observed, coords: f.geometry?.coordinates };
+    }
+  });
+  return ud;
+}
+
+async function loadVind() {
+  const tmp = L.layerGroup();
+  const [middel, stoed, retning, navne, vd] = await Promise.allSettled([
+    _hentDmiSeneste("wind_speed"), _hentDmiSeneste("wind_max"), _hentDmiSeneste("wind_dir"),
+    _hentDmiStationNavne(), _fetchVdFil("25832/wind-speeds.point.json")
+  ]);
+  const M = middel.status === "fulfilled" ? middel.value : {};
+  const S = stoed.status  === "fulfilled" ? stoed.value  : {};
+  const R = retning.status === "fulfilled" ? retning.value : {};
+  const N = navne.status  === "fulfilled" ? navne.value  : {};
+  [middel, stoed, retning, vd].forEach(x => {
+    if (x.status === "rejected") console.warn("Vind:", x.reason?.message || x.reason);
+  });
+
+  // DMI
+  let antalDmi = 0;
+  new Set([...Object.keys(M), ...Object.keys(S)]).forEach(id => {
+    const m = M[id], s = S[id], rr = R[id];
+    const c = (m || s).coords;
+    if (!c) return;
+    const mid = m ? Math.round(m.value) : null;
+    const st  = s ? Math.round(s.value) : null;
+    const grader = rr ? rr.value : null;
+    const tid = (m || s).observed;
+    const gammel = _erGammel(tid);
+    const farve = gammel ? _vindFarve(null) : _vindFarve(st ?? mid);
+    const tekst = _vindPil(grader) + (mid ?? "–") + (st != null ? ` (${st})` : "");
+    const retTekst = grader != null ? `fra ${_VIND_DANSK[Math.round(grader / 22.5) % 16]} (${Math.round(grader)}°)` : "";
+    const popup = `<strong>💨 ${_vdEsc(N[id] || "DMI-station " + id)}</strong>`
+      + (mid != null ? `<br>Middelvind: <b>${m.value.toFixed(1)} m/s</b>` : "")
+      + (st  != null ? `<br>Vindstød: <b>${s.value.toFixed(1)} m/s</b>` : "")
+      + (retTekst ? `<br>Retning: ${retTekst}` : "")
+      + `<br><span style="font-size:11px;color:#888">Målt ${_klokkeslaet(tid)} · Kilde: DMI</span>`
+      + (gammel ? `<br><span style="color:#b9770e">⚠️ Målingen er over ${_TIMER_GAMMEL} timer gammel</span>` : "");
+    _vindMarker(c[1], c[0], tekst, farve, popup, gammel).addTo(tmp);
+    antalDmi++;
+  });
+
+  // VD
+  let antalVd = 0;
+  if (vd.status === "fulfilled") {
+    (vd.value?.features || []).forEach(f => {
+      const p = f.properties || {};
+      const c = f.geometry?.coordinates;
+      if (!c || p.windSpeed == null || p.windSpeed === "") return;
+      const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [c[0], c[1]]);
+      const ms = Number(p.windSpeed);
+      const grader = _VIND_RETNING[String(p.windDirection || "").toUpperCase()];
+      const gammel = _erGammel(p.measurementTime);
+      const farve = gammel ? _vindFarve(null) : _vindFarve(ms);
+      const popup = `<strong>💨 Vejdirektoratets vejrstation</strong>`
+        + `<br>Vindhastighed: <b>${_vdEsc(p.windSpeed)} m/s</b>`
+        + (p.windDirectionDanish ? `<br>Retning: fra ${_vdEsc(p.windDirectionDanish)}` : "")
+        + `<br><span style="font-size:11px;color:#888">Målt ${_klokkeslaet(p.measurementTime)} · Kilde: Vejdirektoratet (ingen vindstød)</span>`
+        + (gammel ? `<br><span style="color:#b9770e">⚠️ Målingen er over ${_TIMER_GAMMEL} timer gammel</span>` : "");
+      _vindMarker(lat, lon, _vindPil(grader) + Math.round(ms), farve, popup, gammel).addTo(tmp);
+      antalVd++;
+    });
   }
-  console.log(`✅ VD Advarsler: ${total} elementer`);
+
+  if (!map.hasLayer(vindLayer)) return;
+  vindLayer.clearLayers();
+  tmp.eachLayer(l => vindLayer.addLayer(l));
+  console.log(`✅ Vind: ${antalDmi} DMI + ${antalVd} VD stationer`);
+}
+
+// ── Lyn (DMI) ────────────────────────────────────────────────────
+// Lynnedslag den seneste time. Nyere nedslag står kraftigere end ældre.
+var lynLayer    = L.layerGroup();
+var lynInterval = null;
+
+async function loadLyn() {
+  const tmp = L.layerGroup();
+  try {
+    const r = await fetch("https://opendataapi.dmi.dk/v2/lightningdata/collections/observation/items"
+      + "?period=latest-hour&bbox=7,54,16,58&limit=10000");
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    (d.features || []).forEach(f => {
+      const c = f.geometry?.coordinates;
+      const p = f.properties || {};
+      if (!c) return;
+      const min = Math.max(0, Math.round((Date.now() - new Date(p.observed).getTime()) / 60000));
+      const opacity = min <= 10 ? 1 : min <= 30 ? 0.7 : 0.4;
+      L.marker([c[1], c[0]], {
+        icon: L.divIcon({
+          className: "",
+          html: `<div style="font-size:${min <= 10 ? 18 : 14}px;line-height:1;opacity:${opacity};`
+            + `text-shadow:0 0 2px #fff,0 0 2px #fff">⚡</div>`,
+          iconSize: [18, 18], iconAnchor: [9, 9]
+        })
+      }).bindPopup(
+        `<strong>⚡ Lynnedslag</strong><br>${_klokkeslaet(p.observed)} (${min} min siden)`
+        + (p.amp != null ? `<br>Styrke: ${Math.abs(p.amp)} kA` : "")
+        + (p.strokes ? `<br>Antal udladninger: ${p.strokes}` : "")
+        + `<br><span style="font-size:11px;color:#888">Kilde: DMI</span>`
+      ).addTo(tmp);
+    });
+  } catch (e) {
+    console.warn("DMI lyn fejl:", e.message);
+    return;
+  }
+  if (!map.hasLayer(lynLayer)) return;
+  lynLayer.clearLayers();
+  tmp.eachLayer(l => lynLayer.addLayer(l));
+  console.log(`✅ DMI lyn: ${tmp.getLayers().length} nedslag seneste time`);
+}
+
+// ── Vejtemperatur / glatføre (VD) ────────────────────────────────
+// Vejdirektoratets vejrstationer: luft-, vejbane- og dugpunktstemperatur.
+// Glatførerisiko: vejbanen er ved/under frysepunktet OG ikke varmere end
+// dugpunktet (så kan fugt sætte sig som rim/is). VD opdaterer kun filen i
+// vintersæsonen — gamle målinger vises grå med en advarsel.
+var vejTempLayer    = L.layerGroup();
+var vejTempInterval = null;
+
+async function loadVejTemp() {
+  const tmp = L.layerGroup();
+  let nyeste = null;
+  try {
+    const d = await _fetchVdFil("25832/temperatures.point.json");
+    (d.features || []).forEach(f => {
+      const p = f.properties || {};
+      const c = f.geometry?.coordinates;
+      if (!c) return;
+      const vej  = p.roadSurfaceTemperature != null && p.roadSurfaceTemperature !== "" ? Number(p.roadSurfaceTemperature) : null;
+      const luft = p.airTemperature != null && p.airTemperature !== "" ? Number(p.airTemperature) : null;
+      const dug  = p.dewPointTemperature != null && p.dewPointTemperature !== "" ? Number(p.dewPointTemperature) : null;
+      if (vej == null && luft == null) return;
+      if (!nyeste || String(p.measurementTime) > nyeste) nyeste = String(p.measurementTime);
+      const gammel = _erGammel(p.measurementTime);
+
+      let farve, status;
+      if (gammel)                                      { farve = { bg: "#d5d8dc", fg: "#333" }; status = ""; }
+      else if (vej != null && vej <= 1 && dug != null && vej <= dug) { farve = { bg: "#c0392b", fg: "#fff" }; status = "⚠️ Glatførerisiko (vejbane ≤ dugpunkt og ved frysepunktet)"; }
+      else if (vej != null && vej <= 0)                { farve = { bg: "#2e86c1", fg: "#fff" }; status = "❄️ Vejbanen er under frysepunktet"; }
+      else if (vej != null && vej <= 2)                { farve = { bg: "#aed6f1", fg: "#000" }; status = "Tæt på frysepunktet"; }
+      else                                             { farve = { bg: "#eafaf1", fg: "#000" }; status = ""; }
+
+      const vis = vej != null ? vej : luft;
+      const tekst = `${vis > 0 ? "+" : ""}${vis}°${vej == null ? " (luft)" : ""}`;
+      const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [c[0], c[1]]);
+      const popup = `<strong>🌡 Vejdirektoratets vejrstation</strong>`
+        + (status ? `<br><b style="color:${farve.bg === "#c0392b" ? "#c0392b" : "#1f618d"}">${status}</b>` : "")
+        + (vej  != null ? `<br>Vejbane: <b>${vej} °C</b>` : "")
+        + (luft != null ? `<br>Luft: ${luft} °C` : "")
+        + (dug  != null ? `<br>Dugpunkt: ${dug} °C` : "")
+        + (p.relativeHumidity ? `<br>Luftfugtighed: ${_vdEsc(p.relativeHumidity)} %` : "")
+        + `<br><span style="font-size:11px;color:#888">Målt ${_klokkeslaet(p.measurementTime)} · Kilde: Vejdirektoratet</span>`
+        + (gammel ? `<br><span style="color:#b9770e">⚠️ Målingen er over ${_TIMER_GAMMEL} timer gammel — VD opdaterer formentlig kun i vintersæsonen</span>` : "");
+      _vindMarker(lat, lon, tekst, farve, popup, gammel).addTo(tmp);
+    });
+  } catch (e) {
+    console.warn("VD vejtemperatur fejl:", e.message);
+    return;
+  }
+  if (!map.hasLayer(vejTempLayer)) return;
+  vejTempLayer.clearLayers();
+  tmp.eachLayer(l => vejTempLayer.addLayer(l));
+  if (nyeste && _erGammel(nyeste)) {
+    console.warn(`VD vejtemperatur: nyeste måling er fra ${nyeste} — data opdateres ikke lige nu`);
+  }
+  console.log(`✅ VD vejtemperatur: ${tmp.getLayers().length} stationer`);
 }
 
 // Start lag-indlæsning ved overlayadd
@@ -1179,6 +1511,26 @@ function _startVdAdvarselInterval() {
   loadVdAdvarsler();
   if (!vdAdvarselInterval) vdAdvarselInterval = setInterval(loadVdAdvarsler, 5 * 60 * 1000);
 }
+
+// Vind, lyn og vejtemperatur: egne handlere, så de eksisterende
+// overlayadd/overlayremove-kæder ikke røres
+const _vejrLag = [
+  { lag: () => vindLayer,    load: () => loadVind(),    ms: 10 * 60 * 1000, iv: () => vindInterval,    set: v => { vindInterval = v; } },
+  { lag: () => lynLayer,     load: () => loadLyn(),     ms:  2 * 60 * 1000, iv: () => lynInterval,     set: v => { lynInterval = v; } },
+  { lag: () => vejTempLayer, load: () => loadVejTemp(), ms: 10 * 60 * 1000, iv: () => vejTempInterval, set: v => { vejTempInterval = v; } },
+];
+map.on("overlayadd", function(e) {
+  const x = _vejrLag.find(v => v.lag() === e.layer);
+  if (!x) return;
+  x.load();
+  if (!x.iv()) x.set(setInterval(x.load, x.ms));
+});
+map.on("overlayremove", function(e) {
+  const x = _vejrLag.find(v => v.lag() === e.layer);
+  if (!x) return;
+  if (x.iv()) { clearInterval(x.iv()); x.set(null); }
+  x.lag().clearLayers();
+});
 
 var redningsnrLayer = L.tileLayer.wms("https://kort.strandnr.dk/geoserver/nobc/ows", {
   layers: "Redningsnummer",
@@ -1533,6 +1885,9 @@ overlayMaps["📍 Km-markeringer (VD)"] = kmMaerkerLayer;
   overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
 overlayMaps["🚧 Vejarbejder (VD)"] = vdTrafikLayer;
 overlayMaps["⚠️ Advarsler (VD)"] = vdAdvarselLayer;
+overlayMaps["💨 Vind (DMI + VD)"] = vindLayer;
+overlayMaps["⚡ Lyn (DMI)"] = lynLayer;
+overlayMaps["🧊 Vejtemperatur (VD)"] = vejTempLayer;
 overlayMaps["📐 Matrikel"] = matrikelLayer;
 
 // Venter på at RainViewer-laget bliver klar. Uden en øvre grænse ville
