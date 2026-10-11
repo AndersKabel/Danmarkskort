@@ -16,8 +16,10 @@ const KILDE   = "https://vd-proxy.danmarkskortet.workers.dev/lade/side";
 const FIL     = "ladestandere.json";
 const MAKS_SIDER = 500;
 
+const vent = ms => new Promise(res => setTimeout(res, ms));
+
 async function hentSide(side) {
-  for (let forsoeg = 1; forsoeg <= 4; forsoeg++) {
+  for (let forsoeg = 1; forsoeg <= 6; forsoeg++) {
     try {
       const r = await fetch(`${KILDE}?page=${side}`);
       const j = await r.json();
@@ -25,8 +27,9 @@ async function hentSide(side) {
       return j;
     } catch (e) {
       console.warn(`Side ${side}, forsøg ${forsoeg}: ${e.message}`);
-      if (forsoeg === 4) throw e;
-      await new Promise(res => setTimeout(res, 2000 * forsoeg));
+      if (forsoeg === 6) throw e;
+      // 429 = Monta beder os vente — vent længere end ved andre fejl
+      await vent((/429/.test(e.message) ? 15000 : 3000) * forsoeg);
     }
   }
 }
@@ -41,7 +44,7 @@ for (let side = 1; side <= MAKS_SIDER; side++) {
   sider = side;
   steder.push(...j.steder);
   if (!j.antal) break;
-  await new Promise(res => setTimeout(res, 150));   // skån Monta
+  await vent(1000);   // skån Monta (for hurtige kald giver 429)
 }
 console.log(`Hentet ${sider} sider: ${steder.length} ladesteder (Montas "total": ${total}).`);
 
