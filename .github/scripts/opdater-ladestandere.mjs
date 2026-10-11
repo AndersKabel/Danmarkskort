@@ -31,15 +31,19 @@ async function hentSide(side) {
   }
 }
 
+// Montas "total" tæller ikke ladesteder (første kørsel: total 3412, men
+// siderne sluttede ved 699 steder) — derfor hentes der, indtil en side er tom.
 const steder = [];
-let total = 0;
+let total = 0, sider = 0;
 for (let side = 1; side <= MAKS_SIDER; side++) {
   const j = await hentSide(side);
   total = j.total || total;
+  sider = side;
   steder.push(...j.steder);
-  if (!j.antal || side * 100 >= total) break;
+  if (!j.antal) break;
   await new Promise(res => setTimeout(res, 150));   // skån Monta
 }
+console.log(`Hentet ${sider} sider: ${steder.length} ladesteder (Montas "total": ${total}).`);
 
 // Dubletter (samme id) fjernes
 const unikke = [...new Map(steder.map(s => [s.id, s])).values()]
@@ -48,7 +52,6 @@ const unikke = [...new Map(steder.map(s => [s.id, s])).values()]
 // ── Kontrol ───────────────────────────────────────────────────────
 const fejl = [];
 if (unikke.length < 300) fejl.push(`kun ${unikke.length} ladesteder (forventet flere hundrede)`);
-if (total && unikke.length < total * 0.8) fejl.push(`${unikke.length} af ${total} ladesteder hentet`);
 const udenforDK = unikke.filter(s => s.lat < 54.4 || s.lat > 57.9 || s.lon < 7.9 || s.lon > 15.3).length;
 if (udenforDK > unikke.length * 0.02) fejl.push(`${udenforDK} ladesteder ligger uden for Danmark`);
 if (fs.existsSync(FIL)) {
