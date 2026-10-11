@@ -1404,7 +1404,17 @@ async function loadVind() {
 var lynLayer    = L.layerGroup();
 var lynInterval = null;
 
-async function loadLyn() {
+// Kort besked når laget tændes, så et tomt kort ikke ligner en fejl
+function _lynBesked(tekst) {
+  const t = document.createElement("div");
+  t.textContent = tekst;
+  t.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2c3e50;color:#fff;"
+    + "padding:10px 22px;border-radius:8px;z-index:9999;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.2);";
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+async function loadLyn(visBesked) {
   const tmp = L.layerGroup();
   try {
     const r = await fetch("https://opendataapi.dmi.dk/v2/lightningdata/collections/observation/items"
@@ -1433,11 +1443,16 @@ async function loadLyn() {
     });
   } catch (e) {
     console.warn("DMI lyn fejl:", e.message);
+    if (visBesked) _lynBesked("⚡ Lyndata fra DMI kunne ikke hentes lige nu");
     return;
   }
   if (!map.hasLayer(lynLayer)) return;
   lynLayer.clearLayers();
   tmp.eachLayer(l => lynLayer.addLayer(l));
+  if (visBesked) {
+    const n = tmp.getLayers().length;
+    _lynBesked(n ? `⚡ ${n} lynnedslag den seneste time` : "⚡ Ingen lynnedslag i Danmark den seneste time");
+  }
   console.log(`✅ DMI lyn: ${tmp.getLayers().length} nedslag seneste time`);
 }
 
@@ -1516,14 +1531,14 @@ function _startVdAdvarselInterval() {
 // overlayadd/overlayremove-kæder ikke røres
 const _vejrLag = [
   { lag: () => vindLayer,    load: () => loadVind(),    ms: 10 * 60 * 1000, iv: () => vindInterval,    set: v => { vindInterval = v; } },
-  { lag: () => lynLayer,     load: () => loadLyn(),     ms:  2 * 60 * 1000, iv: () => lynInterval,     set: v => { lynInterval = v; } },
+  { lag: () => lynLayer,     load: (f) => loadLyn(f),   ms:  2 * 60 * 1000, iv: () => lynInterval,     set: v => { lynInterval = v; } },
   { lag: () => vejTempLayer, load: () => loadVejTemp(), ms: 10 * 60 * 1000, iv: () => vejTempInterval, set: v => { vejTempInterval = v; } },
 ];
 map.on("overlayadd", function(e) {
   const x = _vejrLag.find(v => v.lag() === e.layer);
   if (!x) return;
-  x.load();
-  if (!x.iv()) x.set(setInterval(x.load, x.ms));
+  x.load(true);                               // true = første hentning (lyn viser besked)
+  if (!x.iv()) x.set(setInterval(() => x.load(false), x.ms));
 });
 map.on("overlayremove", function(e) {
   const x = _vejrLag.find(v => v.lag() === e.layer);
@@ -1976,6 +1991,150 @@ layerControl.getContainer().classList.add("main-ar-ctrl");
       if (disp) disp.classList.remove("lev-disp-panel-aaben");
     }
   }, true);
+})();
+
+// ── Lagvælger: grupper der kan foldes ud/ind ─────────────────────
+// Lagene samles i grupper (Vejr, Trafik …). Leaflets egne rækker og
+// flueben flyttes blot ind i grupperne, så tænd/sluk virker præcis som før.
+// Leaflet bygger listen forfra, hver gang et lag tilføjes (fx Nedbørsradar
+// og Værksteder, som kommer lidt efter opstart) — derfor lægges
+// grupperingen på igen efter hver opbygning.
+// Lag der ikke står i en gruppe (fx Værksteder) står løst øverst, så et nyt
+// lag aldrig forsvinder. "Behold markører" er en indstilling og står nederst.
+const LAG_GRUPPER = [
+  { id: "vejr",    navn: "🌦️ Vejr",               lag: ["🌧 Nedbørsradar", "🌡 Temperatur (DMI)", "💨 Vind (DMI + VD)", "⚡ Lyn (DMI)", "🧊 Vejtemperatur (VD)"] },
+  { id: "trafik",  navn: "🚦 Trafik (live)",       lag: ["⚠️ Advarsler (VD)", "🚧 Vejarbejder (VD)"] },
+  { id: "veje",    navn: "🛣️ Veje",                lag: ["📍 Km-markeringer (VD)", "Rutenummereret vejnet", "🛣️ CVF vejklassifikation", "🅿️ Rastepladser (store køretøjer)", "🔀 Frakørsler (statsveje)"] },
+  { id: "omraade", navn: "🗺️ Grænser og områder",  lag: ["Kommunegrænser", "Disponeringsområder", "25 km grænse", "📐 Matrikel"] },
+  { id: "steder",  navn: "📍 Steder",              lag: ["Strandposter", "Falck Ass", "Ladestandere"] },
+  { id: "links",   navn: "🔗 Links",               lag: ["DB SMS kort", "DB Journal"] },
+];
+const LAG_NEDERST = ["Behold markører"];
+// Korte forklaringer under et lag i listen
+const LAG_HJAELP = {
+  "⚡ Lyn (DMI)": "Viser lynnedslag fra den seneste time. Tomt = ingen lyn.",
+};
+
+(function () {
+  const ctrl = layerControl;
+  const NOEGLE = "lagGrupperAabne";
+  let aabne = new Set();
+  try { aabne = new Set(JSON.parse(localStorage.getItem(NOEGLE) || "[]")); } catch (e) {}
+  const gemAabne = () => { try { localStorage.setItem(NOEGLE, JSON.stringify([...aabne])); } catch (e) {} };
+
+  if (!document.getElementById("lagGruppeStyle")) {
+    const st = document.createElement("style");
+    st.id = "lagGruppeStyle";
+    st.textContent =
+      ".lag-gruppe-hoved{cursor:pointer;user-select:none;font-weight:600;padding:3px 0;display:flex;align-items:center;gap:4px}" +
+      ".lag-gruppe-hoved:hover{color:#1f618d}" +
+      ".lag-gruppe-pil{display:inline-block;width:10px;font-size:10px;color:#777}" +
+      ".lag-gruppe-antal{font-weight:400;color:#1f618d}" +
+      ".lag-gruppe-indhold{padding-left:14px}" +
+      ".lag-hjaelp{font-size:11px;color:#888;margin:-2px 0 3px 22px;line-height:1.3}" +
+      ".lag-adskiller{border-top:1px solid #ddd;margin:5px 0}";
+    document.head.appendChild(st);
+  }
+
+  // Navnet på et lag, ud fra rækkens flueben (Leaflet sætter layerId)
+  function navnFor(label) {
+    const inp = label.querySelector("input.leaflet-control-layers-selector");
+    if (!inp) return null;
+    const obj = ctrl._layers.find(o => L.Util.stamp(o.layer) === inp.layerId);
+    return obj ? obj.name : null;
+  }
+
+  function opdaterAntal() {
+    ctrl._overlaysList.querySelectorAll(".lag-gruppe").forEach(g => {
+      const n = g.querySelectorAll(".lag-gruppe-indhold input:checked").length;
+      const span = g.querySelector(".lag-gruppe-antal");
+      if (span) span.textContent = n ? ` (${n})` : "";
+    });
+  }
+
+  function grupper() {
+    const liste = ctrl._overlaysList;
+    if (!liste) return;
+    const labels = [...liste.querySelectorAll(":scope > label")];
+    if (!labels.length) return;
+    const efterNavn = new Map();
+    labels.forEach(l => { const n = navnFor(l); if (n) efterNavn.set(n, l); });
+
+    const brugt = new Set();
+    const frag = document.createDocumentFragment();
+
+    // Løse lag (ikke i en gruppe) øverst — fx Værksteder
+    const graensede = new Set([...LAG_GRUPPER.flatMap(g => g.lag), ...LAG_NEDERST]);
+    labels.forEach(l => {
+      const n = navnFor(l);
+      if (n && !graensede.has(n)) { frag.appendChild(l); brugt.add(l); }
+    });
+    if (brugt.size) {
+      const sep = document.createElement("div");
+      sep.className = "lag-adskiller";
+      frag.appendChild(sep);
+    }
+
+    LAG_GRUPPER.forEach(g => {
+      const rækker = g.lag.map(n => efterNavn.get(n)).filter(Boolean);
+      if (!rækker.length) return;
+      const aaben = aabne.has(g.id);
+      const boks = document.createElement("div");
+      boks.className = "lag-gruppe";
+      boks.dataset.gruppe = g.id;
+      const hoved = document.createElement("div");
+      hoved.className = "lag-gruppe-hoved";
+      hoved.innerHTML = `<span class="lag-gruppe-pil">${aaben ? "▾" : "▸"}</span>${g.navn}<span class="lag-gruppe-antal"></span>`;
+      const indhold = document.createElement("div");
+      indhold.className = "lag-gruppe-indhold";
+      indhold.style.display = aaben ? "block" : "none";
+      rækker.forEach(l => {
+        indhold.appendChild(l); brugt.add(l);
+        const hj = LAG_HJAELP[navnFor(l)];
+        if (hj) {
+          const d = document.createElement("div");
+          d.className = "lag-hjaelp";
+          d.textContent = hj;
+          indhold.appendChild(d);
+        }
+      });
+      hoved.addEventListener("click", function (e) {
+        e.preventDefault(); e.stopPropagation();
+        const nu = indhold.style.display === "none";
+        indhold.style.display = nu ? "block" : "none";
+        hoved.querySelector(".lag-gruppe-pil").textContent = nu ? "▾" : "▸";
+        if (nu) aabne.add(g.id); else aabne.delete(g.id);
+        gemAabne();
+      });
+      boks.appendChild(hoved);
+      boks.appendChild(indhold);
+      frag.appendChild(boks);
+    });
+
+    // Indstillinger nederst
+    const nederst = labels.filter(l => LAG_NEDERST.includes(navnFor(l)) && !brugt.has(l));
+    if (nederst.length) {
+      const sep = document.createElement("div");
+      sep.className = "lag-adskiller";
+      frag.appendChild(sep);
+      nederst.forEach(l => { frag.appendChild(l); brugt.add(l); });
+    }
+    // Sikkerhedsnet: rækker der ikke er placeret (burde ikke ske)
+    labels.forEach(l => { if (!brugt.has(l)) frag.appendChild(l); });
+
+    liste.appendChild(frag);
+    opdaterAntal();
+  }
+
+  const origUpdate = ctrl._update;
+  ctrl._update = function () {
+    const r = origUpdate.apply(this, arguments);
+    try { grupper(); } catch (e) { console.warn("Lag-grupper:", e); }
+    return r;
+  };
+  // Antal tændte lag opdateres når et flueben ændres
+  ctrl._overlaysList.addEventListener("change", opdaterAntal);
+  ctrl._update();
 })();
 
 // ── Custom Place knap ────────────────────────────────────────────
