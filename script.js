@@ -937,7 +937,7 @@ var osmLayer = L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
     maxZoom: 19,
-    attribution: '© <a href="https://bykabel.dk" target="_blank">ByKabel</a> | © OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur, © CVR API'
+    attribution: '© <a href="om.html" target="_blank" title="Om Danmarkskort — funktioner og datakilder"><img src="billeder/bykabel-logo.svg" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:3px;border:0">ByKabel</a> | © OpenStreetMap contributors, © Styrelsen for Dataforsyning og Infrastruktur, © CVR API'
   }
 ).addTo(map);
 
