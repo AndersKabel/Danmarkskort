@@ -1,0 +1,40 @@
+# Opdaterer ladestandere.json med offentlige ladesteder fra Monta (AFIR).
+# Kører hver 6. time og kan startes manuelt
+# (Actions -> "Opdater ladestandere" -> Run workflow).
+# Fejler kontrollen i scriptet, ændres intet, og GitHub sender en mail.
+name: Opdater ladestandere
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  opdater:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Hent ladesteder via vd-proxy
+        run: node .github/scripts/opdater-ladestandere.mjs
+
+      - name: Commit hvis ændret
+        run: |
+          # Fanger både en ny fil (første kørsel) og en ændret fil
+          if [ -z "$(git status --porcelain -- ladestandere.json)" ]; then
+            echo "Ingen ændringer i ladestederne."
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add ladestandere.json
+            git commit -m "Opdater ladestandere fra Monta"
+            git push
+          fi
