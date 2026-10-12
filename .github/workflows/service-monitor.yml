@@ -70,20 +70,38 @@ jobs:
             "https://api.dataforsyningen.dk/orto_foraar_DAF?service=WMS&request=GetCapabilities&token=${{ secrets.DATAFORSYNINGEN_TOKEN }}" \
             "WMS_Capabilities" ""
 
-          # Dataforsyningen Kommuner API
-          check_url "Dataforsyningen Kommuner API" \
-            "https://api.dataforsyningen.dk/kommuner?format=json&token=${{ secrets.DATAFORSYNINGEN_TOKEN }}" \
+          # ── Adresser og opslag (afløser for DAWA, som lukkede 1/10-2026) ──
+          # Adressevælgeren — adressesøgning i kortet og leverandør-appen
+          check_url "Adressevælgeren (adressesøgning)" \
+            "https://adressevaelger.dk/adresser/soeg?tekst=Vejle&token=adressevaelger123&maksimum=1" \
             "" ""
 
-          # DAWA Adresser API
-          check_url "DAWA Adresser API" \
-            "https://api.dataforsyningen.dk/adgangsadresser/autocomplete?q=Falck&per_side=1" \
-            "" ""
+          # Datafordeleren via vd-proxy — reverse geokodning (klik på kortet)
+          check_url "Datafordeleren via VD Proxy (klik på kortet)" \
+            "https://vd-proxy.danmarkskortet.workers.dev/daf/reverse?x=9.5357&y=55.7113" \
+            "kommunekode" ""
 
-          # DAWA Postnumre — grundlaget for disponeringsområde-laget
-          check_url "DAWA Postnumre API" \
-            "https://api.dataforsyningen.dk/postnumre?nr=8660" \
-            "" ""
+          # ── Trafik og vejr ──
+          # Vejdirektoratets trafikdata via vd-proxy (advarsler, vejarbejder, vind)
+          check_url "VD trafikdata via VD Proxy" \
+            "https://vd-proxy.danmarkskortet.workers.dev/trafik/25832/wind-speeds.point.json" \
+            "FeatureCollection" ""
+
+          # DMI — temperatur, vind og lyn
+          check_url "DMI åbne data (metObs)" \
+            "https://opendataapi.dmi.dk/v2/metObs/collections/observation/items?parameterId=temp_dry&period=latest-hour&limit=1" \
+            "FeatureCollection" ""
+
+          # RainViewer — nedbørsradar
+          check_url "RainViewer (nedbørsradar)" \
+            "https://api.rainviewer.com/public/weather-maps.json" \
+            "radar" ""
+
+          # ── Ladestandere (Monta via vd-proxy) ──
+          # Live-status for ét ladepunkt — tjekker Monta-login og adgang i ét
+          check_url "Ladestandere live-status (Monta via VD Proxy)" \
+            "https://vd-proxy.danmarkskortet.workers.dev/lade/status?evse=DK*NTC*E5232164" \
+            "status" ""
 
           # OpenChargemap API
           check_url "OpenChargemap API" \
@@ -103,6 +121,20 @@ jobs:
           check_url "disponeringsomraader.json" \
             "https://anderskabel.github.io/Danmarkskort/disponeringsomraader.json" \
             "omraader" ""
+
+          # Kommune- og postnummergrænser (opdateres af "Opdater kommune- og postnummergrænser")
+          check_url "kommuner.geojson" \
+            "https://anderskabel.github.io/Danmarkskort/kommuner.geojson" \
+            "FeatureCollection" ""
+
+          check_url "postnumre.geojson" \
+            "https://anderskabel.github.io/Danmarkskort/postnumre.geojson" \
+            "FeatureCollection" ""
+
+          # Ladesteder (opdateres af "Opdater ladestandere")
+          check_url "ladestandere.json" \
+            "https://anderskabel.github.io/Danmarkskort/ladestandere.json" \
+            "steder" ""
 
           if [ -n "$FAILED" ]; then
             echo ""
