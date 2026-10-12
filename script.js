@@ -1530,7 +1530,7 @@ const LADE_STATUS = {
   occupied:     { tekst: "Optaget",      farve: "#f59e0b" },
   reserved:     { tekst: "Reserveret",   farve: "#f59e0b" },
   outOfService: { tekst: "Ude af drift", farve: "#dc2626" },
-  unknown:      { tekst: "Ukendt",       farve: "#9ca3af" },
+  unknown:      { tekst: "Ukendt",       farve: "#64748b" },   // mørk grå — skal kunne ses på kortet
 };
 // Monta staver fx "iec62196T2Combo" — opslag uden hensyn til store/små bogstaver
 const LADE_STIK = {
@@ -1553,8 +1553,14 @@ function _ladeHentData() {
 }
 
 // Samlet status for et ladested: ledig hvis ét punkt er ledigt
+// Kun en rigtig status tæller som "kendt" — "unknown" (fx fejl ved opslag) gør ikke
+const _ladeKendt = (status, evse) => {
+  const s = status[evse]?.status;
+  return !!s && s !== "unknown";
+};
+
 function _ladeStedStatus(sted, status) {
-  const s = sted.punkter.map(p => status[p.evse]?.status).filter(Boolean);
+  const s = sted.punkter.map(p => status[p.evse]?.status).filter(x => x && x !== "unknown");
   if (!s.length) return "unknown";
   if (s.includes("available")) return "available";
   if (s.includes("occupied") || s.includes("reserved")) return "occupied";
@@ -1576,14 +1582,17 @@ function _ladePopup(sted, status) {
       <span style="white-space:nowrap;color:${st ? st.farve : "#9ca3af"};font-weight:600">${st ? st.tekst : "–"}</span>
     </div>`;
   }).join("");
-  const harStatus = sted.punkter.some(p => status[p.evse]);
+  const harStatus = sted.punkter.some(p => _ladeKendt(status, p.evse));
+  const blevSpurgt = sted.punkter.some(p => status[p.evse]);
   return `<div style="min-width:220px;max-width:300px">
     <strong>🔌 ${_vdEsc(sted.navn || "Ladested")}</strong>
     ${sted.adresse ? `<div>📍 ${_vdEsc(sted.adresse)}</div>` : ""}
     ${sted.operatoer ? `<div>Operatør: ${_vdEsc(sted.operatoer)}</div>` : ""}
     <div style="color:#666;font-size:12px">${sted.afst.toFixed(1).replace(".", ",")} km fra søgt adresse</div>
     <div style="margin-top:5px;max-height:180px;overflow-y:auto">${punkter}</div>
-    ${harStatus ? "" : `<div style="font-size:11px;color:#888;margin-top:3px">Live-status hentes kun for de nærmeste ${LADE_MAKS_STATUS} ladepunkter</div>`}
+    ${harStatus ? "" : `<div style="font-size:11px;color:#888;margin-top:3px">${blevSpurgt
+      ? "Live-status kunne ikke hentes for denne lader lige nu"
+      : `Live-status hentes kun for de nærmeste ${LADE_MAKS_STATUS} ladepunkter`}</div>`}
     <div style="font-size:11px;color:#888;margin-top:4px">Kilde: Monta (AFIR) · CC BY 4.0</div>
   </div>`;
 }
@@ -1646,7 +1655,7 @@ function _ladeTegn(steder, status, data, km, operatoerer) {
     const r = kw >= 150 ? 12 : kw >= 50 ? 10 : kw >= 22 ? 7 : 6;
     const farve = LADE_STATUS[st].farve;
     L.circleMarker([sted.lat, sted.lon], {
-      radius: r, color: "#fff", weight: 2, fillColor: farve, fillOpacity: 0.9, ladeId: sted.id,
+      radius: r, color: st === "unknown" ? "#1f2937" : "#fff", weight: 2, fillColor: farve, fillOpacity: 0.95, ladeId: sted.id,
     }).bindPopup(() => _ladePopup(sted, status), { maxWidth: 320 }).addTo(ladeLiveLayer);
   });
 
@@ -1654,12 +1663,12 @@ function _ladeTegn(steder, status, data, km, operatoerer) {
     const st = _ladeStedStatus(sted, status);
     const ialt = sted.punkter.length;
     const ledige = sted.punkter.filter(p => status[p.evse]?.status === "available").length;
-    const harStatus = sted.punkter.some(p => status[p.evse]);
+    const harStatus = sted.punkter.some(p => _ladeKendt(status, p.evse));
     return `<div data-lade-id="${_vdEsc(sted.id)}" style="cursor:pointer;padding:4px 2px;border-bottom:1px solid #eee;display:flex;gap:6px;align-items:flex-start">
       <span style="flex-shrink:0;width:10px;height:10px;border-radius:50%;margin-top:4px;background:${LADE_STATUS[st].farve}"></span>
       <span style="flex:1;min-width:0">
         <b>${_vdEsc(sted.navn || "Ladested")}</b> <span style="color:#666">· ${_ladeMaksKw(sted)} kW</span><br>
-        <span style="color:#666;font-size:12px">${sted.afst.toFixed(1).replace(".", ",")} km · ${_vdEsc(sted.operatoer || "")}${harStatus ? ` · ${ledige}/${ialt} ledige` : ""}</span>
+        <span style="color:#666;font-size:12px">${sted.afst.toFixed(1).replace(".", ",")} km · ${_vdEsc(sted.operatoer || "")}${harStatus ? ` · ${ledige}/${ialt} ledige` : (sted.punkter.some(p => status[p.evse]) ? " · status ukendt" : "")}</span>
       </span>
     </div>`;
   }).join("");
@@ -1731,6 +1740,8 @@ async function loadLadeLive() {
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || "HTTP " + r.status);
     status = j.status || {};
+    const fejl = Object.entries(status).filter(([, v]) => v.fejl);
+    if (fejl.length) console.warn(`Ladestatus: ${fejl.length} af ${Object.keys(status).length} opslag fejlede, fx ${fejl[0][0]}: ${fejl[0][1].fejl}`);
   } catch (e) {
     console.warn("Ladestatus kunne ikke hentes:", e.message);
   }
