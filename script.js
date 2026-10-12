@@ -1513,6 +1513,266 @@ async function loadVejTemp() {
   console.log(`✅ VD vejtemperatur: ${tmp.getLayers().length} stationer`);
 }
 
+// ── Ladestandere (live) — Monta/AFIR ─────────────────────────────
+// Lokationer: ladestandere.json i repoet (GitHub Action'en "Opdater
+// ladestandere" henter dem fra Monta via vd-proxy hver 6. time).
+// Live-status: vd-proxy /lade/status for de nærmeste ladepunkter (højst 30),
+// opdateres hvert 2. minut mens laget er tændt.
+// Bruger samme radius som afstandsknapperne (10/25/50/100 km), ellers 25 km.
+// Det gamle lag "Ladestandere" (Open Charge Map) er uændret.
+var ladeLiveLayer = L.layerGroup();
+let _ladeData = null, _ladeHentes = null, _ladeInterval = null, _ladeSeq = 0;
+let _ladeKunHurtig = false, _ladePanel = null, _ladeTimer = null, _ladeSoeg = "";
+const LADE_MAKS_STATUS = 30;
+
+const LADE_STATUS = {
+  available:    { tekst: "Ledig",        farve: "#16a34a" },
+  occupied:     { tekst: "Optaget",      farve: "#f59e0b" },
+  reserved:     { tekst: "Reserveret",   farve: "#f59e0b" },
+  outOfService: { tekst: "Ude af drift", farve: "#dc2626" },
+  unknown:      { tekst: "Ukendt",       farve: "#9ca3af" },
+};
+// Monta staver fx "iec62196T2Combo" — opslag uden hensyn til store/små bogstaver
+const LADE_STIK = {
+  iec62196t2: "Type 2", iec62196t2combo: "CCS", chademo: "CHAdeMO",
+  iec62196t1: "Type 1", iec62196t1combo: "CCS1", domesticf: "Schuko",
+  domestic_f: "Schuko", teslas: "Tesla", teslar: "Tesla",
+};
+const _ladeStikNavn = t => LADE_STIK[String(t || "").toLowerCase()] || "";
+
+function _ladeHentData() {
+  if (_ladeData) return Promise.resolve(_ladeData);
+  if (!_ladeHentes) {
+    // ?v= skifter hver time, så en ny fil fra Action'en slår igennem
+    _ladeHentes = fetch("ladestandere.json?v=" + Math.floor(Date.now() / 3600000))
+      .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(d => { _ladeData = d; return d; })
+      .finally(() => { _ladeHentes = null; });
+  }
+  return _ladeHentes;
+}
+
+// Samlet status for et ladested: ledig hvis ét punkt er ledigt
+function _ladeStedStatus(sted, status) {
+  const s = sted.punkter.map(p => status[p.evse]?.status).filter(Boolean);
+  if (!s.length) return "unknown";
+  if (s.includes("available")) return "available";
+  if (s.includes("occupied") || s.includes("reserved")) return "occupied";
+  if (s.every(x => x === "outOfService")) return "outOfService";
+  return "unknown";
+}
+
+function _ladeMaksKw(sted) {
+  return Math.max(0, ...sted.punkter.map(p => p.kw || 0));
+}
+
+function _ladePopup(sted, status) {
+  const punkter = sted.punkter.map(p => {
+    const st = LADE_STATUS[status[p.evse]?.status] || null;
+    const stik = [...new Set(p.stik.map(x => _ladeStikNavn(x.type)).filter(Boolean))].join(" / ") || "Stik ukendt";
+    const pris = status[p.evse]?.pris ?? p.pris;
+    return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0;border-bottom:1px solid #f0f0f0">
+      <span>${_vdEsc(stik)}${p.kw ? ` · <b>${p.kw} kW</b>` : ""}${pris ? ` · ${pris.toFixed(2).replace(".", ",")} kr./kWh` : ""}</span>
+      <span style="white-space:nowrap;color:${st ? st.farve : "#9ca3af"};font-weight:600">${st ? st.tekst : "–"}</span>
+    </div>`;
+  }).join("");
+  const harStatus = sted.punkter.some(p => status[p.evse]);
+  return `<div style="min-width:220px;max-width:300px">
+    <strong>🔌 ${_vdEsc(sted.navn || "Ladested")}</strong>
+    ${sted.adresse ? `<div>📍 ${_vdEsc(sted.adresse)}</div>` : ""}
+    ${sted.operatoer ? `<div>Operatør: ${_vdEsc(sted.operatoer)}</div>` : ""}
+    <div style="color:#666;font-size:12px">${sted.afst.toFixed(1).replace(".", ",")} km fra søgt adresse</div>
+    <div style="margin-top:5px;max-height:180px;overflow-y:auto">${punkter}</div>
+    ${harStatus ? "" : `<div style="font-size:11px;color:#888;margin-top:3px">Live-status hentes kun for de nærmeste ${LADE_MAKS_STATUS} ladepunkter</div>`}
+    <div style="font-size:11px;color:#888;margin-top:4px">Kilde: Monta (AFIR) · CC BY 4.0</div>
+  </div>`;
+}
+
+function _ladePanelOpret() {
+  if (_ladePanel) return;
+  _ladePanel = L.control({ position: "bottomleft" });
+  _ladePanel.onAdd = function () {
+    const d = L.DomUtil.create("div", "lade-panel");
+    d.style.cssText = "background:#fff;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.3);padding:8px 10px;"
+      + "width:290px;max-width:calc(100vw - 30px);max-height:42vh;overflow-y:auto;font-size:13px;line-height:1.35";
+    L.DomEvent.disableClickPropagation(d);
+    L.DomEvent.disableScrollPropagation(d);
+    d.innerHTML = '<div class="lade-panel-indhold">Henter ladere…</div>';
+    d.addEventListener("change", e => {
+      if (e.target && e.target.id === "ladeKunHurtig") { _ladeKunHurtig = e.target.checked; loadLadeLive(); }
+    });
+    // Søg på operatør eller navn — venter et øjeblik, mens der tastes
+    let soegTimer = null;
+    d.addEventListener("input", e => {
+      if (!e.target || e.target.id !== "ladeSoeg") return;
+      _ladeSoeg = e.target.value;
+      clearTimeout(soegTimer);
+      soegTimer = setTimeout(loadLadeLive, 300);
+    });
+    d.addEventListener("click", e => {
+      const knap = e.target.closest("[data-lade-id]");
+      if (knap) {
+        const m = ladeLiveLayer.getLayers().find(l => l.options.ladeId === knap.dataset.ladeId);
+        if (m) { map.setView(m.getLatLng(), Math.max(map.getZoom(), 15)); m.openPopup(); }
+      }
+      if (e.target.closest(".lade-opdater")) loadLadeLive();
+      const op = e.target.closest("[data-lade-op]");
+      if (op) { _ladeSoeg = op.dataset.ladeOp; loadLadeLive(); }
+    });
+    return d;
+  };
+  _ladePanel.addTo(map);
+}
+
+function _ladePanelVis(html) {
+  _ladePanelOpret();
+  const el = _ladePanel.getContainer().querySelector(".lade-panel-indhold");
+  if (!el) return;
+  // Søgefeltet må ikke miste fokus/markør, mens der tastes: gem og genskab
+  const aktiv = document.activeElement && document.activeElement.id === "ladeSoeg";
+  const pos = aktiv ? document.activeElement.selectionStart : null;
+  el.innerHTML = html;
+  if (aktiv) {
+    const f = el.querySelector("#ladeSoeg");
+    if (f) { f.focus(); try { f.setSelectionRange(pos, pos); } catch (e) {} }
+  }
+}
+
+function _ladeTegn(steder, status, data, km, operatoerer) {
+  ladeLiveLayer.clearLayers();
+  steder.forEach(sted => {
+    const st = _ladeStedStatus(sted, status);
+    const kw = _ladeMaksKw(sted);
+    const r = kw >= 150 ? 12 : kw >= 50 ? 10 : kw >= 22 ? 7 : 6;
+    const farve = LADE_STATUS[st].farve;
+    L.circleMarker([sted.lat, sted.lon], {
+      radius: r, color: "#fff", weight: 2, fillColor: farve, fillOpacity: 0.9, ladeId: sted.id,
+    }).bindPopup(() => _ladePopup(sted, status), { maxWidth: 320 }).addTo(ladeLiveLayer);
+  });
+
+  const top = steder.slice(0, 12).map(sted => {
+    const st = _ladeStedStatus(sted, status);
+    const ialt = sted.punkter.length;
+    const ledige = sted.punkter.filter(p => status[p.evse]?.status === "available").length;
+    const harStatus = sted.punkter.some(p => status[p.evse]);
+    return `<div data-lade-id="${_vdEsc(sted.id)}" style="cursor:pointer;padding:4px 2px;border-bottom:1px solid #eee;display:flex;gap:6px;align-items:flex-start">
+      <span style="flex-shrink:0;width:10px;height:10px;border-radius:50%;margin-top:4px;background:${LADE_STATUS[st].farve}"></span>
+      <span style="flex:1;min-width:0">
+        <b>${_vdEsc(sted.navn || "Ladested")}</b> <span style="color:#666">· ${_ladeMaksKw(sted)} kW</span><br>
+        <span style="color:#666;font-size:12px">${sted.afst.toFixed(1).replace(".", ",")} km · ${_vdEsc(sted.operatoer || "")}${harStatus ? ` · ${ledige}/${ialt} ledige` : ""}</span>
+      </span>
+    </div>`;
+  }).join("");
+
+  const opd = data.opdateret ? new Date(data.opdateret).toLocaleString("da-DK", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+  _ladePanelVis(`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <b>🔌 Nærmeste ladere (≤ ${km} km)</b>
+      <span class="lade-opdater" title="Opdater" style="cursor:pointer;font-size:15px">↻</span>
+    </div>
+    <input type="search" id="ladeSoeg" value="${_vdEsc(_ladeSoeg)}" placeholder="Søg operatør eller navn (fx Norlys)"
+      style="width:100%;box-sizing:border-box;padding:4px 6px;font-size:12px;border:1px solid #ccc;border-radius:4px;margin-bottom:4px">
+    ${!_ladeSoeg && operatoerer && operatoerer.length > 1 ? `<div style="font-size:11px;margin-bottom:4px;line-height:1.6">${
+      operatoerer.slice(0, 8).map(([navn, n]) => `<span data-lade-op="${_vdEsc(navn)}" title="Vis kun ${_vdEsc(navn)}"
+        style="cursor:pointer;display:inline-block;background:#eef2f7;border-radius:10px;padding:0 7px;margin:0 3px 2px 0">${_vdEsc(navn)} (${n})</span>`).join("")}</div>` : ""}
+    <label style="display:flex;align-items:center;gap:5px;font-size:12px;margin-bottom:4px;cursor:pointer">
+      <input type="checkbox" id="ladeKunHurtig" ${_ladeKunHurtig ? "checked" : ""}> Kun hurtiglader (≥ 50 kW)
+    </label>
+    ${top || `<div style="color:#666">${_ladeSoeg ? `Ingen ladere matcher "${_vdEsc(_ladeSoeg)}" inden for ${km} km.` : "Ingen ladere inden for radius. Vælg en større radius (25/50/100 km)."}</div>`}
+    ${steder.length > 12 ? `<div style="font-size:12px;color:#666;margin-top:3px">+ ${steder.length - 12} flere på kortet</div>` : ""}
+    <div style="font-size:11px;color:#888;margin-top:6px;line-height:1.3">
+      Kilde: Monta (AFIR) – bl.a. Norlys, EWII, NRGi, Uno-X. Ikke Clever, IONITY, Circle K m.fl.
+      Live-status for de nærmeste ${LADE_MAKS_STATUS} ladepunkter.${opd ? ` Steder opdateret ${opd}.` : ""}
+    </div>`);
+}
+
+async function loadLadeLive() {
+  const seq = ++_ladeSeq;
+  const c = (typeof currentMarker !== "undefined" && currentMarker?.getLatLng) ? currentMarker.getLatLng() : null;
+  if (!c) {
+    ladeLiveLayer.clearLayers();
+    _ladePanelVis("🔌 Søg en adresse eller klik på kortet — så vises de nærmeste ladere med live-status.");
+    return;
+  }
+  const km = Math.round((selectedRadius || 25000) / 1000);
+  let data;
+  try {
+    data = await _ladeHentData();
+  } catch (e) {
+    _ladePanelVis("🔌 Ladedata kunne ikke hentes lige nu (" + _vdEsc(e.message) + ").");
+    return;
+  }
+  if (seq !== _ladeSeq || !map.hasLayer(ladeLiveLayer)) return;
+
+  let steder = (data.steder || [])
+    .filter(s => !/oph[øo]rt|nedlagt/i.test(s.navn || ""))   // operatøren har markeret dem som ophørt
+    .map(s => ({ ...s, afst: map.distance(c, L.latLng(s.lat, s.lon)) / 1000 }))
+    .filter(s => s.afst <= km);
+  // Operatører i området (før søgning), flest først — vises som genveje
+  const tael = {};
+  steder.forEach(s => { if (s.operatoer) tael[s.operatoer] = (tael[s.operatoer] || 0) + 1; });
+  const operatoerer = Object.entries(tael).sort((a, b) => b[1] - a[1]);
+  const q = _ladeSoeg.trim().toLowerCase();
+  if (q) steder = steder.filter(s => (s.operatoer + " " + s.navn + " " + s.adresse).toLowerCase().includes(q));
+  if (_ladeKunHurtig) steder = steder.filter(s => _ladeMaksKw(s) >= 50);
+  steder.sort((a, b) => a.afst - b.afst);
+
+  _ladeTegn(steder, {}, data, km, operatoerer);   // tegn med det samme, status kommer bagefter
+
+  const evse = [];
+  for (const s of steder) {
+    for (const p of s.punkter) if (p.evse && evse.length < LADE_MAKS_STATUS) evse.push(p.evse);
+    if (evse.length >= LADE_MAKS_STATUS) break;
+  }
+  if (!evse.length) return;
+  let status = {};
+  try {
+    const r = await fetch(`${VD_PROXY}/lade/status?evse=${encodeURIComponent(evse.join(","))}`);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "HTTP " + r.status);
+    status = j.status || {};
+  } catch (e) {
+    console.warn("Ladestatus kunne ikke hentes:", e.message);
+  }
+  if (seq !== _ladeSeq || !map.hasLayer(ladeLiveLayer)) return;
+  _ladeTegn(steder, status, data, km, operatoerer);
+}
+
+// Ny søgning, klik på kortet eller ny radius: hent igen (kun når laget er tændt)
+function _ladeOpdaterSnart(ms) {
+  if (!map.hasLayer(ladeLiveLayer)) return;
+  clearTimeout(_ladeTimer);
+  _ladeTimer = setTimeout(loadLadeLive, ms);
+}
+map.on("click", () => _ladeOpdaterSnart(800));
+["btn10", "btn25", "btn50", "btn100"].forEach(id => {
+  const b = document.getElementById(id);
+  if (b) b.addEventListener("click", () => _ladeOpdaterSnart(100));
+});
+if (typeof placeMarkerAndZoom === "function") {
+  const _origPlaceLade = window.placeMarkerAndZoom;
+  window.placeMarkerAndZoom = function () {
+    const r = _origPlaceLade.apply(this, arguments);
+    _ladeOpdaterSnart(300);
+    return r;
+  };
+}
+
+map.on("overlayadd", function (e) {
+  if (e.layer !== ladeLiveLayer) return;
+  _ladePanelOpret();
+  loadLadeLive();
+  if (!_ladeInterval) _ladeInterval = setInterval(loadLadeLive, 2 * 60 * 1000);
+});
+map.on("overlayremove", function (e) {
+  if (e.layer !== ladeLiveLayer) return;
+  if (_ladeInterval) { clearInterval(_ladeInterval); _ladeInterval = null; }
+  clearTimeout(_ladeTimer);
+  _ladeSeq++;
+  ladeLiveLayer.clearLayers();
+  if (_ladePanel) { _ladePanel.remove(); _ladePanel = null; }
+});
+
 // Start lag-indlæsning ved overlayadd
 function _startDmiInterval() {
   loadDmiTemperatur();
@@ -1903,6 +2163,7 @@ overlayMaps["⚠️ Advarsler (VD)"] = vdAdvarselLayer;
 overlayMaps["💨 Vind (DMI + VD)"] = vindLayer;
 overlayMaps["⚡ Lyn (DMI)"] = lynLayer;
 overlayMaps["🧊 Vejtemperatur (VD)"] = vejTempLayer;
+overlayMaps["🔌 Ladestandere (live)"] = ladeLiveLayer;
 overlayMaps["📐 Matrikel"] = matrikelLayer;
 
 // Venter på at RainViewer-laget bliver klar. Uden en øvre grænse ville
@@ -2006,13 +2267,15 @@ const LAG_GRUPPER = [
   { id: "trafik",  navn: "🚦 Trafik (live)",       lag: ["⚠️ Advarsler (VD)", "🚧 Vejarbejder (VD)"] },
   { id: "veje",    navn: "🛣️ Veje",                lag: ["📍 Km-markeringer (VD)", "Rutenummereret vejnet", "🛣️ CVF vejklassifikation", "🅿️ Rastepladser (store køretøjer)", "🔀 Frakørsler (statsveje)"] },
   { id: "omraade", navn: "🗺️ Grænser og områder",  lag: ["Kommunegrænser", "Disponeringsområder", "25 km grænse", "📐 Matrikel"] },
-  { id: "steder",  navn: "📍 Steder",              lag: ["Strandposter", "Falck Ass", "Ladestandere"] },
+  { id: "steder",  navn: "📍 Steder",              lag: ["Strandposter", "Falck Ass", "🔌 Ladestandere (live)", "Ladestandere"] },
   { id: "links",   navn: "🔗 Links",               lag: ["DB SMS kort", "DB Journal"] },
 ];
 const LAG_NEDERST = ["Behold markører"];
 // Korte forklaringer under et lag i listen
 const LAG_HJAELP = {
   "⚡ Lyn (DMI)": "Viser lynnedslag fra den seneste time. Tomt = ingen lyn.",
+  "🔌 Ladestandere (live)": "Nærmeste ladere med live-status omkring søgt adresse.",
+  "Ladestandere": "Ældre kilde (Open Charge Map). Kræver valgt radius.",
 };
 
 (function () {
