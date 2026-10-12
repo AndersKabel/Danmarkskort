@@ -1523,7 +1523,7 @@ async function loadVejTemp() {
 var ladeLiveLayer = L.layerGroup();
 let _ladeData = null, _ladeHentes = null, _ladeInterval = null, _ladeSeq = 0;
 let _ladeKunHurtig = false, _ladePanel = null, _ladeTimer = null, _ladeSoeg = "";
-const LADE_MAKS_STATUS = 30;
+const LADE_MAKS_STATUS = 20;   // de nærmeste ladepunkter; flere giver lang ventetid hos Monta
 
 const LADE_STATUS = {
   available:    { tekst: "Ledig",        farve: "#16a34a" },
