@@ -1531,7 +1531,7 @@ function _levInfoHTML(lev, redigerbar) {
   const t = String(lev?.info || "").trim();
   if (!redigerbar) {
     if (!t) return "";
-    return `<div class="lev-popup-info">\u2139\uFE0F ${_esc(t)}</div>`;
+    return `<div class="lev-popup-info">\u2139\uFE0F ${_esc(t).replace(/\r?\n/g, "<br>")}</div>`;
   }
   // Fuld popup: alle der er logget ind (også disponenter) kan rette infoen.
   // Workeren skriver kun dette ene felt.
@@ -1545,7 +1545,7 @@ function _levInfoHTML(lev, redigerbar) {
   return `<div class="lev-info-boks" data-levid="${_esc(lev.id)}">${
     t
       ? `<div class="lev-popup-info" style="display:flex;gap:6px;align-items:flex-start">
-           <span style="flex:1">\u2139\uFE0F ${_esc(t).replace(/\n/g, "<br>")}${rettet}</span>
+           <span style="flex:1">\u2139\uFE0F ${_esc(t).replace(/\r?\n/g, "<br>")}${rettet}</span>
            <button class="lev-info-rediger" title="Ret info"
              style="border:none;background:none;cursor:pointer;font-size:13px;padding:0 2px">✏️</button>
          </div>`
