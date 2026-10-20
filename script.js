@@ -4172,6 +4172,15 @@ async function _hentVejGeometri(item) {
     return wkt ? _tilMultiLinje(wellknown.parse(wkt)) : null;
   }
 
+  // Vej fundet via en adresse (brugeren skrev postnummer/by): adressens
+  // detaljer peger direkte på DAR-vejen, så hele forløbet hentes derfra
+  if (item.kilde === "avadr") {
+    const ad  = await avDetaljer(item.id, item.type);
+    const vid = (ad?.husnummer || ad?.adresse?.husnummer)?.navngivenvej?.id_lokalid;
+    if (!vid) return null;
+    return _hentVejGeometri({ kilde: "dar", id: vid });
+  }
+
   // Adressevælger: find DAR-vejen med samme navn, der ligger hvor
   // Adressevælgerens stykke ligger, og brug hele dens forløb
   const det = await avDetaljer(item.id, item.type);
@@ -4202,22 +4211,47 @@ async function _hentVejGeometri(item) {
 
 function doSearchRoad(query, listElement, inputField, which) {
   const mit = ++_vejSoegSeq[which];
+  // Skriver man postnummer efter vejnavnet ("Mellemvej 4792"), opfatter
+  // Adressevælgeren tallet som husnummer og sender kun adresser. Derfor søges
+  // der også på vejnavnet alene, og listen filtreres bagefter på det skrevne.
+  const harTal  = /\d/.test(query);
+  const navnDel = query.replace(/\s+\S*\d.*$/, "").trim();
+  const avFejl  = err => { console.error("Vejsøgning (Adressevælger):", err); return []; };
   Promise.all([
-    avSoeg(query, 20).catch(err => { console.error("Vejsøgning (Adressevælger):", err); return []; }),
-    _darVejSoeg(query).catch(err => { console.error("Vejsøgning (DAR):", err); return []; })
-  ]).then(async ([av, dar]) => {
+    avSoeg(query, 20).catch(avFejl),
+    _darVejSoeg(query).catch(err => { console.error("Vejsøgning (DAR):", err); return []; }),
+    (harTal && navnDel && navnDel !== query) ? avSoeg(navnDel, 20).catch(avFejl) : Promise.resolve([])
+  ]).then(async ([av, dar, avNavn]) => {
     if (mit !== _vejSoegSeq[which]) return;   // et nyere tastetryk har overhalet os
     if (inputField.value.trim() !== query) return; // feltet er tømt/ændret (fx ×)
 
     // Adressevælgerens titel er "Kirkevej 2630 Taastrup"
-    const items = av.filter(f => f.type === "navngivenvejpostnummer").map(f => {
+    const set = new Set();
+    let items = [...av, ...avNavn].filter(f => f.type === "navngivenvejpostnummer").map(f => {
       const m = String(f.tekst).match(/^(.*?)\s+(\d{4})\s+(.+)$/);
       return {
         kilde: "av", id: f.id, type: f.type,
         vejnavn: m ? m[1] : f.tekst,
+        noegle:  m ? `${m[1].toLowerCase()}|${m[2]}` : f.id,
         tekst:   m ? `${m[1]} (${m[2]} ${m[3]})` : f.tekst
       };
+    }).filter(i => !set.has(i.noegle) && set.add(i.noegle));
+
+    // Adressevælgeren sender højst ca. 40 veje. Vejene bag de adresser, den
+    // også sender ("Mellemvej 2, Lerbæk, 4792 Askeby"), tilføjes, så vejen i
+    // det skrevne postnummer kommer med, selv om den ikke var blandt de 40.
+    av.filter(f => f.type === "adresse" || f.type === "husnummer").forEach(f => {
+      const m = String(f.tekst).match(/^(.*?)\s+\d+[A-Za-zÆØÅæøå]?\s*,.*?(\d{4})\s+([^,]+)$/);
+      if (!m) return;
+      const noegle = `${m[1].toLowerCase()}|${m[2]}`;
+      if (set.has(noegle)) return;
+      set.add(noegle);
+      items.push({ kilde: "avadr", id: f.id, type: f.type, vejnavn: m[1],
+                   noegle, tekst: `${m[1]} (${m[2]} ${m[3]})` });
     });
+    // Med tal i søgningen vises kun veje, hvor tallet passer (postnummeret)
+    if (harTal) items = items.filter(i => _avMatcherTekst(query, i.tekst));
+    else        items = items.filter(i => i.kilde !== "avadr" || _avMatcherTekst(query, i.tekst));
 
     // Veje uden adresser: DAR-veje hvis navn ikke er i Adressevælgerens liste
     const avNavne = new Set(items.map(i => i.vejnavn.toLowerCase()));
