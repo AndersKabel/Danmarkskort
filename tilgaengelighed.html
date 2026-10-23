@@ -515,8 +515,13 @@
     <h2>Meld fravær</h2>
     <div style="font-size:12px;color:#9ca3af;margin-bottom:10px;line-height:1.5">
       Kører I en tur eller er I optaget, så meld fra her. Vognen forsvinder fra
-      kortet og kommer igen af sig selv, når tiden er gået.
+      kortet og kommer igen af sig selv, når tiden er gået — også den faste
+      rytme starter selv igen ved næste vagt.
     </div>
+
+    <!-- Kun synlig når vognen står efter fast rytme: fravær til vagtens
+         slut, så rytmen selv tager over igen ved næste vagt -->
+    <button class="btn btn-red hidden" id="btn-frav-vagt" style="margin-bottom:10px"></button>
 
     <div class="time-grid" id="frav-grid">
       <button class="time-btn" data-min="60">1t</button>
@@ -985,6 +990,26 @@
     meldFravaer({ minutter: parseInt(btn.dataset.min, 10) }, btn, label);
   });
 
+  // Fravær resten af den nuværende vagt i den faste rytme. Vagtens slut
+  // (planTil, "HH:MM" i dansk tid) kommer fra workeren. Ligger klokkeslættet
+  // før nu, slutter vagten efter midnat, altså i morgen.
+  function vagtSlut() {
+    const m = String(_aktivRec?.planTil || "").match(/^(\d{1,2}):(\d{2})$/);
+    if (_aktivRec?.kilde !== "plan" || !m) return null;
+    const til = new Date();
+    til.setHours(parseInt(m[1], 10), parseInt(m[2], 10), 0, 0);
+    if (til.getTime() <= Date.now()) til.setDate(til.getDate() + 1);
+    return til;
+  }
+  document.getElementById("btn-frav-vagt").addEventListener("click", () => {
+    const til = vagtSlut();
+    const fb  = document.getElementById("frav-feedback");
+    if (!til) { showFb(fb, "err", "Vognen står ikke efter fast rytme lige nu."); return; }
+    const btn = document.getElementById("btn-frav-vagt");
+    meldFravaer({ fra: new Date().toISOString(), til: til.toISOString(),
+                  aarsag: "Resten af vagten" }, btn, btn.innerHTML);
+  });
+
   document.getElementById("btn-frav-min").addEventListener("click", () => {
     const inp = document.getElementById("inp-frav-min");
     const min = parseInt(inp.value, 10);
@@ -1292,6 +1317,15 @@
     // Fraværskortet giver kun mening når der er noget at melde fra på
     document.getElementById("card-fravaer")
       .classList.toggle("hidden", !_rytme?.aktiv && !_aktivRec);
+
+    // "Resten af vagten" kun når vognen står efter fast rytme lige nu
+    const btnVagt = document.getElementById("btn-frav-vagt");
+    if (efterPlan && _aktivRec?.planTil) {
+      btnVagt.innerHTML = `🔴 Fraværende resten af vagten (til ${esc(_aktivRec.planTil)})`;
+      btnVagt.classList.remove("hidden");
+    } else {
+      btnVagt.classList.add("hidden");
+    }
   }
 
   function fmt(iso) {
