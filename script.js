@@ -2162,7 +2162,7 @@ const overlayMaps = {
   "DB SMS kort": dbSmsLayer,
   "DB Journal": dbJournalLayer,
   "25 km grænse": border25Layer,
-  "Ladestandere": chargeMapLayer,
+  //"Ladestandere": chargeMapLayer,
   "Rutenummereret vejnet": rutenummerLayer,
   "🛣️ CVF vejklassifikation": cvfVejeLayer,
   // NYT: overlay til at beholde markører
