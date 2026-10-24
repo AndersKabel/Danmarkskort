@@ -1445,9 +1445,20 @@
     }
   }
 
+  // Klokkeslæt med dag, når det ikke er i dag: "20.00", "søndag 20.00",
+  // og over en uge væk "søn. 2/11 20.00". Så kan man se, hvilken dag en
+  // tilgængelighed slutter, uden at vognmanden skal skrive det i bemærkningen.
   function fmt(iso) {
     if (!iso) return "?";
-    return new Date(iso).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+    const d = new Date(iso);
+    if (isNaN(d)) return "?";
+    const kl = d.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+    const nu = new Date();
+    const dage = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate())
+      - new Date(nu.getFullYear(), nu.getMonth(), nu.getDate())) / 86400000);
+    if (dage === 0) return kl;
+    if (Math.abs(dage) <= 6) return `${d.toLocaleDateString("da-DK", { weekday: "long" })} ${kl}`;
+    return `${d.toLocaleDateString("da-DK", { weekday: "short" })} ${d.getDate()}/${d.getMonth() + 1} ${kl}`;
   }
 
   // ── TIDSKNAPPER ────────────────────────────────────────────────
