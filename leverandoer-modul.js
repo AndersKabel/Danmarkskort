@@ -1637,6 +1637,7 @@ function _levMiniPopupHTML(lev, adr) {
   });
   if (lev.kontakt?.email)
     h += `<div class="lev-popup-row">✉️ <a href="mailto:${_esc(lev.kontakt.email)}">${_esc(lev.kontakt.email)}</a></div>`;
+  h += _linksHTML(lev);
   if ((lev.vogne||[]).length)
     h += `<div class="lev-popup-klik-hint">Klik for vogne og detaljer →</div>`;
   h += `</div>`;
@@ -1671,6 +1672,7 @@ function _levFullPopupHTML(lev, adr) {
   }
   if (lev.kontakt?.email)
     h += `<div class="lev-popup-row">✉️ <a href="mailto:${_esc(lev.kontakt.email)}">${_esc(lev.kontakt.email)}</a></div>`;
+  h += _linksHTML(lev);
 
   const alleVogne = lev.vogne || [];
   const vogne = alleVogne.filter(v =>
@@ -1956,6 +1958,9 @@ function _levShowForm(id) {
         <div class="lev-section-sub">📞 Telefonnumre (øverst = højst prioritet)</div>
         <div id="lf-telefoner"></div>
         <button type="button" id="levAddTlf" class="lev-btn-add">+ Tilføj telefonnummer</button>
+        <div class="lev-section-sub" style="margin-top:8px">🔗 Links (fx hjemmeside)</div>
+        <div id="lf-links"></div>
+        <button type="button" id="lf-link-add" class="lev-btn-add">+ Tilføj link</button>
       </fieldset>
 
       <fieldset class="lev-fs" data-section="faktura">
@@ -2105,6 +2110,7 @@ function _levShowForm(id) {
 
   document.getElementById("levTilbage").addEventListener("click", _levShowListe);
   document.getElementById("levAddTlf") .addEventListener("click", () => _levAppendTlfRow(tlfDiv, {}));
+  _linkBindRows("lf", lev);
   document.getElementById("levAddAdr") .addEventListener("click", () => _levAppendAdrRow(adrDiv, {}));
   document.getElementById("levAddVogn").addEventListener("click", () => {
     // Læs aktuelle depoter fra formularen (kan være ændret siden åbning)
@@ -2462,6 +2468,7 @@ async function _levGem(template) {
       })(),
       info:     document.getElementById("lf-info")?.value.trim() || "",
       uad:      (typeof window.__lfHentUad === "function") ? window.__lfHentUad() : (lev.uad || null),
+      links:    _linkLaesRows("lf-links"),
       kontakt: {
         navn:         document.getElementById("lf-knavn").value.trim(),
         email:        document.getElementById("lf-kemail").value.trim(),
@@ -2770,10 +2777,13 @@ function _linkAppendRow(container, l = {}) {
 function _linkLaesRows(containerId) {
   const c = document.getElementById(containerId);
   if (!c) return [];
-  return Array.from(c.querySelectorAll(".lev-link-row")).map(r => ({
-    url:   r.querySelector(".l-url")?.value.trim()   || "",
-    tekst: r.querySelector(".l-tekst")?.value.trim() || ""
-  })).filter(l => /^https?:\/\//i.test(l.url));
+  return Array.from(c.querySelectorAll(".lev-link-row")).map(r => {
+    let url = r.querySelector(".l-url")?.value.trim() || "";
+    // "www.firma.dk" eller "firma.dk" får https:// foran, så det ikke
+    // forsvinder i stilhed ved gem
+    if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url) && /^[^\s\/]+\.[a-z]{2,}(\/|$)/i.test(url)) url = "https://" + url;
+    return { url, tekst: r.querySelector(".l-tekst")?.value.trim() || "" };
+  }).filter(l => /^https?:\/\//i.test(l.url));
 }
 
 // Bygger rækkerne og knytter "tilføj"-knappen
@@ -4064,6 +4074,7 @@ function _levVognKatPopupHTML(lev, adr, vogne, kat, afstand) {
       ${info}
       ${adrLinje}
       ${_kontaktHTML("📞", "Bil", v.telefon)}
+      ${_linksHTML(lev)}
       ${v.infoTekst ? _bemaerkHTML(v.infoTekst) : ""}
       <div style="display:flex;gap:6px;flex-wrap:wrap">${flytKnap(v)}${uadKnap}</div>
     </div>`;
@@ -4085,6 +4096,7 @@ function _levVognKatPopupHTML(lev, adr, vogne, kat, afstand) {
     ${afstandTekst}
     ${info}
     ${adrLinje}
+    ${_linksHTML(lev)}
     <hr class="lev-hr">${raekker}
     <div style="display:flex;gap:6px;flex-wrap:wrap">${uadKnap}</div>
   </div>`;
