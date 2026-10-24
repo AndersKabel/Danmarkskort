@@ -730,10 +730,12 @@
 
       const data = await r.json();
       _adresser = data.record?.alleAdresser || [];
-      _vognNr = vognNr;
+      // Serveren finder også vognen ud fra første ord ("6930" -> "6930 Bjærger").
+      // Det fulde vognnummer bruges herefter, så status og fravær passer.
+      _vognNr = data.record?.vognNr || vognNr;
       _code   = code;
       _rolle  = data.rolle || "vogn";
-      sessionStorage.setItem("lev_vognNr", vognNr);
+      sessionStorage.setItem("lev_vognNr", _vognNr);
       sessionStorage.setItem("lev_code",   code);
       sessionStorage.setItem("lev_rolle",  _rolle);
       if (_rolle === "ejer") showOversigt();
@@ -792,6 +794,10 @@
       const data = await r.json();
       _adresser = data.record?.alleAdresser || [];
       _vognTlf  = data.record?.vognTlf || "";
+      if (data.record?.vognNr && data.record.vognNr !== _vognNr) {
+        _vognNr = data.record.vognNr;
+        sessionStorage.setItem("lev_vognNr", _vognNr);
+      }
       buildTlfValg();
       if (data.rolle) {
         _rolle = data.rolle;
