@@ -1402,6 +1402,9 @@ async function _levTilgLoad() {
     _levTilgVognNumre = new Set(aktive
       .map(a => String(a.vognNr || "").trim().toLowerCase())
       .filter(Boolean));
+    _levTilgKontakt = new Map(aktive
+      .filter(a => a.kontaktTlf && a.vognNr)
+      .map(a => [String(a.vognNr).trim().toLowerCase(), String(a.kontaktTlf)]));
     _levTilgBuildMarkers(aktive);
 
     // Vis besked hvis ingen er tilgængelige
@@ -1484,6 +1487,7 @@ function _levTilgBuildMarkers(aktive) {
           ${efterPlan
             ? `<br><small style="color:#7f8c8d">Efter fast plan – ikke bekræftet af vognmanden i dag</small>`
             : ""}
+          ${(rec.kontaktTlf || rec.vognTlf) ? "<br>📞 " + _levTlfLink(rec.kontaktTlf || rec.vognTlf) : ""}
           ${rec.bemærkning ? "<br>💬 <i>" + _esc(rec.bemærkning) + "</i>" : ""}
         </div>`;
     }).join('<hr class="lev-hr">');
@@ -1692,6 +1696,8 @@ function _levFullPopupHTML(lev, adr) {
       h += _levUadHTML(_levUadStatus(lev, adr, v));
       if (_levHarMeldtLedig(v)) {
         h += `<div class="lev-popup-ledig">🟢 Meldt tilgængelig</div>`;
+        // Har redderen meldt sig med et andet nummer end vognens, står det her
+        h += _levMeldtKontaktHTML(v);
       }
       // Telefonnummeret staar uden for det sammenklappelige, saa man kan
       // ringe uden at folde detaljerne ud foerst.
@@ -3093,6 +3099,7 @@ async function _enhedLoad() {
  * end en markering sat af nogen andre.
  ***************************************************/
 let _levTilgVognNumre = new Set();   // vogne der har meldt sig ledige
+let _levTilgKontakt   = new Map();   // vognnummer -> valgt kontaktnummer
 
 // Returnerer null hvis i drift, ellers {uad, niveau, tekst}
 function _levUadStatus(lev, adr, vogn) {
@@ -3102,6 +3109,28 @@ function _levUadStatus(lev, adr, vogn) {
   if (adr  && _erUAD(adr))   return { uad: adr.uad,  niveau: "depot", tekst: "Depotet" };
   if (lev  && _erUAD(lev))   return { uad: lev.uad,  niveau: "lev",   tekst: "Leverandøren" };
   return null;
+}
+
+// Ring-link til et telefonnummer (danske numre får +45 i linket)
+function _levTlfLink(tlf) {
+  const ren = String(tlf || "").replace(/\s/g, "").replace(/^\+45/, "");
+  if (!ren) return "";
+  const href = ren.startsWith("+") ? ren : "+45" + ren;
+  return `<a href="tel:${_esc(href)}">${_esc(tlf)}</a>`;
+}
+
+// Kontaktnummeret en vogn valgte, da den meldte sig tilgængelig
+function _levMeldtKontakt(vogn) {
+  const nr = String(vogn?.vognnummer || "").trim().toLowerCase();
+  return (nr && _levTilgKontakt.get(nr)) || "";
+}
+
+// "Meldt med"-linje, kun når redderen valgte et andet nummer end vognens
+function _levMeldtKontaktHTML(v) {
+  const kontakt = _levMeldtKontakt(v);
+  const sidste8 = t => String(t || "").replace(/\D/g, "").slice(-8);
+  if (!kontakt || sidste8(kontakt) === sidste8(v?.telefon)) return "";
+  return `<div class="lev-popup-vogn-tlf">📞 Meldt med: ${_levTlfLink(kontakt)}</div>`;
 }
 
 function _levHarMeldtLedig(vogn) {
@@ -4020,7 +4049,7 @@ function _levVognKatPopupHTML(lev, adr, vogne, kat, afstand) {
          style="font-size:11px;padding:3px 8px;background:#f5f5f5;color:#333;border:1px solid #ccc;
                 border-radius:4px;cursor:pointer;font-weight:600;margin-top:6px">🔴 Ude af drift…</button>`;
   const vognStatus = v => _levUadHTML(_levUadStatus(lev, adr, v))
-    + (_levHarMeldtLedig(v) ? `<div class="lev-popup-ledig">🟢 Meldt tilgængelig</div>` : "");
+    + (_levHarMeldtLedig(v) ? `<div class="lev-popup-ledig">🟢 Meldt tilgængelig</div>` + _levMeldtKontaktHTML(v) : "");
 
   // Én vogn: som en egen enhed
   if (vogne.length === 1) {
@@ -4263,6 +4292,7 @@ function _tilgLogRender(filter) {
         <div style="color:#5a6a7a">${_esc(r.levNavn)}${r.vognReg ? " · " + _esc(r.vognReg) : ""}</div>
         <div style="font-size:12px;margin-top:2px">⏰ ${_esc(fmt(r.fra))} → ${_esc(fmt(r.til))}</div>
         ${r.position ? `<div style="font-size:12px">📍 ${_esc(r.position)}</div>` : ""}
+        ${r.kontaktTlf ? `<div style="font-size:12px">📞 ${_esc(r.kontaktTlf)}</div>` : ""}
         ${r.bemærkning ? `<div style="font-size:12px;color:#5a6a7a">💬 <i>${_esc(r.bemærkning)}</i></div>` : ""}
         <div style="font-size:11px;color:#8a97a5;margin-top:2px">Ændret ${_esc(fmt(r.opdateret))}</div>
       </div>`;
