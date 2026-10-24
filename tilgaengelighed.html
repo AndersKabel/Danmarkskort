@@ -468,6 +468,18 @@
     </div>
   </div>
 
+  <!-- Kontaktnummer -->
+  <div class="card">
+    <h2>Kontaktnummer</h2>
+    <div class="adr-grid" id="tlf-grid">
+      <button class="adr-btn hidden" id="tlf-vogn" type="button"></button>
+      <button class="adr-btn" id="tlf-eget" type="button">✏️ Indtast nummer</button>
+    </div>
+    <input type="tel" id="inp-tlf" class="hidden" placeholder="Mobilnummer, fx 20 30 40 50"
+      maxlength="20" autocomplete="tel" inputmode="tel" style="margin-top:8px">
+    <div style="font-size:12px;color:#aaa;margin-top:6px">Det nummer disponenten ringer til</div>
+  </div>
+
   <!-- Bemærkning -->
   <div class="card">
     <h2>Bemærkning <span style="font-weight:400;color:#9ca3af;font-size:13px">(valgfri)</span></h2>
@@ -608,6 +620,8 @@
   let _rytme         = null;        // vognens gemte rytme
   let _skema         = {};          // { "1": [["08:00","20:00"]], ... } 1 = mandag
   let _fravaer       = [];          // aktive og kommende fravær
+  let _vognTlf       = "";          // vognens faste nummer fra SharePoint (kan være tomt)
+  let _tlfValg       = "eget";      // "vogn" eller "eget"
   // "ejer" (vognmanden, ejerkode) eller "vogn" (kun denne vogn). Sættes af
   // serveren ved login; gemmes kun som visningshint — serveren tjekker
   // selv koden på hvert kald, så en ændret værdi her giver ingen adgang.
@@ -705,6 +719,7 @@
     updateTilFromFra(4);
     setActiveTimeBtn(4);
     buildAdrGrid();
+    buildTlfValg();
     _setDT("frav-fra", defaultFra());
     _setDT("frav-til", new Date(Date.now() + 86400_000));
     // Adresserne skal hentes her og ikke kun ved login. Ellers er de væk
@@ -737,6 +752,8 @@
       }
       const data = await r.json();
       _adresser = data.record?.alleAdresser || [];
+      _vognTlf  = data.record?.vognTlf || "";
+      buildTlfValg();
       if (data.rolle) {
         _rolle = data.rolle;
         sessionStorage.setItem("lev_rolle", _rolle);
@@ -749,6 +766,35 @@
       console.warn("Kunne ikke hente vogndata", e);
       return true;
     }
+  }
+
+  // ══ KONTAKTNUMMER ════════════════════════════════════════════
+  // To nemme valg: vognens faste nummer (forvalgt, hvis vognen har et)
+  // eller "Indtast nummer". Feltet starter altid tomt — der er mange
+  // forskellige, der kører den samme vogn.
+  function buildTlfValg() {
+    const vognBtn = document.getElementById("tlf-vogn");
+    vognBtn.textContent = `📞 Vognens nummer · ${_vognTlf}`;
+    vognBtn.classList.toggle("hidden", !_vognTlf);
+    document.getElementById("inp-tlf").value = "";
+    vaelgTlf(_vognTlf ? "vogn" : "eget");
+  }
+  function vaelgTlf(valg) {
+    _tlfValg = (valg === "vogn" && _vognTlf) ? "vogn" : "eget";
+    document.getElementById("tlf-vogn").classList.toggle("active", _tlfValg === "vogn");
+    document.getElementById("tlf-eget").classList.toggle("active", _tlfValg === "eget");
+    document.getElementById("inp-tlf").classList.toggle("hidden", _tlfValg !== "eget");
+  }
+  document.getElementById("tlf-vogn").addEventListener("click", () => vaelgTlf("vogn"));
+  document.getElementById("tlf-eget").addEventListener("click", () => {
+    vaelgTlf("eget");
+    document.getElementById("inp-tlf").focus();
+  });
+  // Det valgte nummer, eller null hvis det indtastede ikke er et nummer
+  function valgtTlf() {
+    if (_tlfValg === "vogn") return _vognTlf;
+    const t = document.getElementById("inp-tlf").value.replace(/[^\d+ -]/g, "").replace(/\s+/g, " ").trim();
+    return t.replace(/\D/g, "").length >= 8 ? t : null;
   }
 
   // ══ FAST RYTME ═══════════════════════════════════════════════
@@ -1381,6 +1427,13 @@
     if (!fra || !til || tilD <= fraD) {
       showFb(fb, "err", "Vælg et gyldigt tidsrum (til > fra)."); return;
     }
+    const kontaktTlf = valgtTlf();
+    if (!kontaktTlf) {
+      showFb(fb, "err", "Skriv et mobilnummer (mindst 8 cifre)"
+        + (_vognTlf ? " — eller vælg vognens nummer." : "."));
+      document.getElementById("inp-tlf").focus();
+      return;
+    }
 
     btn.innerHTML = `<span class="spinner"></span>Sender...`;
     btn.disabled = true;
@@ -1393,6 +1446,7 @@
         body: JSON.stringify({
           vognNr: _vognNr, code: _code, fra, til,
           valgtAdresse: _valgtAdresse,
+          kontaktTlf,
           bemærkning: document.getElementById("inp-bemærkning").value.trim()
         })
       });
@@ -1450,6 +1504,7 @@
     document.getElementById("screen-oversigt").classList.add("hidden");
     _vognNr = ""; _code = ""; _aktivRec = null; _adresser = []; _valgtAdresse = null;
     _rytme = null; _skema = {}; _fravaer = [];
+    _vognTlf = ""; buildTlfValg();
     document.getElementById("rytme-aktiv").checked = false;
     toggleRytmeIndhold();
     document.getElementById("rytme-feedback").className = "feedback";
@@ -1656,6 +1711,7 @@
     // Nulstil det, der hører til den forrige vogn
     _aktivRec = null; _adresser = []; _valgtAdresse = null;
     _rytme = null; _skema = {}; _fravaer = [];
+    _vognTlf = ""; buildTlfValg();
     document.getElementById("rytme-feedback").className = "feedback";
     document.getElementById("frav-feedback").className  = "feedback";
     document.getElementById("main-feedback").className  = "feedback";
