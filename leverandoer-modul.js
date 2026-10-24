@@ -1710,7 +1710,7 @@ function _levFullPopupHTML(lev, adr) {
       }
       if (harDetaljer) {
         h += `<div class="lev-popup-vogn-detail">`;
-        if (v.billede) h += `<img src="${_esc(v.billede)}" class="lev-popup-vogn-img-full" alt="" onerror="this.style.display='none'" title="Klik for fuld størrelse">`;
+        if (v.billede) h += `<img src="${_esc(_levBilledSrc(v.billede))}" class="lev-popup-vogn-img-full" alt="" onerror="this.style.display='none'" title="Klik for fuld størrelse">`;
         const specs = [];
         if (v.reg)       specs.push(`Reg.nr.: <b>${_esc(v.reg)}</b>`);
         if (v.ladhøjde) specs.push(`Ladhøjde: <b>${_esc(v.ladhøjde)}</b>`);
@@ -2338,7 +2338,7 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
       </label>
       <div class="lev-vogn-foto-wrap">
         ${harFoto
-          ? `<img class="lev-vogn-thumb" src="${_esc(v.billede)}" alt="" onerror="this.style.display='none'">`
+          ? `<img class="lev-vogn-thumb" src="${_esc(_levBilledSrc(v.billede))}" alt="" onerror="this.style.display='none'">`
           : `<div class="lev-vogn-nofoto">Intet foto</div>`}
         <div class="lev-vogn-foto-btns">
           <label class="lev-btn-add lev-file-label" style="cursor:pointer">
@@ -2396,7 +2396,7 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
           if (nofoto) nofoto.replaceWith(thumb);
           else div.querySelector(".lev-vogn-foto-wrap").prepend(thumb);
         }
-        thumb.src = data.url;
+        thumb.src = _levBilledSrc(data.url);
         // Tilføj fjern-knap
         if (!div.querySelector(".lev-btn-fjern-foto")) {
           const fjernBtn = Object.assign(document.createElement("button"), {
@@ -2905,14 +2905,27 @@ async function _spxAaben(nr, btn) {
   window.open(SPX_URL, "bucketplan");
 }
 
-function _fotoHTML(url) {
+// Billeder i SharePoint-biblioteket LevBilleder vises gennem workeren,
+// så alle kan se dem — også disponenter uden adgang til SharePoint-sitet.
+// Selve adressen i SharePoint gemmes uændret; kun visningen omdirigeres.
+// Andre adresser (fx et billede fra nettet) vises som de er.
+function _levBilledSrc(url) {
   const u = String(url || "").trim();
+  const m = u.match(/^https:\/\/[^/]+\.sharepoint\.com\/.*\/LevBilleder\/([^/?#]+)(?:[?#].*)?$/i);
+  if (!m) return u;
+  let fil = m[1];
+  try { fil = decodeURIComponent(fil); } catch (e) { /* brug som den er */ }
+  return `${LEV_SP_WORKER}/billede?f=${encodeURIComponent(fil)}`;
+}
+
+function _fotoHTML(url) {
+  const u = _levBilledSrc(url);
   return u ? `<div class="lev-popup-row"><img src="${_esc(u)}" class="lev-popup-vogn-img-full"
       alt="" onerror="this.style.display='none'" title="Klik for fuld størrelse"></div>` : "";
 }
 
 function _fotoKnapHTML(url) {
-  const u = String(url || "").trim();
+  const u = _levBilledSrc(url);
   return u ? `<button type="button" class="lev-enhed-foto-btn" data-src="${_esc(u)}" title="Vis foto"
       style="font-size:11px;padding:2px 6px;background:#f0f4f8;border:1px solid #cdd5df;
              border-radius:4px;cursor:pointer">📷</button>` : "";
@@ -3019,7 +3032,7 @@ function _enhedBindFoto() {
         thumb = Object.assign(document.createElement("img"), { className: "lev-vogn-thumb", alt: "" });
         if (nofoto) nofoto.replaceWith(thumb); else wrap.prepend(thumb);
       }
-      thumb.src = url;
+      thumb.src = _levBilledSrc(url);
       if (fjern) fjern.style.display = "";
     } else {
       if (thumb) {
@@ -5508,7 +5521,7 @@ function _enhedShowForm(enhed) {
         <input id="ef-billede" type="hidden" value="${_esc(enhed?.billede || "")}">
         <div class="lev-vogn-foto-wrap">
           ${enhed?.billede
-            ? `<img class="lev-vogn-thumb" src="${_esc(enhed.billede)}" alt="" onerror="this.style.display='none'">`
+            ? `<img class="lev-vogn-thumb" src="${_esc(_levBilledSrc(enhed.billede))}" alt="" onerror="this.style.display='none'">`
             : `<div class="lev-vogn-nofoto">Intet foto</div>`}
           <div class="lev-vogn-foto-btns">
             <label class="lev-btn-add lev-file-label" style="cursor:pointer">
