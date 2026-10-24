@@ -1466,9 +1466,7 @@ function _levTilgBuildMarkers(aktive) {
     // ville der staa "? → ?".
     const vognRækker = records.map(rec => {
       const efterPlan = rec.kilde === "plan";
-      const klok = iso => iso
-        ? new Date(iso).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })
-        : "?";
+      const klok = _levTidMedDag;
       // Rytmens klokkeslæt er "16:30"; vis dem som resten af popuppen (16.30)
       const kl = t => String(t || "").replace(":", ".");
       // Hele vagten: start–slut. Plan har starterTil, en melding har til.
@@ -3132,6 +3130,22 @@ function _levUadStatus(lev, adr, vogn) {
   if (adr  && _erUAD(adr))   return { uad: adr.uad,  niveau: "depot", tekst: "Depotet" };
   if (lev  && _erUAD(lev))   return { uad: lev.uad,  niveau: "lev",   tekst: "Leverandøren" };
   return null;
+}
+
+// Klokkeslæt med dag, når det ikke er i dag: "20.00", "søndag 20.00",
+// og over en uge væk "søn. 2/11 20.00". Så kan man se, hvilken dag en
+// tilgængelighed slutter, uden at vognmanden skal skrive det i bemærkningen.
+function _levTidMedDag(iso) {
+  if (!iso) return "?";
+  const d = new Date(iso);
+  if (isNaN(d)) return "?";
+  const kl = d.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+  const nu = new Date();
+  const dage = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    - new Date(nu.getFullYear(), nu.getMonth(), nu.getDate())) / 86400000);
+  if (dage === 0) return kl;
+  if (Math.abs(dage) <= 6) return `${d.toLocaleDateString("da-DK", { weekday: "long" })} ${kl}`;
+  return `${d.toLocaleDateString("da-DK", { weekday: "short" })} ${d.getDate()}/${d.getMonth() + 1} ${kl}`;
 }
 
 // Ring-link til et telefonnummer (danske numre får +45 i linket)
