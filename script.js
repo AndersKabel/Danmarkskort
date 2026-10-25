@@ -1333,12 +1333,24 @@ async function _hentDmiSeneste(parameterId) {
   return ud;
 }
 
+// Hvilke kilder vises i vindlaget. Vælges med de to små flueben i
+// vindbjælken nederst og huskes i browseren.
+const _vindKilder = (() => {
+  try { return { dmi: true, vd: true, ...JSON.parse(localStorage.getItem("vindKilder") || "{}") }; }
+  catch (e) { return { dmi: true, vd: true }; }
+})();
+
 async function loadVind() {
   if (_vindHist.aktiv) return;   // afspilleren viser et ældre tidspunkt — ikke overskriv
   const tmp = L.layerGroup();
+  // En slået fra kilde hentes slet ikke
+  const tom = Promise.resolve({});
   const [middel, stoed, retning, navne, vd] = await Promise.allSettled([
-    _hentDmiSeneste("wind_speed"), _hentDmiSeneste("wind_max"), _hentDmiSeneste("wind_dir"),
-    _hentDmiStationNavne(), _fetchVdFil("25832/wind-speeds.point.json")
+    _vindKilder.dmi ? _hentDmiSeneste("wind_speed") : tom,
+    _vindKilder.dmi ? _hentDmiSeneste("wind_max")   : tom,
+    _vindKilder.dmi ? _hentDmiSeneste("wind_dir")   : tom,
+    _vindKilder.dmi ? _hentDmiStationNavne()        : tom,
+    _vindKilder.vd  ? _fetchVdFil("25832/wind-speeds.point.json") : tom
   ]);
   const M = middel.status === "fulfilled" ? middel.value : {};
   const S = stoed.status  === "fulfilled" ? stoed.value  : {};
@@ -1495,7 +1507,9 @@ function _vindTegnFrame(idx) {
     }
     return ud;
   };
-  const M = hent("wind_speed"), S = hent("wind_max"), R = hent("wind_dir");
+  const M = _vindKilder.dmi ? hent("wind_speed") : {};
+  const S = _vindKilder.dmi ? hent("wind_max")   : {};
+  const R = _vindKilder.dmi ? hent("wind_dir")   : {};
   const N = _dmiStationNavne || {};
   const lag = L.layerGroup();
   const tidTekst = _vindTidTekst(tid);
@@ -1521,7 +1535,7 @@ function _vindTegnFrame(idx) {
     const af = Math.abs(Date.parse(sn.t) - tid);
     return af <= 20 * 60000 && (!bedst || af < bedst.af) ? { sn, af } : bedst;
   }, null)?.sn;
-  if (snap) {
+  if (snap && _vindKilder.vd) {
     Object.entries(snap.m || {}).forEach(([xy, [ms, ret]]) => {
       const [x, y] = xy.split(",").map(Number);
       const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [x, y]);
@@ -1608,9 +1622,13 @@ function _vindAfspillerOpret() {
   el.className = "vind-afspiller";
   el.style.cssText = "position:absolute;left:50%;bottom:56px;transform:translateX(-50%);z-index:800;"
     + "background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.3);padding:6px 10px;"
-    + "display:none;align-items:center;gap:8px;font:13px sans-serif;max-width:calc(100% - 30px);flex-wrap:wrap";
+    + "display:none;align-items:center;gap:8px;font:13px sans-serif;width:max-content;max-width:calc(100% - 30px);flex-wrap:wrap";
   el.innerHTML = `
     <b style="white-space:nowrap" title="Afspiller vindmålingerne fra DMI og Vejdirektoratet">💨 Vind</b>
+    <label style="white-space:nowrap;cursor:pointer;font-size:12px" title="DMI's vejrstationer (middelvind og vindstød)">
+      <input type="checkbox" class="vind-kilde" data-kilde="dmi" ${_vindKilder.dmi ? "checked" : ""}> DMI</label>
+    <label style="white-space:nowrap;cursor:pointer;font-size:12px" title="Vejdirektoratets vejrstationer, bl.a. ved broer (ingen vindstød)">
+      <input type="checkbox" class="vind-kilde" data-kilde="vd" ${_vindKilder.vd ? "checked" : ""}> VD</label>
     <button type="button" class="vind-afspil" title="Afspil vinden de seneste timer"
       style="font-size:15px;width:32px;height:28px;cursor:pointer;border:1px solid #ccc;border-radius:6px;background:#f5f7fa">▶</button>
     <input type="range" class="vind-tid" min="0" max="24" value="24" style="width:220px;max-width:40vw">
@@ -1657,6 +1675,13 @@ function _vindAfspillerOpret() {
     _vindHist.trinMin = Number(e.target.value); _vindNu();
   });
   el.querySelector(".vind-nu").addEventListener("click", _vindNu);
+  // DMI/VD til og fra: tegn igen — live eller det tidspunkt der vises
+  el.querySelectorAll(".vind-kilde").forEach(cb => cb.addEventListener("change", () => {
+    _vindKilder[cb.dataset.kilde] = cb.checked;
+    try { localStorage.setItem("vindKilder", JSON.stringify(_vindKilder)); } catch (e) {}
+    if (_vindHist.aktiv) _vindTegnFrame(_vindHist.idx);
+    else loadVind();
+  }));
   return el;
 }
 
