@@ -1334,6 +1334,7 @@ async function _hentDmiSeneste(parameterId) {
 }
 
 async function loadVind() {
+  if (_vindHist.aktiv) return;   // afspilleren viser et ældre tidspunkt — ikke overskriv
   const tmp = L.layerGroup();
   const [middel, stoed, retning, navne, vd] = await Promise.allSettled([
     _hentDmiSeneste("wind_speed"), _hentDmiSeneste("wind_max"), _hentDmiSeneste("wind_dir"),
@@ -1393,11 +1394,255 @@ async function loadVind() {
     });
   }
 
-  if (!map.hasLayer(vindLayer)) return;
+  if (!map.hasLayer(vindLayer) || _vindHist.aktiv) return;
   vindLayer.clearLayers();
   tmp.eachLayer(l => vindLayer.addLayer(l));
   console.log(`✅ Vind: ${antalDmi} DMI + ${antalVd} VD stationer`);
 }
+
+// ── Vind-afspiller: de seneste 12/24 timer ───────────────────────
+// DMI gemmer selv sine målinger, så de hentes for hvert tidspunkt, først
+// når man trykker afspil. VD's stationer viser kun "nu" — dem gemmer
+// vd-proxy hver halve time i 48 timer (/vind/historik).
+// Mens afspilleren viser et ældre tidspunkt, springer loadVind over, så
+// den automatiske opdatering ikke overskriver billedet. "Nu" går tilbage.
+const _vindHist = {
+  aktiv: false, tider: [], idx: 0, timer: null,
+  timerSpan: 12, trinMin: 30,
+  dmi: new Map(),      // "param|iso" -> { stationId: { value, coords } }
+  vd: null,            // { snaps: [...] } fra vd-proxy
+  henter: null, el: null,
+};
+
+function _vindTidTekst(d) {
+  const kl = d.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+  const iDag = new Date().toDateString() === d.toDateString();
+  return iDag ? `i dag ${kl}` : `${d.toLocaleDateString("da-DK", { weekday: "long" })} ${kl}`;
+}
+
+// Tidspunkterne i afspilningen. Sidste tidspunkt ligger et kvarter
+// tilbage, så DMI's målinger er nået frem.
+function _vindTider() {
+  const trin = _vindHist.trinMin * 60000;
+  const slut = Math.floor((Date.now() - 15 * 60000) / trin) * trin;
+  const antal = Math.round(_vindHist.timerSpan * 60 / _vindHist.trinMin);
+  return Array.from({ length: antal + 1 }, (_, i) => new Date(slut - (antal - i) * trin));
+}
+
+// DMI: målinger fra 10 minutter op til tidspunktet, nyeste pr. station
+async function _vindHentDmi(param, tid) {
+  const noegle = param + "|" + tid.toISOString();
+  if (_vindHist.dmi.has(noegle)) return _vindHist.dmi.get(noegle);
+  const fra = new Date(tid.getTime() - 10 * 60000).toISOString();
+  const r = await fetch("https://opendataapi.dmi.dk/v2/metObs/collections/observation/items"
+    + `?parameterId=${param}&datetime=${encodeURIComponent(fra + "/" + tid.toISOString())}`
+    + "&bbox=7,54,16,58&limit=3000");
+  if (!r.ok) throw new Error(`DMI ${param}: HTTP ${r.status}`);
+  const d = await r.json();
+  const ud = {};
+  (d.features || []).forEach(f => {
+    const p = f.properties || {};
+    if (p.value == null || !p.stationId) return;
+    const gl = ud[p.stationId];
+    if (!gl || String(p.observed) > String(gl.observed)) {
+      ud[p.stationId] = { value: p.value, observed: p.observed, coords: f.geometry?.coordinates };
+    }
+  });
+  _vindHist.dmi.set(noegle, ud);
+  return ud;
+}
+
+// Henter alt til afspilningen. Højst 6 kald ad gangen hos DMI.
+async function _vindHentHistorik() {
+  const tider = _vindHist.tider;
+  const opgaver = [];
+  tider.forEach(t => ["wind_speed", "wind_max", "wind_dir"].forEach(p => opgaver.push([p, t])));
+  let faerdige = 0, fejl = 0;
+  const status = () => _vindAfspillerStatus(`Henter ${faerdige} af ${opgaver.length}…`);
+  status();
+  const vdP = fetch(`${VD_PROXY}/vind/historik`).then(r => r.ok ? r.json() : { snaps: [] })
+    .catch(() => ({ snaps: [] }));
+  let i = 0;
+  const arbejder = async () => {
+    while (i < opgaver.length) {
+      const [p, t] = opgaver[i++];
+      try { await _vindHentDmi(p, t); } catch (e) { fejl++; }
+      faerdige++;
+      if (faerdige % 6 === 0) status();
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, arbejder));
+  _vindHist.vd = await vdP;
+  await _hentDmiStationNavne().catch(() => {});
+  if (fejl) console.warn(`Vind-afspiller: ${fejl} af ${opgaver.length} DMI-opslag fejlede`);
+  _vindAfspillerStatus(fejl === opgaver.length ? "DMI kunne ikke nås" : "");
+}
+
+// Tegner ét tidspunkt. En station uden måling præcis her (fx en der kun
+// måler hver time) beholder sin forrige måling, hvis den er under 1 time gammel.
+function _vindTegnFrame(idx) {
+  const tid = _vindHist.tider[idx];
+  if (!tid || !map.hasLayer(vindLayer)) return;
+  const hent = param => {
+    const ud = {};
+    for (let j = idx; j >= 0; j--) {
+      const t = _vindHist.tider[j];
+      if (tid - t > 60 * 60000) break;
+      const d = _vindHist.dmi.get(param + "|" + t.toISOString()) || {};
+      Object.keys(d).forEach(id => { if (!ud[id]) ud[id] = d[id]; });
+    }
+    return ud;
+  };
+  const M = hent("wind_speed"), S = hent("wind_max"), R = hent("wind_dir");
+  const N = _dmiStationNavne || {};
+  const lag = L.layerGroup();
+  const tidTekst = _vindTidTekst(tid);
+
+  new Set([...Object.keys(M), ...Object.keys(S)]).forEach(id => {
+    const m = M[id], s = S[id], rr = R[id];
+    const c = (m || s).coords;
+    if (!c) return;
+    const mid = m ? Math.round(m.value) : null;
+    const st  = s ? Math.round(s.value) : null;
+    const grader = rr ? rr.value : null;
+    const popup = `<strong>💨 ${_vdEsc(N[id] || "DMI-station " + id)}</strong>`
+      + (m ? `<br>Middelvind: <b>${m.value.toFixed(1)} m/s</b>` : "")
+      + (s ? `<br>Vindstød: <b>${s.value.toFixed(1)} m/s</b>` : "")
+      + (grader != null ? `<br>Retning: fra ${_VIND_DANSK[Math.round(grader / 22.5) % 16]} (${Math.round(grader)}°)` : "")
+      + `<br><span style="font-size:11px;color:#888">Afspilning · ${_vdEsc(tidTekst)} · Kilde: DMI</span>`;
+    _vindMarker(c[1], c[0], _vindPil(grader) + (mid ?? "–") + (st != null ? ` (${st})` : ""),
+      _vindFarve(st ?? mid), popup, false).addTo(lag);
+  });
+
+  // VD: øjebliksbilledet nærmest tidspunktet (højst 20 min fra)
+  const snap = (_vindHist.vd?.snaps || []).reduce((bedst, sn) => {
+    const af = Math.abs(Date.parse(sn.t) - tid);
+    return af <= 20 * 60000 && (!bedst || af < bedst.af) ? { sn, af } : bedst;
+  }, null)?.sn;
+  if (snap) {
+    Object.entries(snap.m || {}).forEach(([xy, [ms, ret]]) => {
+      const [x, y] = xy.split(",").map(Number);
+      const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", [x, y]);
+      const grader = _VIND_RETNING[String(ret || "").toUpperCase()];
+      const popup = `<strong>💨 Vejdirektoratets vejrstation</strong>`
+        + `<br>Vindhastighed: <b>${ms} m/s</b>`
+        + `<br><span style="font-size:11px;color:#888">Afspilning · ${_vdEsc(tidTekst)} · Kilde: Vejdirektoratet</span>`;
+      _vindMarker(lat, lon, _vindPil(grader) + Math.round(ms), _vindFarve(ms), popup, false).addTo(lag);
+    });
+  }
+
+  vindLayer.clearLayers();
+  lag.eachLayer(l => vindLayer.addLayer(l));
+  _vindHist.idx = idx;
+  const el = _vindHist.el;
+  if (el) {
+    el.querySelector(".vind-tid").value = idx;
+    el.querySelector(".vind-tidtekst").textContent = tidTekst;
+  }
+}
+
+function _vindAfspillerStatus(tekst) {
+  const s = _vindHist.el?.querySelector(".vind-status");
+  if (s) s.textContent = tekst;
+}
+
+function _vindStop() {
+  if (_vindHist.timer) { clearInterval(_vindHist.timer); _vindHist.timer = null; }
+  const k = _vindHist.el?.querySelector(".vind-afspil");
+  if (k) k.textContent = "▶";
+}
+
+// Går over i afspilning: henter (kun første gang pr. tidsrum) og viser idx
+async function _vindGaaTil(idx) {
+  if (!_vindHist.aktiv) {
+    _vindHist.aktiv = true;
+    _vindHist.tider = _vindTider();
+    const slider = _vindHist.el.querySelector(".vind-tid");
+    slider.max = _vindHist.tider.length - 1;
+    if (idx == null) idx = 0;
+  }
+  if (!_vindHist.henter) _vindHist.henter = _vindHentHistorik();
+  _vindHist.el.classList.add("henter");
+  await _vindHist.henter;
+  _vindHist.el.classList.remove("henter");
+  if (!_vindHist.aktiv) return;   // "Nu" blev trykket mens der blev hentet
+  _vindTegnFrame(Math.max(0, Math.min(idx ?? _vindHist.idx, _vindHist.tider.length - 1)));
+}
+
+function _vindNu() {
+  _vindStop();
+  _vindHist.aktiv = false;
+  _vindHist.henter = null;
+  if (_vindHist.el) {
+    _vindHist.el.querySelector(".vind-tidtekst").textContent = "Nu (live)";
+    const sl = _vindHist.el.querySelector(".vind-tid");
+    sl.value = sl.max;
+    _vindAfspillerStatus("");
+  }
+  if (map.hasLayer(vindLayer)) loadVind();
+}
+
+function _vindAfspillerOpret() {
+  if (_vindHist.el) return _vindHist.el;
+  const el = document.createElement("div");
+  el.className = "vind-afspiller";
+  el.style.cssText = "position:absolute;left:50%;bottom:56px;transform:translateX(-50%);z-index:800;"
+    + "background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.3);padding:6px 10px;"
+    + "display:none;align-items:center;gap:8px;font:13px sans-serif;max-width:calc(100% - 30px);flex-wrap:wrap";
+  el.innerHTML = `
+    <button type="button" class="vind-afspil" title="Afspil de seneste timer"
+      style="font-size:15px;width:32px;height:28px;cursor:pointer;border:1px solid #ccc;border-radius:6px;background:#f5f7fa">▶</button>
+    <input type="range" class="vind-tid" min="0" max="24" value="24" style="width:220px;max-width:40vw">
+    <span class="vind-tidtekst" style="min-width:120px;font-weight:600">Nu (live)</span>
+    <select class="vind-span" title="Hvor langt tilbage">
+      <option value="12">12 t</option><option value="24">24 t</option></select>
+    <select class="vind-trin" title="Tid mellem billederne">
+      <option value="30">30 min</option><option value="60">60 min</option></select>
+    <button type="button" class="vind-nu" title="Tilbage til live"
+      style="cursor:pointer;border:1px solid #ccc;border-radius:6px;background:#f5f7fa;padding:3px 8px">Nu</button>
+    <span class="vind-status" style="font-size:11px;color:#888"></span>`;
+  L.DomEvent.disableClickPropagation(el);
+  L.DomEvent.disableScrollPropagation(el);
+  map.getContainer().appendChild(el);
+  _vindHist.el = el;
+
+  el.querySelector(".vind-afspil").addEventListener("click", async () => {
+    if (_vindHist.timer) { _vindStop(); return; }
+    // Fra live eller slutningen: start forfra
+    const start = (!_vindHist.aktiv || _vindHist.idx >= _vindHist.tider.length - 1) ? 0 : _vindHist.idx;
+    await _vindGaaTil(start);
+    if (!_vindHist.aktiv) return;
+    el.querySelector(".vind-afspil").textContent = "⏸";
+    _vindHist.timer = setInterval(() => {
+      if (_vindHist.idx >= _vindHist.tider.length - 1) { _vindStop(); return; }
+      _vindTegnFrame(_vindHist.idx + 1);
+    }, 800);
+  });
+  el.querySelector(".vind-tid").addEventListener("input", e => {
+    _vindStop();
+    _vindGaaTil(Number(e.target.value));
+  });
+  // Nyt tidsrum eller trin: tilbage til live, så næste afspilning henter forfra
+  el.querySelector(".vind-span").addEventListener("change", e => {
+    _vindHist.timerSpan = Number(e.target.value); _vindNu();
+  });
+  el.querySelector(".vind-trin").addEventListener("change", e => {
+    _vindHist.trinMin = Number(e.target.value); _vindNu();
+  });
+  el.querySelector(".vind-nu").addEventListener("click", _vindNu);
+  return el;
+}
+
+map.on("overlayadd", e => {
+  if (e.layer !== vindLayer) return;
+  _vindAfspillerOpret().style.display = "flex";
+});
+map.on("overlayremove", e => {
+  if (e.layer !== vindLayer) return;
+  _vindNu();
+  if (_vindHist.el) _vindHist.el.style.display = "none";
+  _vindHist.dmi.clear();
+});
 
 // ── Lyn (DMI) ────────────────────────────────────────────────────
 // Lynnedslag den seneste time. Nyere nedslag står kraftigere end ældre.
