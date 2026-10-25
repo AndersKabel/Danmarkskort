@@ -1243,12 +1243,15 @@ async function loadVdAdvarsler() {
   await _vdIndlaesLag(VD_ADVARSEL_FILER, vdAdvarselLayer, "VD Advarsler");
 }
 
-// ── Vind (DMI + VD) ──────────────────────────────────────────────
+// ── Vind (DMI) og Vind (VD) ──────────────────────────────────────
+// To lag i lagvælgeren, som deler hentning og afspiller.
 // DMI: middelvind (10 min) + vindstød + retning fra DMI's målestationer.
 // VD:  vindhastighed + retning fra Vejdirektoratets vejrstationer, bl.a.
 //      ved broer. VD sender ikke vindstød.
-var vindLayer    = L.layerGroup();
+var vindLayer    = L.layerGroup();   // DMI
 var vindInterval = null;
+var vindVdLayer    = L.layerGroup(); // Vejdirektoratet
+var vindVdInterval = null;
 let _dmiStationNavne = null;
 
 const _VIND_RETNING = { N:0, NNE:22.5, NE:45, ENE:67.5, E:90, ESE:112.5, SE:135, SSE:157.5,
@@ -1333,24 +1336,28 @@ async function _hentDmiSeneste(parameterId) {
   return ud;
 }
 
-// Hvilke kilder vises i vindlaget. Vælges med de to små flueben i
-// vindbjælken nederst og huskes i browseren.
-const _vindKilder = (() => {
-  try { return { dmi: true, vd: true, ...JSON.parse(localStorage.getItem("vindKilder") || "{}") }; }
-  catch (e) { return { dmi: true, vd: true }; }
-})();
+// Hvilke kilder der vises, følger de to lag i lagvælgeren
+const _vindKilder = {
+  get dmi() { return map.hasLayer(vindLayer); },
+  get vd()  { return map.hasLayer(vindVdLayer); },
+};
 
-async function loadVind() {
+// del: "dmi" eller "vd" henter kun den ene (hvert lag har sin egen
+// automatiske opdatering), uden del hentes begge tændte lag.
+async function loadVind(del) {
   if (_vindHist.aktiv) return;   // afspilleren viser et ældre tidspunkt — ikke overskriv
-  const tmp = L.layerGroup();
+  const medDmi = _vindKilder.dmi && del !== "vd";
+  const medVd  = _vindKilder.vd  && del !== "dmi";
+  if (!medDmi && !medVd) return;
+  const tmp = L.layerGroup(), tmpVd = L.layerGroup();
   // En slået fra kilde hentes slet ikke
   const tom = Promise.resolve({});
   const [middel, stoed, retning, navne, vd] = await Promise.allSettled([
-    _vindKilder.dmi ? _hentDmiSeneste("wind_speed") : tom,
-    _vindKilder.dmi ? _hentDmiSeneste("wind_max")   : tom,
-    _vindKilder.dmi ? _hentDmiSeneste("wind_dir")   : tom,
-    _vindKilder.dmi ? _hentDmiStationNavne()        : tom,
-    _vindKilder.vd  ? _fetchVdFil("25832/wind-speeds.point.json") : tom
+    medDmi ? _hentDmiSeneste("wind_speed") : tom,
+    medDmi ? _hentDmiSeneste("wind_max")   : tom,
+    medDmi ? _hentDmiSeneste("wind_dir")   : tom,
+    medDmi ? _hentDmiStationNavne()        : tom,
+    medVd  ? _fetchVdFil("25832/wind-speeds.point.json") : tom
   ]);
   const M = middel.status === "fulfilled" ? middel.value : {};
   const S = stoed.status  === "fulfilled" ? stoed.value  : {};
@@ -1401,14 +1408,20 @@ async function loadVind() {
         + (p.windDirectionDanish ? `<br>Retning: fra ${_vdEsc(p.windDirectionDanish)}` : "")
         + `<br><span style="font-size:11px;color:#888">Målt ${_klokkeslaet(p.measurementTime)} · Kilde: Vejdirektoratet (ingen vindstød)</span>`
         + (gammel ? `<br><span style="color:#b9770e">⚠️ Målingen er over ${_TIMER_GAMMEL} timer gammel</span>` : "");
-      _vindMarker(lat, lon, _vindPil(grader) + Math.round(ms), farve, popup, gammel).addTo(tmp);
+      _vindMarker(lat, lon, _vindPil(grader) + Math.round(ms), farve, popup, gammel).addTo(tmpVd);
       antalVd++;
     });
   }
 
-  if (!map.hasLayer(vindLayer) || _vindHist.aktiv) return;
-  vindLayer.clearLayers();
-  tmp.eachLayer(l => vindLayer.addLayer(l));
+  if (_vindHist.aktiv) return;
+  if (medDmi && map.hasLayer(vindLayer)) {
+    vindLayer.clearLayers();
+    tmp.eachLayer(l => vindLayer.addLayer(l));
+  }
+  if (medVd && map.hasLayer(vindVdLayer)) {
+    vindVdLayer.clearLayers();
+    tmpVd.eachLayer(l => vindVdLayer.addLayer(l));
+  }
   console.log(`✅ Vind: ${antalDmi} DMI + ${antalVd} VD stationer`);
 }
 
@@ -1496,7 +1509,7 @@ async function _vindHentHistorik() {
 // måler hver time) beholder sin forrige måling, hvis den er under 1 time gammel.
 function _vindTegnFrame(idx) {
   const tid = _vindHist.tider[idx];
-  if (!tid || !map.hasLayer(vindLayer)) return;
+  if (!tid || (!map.hasLayer(vindLayer) && !map.hasLayer(vindVdLayer))) return;
   const hent = param => {
     const ud = {};
     for (let j = idx; j >= 0; j--) {
@@ -1511,7 +1524,7 @@ function _vindTegnFrame(idx) {
   const S = _vindKilder.dmi ? hent("wind_max")   : {};
   const R = _vindKilder.dmi ? hent("wind_dir")   : {};
   const N = _dmiStationNavne || {};
-  const lag = L.layerGroup();
+  const lag = L.layerGroup(), lagVd = L.layerGroup();
   const tidTekst = _vindTidTekst(tid);
 
   new Set([...Object.keys(M), ...Object.keys(S)]).forEach(id => {
@@ -1543,12 +1556,14 @@ function _vindTegnFrame(idx) {
       const popup = `<strong>💨 Vejdirektoratets vejrstation</strong>`
         + `<br>Vindhastighed: <b>${ms} m/s</b>`
         + `<br><span style="font-size:11px;color:#888">Afspilning · ${_vdEsc(tidTekst)} · Kilde: Vejdirektoratet</span>`;
-      _vindMarker(lat, lon, _vindPil(grader) + Math.round(ms), _vindFarve(ms), popup, false).addTo(lag);
+      _vindMarker(lat, lon, _vindPil(grader) + Math.round(ms), _vindFarve(ms), popup, false).addTo(lagVd);
     });
   }
 
   vindLayer.clearLayers();
-  lag.eachLayer(l => vindLayer.addLayer(l));
+  vindVdLayer.clearLayers();
+  if (map.hasLayer(vindLayer))   lag.eachLayer(l => vindLayer.addLayer(l));
+  if (map.hasLayer(vindVdLayer)) lagVd.eachLayer(l => vindVdLayer.addLayer(l));
   _vindHist.idx = idx;
   const el = _vindHist.el;
   if (el) {
@@ -1613,7 +1628,7 @@ function _vindNu() {
     sl.value = sl.max;
     _vindAfspillerStatus("");
   }
-  if (map.hasLayer(vindLayer)) loadVind();
+  if (map.hasLayer(vindLayer) || map.hasLayer(vindVdLayer)) loadVind();
 }
 
 function _vindAfspillerOpret() {
@@ -1625,10 +1640,6 @@ function _vindAfspillerOpret() {
     + "display:none;align-items:center;gap:8px;font:13px sans-serif;width:max-content;max-width:calc(100% - 30px);flex-wrap:wrap";
   el.innerHTML = `
     <b style="white-space:nowrap" title="Afspiller vindmålingerne fra DMI og Vejdirektoratet">💨 Vind</b>
-    <label style="white-space:nowrap;cursor:pointer;font-size:12px" title="DMI's vejrstationer (middelvind og vindstød)">
-      <input type="checkbox" class="vind-kilde" data-kilde="dmi" ${_vindKilder.dmi ? "checked" : ""}> DMI</label>
-    <label style="white-space:nowrap;cursor:pointer;font-size:12px" title="Vejdirektoratets vejrstationer, bl.a. ved broer (ingen vindstød)">
-      <input type="checkbox" class="vind-kilde" data-kilde="vd" ${_vindKilder.vd ? "checked" : ""}> VD</label>
     <button type="button" class="vind-afspil" title="Afspil vinden de seneste timer"
       style="font-size:15px;width:32px;height:28px;cursor:pointer;border:1px solid #ccc;border-radius:6px;background:#f5f7fa">▶</button>
     <input type="range" class="vind-tid" min="0" max="24" value="24" style="width:220px;max-width:40vw">
@@ -1675,22 +1686,18 @@ function _vindAfspillerOpret() {
     _vindHist.trinMin = Number(e.target.value); _vindNu();
   });
   el.querySelector(".vind-nu").addEventListener("click", _vindNu);
-  // DMI/VD til og fra: tegn igen — live eller det tidspunkt der vises
-  el.querySelectorAll(".vind-kilde").forEach(cb => cb.addEventListener("change", () => {
-    _vindKilder[cb.dataset.kilde] = cb.checked;
-    try { localStorage.setItem("vindKilder", JSON.stringify(_vindKilder)); } catch (e) {}
-    if (_vindHist.aktiv) _vindTegnFrame(_vindHist.idx);
-    else loadVind();
-  }));
   return el;
 }
 
+// Afspilleren vises, når mindst ét af de to vindlag er tændt
 map.on("overlayadd", e => {
-  if (e.layer !== vindLayer) return;
+  if (e.layer !== vindLayer && e.layer !== vindVdLayer) return;
   _vindAfspillerOpret().style.display = "flex";
+  if (_vindHist.aktiv) _vindTegnFrame(_vindHist.idx);   // vis samme tidspunkt
 });
 map.on("overlayremove", e => {
-  if (e.layer !== vindLayer) return;
+  if (e.layer !== vindLayer && e.layer !== vindVdLayer) return;
+  if (map.hasLayer(vindLayer) || map.hasLayer(vindVdLayer)) return;
   _vindNu();
   if (_vindHist.el) _vindHist.el.style.display = "none";
   _vindHist.dmi.clear();
@@ -2104,7 +2111,8 @@ function _startVdAdvarselInterval() {
 // Vind, lyn og vejtemperatur: egne handlere, så de eksisterende
 // overlayadd/overlayremove-kæder ikke røres
 const _vejrLag = [
-  { lag: () => vindLayer,    load: () => loadVind(),    ms: 10 * 60 * 1000, iv: () => vindInterval,    set: v => { vindInterval = v; } },
+  { lag: () => vindLayer,    load: () => loadVind("dmi"), ms: 10 * 60 * 1000, iv: () => vindInterval,    set: v => { vindInterval = v; } },
+  { lag: () => vindVdLayer,  load: () => loadVind("vd"),  ms: 10 * 60 * 1000, iv: () => vindVdInterval,  set: v => { vindVdInterval = v; } },
   { lag: () => lynLayer,     load: (f) => loadLyn(f),   ms:  2 * 60 * 1000, iv: () => lynInterval,     set: v => { lynInterval = v; } },
   { lag: () => vejTempLayer, load: () => loadVejTemp(), ms: 10 * 60 * 1000, iv: () => vejTempInterval, set: v => { vejTempInterval = v; } },
 ];
@@ -2474,7 +2482,8 @@ overlayMaps["📍 Km-markeringer (VD)"] = kmMaerkerLayer;
   overlayMaps["🌡 Temperatur (DMI)"] = dmiTempLayer;
 overlayMaps["🚧 Vejarbejder (VD)"] = vdTrafikLayer;
 overlayMaps["⚠️ Advarsler (VD)"] = vdAdvarselLayer;
-overlayMaps["💨 Vind (DMI + VD)"] = vindLayer;
+overlayMaps["💨 Vind (DMI)"] = vindLayer;
+overlayMaps["💨 Vind (VD)"] = vindVdLayer;
 overlayMaps["⚡ Lyn (DMI)"] = lynLayer;
 overlayMaps["🧊 Vejtemperatur (VD)"] = vejTempLayer;
 overlayMaps["🔌 Ladestandere (live)"] = ladeLiveLayer;
@@ -2577,7 +2586,7 @@ layerControl.getContainer().classList.add("main-ar-ctrl");
 // Lag der ikke står i en gruppe (fx Værksteder) står løst øverst, så et nyt
 // lag aldrig forsvinder. "Behold markører" er en indstilling og står nederst.
 const LAG_GRUPPER = [
-  { id: "vejr",    navn: "🌦️ Vejr",               lag: ["🌧 Nedbørsradar", "🌡 Temperatur (DMI)", "💨 Vind (DMI + VD)", "⚡ Lyn (DMI)", "🧊 Vejtemperatur (VD)"] },
+  { id: "vejr",    navn: "🌦️ Vejr",               lag: ["🌧 Nedbørsradar", "🌡 Temperatur (DMI)", "💨 Vind (DMI)", "💨 Vind (VD)", "🧊 Vejtemperatur (VD)", "⚡ Lyn (DMI)"] },
   { id: "trafik",  navn: "🚦 Trafik (live)",       lag: ["⚠️ Advarsler (VD)", "🚧 Vejarbejder (VD)"] },
   { id: "veje",    navn: "🛣️ Veje",                lag: ["📍 Km-markeringer (VD)", "Rutenummereret vejnet", "🛣️ CVF vejklassifikation", "🅿️ Rastepladser (store køretøjer)", "🔀 Frakørsler (statsveje)"] },
   { id: "omraade", navn: "🗺️ Grænser og områder",  lag: ["Kommunegrænser", "Disponeringsområder", "25 km grænse", "📐 Matrikel"] },
