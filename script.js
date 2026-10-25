@@ -1412,6 +1412,8 @@ const _vindHist = {
   dmi: new Map(),      // "param|iso" -> { stationId: { value, coords } }
   vd: null,            // { snaps: [...] } fra vd-proxy
   henter: null, el: null,
+  afspilId: 0,         // tæller op ved hvert start/stop — se afspil-knappen
+  starter: false,      // true mens en afspilning venter på data
 };
 
 function _vindTidTekst(d) {
@@ -1547,6 +1549,8 @@ function _vindAfspillerStatus(tekst) {
 }
 
 function _vindStop() {
+  _vindHist.afspilId++;   // en afspilning, der stadig venter på data, starter ikke
+  _vindHist.starter = false;
   if (_vindHist.timer) { clearInterval(_vindHist.timer); _vindHist.timer = null; }
   const k = _vindHist.el?.querySelector(".vind-afspil");
   if (k) k.textContent = "▶";
@@ -1607,12 +1611,18 @@ function _vindAfspillerOpret() {
   _vindHist.el = el;
 
   el.querySelector(".vind-afspil").addEventListener("click", async () => {
-    if (_vindHist.timer) { _vindStop(); return; }
+    // Kører den, eller venter den på data: stop. Et ekstra klik mens der
+    // hentes, startede før en afspilning nr. 2, som pause ikke kunne stoppe.
+    if (_vindHist.timer || _vindHist.starter) { _vindHist.starter = false; _vindStop(); return; }
+    const mitId = ++_vindHist.afspilId;
+    _vindHist.starter = true;
+    el.querySelector(".vind-afspil").textContent = "⏸";
     // Fra live eller slutningen: start forfra
     const start = (!_vindHist.aktiv || _vindHist.idx >= _vindHist.tider.length - 1) ? 0 : _vindHist.idx;
     await _vindGaaTil(start);
-    if (!_vindHist.aktiv) return;
-    el.querySelector(".vind-afspil").textContent = "⏸";
+    if (mitId !== _vindHist.afspilId || !_vindHist.aktiv) return;   // stoppet imens
+    _vindHist.starter = false;
+    if (_vindHist.timer) clearInterval(_vindHist.timer);
     _vindHist.timer = setInterval(() => {
       if (_vindHist.idx >= _vindHist.tider.length - 1) { _vindStop(); return; }
       _vindTegnFrame(_vindHist.idx + 1);
