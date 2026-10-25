@@ -1460,7 +1460,7 @@ async function _vindHentHistorik() {
   const opgaver = [];
   tider.forEach(t => ["wind_speed", "wind_max", "wind_dir"].forEach(p => opgaver.push([p, t])));
   let faerdige = 0, fejl = 0;
-  const status = () => _vindAfspillerStatus(`Henter ${faerdige} af ${opgaver.length}…`);
+  const status = () => _vindAfspillerHenter(`⏳ Henter ${faerdige} af ${opgaver.length}…`);
   status();
   const vdP = fetch(`${VD_PROXY}/vind/historik`).then(r => r.ok ? r.json() : { snaps: [] })
     .catch(() => ({ snaps: [] }));
@@ -1539,8 +1539,22 @@ function _vindTegnFrame(idx) {
   const el = _vindHist.el;
   if (el) {
     el.querySelector(".vind-tid").value = idx;
+    el.querySelector(".vind-tid").style.opacity = "";
     el.querySelector(".vind-tidtekst").textContent = tidTekst;
+    el.querySelector(".vind-tidtekst").style.color = "";
   }
+}
+
+// Mens der hentes, står fremdriften lige ved siden af tidslinjen (hvor
+// tidspunktet ellers står), og tidslinjen er dæmpet — så man kan se, at
+// der sker noget. Tidspunktet skrives igen, når første billede tegnes.
+function _vindAfspillerHenter(tekst) {
+  const el = _vindHist.el;
+  if (!el) return;
+  const t = el.querySelector(".vind-tidtekst");
+  t.textContent = tekst;
+  t.style.color = "#b45309";
+  el.querySelector(".vind-tid").style.opacity = ".4";
 }
 
 function _vindAfspillerStatus(tekst) {
@@ -1579,6 +1593,8 @@ function _vindNu() {
   _vindHist.henter = null;
   if (_vindHist.el) {
     _vindHist.el.querySelector(".vind-tidtekst").textContent = "Nu (live)";
+    _vindHist.el.querySelector(".vind-tidtekst").style.color = "";
+    _vindHist.el.querySelector(".vind-tid").style.opacity = "";
     const sl = _vindHist.el.querySelector(".vind-tid");
     sl.value = sl.max;
     _vindAfspillerStatus("");
@@ -1594,17 +1610,18 @@ function _vindAfspillerOpret() {
     + "background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.3);padding:6px 10px;"
     + "display:none;align-items:center;gap:8px;font:13px sans-serif;max-width:calc(100% - 30px);flex-wrap:wrap";
   el.innerHTML = `
-    <button type="button" class="vind-afspil" title="Afspil de seneste timer"
+    <b style="white-space:nowrap" title="Afspiller vindmålingerne fra DMI og Vejdirektoratet">💨 Vind</b>
+    <button type="button" class="vind-afspil" title="Afspil vinden de seneste timer"
       style="font-size:15px;width:32px;height:28px;cursor:pointer;border:1px solid #ccc;border-radius:6px;background:#f5f7fa">▶</button>
     <input type="range" class="vind-tid" min="0" max="24" value="24" style="width:220px;max-width:40vw">
-    <span class="vind-tidtekst" style="min-width:120px;font-weight:600">Nu (live)</span>
+    <span class="vind-tidtekst" style="min-width:150px;font-weight:600">Nu (live)</span>
+    <span class="vind-status" style="font-size:11px;color:#b45309"></span>
     <select class="vind-span" title="Hvor langt tilbage">
       <option value="12">12 t</option><option value="24">24 t</option></select>
     <select class="vind-trin" title="Tid mellem billederne">
       <option value="30">30 min</option><option value="60">60 min</option></select>
     <button type="button" class="vind-nu" title="Tilbage til live"
-      style="cursor:pointer;border:1px solid #ccc;border-radius:6px;background:#f5f7fa;padding:3px 8px">Nu</button>
-    <span class="vind-status" style="font-size:11px;color:#888"></span>`;
+      style="cursor:pointer;border:1px solid #ccc;border-radius:6px;background:#f5f7fa;padding:3px 8px">Nu</button>`;
   L.DomEvent.disableClickPropagation(el);
   L.DomEvent.disableScrollPropagation(el);
   map.getContainer().appendChild(el);
