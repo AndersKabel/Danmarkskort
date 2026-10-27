@@ -564,6 +564,17 @@
   <!-- Fravær -->
   <div class="card hidden" id="card-fravaer">
     <h2>Meld fravær</h2>
+
+    <!-- Vognlogin: kun én enkel knap. Perioder, minutter m.m. kun med ejerkoden. -->
+    <div id="frav-vogn" class="hidden">
+      <button class="btn btn-red" id="btn-saet-fravaer">🔴 Sæt fraværende</button>
+      <div style="font-size:12px;color:#6b7280;margin-top:6px;line-height:1.5">
+        Vognen forsvinder fra kortet og står som fraværende, indtil du melder dig
+        tilgængelig igen her — eller til din faste rytme starter ved næste vagt.
+      </div>
+    </div>
+
+    <div id="frav-ejer">
     <div style="font-size:12px;color:#9ca3af;margin-bottom:10px;line-height:1.5">
       Kører I en tur eller er I optaget, så meld fra her. Vognen forsvinder fra
       kortet og kommer igen af sig selv, når tiden er gået — også den faste
@@ -605,6 +616,7 @@
     </div>
     <input type="text" id="inp-frav-aarsag" placeholder="Årsag (valgfri) – fx sygdom" maxlength="200" autocomplete="off">
     <button class="btn btn-red" id="btn-frav-periode">🔴 Meld fravær i perioden</button>
+    </div>
 
     <div id="frav-liste" class="frav-liste"></div>
     <div id="frav-feedback" class="feedback"></div>
@@ -1052,6 +1064,7 @@
       const data = await r.json();
       _fravaer = data.fravaer || [];
       renderFravListe();
+      renderStatus();   // fraværskortets synlighed afhænger også af listen
     } catch (e) {
       console.warn("Kunne ikke hente fravær", e);
     }
@@ -1125,6 +1138,51 @@
     const btn = document.getElementById("btn-frav-vagt");
     meldFravaer({ fra: new Date().toISOString(), til: til.toISOString(),
                   aarsag: "Resten af vagten" }, btn, btn.innerHTML);
+  });
+
+  // ── SÆT FRAVÆRENDE (vognlogin) ──────────────────────────────
+  // Meldt manuelt: tilmeldingen fjernes. Står vognen (også) efter fast
+  // rytme, meldes fravær til vagtens slut, så rytmen selv tager over ved
+  // næste vagt. Melder man sig tilgængelig igen, ophæves fraværet.
+  document.getElementById("btn-saet-fravaer").addEventListener("click", async () => {
+    // Beskeden står ved "Meld tilgængelig", fordi fraværskortet kan
+    // forsvinde, når vognen ikke længere står som tilgængelig
+    const fb  = document.getElementById("main-feedback");
+    const btn = document.getElementById("btn-saet-fravaer");
+    const label = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>Sender...`;
+    fb.className = "feedback";
+    try {
+      if (_aktivRec && _aktivRec.kilde !== "plan") {
+        const r = await fetch(`${WORKER}/tilgaengelig`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vognNr: _vognNr, code: _code })
+        });
+        if (!r.ok && r.status !== 404) throw new Error(r.status);
+        await refreshStatus();
+      }
+      if (_aktivRec?.kilde === "plan") {
+        const til = vagtSlut();
+        if (!til) throw new Error("vagten er ikke startet endnu");
+        const r = await fetch(`${WORKER}/fravaer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vognNr: _vognNr, code: _code,
+            fra: new Date().toISOString(), til: til.toISOString(), aarsag: "Sat fraværende" })
+        });
+        const data = await r.json();
+        if (!data.ok) throw new Error(data.error || r.status);
+        await hentFravaer();
+        await refreshStatus();
+      }
+      showFb(fb, "ok", "✅ Du står nu som fraværende. Meld dig tilgængelig igen her, når du er klar"
+        + (_rytme?.aktiv ? " — ellers starter din faste rytme selv ved næste vagt." : "."));
+    } catch (e) {
+      showFb(fb, "err", `Kunne ikke sætte fraværende: ${e.message}`);
+    } finally {
+      btn.disabled = false; btn.innerHTML = label;
+    }
   });
 
   document.getElementById("btn-frav-min").addEventListener("click", () => {
@@ -1421,19 +1479,28 @@
     } else {
       badge.className = "status-badge status-inactive";
       dot.className   = "status-dot gray";
-      txt.textContent = _rytme?.aktiv
+      const nu = Date.now();
+      const fravNu = _fravaer.find(f => new Date(f.fra).getTime() <= nu && new Date(f.til).getTime() > nu);
+      txt.textContent = fravNu
+        ? `Fraværende til ${fmt(fravNu.til)}`
+        : _rytme?.aktiv
         ? "Ikke tilgængelig lige nu – rytmen dækker ikke dette tidspunkt"
         : "Ikke tilgængelig";
       vInfo.classList.add("hidden");
     }
 
     // Den gamle knap annullerer en manuel melding og kan ikke bruges mod
-    // rytmen — der skal man melde fravær i stedet.
-    btnFr.classList.toggle("hidden", !_aktivRec || efterPlan);
+    // rytmen — der skal man melde fravær i stedet. Med vognlogin bruges
+    // "Sæt fraværende" i stedet, så der kun er én knap at forholde sig til.
+    const erEjer = _rolle === "ejer";
+    btnFr.classList.toggle("hidden", !_aktivRec || efterPlan || !erEjer);
 
-    // Fraværskortet giver kun mening når der er noget at melde fra på
+    // Fraværskortet giver kun mening når der er noget at melde fra på.
+    // Vognlogin: kun "Sæt fraværende", og kun når vognen står som tilgængelig.
     document.getElementById("card-fravaer")
-      .classList.toggle("hidden", !_rytme?.aktiv && !_aktivRec);
+      .classList.toggle("hidden", erEjer ? (!_rytme?.aktiv && !_aktivRec) : !_aktivRec && !_fravaer.length);
+    document.getElementById("frav-ejer").classList.toggle("hidden", !erEjer);
+    document.getElementById("frav-vogn").classList.toggle("hidden", erEjer || !_aktivRec);
 
     // "Resten af vagten" kun når vognen står efter fast rytme lige nu
     const btnVagt = document.getElementById("btn-frav-vagt");
@@ -1534,6 +1601,24 @@
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || r.status);
+
+      // At melde sig tilgængelig ophæver fravær, der overlapper perioden —
+      // ellers ville fraværet stadig skjule vognen på kortet. Fravær, der
+      // ligger helt uden for perioden (fx sygdom næste uge), bliver stående.
+      try {
+        await hentFravaer();
+        const fraMs = fraD.getTime(), tilMs = tilD.getTime();
+        const overlap = _fravaer.filter(f =>
+          new Date(f.fra).getTime() < tilMs && new Date(f.til).getTime() > fraMs);
+        for (const f of overlap) {
+          await fetch(`${WORKER}/fravaer`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ vognNr: _vognNr, code: _code, id: f.id })
+          });
+        }
+        if (overlap.length) await hentFravaer();
+      } catch (e2) { console.warn("Fravær kunne ikke ophæves", e2); }
 
       showFb(fb, "ok", `✅ Tilmeldt tilgængelig ${fmt(fra)} → ${fmt(til)}`);
       _aktivRec = data.record;
