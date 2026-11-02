@@ -5333,14 +5333,24 @@ async function checkForStatsvej(lat, lon) {
     // Hvis ingen features returneres, prøv større buffer (60m, 120m).
     // Lille buffer = WMS pixel-nærhed er præcis -> rigtig forgrening på motorveje.
     // Stor buffer = nødvendig for veje med stor CVF-offset (fx Storstrømsbroen).
-    const cvfUrl = buf => {
-      const bbox = `${utmX - buf},${utmY - buf},${utmX + buf},${utmY + buf}`;
-      return 'https://geocloud.vd.dk/CVF/wms?' +
+    // Opslaget går gennem vd-proxy: geocloud.vd.dk holdt op med at tillade
+    // opslag direkte fra browseren (CORS) 2/11-2026. Svarer proxyen ikke,
+    // prøves den direkte adresse som reserve.
+    const cvfBbox = buf => `${utmX - buf},${utmY - buf},${utmX + buf},${utmY + buf}`;
+    const cvfDirekte = buf => 'https://geocloud.vd.dk/CVF/wms?' +
         'SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&' +
         'INFO_FORMAT=application/json&FEATURE_COUNT=200&' +
         'TRANSPARENT=true&LAYERS=CVF:veje&QUERY_LAYERS=CVF:veje&' +
         'SRS=EPSG:25832&WIDTH=101&HEIGHT=101&' +
-        `BBOX=${bbox}&X=50&Y=50`;
+        `BBOX=${cvfBbox(buf)}&X=50&Y=50`;
+    const cvfHent = async buf => {
+      try {
+        const r = await fetch(`${VD_PROXY}/cvf?bbox=${cvfBbox(buf)}`, { signal });
+        if (r.ok) return r;
+      } catch (e) {
+        if (e.name === "AbortError") throw e;
+      }
+      return fetch(cvfDirekte(buf), { signal });
     };
 
     // Bufferen bestemmer både udsnittets størrelse og pixelopløsningen, og dermed
@@ -5356,7 +5366,7 @@ async function checkForStatsvej(lat, lon) {
     let textData = '';
     for (const buf of [20, 60, 120, 250]) {
       if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-      const response = await fetch(cvfUrl(buf), { signal });
+      const response = await cvfHent(buf);
       textData = await response.text();
       // Stop ved første buffer der giver features
       try {
