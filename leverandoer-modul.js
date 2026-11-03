@@ -1405,7 +1405,10 @@ async function _levTilgLoad() {
     _levTilgKontakt = new Map(aktive
       .filter(a => a.kontaktTlf && a.vognNr)
       .map(a => [String(a.vognNr).trim().toLowerCase(), String(a.kontaktTlf)]));
-    _levTilgBuildMarkers(aktive);
+    // Vogne på fast rytme, der har meldt fravær lige nu, vises grå — så man
+    // kan se, hvorfor en vogn, der normalt står der, ikke er tilgængelig.
+    // De tæller ikke som "meldt tilgængelig" (ovenfor).
+    _levTilgBuildMarkers([...aktive, ...(data.iFravaer || []).map(r => ({ ...r, status: "fravaer" }))]);
 
     // Vis besked hvis ingen er tilgængelige
     if (aktive.length === 0) _levTilgToast("Ingen leverandører meldt tilgængelig");
@@ -1452,7 +1455,7 @@ function _levTilgBuildMarkers(aktive) {
     // En vogn vises allerede et halvt minut foer vagtstart, saa disponenten
     // kan vaelge at vente paa en naer ressource. Prikken er graa saa laenge
     // ALLE paa stedet er paa vej — er bare én klar, er den groen.
-    const kunKommende = records.every(r => r.status === "kommende");
+    const kunKommende = records.every(r => r.status === "kommende" || r.status === "fravaer");
     const farve = kunKommende ? "#95a5a6" : (records[0].levFarve || "#27ae60");
     const kat   = LEV_KATEGORIER.find(k => k.id === records[0].levKategori);
     const antal = records.length;
@@ -1471,7 +1474,11 @@ function _levTilgBuildMarkers(aktive) {
       const kl = t => String(t || "").replace(":", ".");
       // Hele vagten: start–slut. Plan har starterTil, en melding har til.
       const kommendeSlut = efterPlan ? kl(rec.starterTil) : (rec.til ? klok(rec.til) : "");
-      const tid = rec.status === "kommende"
+      const tid = rec.status === "fravaer"
+        ? `🔴 <b>Meldt fra til ${_esc(klok(rec.fravaerTil))}</b>`
+          + `${rec.planTil ? " · fast rytme til " + _esc(kl(rec.planTil)) : ""}`
+          + `${rec.fravaerAarsag ? "<br><small>" + _esc(rec.fravaerAarsag) + "</small>" : ""}`
+        : rec.status === "kommende"
         ? `🕐 <b>Møder om ${rec.starterOm} min</b>`
           + `${rec.starterKl ? " · kl. " + _esc(kl(rec.starterKl)) + (kommendeSlut ? "–" + _esc(kommendeSlut) : "") : ""}`
         : efterPlan
@@ -1482,7 +1489,9 @@ function _levTilgBuildMarkers(aktive) {
           🚗 <b>Vogn ${_esc(rec.vognNr)}</b>${rec.vognReg ? " · " + _esc(rec.vognReg) : ""}
           ${rec.vognBesk ? "<br><small>" + _esc(rec.vognBesk) + "</small>" : ""}
           <br>${tid}
-          ${efterPlan
+          ${rec.status === "fravaer"
+            ? `<br><small style="color:#7f8c8d">Står normalt på kortet efter fast rytme – ikke tilgængelig nu</small>`
+            : efterPlan
             ? `<br><small style="color:#7f8c8d">Efter fast plan – ikke bekræftet af vognmanden i dag</small>`
             : ""}
           ${(rec.kontaktTlf || rec.vognTlf) ? "<br>📞 " + _levTlfLink(rec.kontaktTlf || rec.vognTlf) : ""}
