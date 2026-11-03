@@ -426,6 +426,10 @@
     .ov-blok.meldt { background: #16a34a; z-index: 2; }
     .ov-blok.plan  { background: repeating-linear-gradient(45deg, #86efac, #86efac 4px, #bbf7d0 4px, #bbf7d0 8px); z-index: 1; }
     .ov-blok.frav  { background: #ef4444; z-index: 3; }
+    /* Tid der normalt er dækket af rytmen, men hvor vognen har meldt fravær */
+    .ov-blok.planfrav { background: repeating-linear-gradient(45deg, #cbd5e1, #cbd5e1 4px, #f1f5f9 4px, #f1f5f9 8px); z-index: 1; }
+    .status-naeste { font-size: 13px; color: #374151; margin-top: 8px; }
+    .status-naeste b { color: #15803d; }
     .ov-tom { color: #6b7280; font-size: 13px; padding: 12px 0; }
   </style>
 </head>
@@ -464,6 +468,7 @@
       <span><i class="ov-sw" style="background:#16a34a"></i>Meldt tilgængelig</span>
       <span><i class="ov-sw" style="background:repeating-linear-gradient(45deg,#86efac,#86efac 4px,#bbf7d0 4px,#bbf7d0 8px)"></i>Fast rytme</span>
       <span><i class="ov-sw" style="background:#ef4444"></i>Fravær</span>
+      <span><i class="ov-sw" style="background:repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1 4px,#f1f5f9 4px,#f1f5f9 8px)"></i>Rytme, meldt fra</span>
       <span><i class="ov-sw" style="background:#1d4ed8;width:3px"></i>Nu</span>
     </div>
     <div class="ov-scroll-top hidden" id="ov-scroll-top"><div id="ov-scroll-top-indhold"></div></div>
@@ -491,6 +496,7 @@
       <div class="status-dot gray" id="status-dot"></div>
       <span id="status-text">Ikke tilgængelig</span>
     </div>
+    <div id="status-naeste" class="status-naeste hidden"></div>
     <div id="vogn-info" class="vogn-info hidden"></div>
   </div>
 
@@ -679,7 +685,9 @@
   let _rolle         = sessionStorage.getItem("lev_rolle") || "";
 
   // ── Init ───────────────────────────────────────────────────────
-  if (_vognNr && _code && _rolle === "ejer" && sessionStorage.getItem("lev_visning") === "oversigt") showOversigt();
+  // setTimeout: oversigtens indstillinger (OV_DAGE m.fl.) defineres længere nede i
+  // scriptet. Uden den fejlede "Alle vogne", når siden blev genindlæst på oversigten.
+  if (_vognNr && _code && _rolle === "ejer" && sessionStorage.getItem("lev_visning") === "oversigt") setTimeout(showOversigt, 0);
   else if (_vognNr && _code) showMain();
   else document.getElementById("screen-login").classList.remove("hidden");
 
@@ -890,6 +898,7 @@
       const data = await r.json();
       _rytme = data.rytme || null;
       _skema = _rytme?.skema ? JSON.parse(JSON.stringify(_rytme.skema)) : {};
+      renderStatus();   // "Næste vagt" afhænger af rytmen
       document.getElementById("rytme-aktiv").checked = !!_rytme?.aktiv;
       toggleRytmeIndhold();
       buildRytmeAdr();
@@ -1489,6 +1498,19 @@
       vInfo.classList.add("hidden");
     }
 
+    // Næste vagt efter den faste rytme (fravær trukket fra). Så kan redderen
+    // se, hvornår vognen står som tilgængelig igen — og at et fravær er gået igennem.
+    const naesteEl = document.getElementById("status-naeste");
+    const naeste = (!_aktivRec || _aktivRec.status === "kommende") ? naesteVagt() : null;
+    if (naeste) {
+      const tilKl = new Date(naeste.til).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+      const sammeDag = new Date(naeste.fra).toDateString() === new Date(naeste.til - 1).toDateString();
+      naesteEl.innerHTML = `Næste vagt: <b>${esc(fmtDag(naeste.fra))}–${esc(sammeDag ? tilKl : fmtDag(naeste.til))}</b> (fast rytme)`;
+      naesteEl.classList.remove("hidden");
+    } else {
+      naesteEl.classList.add("hidden");
+    }
+
     // Den gamle knap annullerer en manuel melding og kan ikke bruges mod
     // rytmen — der skal man melde fravær i stedet. Med vognlogin bruges
     // "Sæt fraværende" i stedet, så der kun er én knap at forholde sig til.
@@ -1515,6 +1537,28 @@
   // Klokkeslæt med dag, når det ikke er i dag: "20.00", "søndag 20.00",
   // og over en uge væk "søn. 2/11 20.00". Så kan man se, hvilken dag en
   // tilgængelighed slutter, uden at vognmanden skal skrive det i bemærkningen.
+  // Første kommende vagt i den faste rytme inden for 8 dage, hvor vognen
+  // ikke har meldt fravær. Null hvis der ingen er.
+  function naesteVagt() {
+    if (!_rytme?.aktiv || !_rytme.skema) return null;
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const blokke = ovRytmeBlokke(_rytme, start.getTime(), start.getTime() + 8 * 86400000, 8);
+    const frav = _fravaer.map(f => ({ fra: new Date(f.fra).getTime(), til: new Date(f.til).getTime() }));
+    const nu = Date.now();
+    return ovTraekFra(blokke, frav)
+      .filter(b => b.fra > nu)
+      .sort((a, b) => a.fra - b.fra)[0] || null;
+  }
+  function fmtDag(ms) {
+    const d = new Date(ms);
+    const kl = d.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+    const dage = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate())
+      - new Date().setHours(0, 0, 0, 0)) / 86400000);
+    if (dage === 0) return `i dag ${kl}`;
+    if (dage === 1) return `i morgen ${kl}`;
+    return `${d.toLocaleDateString("da-DK", { weekday: "long" })} ${kl}`;
+  }
+
   function fmt(iso) {
     if (!iso) return "?";
     const d = new Date(iso);
@@ -1770,12 +1814,12 @@
 
   // Den faste rytme som tidsrum [fra, til] i ms inden for vinduet.
   // Starter en dag før vinduet, så en vagt der krydser midnat kommer med.
-  function ovRytmeBlokke(rytme, start, slut) {
+  function ovRytmeBlokke(rytme, start, slut, antalDage = OV_DAGE) {
     if (!rytme || !rytme.aktiv || !rytme.skema) return [];
     const ud = [];
     const tilMin = t => { const m = String(t || "").match(/^(\d{1,2}):(\d{2})$/); return m ? (+m[1]) * 60 + (+m[2]) : null; };
     const datoStr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    for (let i = -1; i < OV_DAGE; i++) {
+    for (let i = -1; i < antalDage; i++) {
       const dag = new Date(start); dag.setDate(dag.getDate() + i);
       const ds = datoStr(dag);
       if (rytme.gyldigFra && ds < String(rytme.gyldigFra).slice(0, 10)) continue;
@@ -1789,6 +1833,30 @@
         if (b > start && a < slut) ud.push({ fra: a, til: b, tekst: `Fast rytme ${p[0]}–${p[1]}` });
       });
     }
+    return ud;
+  }
+
+  // Tidsrum minus andre tidsrum: [{fra, til}] uden de dele der overlapper
+  function ovTraekFra(liste, fjern) {
+    let ud = liste.map(x => ({ ...x }));
+    fjern.forEach(f => {
+      const ny = [];
+      ud.forEach(x => {
+        if (f.til <= x.fra || f.fra >= x.til) { ny.push(x); return; }
+        if (f.fra > x.fra) ny.push({ ...x, til: f.fra });
+        if (f.til < x.til) ny.push({ ...x, fra: f.til });
+      });
+      ud = ny;
+    });
+    return ud;
+  }
+  // Fællesmængden: de dele af a, der også ligger i b
+  function ovFaelles(a, b) {
+    const ud = [];
+    a.forEach(x => b.forEach(y => {
+      const fra = Math.max(x.fra, y.fra), til = Math.min(x.til, y.til);
+      if (til > fra) ud.push({ ...x, fra, til });
+    }));
     return ud;
   }
 
@@ -1819,12 +1887,18 @@
 
     const vogne = data.vogne || [];
     const raekker = vogne.map(v => {
+      // Rytmen tegnes grøn, hvor den gælder, og grå hvor vognen har meldt
+      // fravær i den — så man kan se, at vognen normalt ville være dækket.
+      // Fravær uden for rytmen tegnes rødt som før.
+      const rytmeB = ovRytmeBlokke(v.rytme, start, slut);
+      const fravB  = (v.fravaer || []).map(f => ({ fra: new Date(f.fra).getTime(), til: new Date(f.til).getTime(),
+        tekst: `Fravær ${ovKlok(f.fra)} – ${ovKlok(f.til)}${f.aarsag ? " · " + f.aarsag : ""}` }));
       const blokke = [
-        ...ovRytmeBlokke(v.rytme, start, slut).map(r => blok("plan", r.fra, r.til, r.tekst)),
+        ...ovTraekFra(rytmeB, fravB).map(r => blok("plan", r.fra, r.til, r.tekst)),
+        ...ovFaelles(rytmeB, fravB).map(r => blok("planfrav", r.fra, r.til, r.tekst + " – meldt fra")),
         ...(v.meldinger || []).map(m => blok("meldt", new Date(m.fra).getTime(), new Date(m.til).getTime(),
             `Meldt ${ovKlok(m.fra)} – ${ovKlok(m.til)}${m.position ? " · " + m.position : ""}${m.bemaerkning ? " · " + m.bemaerkning : ""}`)),
-        ...(v.fravaer || []).map(f => blok("frav", new Date(f.fra).getTime(), new Date(f.til).getTime(),
-            `Fravær ${ovKlok(f.fra)} – ${ovKlok(f.til)}${f.aarsag ? " · " + f.aarsag : ""}`))
+        ...fravB.flatMap(f => ovTraekFra([f], rytmeB)).map(f => blok("frav", f.fra, f.til, f.tekst))
       ].join("");
       return `<div class="ov-raekke" data-vognnr="${esc(v.vognNr)}">
         <div class="ov-vogn">
