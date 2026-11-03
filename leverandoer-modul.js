@@ -1491,7 +1491,7 @@ function _levTilgBuildMarkers(aktive) {
           <br>${tid}
           ${rec.status === "fravaer"
             ? `<br><small style="color:#7f8c8d">Står normalt på kortet efter fast rytme – ikke tilgængelig nu</small>`
-            : efterPlan
+            : (efterPlan && !rec.bekraeftetIDag)
             ? `<br><small style="color:#7f8c8d">Efter fast plan – ikke bekræftet af vognmanden i dag</small>`
             : ""}
           ${(rec.kontaktTlf || rec.vognTlf) ? "<br>📞 " + _levTlfLink(rec.kontaktTlf || rec.vognTlf) : ""}
