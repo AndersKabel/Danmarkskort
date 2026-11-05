@@ -2188,8 +2188,11 @@ var falckAssLayer = L.geoJSON(null, {
       c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     const navn    = p.name || p.tekst || "Falck Ass";
     const adresse = p.address || "";
-    layer.bindPopup("<strong>" + e(navn) + "</strong>"
-      + (adresse ? "<br>" + e(adresse) : ""));
+    const nr      = p.id != null ? String(p.id).trim() : "";
+    // "Ved Lunden 9, 3700 Rønne" vises som to linjer: vej og postnr/by
+    const adrLinjer = adresse.split(",").map(x => x.trim()).filter(Boolean);
+    layer.bindPopup("<strong>" + (nr ? e(nr) + " " : "") + e(navn) + "</strong>"
+      + adrLinjer.map(x => "<br>" + e(x)).join(""));
   },
   style: function() {
     return { color: "orange" };
