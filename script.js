@@ -2490,6 +2490,126 @@ overlayMaps["💨 Vind (VD)"] = vindVdLayer;
 overlayMaps["⚡ Lyn (DMI)"] = lynLayer;
 overlayMaps["🧊 Vejtemperatur (VD)"] = vejTempLayer;
 overlayMaps["🔌 Ladestandere (live)"] = ladeLiveLayer;
+/***************************************************
+ * Beskyttede arealer (fredninger, §3, Natura 2000 m.m.)
+ *
+ * Data fra Miljøstyrelsen / Danmarks Miljøportal via Vejdirektoratets
+ * kortserver kort.vd.dk (ArcGIS, CORS åben for kortet).
+ * 1) Laget "🛡️ Beskyttede arealer" viser fladerne (export-billeder pr. flise).
+ * 2) Matrikel-popuppen får en linje om hvad der ligger på eller op til
+ *    matriklen (_paragrafTjek): først selve fladen (skærer/rører), dernæst
+ *    skellet + 5 m for de temaer der ikke ramte.
+ ***************************************************/
+const PARA_URL    = "https://kort.vd.dk/server/rest/services/Grunddata";
+const PARA_SKEL_M = 5;
+const PARA_TEMAER = [
+  { navn: "Fredning",                       tj: "Fredede_områder",              lag: 2, felt: "fred_navn" },
+  { navn: "Bekendtgørelsesfredning",        tj: "Fredede_områder",              lag: 1 },
+  { navn: "Fredning (forslag)",             tj: "Fredede_områder",              lag: 3, felt: "fred_navn" },
+  { navn: "Natur-/vildtreservat",           tj: "Fredede_områder",              lag: 4, felt: "res_tnavn" },
+  { navn: "§3 beskyttet natur",             tj: "Beskyttet_natur",              lag: 4, felt: "natyp_navn" },
+  { navn: "§3 beskyttet vandløb",           tj: "Beskyttet_natur",              lag: 5 },
+  { navn: "Natura 2000 (habitat)",          tj: "Natura_2000_områder",          lag: 2, felt: "objektnavn" },
+  { navn: "Natura 2000 (fugle)",            tj: "Natura_2000_områder",          lag: 1, felt: "objektnavn" },
+  { navn: "Fredet fortidsminde",            tj: "Fredede_fortidsminder",        lag: 8, felt: "anlaegstype" },
+  { navn: "Fortidsmindebeskyttelseslinje",  tj: "Fredede_fortidsminder",        lag: 7, felt: "anlaegstype" },
+  { navn: "Fredskov",                       tj: "Fredskov",                     lag: 2 },
+  { navn: "Strandbeskyttelse",              tj: "Strandbeskyttelse",            lag: 2 },
+  { navn: "Klitfredning",                   tj: "Klitfredning",                 lag: 2 },
+  { navn: "Skovbyggelinje",                 tj: "Skovbyggelinjer",              lag: 1 },
+  { navn: "Søbeskyttelseslinje",            tj: "Søbeskyttelseslinjer",         lag: 1 },
+  { navn: "Åbeskyttelseslinje",             tj: "Åbeskyttelseslinjer",          lag: 1 },
+  { navn: "Kirkebyggelinje",                tj: "Kirkebyggelinjer",             lag: 1 },
+  { navn: "Beskyttet sten- og jorddige",    tj: "Beskyttede_sten_og_jorddiger", lag: 2 },
+  { navn: "Fredet bygning",                 tj: "Fredede_bygninger",            lag: 3, felt: "adresse" },
+];
+
+// Ét opslag i ét tema. Uden navnefelt tælles blot antal.
+async function _paraHent(tema, geom, geomType, medAfstand) {
+  const p = new URLSearchParams({
+    geometry: JSON.stringify(geom), geometryType: geomType, inSR: "25832",
+    spatialRel: "esriSpatialRelIntersects", returnGeometry: "false", f: "json"
+  });
+  if (tema.felt) { p.set("outFields", tema.felt); p.set("resultRecordCount", "50"); }
+  else p.set("returnCountOnly", "true");
+  if (medAfstand) { p.set("distance", String(PARA_SKEL_M)); p.set("units", "esriSRUnit_Meter"); }
+  const r = await fetch(`${PARA_URL}/${encodeURIComponent(tema.tj)}/MapServer/${tema.lag}/query`,
+                        { method: "POST", body: p });
+  const d = await r.json();
+  if (!r.ok || d.error) throw new Error("kort.vd.dk " + (d.error ? d.error.code : r.status));
+  if (!tema.felt) return { n: d.count || 0, navne: [] };
+  const navne = [...new Set((d.features || [])
+    .map(f => String((f.attributes || {})[tema.felt] || "").trim()).filter(Boolean))];
+  return { n: (d.features || []).length, navne };
+}
+
+// Tjekker alle temaer for et jordstykke (MAT-geometrien er i EPSG:25832)
+async function _paragrafTjek(js) {
+  const rings = [];
+  ((js.lodfladeRepraesentationJordstykke || {}).nodes || []).forEach(n => {
+    const g = n && n.geometri && n.geometri.wkt ? wellknown.parse(n.geometri.wkt) : null;
+    if (!g) return;
+    const polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
+    polys.forEach(poly => poly.forEach(ring =>
+      rings.push(ring.map(([x, y]) => [Math.round(x * 100) / 100, Math.round(y * 100) / 100]))));
+  });
+  if (!rings.length) return null;
+  const sr = { wkid: 25832 };
+  const svar = await Promise.all(PARA_TEMAER.map(async t => {
+    try {
+      const paa = await _paraHent(t, { rings, spatialReference: sr }, "esriGeometryPolygon", false);
+      if (paa.n) return { t, hvor: "paa", navne: paa.navne };
+      const ved = await _paraHent(t, { paths: rings, spatialReference: sr }, "esriGeometryPolyline", true);
+      if (ved.n) return { t, hvor: "ved", navne: ved.navne };
+      return null;
+    } catch (e) {
+      console.warn("Beskyttelsestjek fejlede for", t.navn, e);
+      return { t, fejl: true };
+    }
+  }));
+  return svar.filter(Boolean);
+}
+
+function _paraHtml(res) {
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let h = `<hr style="margin:4px 0"><strong>🛡️ Beskyttelse</strong><br>`;
+  if (!res) return h + `<span style="color:#888">Kunne ikke tjekkes</span>`;
+  const fund = res.filter(r => !r.fejl), fejl = res.filter(r => r.fejl);
+  if (!fund.length) h += `<span style="color:#27ae60">Ingen fredning, §3, Natura 2000, bygge-/beskyttelseslinjer m.m. på eller op til matriklen</span>`;
+  fund.forEach(r => {
+    const navne = r.navne.length ? ": " + esc(r.navne.slice(0, 4).join(", ")) + (r.navne.length > 4 ? " …" : "") : "";
+    const hvor  = r.hvor === "ved" ? ` <span style="color:#888">(op til skel, &lt; ${PARA_SKEL_M} m)</span>` : "";
+    h += `• <strong>${esc(r.t.navn)}</strong>${navne}${hvor}<br>`;
+  });
+  if (fejl.length) h += `<span style="color:#888;font-size:11px">Ikke tjekket: ${esc(fejl.map(r => r.t.navn).join(", "))}</span>`;
+  return h;
+}
+var _paraSeq = 0;
+
+// Viser fladerne fra en ArcGIS MapServer som fliser (export pr. 256 px flise)
+var _ArcExportLag = L.TileLayer.extend({
+  getTileUrl: function (c) {
+    const ts = this.getTileSize();
+    const nw = L.CRS.EPSG3857.project(this._map.unproject([c.x * ts.x, c.y * ts.y], c.z));
+    const se = L.CRS.EPSG3857.project(this._map.unproject([(c.x + 1) * ts.x, (c.y + 1) * ts.y], c.z));
+    return `${this._url}/export?bbox=${nw.x},${se.y},${se.x},${nw.y}&bboxSR=3857&imageSR=3857` +
+           `&size=${ts.x},${ts.y}&dpi=96&format=png32&transparent=true&layers=show:${this.options.vis}&f=image`;
+  }
+});
+function _paraLag(tj, vis) {
+  return new _ArcExportLag(`${PARA_URL}/${encodeURIComponent(tj)}/MapServer`,
+    { vis, opacity: 0.55, minZoom: 12, maxZoom: 21, attribution: "Beskyttede arealer: MST / Danmarks Miljøportal" });
+}
+var beskyttetLayer = L.layerGroup([
+  _paraLag("Natura_2000_områder", "2,1"),
+  _paraLag("Fredede_områder", "2,1,4"),
+  _paraLag("Strandbeskyttelse", "2"),
+  _paraLag("Klitfredning", "2"),
+  _paraLag("Fredskov", "2"),
+  _paraLag("Beskyttet_natur", "4,5"),
+  _paraLag("Fredede_fortidsminder", "7,8"),
+]);
+overlayMaps["🛡️ Beskyttede arealer"] = beskyttetLayer;
 overlayMaps["📐 Matrikel"] = matrikelLayer;
 
 // Venter på at RainViewer-laget bliver klar. Uden en øvre grænse ville
@@ -2592,7 +2712,7 @@ const LAG_GRUPPER = [
   { id: "vejr",    navn: "🌦️ Vejr",               lag: ["🌧 Nedbørsradar", "🌡 Temperatur (DMI)", "💨 Vind (DMI)", "💨 Vind (VD)", "🧊 Vejtemperatur (VD)", "⚡ Lyn (DMI)"] },
   { id: "trafik",  navn: "🚦 Trafik (live)",       lag: ["⚠️ Advarsler (VD)", "🚧 Vejarbejder (VD)"] },
   { id: "veje",    navn: "🛣️ Veje",                lag: ["📍 Km-markeringer (VD)", "Rutenummereret vejnet", "🛣️ CVF vejklassifikation", "🅿️ Rastepladser (store køretøjer)", "🔀 Frakørsler (statsveje)"] },
-  { id: "omraade", navn: "🗺️ Grænser og områder",  lag: ["Kommunegrænser", "Disponeringsområder", "25 km grænse", "📐 Matrikel"] },
+  { id: "omraade", navn: "🗺️ Grænser og områder",  lag: ["Kommunegrænser", "Disponeringsområder", "25 km grænse", "📐 Matrikel", "🛡️ Beskyttede arealer"] },
   { id: "steder",  navn: "📍 Steder",              lag: ["Strandposter", "Falck Ass", "🔌 Ladestandere (live)", "Ladestandere"] },
   { id: "links",   navn: "🔗 Links",               lag: ["DB SMS kort", "DB Journal"] },
 ];
@@ -2602,6 +2722,7 @@ const LAG_HJAELP = {
   "⚡ Lyn (DMI)": "Viser lynnedslag fra den seneste time. Tomt = ingen lyn.",
   "🔌 Ladestandere (live)": "Nærmeste ladere med live-status omkring søgt adresse.",
   "Ladestandere": "Ældre kilde (Open Charge Map). Kræver valgt radius.",
+  "🛡️ Beskyttede arealer": "Fredninger, §3-natur, Natura 2000, fortidsminder, fredskov, strand- og klitbeskyttelse (MST). Vises fra zoom 12.",
 };
 
 (function () {
@@ -3213,9 +3334,15 @@ async function visMatrikel(lat, lon) {
     const adresser = erVejlitra(js.matrikelnummer) ? "" : adresseStr;
     const maalLayer = klikketLayer || matrikelLayer.getLayers()[0];
     if (maalLayer) {
-      maalLayer.setPopupContent(
-        popupHtml(t.matrikelnr, t.ejerlav, t.kommune, t.areal, bfe, adresser, ejerforhold)
-      );
+      const grundHtml = popupHtml(t.matrikelnr, t.ejerlav, t.kommune, t.areal, bfe, adresser, ejerforhold);
+      maalLayer.setPopupContent(grundHtml +
+        `<hr style="margin:4px 0"><span style="color:#888">🛡️ Tjekker fredning og beskyttet natur…</span>`);
+      // Beskyttede arealer på/op til matriklen – et nyere klik vinder
+      const minTur = ++_paraSeq;
+      const para = await _paragrafTjek(js).catch(e => { console.warn("Beskyttelsestjek:", e); return null; });
+      if (minTur === _paraSeq && matrikelLayer.hasLayer(maalLayer)) {
+        maalLayer.setPopupContent(grundHtml + _paraHtml(para));
+      }
     }
   } catch(e) {
     console.warn("Matrikel lookup fejl:", e);
