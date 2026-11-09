@@ -1274,7 +1274,7 @@ function _levBindPopupHandlers(el) {
   el.querySelectorAll(".lev-popup-vogn-img-full").forEach(img => {
     if (img.dataset.handlerBound) return;
     img.dataset.handlerBound = "1";
-    img.addEventListener("click", e => { e.stopPropagation(); _levLightbox(img.src); });
+    img.addEventListener("click", e => { e.stopPropagation(); _levLightbox(img.src, _levGalleriSrcs(img)); });
   });
   el.querySelectorAll(".lev-flyt-lev-vogn-btn").forEach(btn => {
     if (btn.dataset.handlerBound) return;
@@ -2385,24 +2385,29 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
 
   _levVognGalleri(div);
 
-  // Et eller flere billeder ad gangen. Hvert billede får sit eget filnavn,
-  // så et nyt billede ikke overskriver det forrige i LevBilleder.
-  div.querySelector(".v-foto").addEventListener("change", async (e) => {
+  _levBindFotoUpload(div, div.querySelector(".v-foto"), div.querySelector(".lev-vogn-foto-status"),
+    () => div.querySelector(".v-reg").value.trim() || div.querySelector(".v-vognr").value.trim(), "vogn");
+}
+
+// Upload af et eller flere billeder til en boks med data-billeder og
+// .lev-vogn-galleri (vognrække eller enhedsformular). Hvert billede får sit
+// eget filnavn, så et nyt billede ikke overskriver det forrige i LevBilleder.
+function _levBindFotoUpload(boks, input, status, navnFn, praefiks) {
+  if (!boks || !input) return;
+  input.addEventListener("change", async (e) => {
     const filer  = Array.from(e.target.files || []);
     e.target.value = "";
     if (!filer.length) return;
-    const status = div.querySelector(".lev-vogn-foto-status");
-    const ledige = LEV_VOGN_MAX_BILLEDER - _levVognBillederIRow(div).length;
-    if (ledige <= 0) { alert(`Højst ${LEV_VOGN_MAX_BILLEDER} billeder pr. vogn`); return; }
+    const ledige = LEV_VOGN_MAX_BILLEDER - _levVognBillederIRow(boks).length;
+    if (ledige <= 0) { alert(`Højst ${LEV_VOGN_MAX_BILLEDER} billeder`); return; }
     const valgte = filer.slice(0, ledige);
     let fejl = 0;
     for (let i = 0; i < valgte.length; i++) {
-      if (status) status.textContent = `⏳ Uploader ${i + 1} af ${valgte.length}…`;
+      if (status) { status.style.color = "#8a97a5"; status.textContent = `⏳ Uploader ${i + 1} af ${valgte.length}…`; }
       try {
         const b64  = await _levResizeB64(valgte[i]);
-        const reg  = div.querySelector(".v-reg").value.trim() || div.querySelector(".v-vognr").value.trim();
-        const navn = (reg || "vogn").toString().toLowerCase().replace(/[^a-z0-9æøå-]+/g, "");
-        const filename = `vogn-${navn}-${Date.now()}${i}.jpg`;
+        const navn = String(navnFn() || praefiks).toLowerCase().replace(/[^a-z0-9æøå-]+/g, "");
+        const filename = `${praefiks}-${navn}-${Date.now()}${i}.jpg`;
         const resp = await _levSpFetch("/leverandoerer/billeder", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2410,10 +2415,10 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
         });
         const data = await resp.json();
         if (!data.ok || !data.url) throw new Error(data.error || "Upload fejlede");
-        const liste = _levVognBillederIRow(div);
+        const liste = _levVognBillederIRow(boks);
         liste.push(data.url);
-        div.dataset.billeder = JSON.stringify(liste);
-        _levVognGalleri(div);
+        boks.dataset.billeder = JSON.stringify(liste);
+        _levVognGalleri(boks);
       } catch (err) {
         console.error("Billedupload fejl:", err);
         fejl++;
@@ -2423,7 +2428,7 @@ function _levAppendVognRow(container, v = {}, adresser = []) {
       status.textContent = fejl ? `⚠️ ${fejl} billede(r) fejlede – prøv igen` : "✅ Husk at gemme";
       status.style.color = fejl ? "#e74c3c" : "#27ae60";
     }
-    if (filer.length > valgte.length) alert(`Højst ${LEV_VOGN_MAX_BILLEDER} billeder pr. vogn – ${filer.length - valgte.length} blev ikke uploadet`);
+    if (filer.length > valgte.length) alert(`Højst ${LEV_VOGN_MAX_BILLEDER} billeder – ${filer.length - valgte.length} blev ikke uploadet`);
   });
 }
 
@@ -2727,18 +2732,56 @@ function _levResizeB64(file) {
 }
 
 // ── LIGHTBOX ─────────────────────────────────────────────────────
-function _levLightbox(src) {
+// Fuld størrelse. Med en liste af billeder kan man bladre med ‹ › eller
+// piletasterne; Esc eller klik udenfor lukker.
+function _levLightbox(src, liste) {
   let lb = document.getElementById("lev-lightbox");
   if (!lb) {
+    const knap = "position:absolute;top:50%;transform:translateY(-50%);width:52px;height:52px;border:0;" +
+                 "border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:34px;line-height:1;cursor:pointer";
     lb = document.createElement("div");
     lb.id = "lev-lightbox";
     lb.className = "lev-lightbox";
-    lb.innerHTML = '<span class="lev-lightbox-luk" title="Luk">✕</span><img alt="">';
-    lb.addEventListener("click", () => lb.style.display = "none");
+    lb.innerHTML = '<span class="lev-lightbox-luk" title="Luk">✕</span><img alt="">' +
+      `<button type="button" class="lev-lb-forr" title="Forrige (←)" style="${knap};left:18px">‹</button>` +
+      `<button type="button" class="lev-lb-naeste" title="Næste (→)" style="${knap};right:18px">›</button>` +
+      '<div class="lev-lb-taeller" style="position:absolute;bottom:18px;left:50%;transform:translateX(-50%);' +
+      'color:#fff;background:rgba(0,0,0,.55);padding:3px 12px;border-radius:12px;font-size:13px"></div>';
+    const luk = () => { lb.style.display = "none"; };
+    lb.addEventListener("click", luk);
+    lb.querySelector(".lev-lb-forr").addEventListener("click", e => { e.stopPropagation(); _levLightboxGaa(-1); });
+    lb.querySelector(".lev-lb-naeste").addEventListener("click", e => { e.stopPropagation(); _levLightboxGaa(1); });
+    document.addEventListener("keydown", e => {
+      if (lb.style.display !== "flex") return;
+      if (e.key === "ArrowLeft")  _levLightboxGaa(-1);
+      if (e.key === "ArrowRight") _levLightboxGaa(1);
+      if (e.key === "Escape")     luk();
+    });
     document.body.appendChild(lb);
   }
-  lb.querySelector("img").src = src;
+  const l = Array.isArray(liste) && liste.length ? liste : [src];
+  lb._liste = l;
+  lb._i = Math.max(0, l.indexOf(src));
+  _levLightboxGaa(0);
   lb.style.display = "flex";
+}
+function _levLightboxGaa(skridt) {
+  const lb = document.getElementById("lev-lightbox");
+  if (!lb || !lb._liste) return;
+  const n = lb._liste.length;
+  lb._i = (lb._i + skridt + n) % n;
+  lb.querySelector("img").src = lb._liste[lb._i];
+  const flere = n > 1;
+  lb.querySelector(".lev-lb-forr").style.display   = flere ? "" : "none";
+  lb.querySelector(".lev-lb-naeste").style.display = flere ? "" : "none";
+  const t = lb.querySelector(".lev-lb-taeller");
+  t.style.display = flere ? "" : "none";
+  t.textContent = `${lb._i + 1} / ${n}`;
+}
+// Alle billeder i samme popup-blok (vognens detaljer eller en enheds galleri)
+function _levGalleriSrcs(img) {
+  const boks = img.closest(".lev-popup-vogn-detail, .lev-galleri");
+  return boks ? Array.from(boks.querySelectorAll(".lev-popup-vogn-img-full")).map(i => i.src) : [img.src];
 }
 
 // ── ENHEDER: DELTE KONTAKT-/POPUP-HJÆLPERE ───────────────────────
@@ -2961,17 +3004,29 @@ function _levBilledSrc(url) {
   return `${LEV_SP_WORKER}/billede?f=${encodeURIComponent(fil)}`;
 }
 
-function _fotoHTML(url) {
-  const u = _levBilledSrc(url);
-  return u ? `<div class="lev-popup-row"><img src="${_esc(u)}" class="lev-popup-vogn-img-full"
-      alt="" onerror="this.style.display='none'" title="Klik for fuld størrelse"></div>` : "";
+// Tager enten en enhed (billede + billeder) eller én adresse
+function _fotoListe(x) {
+  const l = (x && typeof x === "object") ? _levVognBilleder(x) : (x ? [String(x)] : []);
+  return l.map(_levBilledSrc).filter(Boolean);
+}
+function _fotoHTML(x) {
+  const l = _fotoListe(x);
+  if (!l.length) return "";
+  const sma = l.length > 1
+    ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">` + l.slice(1).map(u =>
+        `<img src="${_esc(u)}" class="lev-popup-vogn-img-full" alt="" onerror="this.style.display='none'"
+          style="width:calc(33.3% - 3px);height:56px;max-height:none;margin:0" title="Klik for fuld størrelse">`).join("") + `</div>`
+    : "";
+  return `<div class="lev-popup-row lev-galleri" style="display:block"><img src="${_esc(l[0])}" class="lev-popup-vogn-img-full"
+      alt="" onerror="this.style.display='none'" title="Klik for fuld størrelse">${sma}</div>`;
 }
 
-function _fotoKnapHTML(url) {
-  const u = _levBilledSrc(url);
-  return u ? `<button type="button" class="lev-enhed-foto-btn" data-src="${_esc(u)}" title="Vis foto"
+function _fotoKnapHTML(x) {
+  const l = _fotoListe(x);
+  return l.length ? `<button type="button" class="lev-enhed-foto-btn" data-src="${_esc(l[0])}" data-srcs="${_esc(JSON.stringify(l))}"
+      title="Vis foto${l.length > 1 ? ` (${l.length})` : ""}"
       style="font-size:11px;padding:2px 6px;background:#f0f4f8;border:1px solid #cdd5df;
-             border-radius:4px;cursor:pointer">📷</button>` : "";
+             border-radius:4px;cursor:pointer">📷${l.length > 1 ? `<span style="font-size:10px"> ${l.length}</span>` : ""}</button>` : "";
 }
 
 // Stationens egne oplysninger — altid tydeligt adskilt fra enhedens
@@ -3009,7 +3064,7 @@ function _enhedRaekkeHTML(e, hoejre, visKatIkoner) {
         ${katIkoner ? ` <span style="font-size:11px" title="Kategorier">${katIkoner}</span>` : ""}
         ${uad ? _uadBadge(e) : ""}
       </span>
-      <div style="display:flex;gap:4px;align-items:center">${_spxKnapHTML(e)}${_fotoKnapHTML(e.billede)}${hoejre || ""}</div>
+      <div style="display:flex;gap:4px;align-items:center">${_spxKnapHTML(e)}${_fotoKnapHTML(e)}${hoejre || ""}</div>
     </div>
     ${detaljer ? `<div style="margin-left:2px">${detaljer}</div>` : ""}
   </div>`;
@@ -3048,78 +3103,29 @@ function _bindEnhedPopup(el) {
   el.querySelectorAll(".lev-enhed-foto-btn").forEach(b => {
     if (b.dataset.handlerBound) return;
     b.dataset.handlerBound = "1";
-    b.addEventListener("click", ev => { ev.stopPropagation(); _levLightbox(b.dataset.src); });
+    b.addEventListener("click", ev => {
+      ev.stopPropagation();
+      let l = [];
+      try { l = JSON.parse(b.dataset.srcs || "[]"); } catch (e) { /* enkelt billede */ }
+      _levLightbox(l[0] || b.dataset.src, l.length ? l : null);
+    });
   });
   el.querySelectorAll(".lev-popup-vogn-img-full").forEach(img => {
     if (img.dataset.handlerBound) return;
     img.dataset.handlerBound = "1";
-    img.addEventListener("click", ev => { ev.stopPropagation(); _levLightbox(img.src); });
+    img.addEventListener("click", ev => { ev.stopPropagation(); _levLightbox(img.src, _levGalleriSrcs(img)); });
   });
 }
 
 // ── ENHEDSFORMULAR: FOTO-UPLOAD ──────────────────────────────────
 // Genbruger samme endpoint, resize-funktion og CSS-klasser som leverandørvogne
 function _enhedBindFoto() {
-  const inp    = document.getElementById("ef-foto");
-  const hidden = document.getElementById("ef-billede");
-  const fjern  = document.getElementById("ef-foto-fjern");
-  const status = document.getElementById("ef-foto-status");
-  const wrap   = hidden ? hidden.closest("fieldset")?.querySelector(".lev-vogn-foto-wrap") : null;
-  if (!inp || !hidden || !wrap) return;
-
-  function _visThumb(url) {
-    let thumb    = wrap.querySelector(".lev-vogn-thumb");
-    const nofoto = wrap.querySelector(".lev-vogn-nofoto");
-    if (url) {
-      if (!thumb) {
-        thumb = Object.assign(document.createElement("img"), { className: "lev-vogn-thumb", alt: "" });
-        if (nofoto) nofoto.replaceWith(thumb); else wrap.prepend(thumb);
-      }
-      thumb.src = _levBilledSrc(url);
-      if (fjern) fjern.style.display = "";
-    } else {
-      if (thumb) {
-        thumb.replaceWith(Object.assign(document.createElement("div"),
-          { className: "lev-vogn-nofoto", textContent: "Intet foto" }));
-      }
-      if (fjern) fjern.style.display = "none";
-    }
-  }
-
-  inp.addEventListener("change", async ev => {
-    const file = ev.target.files[0];
-    if (!file) return;
-    if (status) { status.style.color = "#8a97a5"; status.textContent = "⏳ Uploader…"; }
-    try {
-      const b64  = await _levResizeB64(file);
-      const navn = (document.getElementById("ef-vognnummer")?.value.trim()
-                 || document.getElementById("ef-navn")?.value.trim()
-                 || "").toString().toLowerCase().replace(/[^a-z0-9]+/g, "");
-      const filename = "enhed-" + (navn || Date.now()) + ".jpg";
-      const resp = await _levSpFetch("/leverandoerer/billeder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename, base64: b64 })
-      });
-      const data = await resp.json();
-      if (!data.ok || !data.url) throw new Error(data.error || "Upload fejlede");
-      hidden.value = data.url;
-      _visThumb(data.url);
-      if (status) { status.style.color = "#27ae60"; status.textContent = "✅ Foto uploadet — husk at gemme"; }
-    } catch (e) {
-      if (status) { status.style.color = "#c0392b"; status.textContent = "Fejl: " + e.message; }
-    } finally {
-      inp.value = "";
-    }
-  });
-
-  if (fjern) {
-    fjern.addEventListener("click", () => {
-      hidden.value = "";
-      _visThumb("");
-      if (status) { status.style.color = "#8a97a5"; status.textContent = "Foto fjernet — husk at gemme"; }
-    });
-  }
+  const boks = document.getElementById("ef-foto-boks");
+  if (!boks) return;
+  _levVognGalleri(boks);
+  _levBindFotoUpload(boks, document.getElementById("ef-foto"), document.getElementById("ef-foto-status"),
+    () => document.getElementById("ef-vognnummer")?.value.trim() || document.getElementById("ef-navn")?.value.trim() || "",
+    "enhed");
 }
 
 // ── HJÆLPER ──────────────────────────────────────────────────────
@@ -3655,7 +3661,7 @@ function _renderEnhedMarker(enhed, kat, maaFlytte) {
     ${_bemaerkHTML(enhed.bemærkning)}
     ${_linksHTML(enhed)}
     ${_dyrFuldHTML(enhed)}
-    ${_fotoHTML(enhed.billede)}
+    ${_fotoHTML(enhed)}
     ${_stationBlokHTML(stEnhed, kat.id)}
     ${_prioKnapHTML(enhed)}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${_spxKnapHTML(enhed)}${flytBtn}${uadBtn}</div>
@@ -4040,7 +4046,7 @@ function _enhedRenderLag() {
         ${_bemaerkHTML(e.bemærkning)}
         ${_linksHTML(e)}
         ${_spxKnapHTML(e) ? `<div style="margin-top:6px">${_spxKnapHTML(e)}</div>` : ""}
-        ${_fotoHTML(e.billede)}
+        ${_fotoHTML(e)}
         ${_stationBlokHTML(stEnhedUad, foersteKat?.id)}
         <div style="margin-top:6px">${uadBtn}</div>
       </div>`, { maxWidth: 300, className: "lev-leaflet-popup" });
@@ -5575,19 +5581,14 @@ function _enhedShowForm(enhed) {
         </label>
         <div id="pf-info" style="font-size:11px;color:#8a97a5;min-height:14px;margin-top:4px"></div>
       </fieldset>
-      <fieldset class="lev-fs">
+      <fieldset class="lev-fs" id="ef-foto-boks" data-billeder="${_esc(JSON.stringify(_levVognBilleder(enhed || {})))}">
         <legend>📷 Foto</legend>
-        <input id="ef-billede" type="hidden" value="${_esc(enhed?.billede || "")}">
         <div class="lev-vogn-foto-wrap">
-          ${enhed?.billede
-            ? `<img class="lev-vogn-thumb" src="${_esc(_levBilledSrc(enhed.billede))}" alt="" onerror="this.style.display='none'">`
-            : `<div class="lev-vogn-nofoto">Intet foto</div>`}
+          <div class="lev-vogn-galleri" style="display:flex;flex-wrap:wrap;gap:6px"></div>
           <div class="lev-vogn-foto-btns">
             <label class="lev-btn-add lev-file-label" style="cursor:pointer">
-              📷 Upload foto <input type="file" id="ef-foto" accept="image/*" style="display:none">
+              📷 Tilføj foto <input type="file" id="ef-foto" accept="image/*" multiple style="display:none">
             </label>
-            <button type="button" id="ef-foto-fjern"
-              style="${enhed?.billede ? "" : "display:none"}">✕ Fjern foto</button>
           </div>
         </div>
         <div id="ef-foto-status" style="font-size:11px;color:#8a97a5;min-height:14px;margin-top:4px"></div>
@@ -5723,7 +5724,9 @@ async function _enhedGem(existingId) {
   const lon        = parseFloat(document.getElementById("ef-lon").value) || null;
   const kontakt    = document.getElementById("ef-kontakt").value.trim();
   const tilkald    = document.getElementById("ef-tilkald")?.value.trim() || "";
-  const billede    = document.getElementById("ef-billede")?.value.trim() || "";
+  // Fotos: første billede vises først; hele listen gemmes
+  const billeder   = _levVognBillederIRow(document.getElementById("ef-foto-boks") || document.createElement("div"));
+  const billede    = billeder[0] || "";
   const bemærk     = document.getElementById("ef-bemaerk").value.trim();
   const links      = _linkLaesRows("ef-links");
   const dyrFryser  = !!document.getElementById("ef-fryser")?.checked;
@@ -5765,12 +5768,16 @@ async function _enhedGem(existingId) {
         kontakt,
         kontaktTilkald: tilkald,
         billede,
+        // Kun når fotoboksen findes, så andre gem-veje ikke rydder billederne
+        ...(document.getElementById("ef-foto-boks") ? { billeder } : {}),
         bemærkning: bemærk,
         links,
         dyrFryser, dyrKadaver, dyrEkstern, dyrTekst, prioPnr
       })
     });
     if (!resp.ok) throw new Error("Gem fejlede");
+    const gemSvar = await resp.clone().json().catch(() => ({}));
+    if (gemSvar.advarsel) alert(gemSvar.advarsel);
     status.style.color = "#27ae60"; status.textContent = "✅ Gemt!";
     await _enhedLoad();
     setTimeout(_enhedShowListe, 800);
