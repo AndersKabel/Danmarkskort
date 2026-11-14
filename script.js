@@ -3848,6 +3848,16 @@ async function updateInfoBox(data, lat, lon) {
 const _altAdrLag = L.layerGroup().addTo(map);
 let _altAdr = [];
 
+// Naar infoboksen lukkes (krydset, ny soegning osv.), fjernes de roede prikker
+// ogsaa. Boksen skjules mange steder i koden, saa der lyttes paa selve boksen.
+(function () {
+  const boks = document.getElementById("infoBox");
+  if (!boks || typeof MutationObserver === "undefined") return;
+  new MutationObserver(() => {
+    if (boks.style.display === "none") _altAdrLag.clearLayers();
+  }).observe(boks, { attributes: true, attributeFilter: ["style"] });
+})();
+
 function _altAfstand(m) {
   return m >= 1000 ? (m / 1000).toFixed(1).replace(".", ",") + " km" : m + " m";
 }
