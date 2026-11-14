@@ -2610,6 +2610,106 @@ var beskyttetLayer = L.layerGroup([
   _paraLag("Fredede_fortidsminder", "7,8"),
 ]);
 overlayMaps["🛡️ Beskyttede arealer"] = beskyttetLayer;
+
+/***************************************************
+ * 📱 Mobiler – positioner fra OwnTracks-appen
+ * Appen sender til danmarkskort-sp /spor/owntracks; kortet henter /spor
+ * (kræver admin-login) hvert 30. sekund, så længe laget er tændt.
+ * Prik = seneste position (grå hvis over 15 min gammel), stiplet linje =
+ * sporet de sidste 3 timer.
+ ***************************************************/
+var mobilLayer = L.layerGroup();
+overlayMaps["📱 Mobiler"] = mobilLayer;
+const MOBIL_OPDATER_MS = 30000;
+let _mobilTimer = null, _mobilFoerste = true;
+
+function _mobilBesked(tekst) {
+  const t = document.createElement("div");
+  t.textContent = tekst;
+  t.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2c3e50;color:#fff;" +
+                    "padding:10px 22px;border-radius:8px;z-index:9999;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.2);";
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+function _mobilTid(tst) {
+  const s = Math.floor(Date.now() / 1000) - tst;
+  if (s < 90)   return "lige nu";
+  if (s < 3600) return Math.round(s / 60) + " min siden";
+  return "kl. " + new Date(tst * 1000).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+}
+
+async function _mobilHent() {
+  if (!map.hasLayer(mobilLayer) || typeof LEV_SP_WORKER === "undefined") return;
+  let d = null;
+  try {
+    const r = await fetch(`${LEV_SP_WORKER}/spor`, { credentials: "include" });
+    if (r.status === 401) {
+      // Ikke logget ind: bed om login én gang, når laget tændes
+      if (_mobilFoerste && typeof _levEnsureLogin === "function") {
+        _mobilFoerste = false;
+        if (await _levEnsureLogin()) { _mobilFoerste = true; return _mobilHent(); }
+      }
+      _mobilBesked("Log ind som admin (Disp) for at se mobiler");
+      map.removeLayer(mobilLayer);
+      return;
+    }
+    if (r.status === 403) { _mobilBesked("Kun admin kan se mobiler"); map.removeLayer(mobilLayer); return; }
+    d = await r.json();
+  } catch (e) {
+    console.warn("Mobiler:", e);
+    return;
+  }
+  if (!map.hasLayer(mobilLayer)) return;
+  mobilLayer.clearLayers();
+  const liste = (d && d.mobiler) || [];
+  if (!liste.length) {
+    if (_mobilFoerste) _mobilBesked("Ingen mobil har sendt sin position det seneste døgn");
+    _mobilFoerste = false;
+    return;
+  }
+  const esc = x => String(x).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  liste.forEach(m => {
+    const s = m.sidst;
+    const gammel = Date.now() / 1000 - s.tst > 15 * 60;
+    if (m.spor && m.spor.length > 1) {
+      L.polyline(m.spor.map(p => [p[0], p[1]]),
+        { color: "#2980b9", weight: 3, opacity: 0.6, dashArray: "4 6", interactive: false }).addTo(mobilLayer);
+    }
+    if (s.acc && s.acc > 30) {
+      L.circle([s.lat, s.lon], { radius: s.acc, color: "#2980b9", weight: 1, fillOpacity: 0.08, interactive: false })
+        .addTo(mobilLayer);
+    }
+    const info = `<b>📱 ${esc(m.navn)}</b><br>${_mobilTid(s.tst)}` +
+      (s.vel != null && s.vel > 0 ? ` · ${s.vel} km/t` : "") +
+      (s.batt != null ? ` · 🔋 ${s.batt}%` : "") +
+      (s.acc ? `<br><span style="color:#888">Nøjagtighed ±${s.acc} m</span>` : "");
+    L.circleMarker([s.lat, s.lon], { radius: 9, color: "#fff", weight: 3,
+      fillColor: gammel ? "#95a5a6" : "#2980b9", fillOpacity: 1 })
+      .bindTooltip(info, { direction: "top", offset: [0, -8] })
+      .addTo(mobilLayer);
+  });
+  // Første gang laget tændes: vis mobilen
+  if (_mobilFoerste) {
+    const s = liste[0].sidst;
+    map.setView([s.lat, s.lon], Math.max(map.getZoom(), 13));
+  }
+  _mobilFoerste = false;
+}
+
+map.on("overlayadd", e => {
+  if (e.layer !== mobilLayer) return;
+  _mobilFoerste = true;
+  _mobilHent();
+  clearInterval(_mobilTimer);
+  _mobilTimer = setInterval(_mobilHent, MOBIL_OPDATER_MS);
+});
+map.on("overlayremove", e => {
+  if (e.layer !== mobilLayer) return;
+  clearInterval(_mobilTimer);
+  _mobilTimer = null;
+  mobilLayer.clearLayers();
+});
 overlayMaps["📐 Matrikel"] = matrikelLayer;
 
 // Venter på at RainViewer-laget bliver klar. Uden en øvre grænse ville
@@ -2713,7 +2813,7 @@ const LAG_GRUPPER = [
   { id: "trafik",  navn: "🚦 Trafik (live)",       lag: ["⚠️ Advarsler (VD)", "🚧 Vejarbejder (VD)"] },
   { id: "veje",    navn: "🛣️ Veje",                lag: ["📍 Km-markeringer (VD)", "Rutenummereret vejnet", "🛣️ CVF vejklassifikation", "🅿️ Rastepladser (store køretøjer)", "🔀 Frakørsler (statsveje)"] },
   { id: "omraade", navn: "🗺️ Grænser og områder",  lag: ["Kommunegrænser", "Disponeringsområder", "25 km grænse", "📐 Matrikel", "🛡️ Beskyttede arealer"] },
-  { id: "steder",  navn: "📍 Steder",              lag: ["Strandposter", "Falck Ass", "🔌 Ladestandere (live)", "Ladestandere"] },
+  { id: "steder",  navn: "📍 Steder",              lag: ["Strandposter", "Falck Ass", "🔌 Ladestandere (live)", "Ladestandere", "📱 Mobiler"] },
   { id: "links",   navn: "🔗 Links",               lag: ["DB SMS kort", "DB Journal"] },
 ];
 const LAG_NEDERST = ["Behold markører"];
@@ -2721,6 +2821,7 @@ const LAG_NEDERST = ["Behold markører"];
 const LAG_HJAELP = {
   "⚡ Lyn (DMI)": "Viser lynnedslag fra den seneste time. Tomt = ingen lyn.",
   "🔌 Ladestandere (live)": "Nærmeste ladere med live-status omkring søgt adresse.",
+  "📱 Mobiler": "Positioner fra OwnTracks-appen (kun admin). Opdateres hvert 30. sekund; streg = sidste 3 timer.",
   "Ladestandere": "Ældre kilde (Open Charge Map). Kræver valgt radius.",
   "🛡️ Beskyttede arealer": "Fredninger, §3-natur, Natura 2000, fortidsminder, fredskov, strand- og klitbeskyttelse (MST). Vises fra zoom 12.",
 };
