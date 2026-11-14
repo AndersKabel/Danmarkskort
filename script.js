@@ -3837,7 +3837,10 @@ async function updateInfoBox(data, lat, lon) {
   // Ingen adresse inden for 300 m: vis nærmeste adresse på samme vej og
   // nærmeste adresse i det hele taget, så man selv kan vælge den bedste.
   if (fraDafReverse && (data.kilde === "vej" || data.kilde === "ingen") && lat != null && lon != null) {
-    _visAlternativeAdresser(lat, lon, mitInfoOpslag, data.vejnavn || "");
+    // Paa motorvej vises kun adresser paa selve motorvejen — en adresse ved
+    // siden af har ingen forbindelse til det punkt, der er klikket paa.
+    const paaMotorvej = /motorvej/i.test(String(statsvejData?.VEJTYPE ?? statsvejData?.vejtype ?? ""));
+    _visAlternativeAdresser(lat, lon, mitInfoOpslag, data.vejnavn || "", paaMotorvej);
   }
 }
 
@@ -3862,7 +3865,7 @@ function _altAfstand(m) {
   return m >= 1000 ? (m / 1000).toFixed(1).replace(".", ",") + " km" : m + " m";
 }
 
-async function _visAlternativeAdresser(lat, lon, seq, vejnavn) {
+async function _visAlternativeAdresser(lat, lon, seq, vejnavn, kunPaaVej) {
   const el = document.getElementById("extra-info");
   if (!el) return;
   // Øverst i extra-info = lige under vejnavnet, før vejens egne Eva.Net/Notes-links
@@ -3881,11 +3884,11 @@ async function _visAlternativeAdresser(lat, lon, seq, vejnavn) {
 
   _altAdr = [];
   if (d?.naermestePaaVej) _altAdr.push({ titel: `Nærmeste på ${d.vejnavn || vejnavn}`, a: d.naermestePaaVej });
-  if (d?.naermeste && d.naermeste.betegnelse !== d?.naermestePaaVej?.betegnelse) {
+  if (!kunPaaVej && d?.naermeste && d.naermeste.betegnelse !== d?.naermestePaaVej?.betegnelse) {
     _altAdr.push({ titel: "Nærmeste adresse", a: d.naermeste });
   }
   if (!_altAdr.length) {
-    holder.innerHTML = `<span style="color:#888">${d ? "Ingen adresse inden for 5 km" : "Nærmeste adresse kunne ikke hentes"}</span>`;
+    holder.innerHTML = `<span style="color:#888">${!d ? "Nærmeste adresse kunne ikke hentes" : kunPaaVej ? "Ingen adresse fundet på motorvejen" : "Ingen adresse inden for 5 km"}</span>`;
     return;
   }
   const esc = s => String(s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
