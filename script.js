@@ -3687,6 +3687,7 @@ async function _vejkodeVedPunkt(vejnavn, lat, lon, kommunekode) {
 
 async function updateInfoBox(data, lat, lon) {
   const mitInfoOpslag = ++_infoBoxSeq;
+  _altAdrLag.clearLayers();
   const streetviewLink = document.getElementById("streetviewLink");
   const addressEl      = document.getElementById("address");
   const extraInfoEl    = document.getElementById("extra-info");
@@ -3832,6 +3833,79 @@ async function updateInfoBox(data, lat, lon) {
     const polititekst = politikredsKode ? `${politikredsNavn || ""} (${politikredsKode})` : `${politikredsNavn}`;
     extraInfoEl.innerHTML += `<br><span style="font-size:16px;">Politikreds: ${polititekst}</span>`;
   }
+
+  // Ingen adresse inden for 300 m: vis nærmeste adresse på samme vej og
+  // nærmeste adresse i det hele taget, så man selv kan vælge den bedste.
+  if (fraDafReverse && (data.kilde === "vej" || data.kilde === "ingen") && lat != null && lon != null) {
+    _visAlternativeAdresser(lat, lon, mitInfoOpslag, data.vejnavn || "");
+  }
+}
+
+/***************************************************
+ * Nærmeste adresser, når klikket ikke er ved en adresse
+ * /daf/reverse?alt=1 giver naermestePaaVej (samme vej) og naermeste (uanset vej).
+ ***************************************************/
+const _altAdrLag = L.layerGroup().addTo(map);
+let _altAdr = [];
+
+function _altAfstand(m) {
+  return m >= 1000 ? (m / 1000).toFixed(1).replace(".", ",") + " km" : m + " m";
+}
+
+async function _visAlternativeAdresser(lat, lon, seq, vejnavn) {
+  const el = document.getElementById("extra-info");
+  if (!el) return;
+  el.insertAdjacentHTML("beforeend",
+    `<div id="alt-adresser" style="font-size:16px;margin-top:6px"><span style="color:#888">⏳ Finder nærmeste adresser…</span></div>`);
+  let d = null;
+  try {
+    const r = await fetch(`${VD_PROXY}/daf/reverse?x=${lon}&y=${lat}&alt=1`);
+    d = r.ok ? await r.json() : null;
+  } catch (e) {
+    console.warn("Nærmeste adresser:", e);
+  }
+  if (seq !== _infoBoxSeq) return;               // et nyere klik har taget over
+  const holder = document.getElementById("alt-adresser");
+  if (!holder) return;
+
+  _altAdr = [];
+  if (d?.naermestePaaVej) _altAdr.push({ titel: `Nærmeste på ${d.vejnavn || vejnavn}`, a: d.naermestePaaVej });
+  if (d?.naermeste && d.naermeste.betegnelse !== d?.naermestePaaVej?.betegnelse) {
+    _altAdr.push({ titel: "Nærmeste adresse", a: d.naermeste });
+  }
+  if (!_altAdr.length) {
+    holder.innerHTML = `<span style="color:#888">${d ? "Ingen adresse inden for 5 km" : "Nærmeste adresse kunne ikke hentes"}</span>`;
+    return;
+  }
+  const esc = s => String(s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  // Inline onclick: extra-info opdateres af og til med innerHTML +=,
+  // som ville fjerne lyttere sat med addEventListener.
+  holder.innerHTML = _altAdr.map((x, i) => `
+    <div style="margin-top:4px">📍 <b>${esc(x.titel)}:</b> ${esc(x.a.betegnelse)}
+      <span style="color:#888">(${_altAfstand(x.a.afstand_m)})</span><br>
+      <a href="#" onclick="_altVis(${i});return false;">Vis på kort</a> ·
+      <a href="#" title="Kopier til Eva.net" onclick="_altKopi(${i},'eva',this);return false;">Eva.Net</a> ·
+      <a href="#" title="Kopier til Notes" onclick="_altKopi(${i},'notes',this);return false;">Notes</a>
+    </div>`).join("");
+}
+
+function _altVis(i) {
+  const x = _altAdr[i];
+  if (!x || !x.a.utm) return;
+  const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", x.a.utm);
+  _altAdrLag.clearLayers();
+  L.circleMarker([lat, lon], { radius: 8, color: "#e67e22", weight: 3, fillColor: "#f39c12", fillOpacity: 0.8 })
+    .bindPopup(`<b>${x.a.betegnelse.replace(/</g, "&lt;")}</b><br>${_altAfstand(x.a.afstand_m)} fra klikket`)
+    .addTo(_altAdrLag).openPopup();
+  map.panTo([lat, lon]);
+}
+
+function _altKopi(i, format, el) {
+  const x = _altAdr[i];
+  if (!x) return;
+  copyToClipboard(format === "eva" ? _evaFormat(x.a) : _notesFormat(x.a));
+  showCopyPopup("Kopieret");
+  if (el) { el.style.color = "red"; setTimeout(() => { el.style.color = ""; }, 1000); }
 }
 
 /***************************************************
