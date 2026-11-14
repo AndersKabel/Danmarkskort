@@ -3855,8 +3855,9 @@ function _altAfstand(m) {
 async function _visAlternativeAdresser(lat, lon, seq, vejnavn) {
   const el = document.getElementById("extra-info");
   if (!el) return;
-  el.insertAdjacentHTML("beforeend",
-    `<div id="alt-adresser" style="font-size:16px;margin-top:6px"><span style="color:#888">⏳ Finder nærmeste adresser…</span></div>`);
+  // Øverst i extra-info = lige under vejnavnet, før vejens egne Eva.Net/Notes-links
+  el.insertAdjacentHTML("afterbegin",
+    `<div id="alt-adresser" style="font-size:16px;line-height:1.3em;margin:2px 0 10px"><span style="color:#888">⏳ Finder nærmeste adresser…</span></div>`);
   let d = null;
   try {
     const r = await fetch(`${VD_PROXY}/daf/reverse?x=${lon}&y=${lat}&alt=1`);
@@ -3887,17 +3888,33 @@ async function _visAlternativeAdresser(lat, lon, seq, vejnavn) {
       <a href="#" title="Kopier til Eva.net" onclick="_altKopi(${i},'eva',this);return false;">Eva.Net</a> ·
       <a href="#" title="Kopier til Notes" onclick="_altKopi(${i},'notes',this);return false;">Notes</a>
     </div>`).join("");
+  _altTegn();
+}
+
+// Sætter en rød prik på kortet for hver alternativ adresse (uden at flytte kortet),
+// så man kan se, hvor den ligger i forhold til det punkt, man har klikket på.
+let _altMarkers = [];
+function _altTegn() {
+  _altAdrLag.clearLayers();
+  _altMarkers = _altAdr.map(x => {
+    if (!x.a || !x.a.utm) return null;
+    const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", x.a.utm);
+    const navn = String(x.a.betegnelse || "").replace(/</g, "&lt;");
+    return L.circleMarker([lat, lon], { radius: 8, color: "#b71c1c", weight: 3, fillColor: "#e53935", fillOpacity: 0.9 })
+      .bindTooltip(navn)
+      .bindPopup(`<b>${navn}</b><br>${_altAfstand(x.a.afstand_m)} fra klikket`)
+      .addTo(_altAdrLag);
+  });
 }
 
 function _altVis(i) {
   const x = _altAdr[i];
   if (!x || !x.a.utm) return;
-  const [lon, lat] = proj4("EPSG:25832", "EPSG:4326", x.a.utm);
-  _altAdrLag.clearLayers();
-  L.circleMarker([lat, lon], { radius: 8, color: "#e67e22", weight: 3, fillColor: "#f39c12", fillOpacity: 0.8 })
-    .bindPopup(`<b>${x.a.betegnelse.replace(/</g, "&lt;")}</b><br>${_altAfstand(x.a.afstand_m)} fra klikket`)
-    .addTo(_altAdrLag).openPopup();
-  map.panTo([lat, lon]);
+  if (!_altMarkers[i] || !_altAdrLag.hasLayer(_altMarkers[i])) _altTegn();
+  const mk = _altMarkers[i];
+  if (!mk) return;
+  map.panTo(mk.getLatLng());
+  mk.openPopup();
 }
 
 function _altKopi(i, format, el) {
@@ -3920,6 +3937,7 @@ function updateInfoBoxForeign(feature, lat, lon) {
   const statsvejInfoEl = document.getElementById("statsvejInfo");
   const statsvejBox    = document.getElementById("statsvejInfoBox");
 
+  _altAdrLag.clearLayers();
   const p = feature.properties || {};
   const vejnavn = p.street || p.name || "";
   const husnr   = p.housenumber || "";
@@ -4382,6 +4400,7 @@ function highlightVej2Item() {
 }
 
 function resetInfoBox() {
+  _altAdrLag.clearLayers();
   document.getElementById("extra-info").textContent = "";
   document.getElementById("skraafotoLink").style.display = "none";
 }
