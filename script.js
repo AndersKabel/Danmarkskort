@@ -2722,7 +2722,7 @@ const LAG_HJAELP = {
   "⚡ Lyn (DMI)": "Viser lynnedslag fra den seneste time. Tomt = ingen lyn.",
   "🔌 Ladestandere (live)": "Nærmeste ladere med live-status omkring søgt adresse.",
   "Ladestandere": "Ældre kilde (Open Charge Map). Kræver valgt radius.",
-  "🛡️ Beskyttede arealer": "Fredninger, §3-natur, Natura 2000, fortidsminder, fredskov, strand- og klitbeskyttelse (MST). Vises fra zoom 12.",
+  "🛡️ Beskyttede arealer": "Fredninger, §3-natur. Vises fra zoom 12.",
 };
 
 (function () {
