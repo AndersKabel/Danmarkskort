@@ -2217,7 +2217,8 @@ function _levAppendAdrRow(container, a = {}) {
             ${k.ikon} ${k.navn}
           </label>`).join("")}
       </div>
-    </div>`;
+    </div>
+    ${_levAdrEgneKatHTML(a)}`;
   container.appendChild(div);
   div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
   div.querySelector(".lev-geocode-btn").addEventListener("click", async (e) => {
@@ -2253,6 +2254,27 @@ function _levVognOpsaetResume(v, adresser) {
   const nDepot = (v.adresseIds || []).filter(id => (adresser || []).some(a => a.id === id)).length;
   if (nDepot) dele.push(nDepot === 1 ? "1 depot" : nDepot + " depoter");
   return dele.length ? ` <span style="font-weight:400;color:#8a97a5">· ${_esc(dele.join(" · "))}</span>` : "";
+}
+
+// Kategorier på et depot (fx Ko): hele depotet vises på kategorilaget,
+// også når ingen bestemt vogn har kategorien. Samme liste som vognene.
+function _levAdrEgneKatHTML(a) {
+  const valgte = a.egneKategorier || [];
+  const harBoern = id => EGNE_KATEGORIER.some(k => k.foralderId === id);
+  const kats = EGNE_KATEGORIER.filter(k => !harBoern(k.id));
+  if (!kats.length) return "";
+  const resume = kats.filter(k => valgte.includes(k.id)).map(k => k.ikon + " " + k.navn).join(", ");
+  return `<details style="margin-top:6px"${valgte.length ? " open" : ""}>
+    <summary style="font-size:11.5px;font-weight:600;color:#5a6a7a;cursor:pointer">
+      🏷️ Vises på kategori <span style="font-weight:400;color:#aaa;font-size:11px">(hele depotet — fx Ko)</span>
+      ${resume ? `<span style="font-weight:400;color:#2c3e50"> · ${_esc(resume)}</span>` : ""}
+    </summary>
+    <div class="a-egnekategorier" style="display:flex;flex-direction:column;gap:3px;margin-top:4px">
+      ${kats.map(k => `<label class="lev-kat-check-label" style="font-size:12px">
+        <input type="checkbox" class="a-egnekat-check" value="${_esc(k.id)}" ${valgte.includes(k.id) ? "checked" : ""}>
+        ${k.ikon} ${_esc(k.navn)}</label>`).join("")}
+    </div>
+  </details>`;
 }
 
 // Kategorier på en leverandørvogn (TMA, Tavletrailer …). Samme liste som
@@ -2552,7 +2574,8 @@ async function _levGem(template) {
         lon:                 parseFloat(row.querySelector(".a-lon").value) || null,
         prioritetsPostnumre: (row.querySelector(".a-pnr")?.value || "")
                                .split(/[\s,;]+/).map(s => s.trim()).filter(s => /^\d{4}$/.test(s)),
-        kategorier:          Array.from(row.querySelectorAll(".a-kat-check:checked")).map(el => el.value)
+        kategorier:          Array.from(row.querySelectorAll(".a-kat-check:checked")).map(el => el.value),
+        egneKategorier:      Array.from(row.querySelectorAll(".a-egnekat-check:checked")).map(el => el.value)
       });
     });
 
@@ -4072,15 +4095,19 @@ function _levVognKatMarkers(kat, markerPos) {
   _levData.forEach(lev => {
     if (lev.aktiv === false) return;
     const vogneIKat = (lev.vogne || []).filter(v => (v.kategorier || []).includes(kat.id));
-    if (!vogneIKat.length) return;
+    const depoterIKat = (lev.arbejdsAdresser || []).filter(a => (a.egneKategorier || []).includes(kat.id));
+    if (!vogneIKat.length && !depoterIKat.length) return;
 
     (lev.arbejdsAdresser || []).forEach(adr => {
       if (adr.lat == null || adr.lon == null) return;
       // Samme regel som leverandørens popup: uden depot står vognen ved alle
       const vogneHer = vogneIKat.filter(v => !v.adresseIds?.length || v.adresseIds.includes(adr.id));
-      if (!vogneHer.length) return;
+      // Depot med kategorien (uden bestemt vogn): hele depotet vises
+      const helDepot = !vogneHer.length && (adr.egneKategorier || []).includes(kat.id);
+      if (!vogneHer.length && !helDepot) return;
 
-      const uad      = vogneHer.map(v => !!_levUadStatus(lev, adr, v));
+      const uad      = helDepot ? [!!_levUadStatus(lev, adr, null)]
+                                : vogneHer.map(v => !!_levUadStatus(lev, adr, v));
       const alleUAD  = uad.every(Boolean);
       const blandet  = !alleUAD && uad.some(Boolean);
       const bg = blandet ? "background:linear-gradient(135deg, #2471a3 50%, #e74c3c 50%)"
@@ -4099,7 +4126,9 @@ function _levVognKatMarkers(kat, markerPos) {
       // Bygges ved åbning, så UAD og info altid er aktuelle. Samme opbygning
       // som egne enheder (vognen øverst); leverandørens egne numre står kun
       // på leverandørlaget.
-      marker.bindPopup(() => _levVognKatPopupHTML(lev, adr, vogneHer, kat, afstand),
+      // Hele depotet: leverandørens almindelige popup for depotet
+      marker.bindPopup(() => helDepot ? _levFullPopupHTML(lev, adr)
+                                      : _levVognKatPopupHTML(lev, adr, vogneHer, kat, afstand),
         { maxWidth: 300, className: "lev-leaflet-popup" });
       marker.on("popupopen", function() {
         _levBindPopupHandlers(this.getPopup().getElement());
