@@ -3842,7 +3842,24 @@ async function updateInfoBox(data, lat, lon) {
     const paaMotorvej = /motorvej/i.test(String(statsvejData?.VEJTYPE ?? statsvejData?.vejtype ?? ""));
     _visAlternativeAdresser(lat, lon, mitInfoOpslag, data.vejnavn || "", paaMotorvej);
   }
+
+  // Adresse fundet, men et stykke fra klikket: rød prik på selve adressen,
+  // så man kan se hvor den ligger. Tæt på (under 30 m) er markøren nok.
+  if (fraDafReverse && data.kilde === "adresse" && Array.isArray(data.adresse_utm)
+      && Number(data.afstand_m) >= ADR_PRIK_MIN_M && mitInfoOpslag === _infoBoxSeq) {
+    try {
+      const [aLon, aLat] = proj4("EPSG:25832", "EPSG:4326", data.adresse_utm);
+      const navn = String(data.betegnelse || "").replace(/</g, "&lt;");
+      L.circleMarker([aLat, aLon], { radius: 8, color: "#b71c1c", weight: 3, fillColor: "#e53935", fillOpacity: 0.9 })
+        .bindTooltip(navn)
+        .bindPopup(`<b>${navn}</b><br>${_altAfstand(Number(data.afstand_m))} fra klikket`)
+        .addTo(_altAdrLag);
+    } catch (e) {
+      console.warn("Adresseprik:", e);
+    }
+  }
 }
+const ADR_PRIK_MIN_M = 30;
 
 /***************************************************
  * Nærmeste adresser, når klikket ikke er ved en adresse
