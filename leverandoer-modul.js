@@ -215,11 +215,15 @@ function _prioRyd() {
 }
 
 // Tegner én stations områder for den aktive kategori.
+// Tager et stations-id eller et objekt med {id, navn, prioPnr} — det sidste
+// bruges for leverandørdepoter (id "lev:<levId>:<adrId>").
 async function _prioToggle(stationId, btn) {
+  const st = (stationId && typeof stationId === "object") ? stationId
+           : (_enhedData || []).find(e => e.id === stationId);
+  if (st && typeof stationId === "object") stationId = st.id;
   // Samme station igen = sluk
   if (_prioAktivStation === stationId) { _prioRyd(); return; }
 
-  const st = (_enhedData || []).find(e => e.id === stationId);
   if (!st) { alert("Stationen blev ikke fundet."); return; }
 
   const aktive = _prioAktiveKategorier();
@@ -1260,6 +1264,19 @@ function _levBindPopupHandlers(el) {
   if (!el) return;
   _levBindUadKnapper(el);
   _levBindInfoRediger(el);
+  el.querySelectorAll(".lev-prio-dep-btn").forEach(b => {
+    if (b.dataset.handlerBound) return;
+    b.dataset.handlerBound = "1";
+    b.addEventListener("click", ev => {
+      ev.stopPropagation();
+      const lev = (_levData || []).find(l => String(l.id) === b.dataset.levid);
+      const adr = lev && (lev.arbejdsAdresser || []).find(a => String(a.id) === b.dataset.adrid);
+      if (!adr) { alert("Depotet blev ikke fundet."); return; }
+      _prioToggle({ id: "lev:" + lev.id + ":" + adr.id,
+                    navn: lev.navn + (adr.label ? " · " + adr.label : ""),
+                    prioPnr: adr.prioPnr }, b);
+    });
+  });
   el.querySelectorAll(".lev-popup-vogn-hdr-click").forEach(hdr => {
     if (hdr.dataset.handlerBound) return;
     hdr.dataset.handlerBound = "1";
@@ -1665,7 +1682,8 @@ function _levFullPopupHTML(lev, adr) {
     <div class="lev-uad-knapper">
       <button class="lev-uad-btn" data-uadlev="${_esc(lev.id)}"
         data-uadadr="${_esc(adr.id || "")}">🔴 Ude af drift…</button>
-    </div>`;
+    </div>
+    ${_prioDepotKnapHTML(lev, adr)}`;
 
   // Sorter: prioritet 1 = hoejest prioritet = vises foerst
   const tlf = [...(lev.kontakt?.telefonnumre || [])].sort((a,b) => (a.prioritet||99)-(b.prioritet||99));
@@ -2218,9 +2236,11 @@ function _levAppendAdrRow(container, a = {}) {
           </label>`).join("")}
       </div>
     </div>
-    ${_levAdrEgneKatHTML(a)}`;
+    ${_levAdrEgneKatHTML(a)}
+    ${_levAdrPrioHTML(a)}`;
   container.appendChild(div);
   div.querySelector(".lev-slet-row-btn").addEventListener("click", () => div.remove());
+  _levAdrPrioBind(div, a);
   div.querySelector(".lev-geocode-btn").addEventListener("click", async (e) => {
     const btn    = e.currentTarget;
     const vej    = div.querySelector(".a-vej").value.trim();
@@ -2275,6 +2295,72 @@ function _levAdrEgneKatHTML(a) {
         ${k.ikon} ${_esc(k.navn)}</label>`).join("")}
     </div>
   </details>`;
+}
+
+// Prioritetsområder pr. kategori på et depot — som på stationerne:
+// vælg kategori, udfyld 1./2./3. prioritet med postnumre. Hele sættet
+// holdes i rækkens data-prio, så man kan skifte kategori uden at gemme.
+function _levAdrPrioKats() {
+  const harBoern = id => EGNE_KATEGORIER.some(k => k.foralderId === id);
+  return EGNE_KATEGORIER.filter(k => !harBoern(k.id));
+}
+function _levAdrPrioHTML(a) {
+  if (!_levAdrPrioKats().length) return "";
+  const p = a.prioPnr || {};
+  const antal = ["1", "2", "3"].reduce((s, n) => s + Object.values(p[n] || {}).reduce((t, l) => t + (l || []).length, 0), 0);
+  const felt = n => `<label style="font-size:11.5px;font-weight:600;color:#5a6a7a;display:block;margin-top:4px">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${PRIO_FARVER[n]};margin-right:5px"></span>${PRIO_NAVNE[n]}
+      <textarea class="a-prio-p${n} lev-textarea lev-textarea-sm" rows="2" placeholder="fx 4700-4736, 4750"></textarea></label>`;
+  return `<details style="margin-top:6px"${antal ? " open" : ""}>
+    <summary style="font-size:11.5px;font-weight:600;color:#5a6a7a;cursor:pointer">
+      🎨 Prioritetsområder pr. kategori <span style="font-weight:400;color:#aaa;font-size:11px">(som på stationerne)</span>
+      ${antal ? `<span style="font-weight:400;color:#2c3e50"> · ${antal} postnumre</span>` : ""}
+    </summary>
+    <select class="a-prio-kat" style="width:100%;margin-top:4px;font-size:12px"></select>
+    ${felt("1")}${felt("2")}${felt("3")}
+    <div style="font-size:11px;color:#8a97a5;margin-top:2px">Postnumre adskilt af komma eller mellemrum. 4700-4736 udfoldes.</div>
+  </details>`;
+}
+function _levAdrPrioBind(div, a) {
+  const vaelger = div.querySelector(".a-prio-kat");
+  if (!vaelger) return;
+  const data = { "1": {}, "2": {}, "3": {} };
+  ["1", "2", "3"].forEach(n => Object.keys((a.prioPnr || {})[n] || {}).forEach(k => {
+    data[n][k] = ((a.prioPnr[n][k]) || []).map(String);
+  }));
+  const gem = () => { div.dataset.prio = JSON.stringify(data); };
+  let aktivKat = null;
+  const antalFor = id => ["1", "2", "3"].reduce((s, n) => s + ((data[n][id] || []).length), 0);
+  const optioner = () => {
+    vaelger.innerHTML = _levAdrPrioKats().map(k =>
+      `<option value="${_esc(k.id)}" ${k.id === aktivKat ? "selected" : ""}>${k.ikon} ${_esc(k.navn)}`
+      + `${antalFor(k.id) ? " ✓ (" + antalFor(k.id) + ")" : ""}</option>`).join("");
+  };
+  const vis = id => {
+    aktivKat = id;
+    ["1", "2", "3"].forEach(n => { div.querySelector(".a-prio-p" + n).value = (data[n][id] || []).join(", "); });
+  };
+  ["1", "2", "3"].forEach(n => {
+    const felt = div.querySelector(".a-prio-p" + n);
+    felt.addEventListener("change", () => {
+      if (!aktivKat) return;
+      const numre = _prioParseInput(felt.value);
+      if (numre.length) data[n][aktivKat] = numre; else delete data[n][aktivKat];
+      felt.value = numre.join(", ");
+      gem(); optioner();
+    });
+  });
+  vaelger.addEventListener("change", () => vis(vaelger.value));
+  // Start på den første kategori med postnumre, ellers den første på listen
+  const kats = _levAdrPrioKats();
+  aktivKat = (kats.find(k => antalFor(k.id)) || kats[0] || {}).id || null;
+  optioner();
+  if (aktivKat) vis(aktivKat);
+  gem();
+}
+function _levAdrPrioLaes(row) {
+  try { return row.dataset.prio ? JSON.parse(row.dataset.prio) : undefined; }
+  catch (e) { return undefined; }
 }
 
 // Kategorier på en leverandørvogn (TMA, Tavletrailer …). Samme liste som
@@ -2575,7 +2661,8 @@ async function _levGem(template) {
         prioritetsPostnumre: (row.querySelector(".a-pnr")?.value || "")
                                .split(/[\s,;]+/).map(s => s.trim()).filter(s => /^\d{4}$/.test(s)),
         kategorier:          Array.from(row.querySelectorAll(".a-kat-check:checked")).map(el => el.value),
-        egneKategorier:      Array.from(row.querySelectorAll(".a-egnekat-check:checked")).map(el => el.value)
+        egneKategorier:      Array.from(row.querySelectorAll(".a-egnekat-check:checked")).map(el => el.value),
+        prioPnr:             _levAdrPrioLaes(row)
       });
     });
 
@@ -2950,6 +3037,20 @@ function _prioKnapHTML(st) {
   if (!harNoget) return "";
   const aktiv = _prioAktivStation === st.id;
   return `<button class="lev-prio-btn" data-stationid="${_esc(st.id)}"
+    style="font-size:11px;padding:3px 8px;margin-top:6px;border-radius:4px;cursor:pointer;
+           background:${aktiv ? "#27ae60" : "#f0f4f8"};color:${aktiv ? "#fff" : "#2980b9"};
+           border:1px solid ${aktiv ? "#27ae60" : "#2980b9"};font-weight:600">
+    🎨 ${aktiv ? "Skjul" : "Vis"} prioritetsområde</button>`;
+}
+
+// Samme knap for et leverandørdepot (områderne ligger i adr.prioPnr)
+function _prioDepotKnapHTML(lev, adr) {
+  const p = adr && adr.prioPnr;
+  const harNoget = p && ["1", "2", "3"].some(n => p[n] && Object.keys(p[n]).some(k => (p[n][k] || []).length));
+  if (!harNoget) return "";
+  const id = "lev:" + lev.id + ":" + adr.id;
+  const aktiv = _prioAktivStation === id;
+  return `<button class="lev-prio-dep-btn" data-levid="${_esc(lev.id)}" data-adrid="${_esc(adr.id)}"
     style="font-size:11px;padding:3px 8px;margin-top:6px;border-radius:4px;cursor:pointer;
            background:${aktiv ? "#27ae60" : "#f0f4f8"};color:${aktiv ? "#fff" : "#2980b9"};
            border:1px solid ${aktiv ? "#27ae60" : "#2980b9"};font-weight:600">
@@ -4183,7 +4284,7 @@ function _levVognKatPopupHTML(lev, adr, vogne, kat, afstand) {
       ${_kontaktHTML("📞", "Bil", v.telefon)}
       ${_linksHTML(lev)}
       ${v.infoTekst ? _bemaerkHTML(v.infoTekst) : ""}
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${flytKnap(v)}${uadKnap}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${flytKnap(v)}${uadKnap}${_prioDepotKnapHTML(lev, adr)}</div>
     </div>`;
   }
 
@@ -4205,7 +4306,7 @@ function _levVognKatPopupHTML(lev, adr, vogne, kat, afstand) {
     ${adrLinje}
     ${_linksHTML(lev)}
     <hr class="lev-hr">${raekker}
-    <div style="display:flex;gap:6px;flex-wrap:wrap">${uadKnap}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${uadKnap}${_prioDepotKnapHTML(lev, adr)}</div>
   </div>`;
 }
 
