@@ -952,18 +952,17 @@ var cvfVejeLayer = L.tileLayer.wms("https://geocloud.vd.dk/CVF/wms", {
   attribution: "© Vejdirektoratet CVF"
 });
 
-var ortofotoLayer = L.tileLayer.wms(
-  "https://api.dataforsyningen.dk/orto_foraar_DAF?token=a63a88838c24fc85d47f32cde0ec0144",
-  {
-    layers: "orto_foraar",
-    format: "image/jpeg",
-    transparent: false,
-    version: "1.1.1",
-    maxZoom: 21,
-    maxNativeZoom: 20,
-    attribution: "Ortofoto © Styrelsen for Dataforsyning og Infrastruktur"
-  }
-);
+// Satellit: GeoDanmark ortofoto (foraar) fra Datafordeleren via vd-proxy,
+// som har DAF-noeglen og cacher fliserne. Dataforsyningens WMS
+// (api.dataforsyningen.dk/orto_foraar_DAF) er lukket under migreringen
+// 26/11-30/11-2026 og kan evt. tages i brug igen bagefter.
+var ortofotoLayer = L.tileLayer(`${VD_PROXY}/orto/{z}/{x}/{y}.jpg`, {
+  minZoom: 5,
+  maxZoom: 21,
+  maxNativeZoom: 20,
+  bounds: [[54.4, 7.5], [58.0, 15.7]],
+  attribution: "Ortofoto © GeoDanmark / Klimadatastyrelsen via Datafordeleren"
+});
 
 /***************************************************
  * Vejrlag – OpenWeatherMap tiles
